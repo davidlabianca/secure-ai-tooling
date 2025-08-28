@@ -10,10 +10,13 @@ All contributions to this framework follow a standard workflow. Specific file ch
     ```bash
     # Clone your fork to your local machine
     git clone https://github.com/your-username/secure-ai-tooling.git
-    cd risk-map
+    cd secure-ai-tooling
 
     # Create a new branch
     git checkout -b feature/add-new-risk-xyz
+
+    # Change to the risk-map sub-project
+    cd risk-map
     ```
 2.  **Make Changes**: Follow the relevant guide below to make your changes to the schema and YAML files.
 3.  **Validate & Create a Pull Request**: After making your changes, ensure they conform to the schema using a JSON schema validator. Once validated, commit your changes with a clear message and open a pull request (PR) to the main repository, detailing your contribution.
