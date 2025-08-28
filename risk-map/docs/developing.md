@@ -1,25 +1,15 @@
 # Expanding the CoSAI Risk Map
 
+> This guide complements the repository-wide [`CONTRIBUTING.md`](../../CONTRIBUTING.md). Use that for branching, commit/PR workflow, code review expectations, and CLA. This document focuses on how to author and validate Risk Map content (schemas and YAML).
+
 This guide outlines how you can contribute to the Coalition for Secure AI (CoSAI) Risk Map. By following these steps, you can help expand the framework while ensuring your contributions are consistent with the project's structure and pass all validation checks.
 
 ## General Contribution Workflow
 
-All contributions to this framework follow a standard workflow. Specific file changes for each type of contribution are detailed in the guides below.
-
-1.  **Fork & Branch**: Fork the repository to your own GitHub account and create a new, descriptive branch for your work (e.g., `feature/add-new-risk-xyz`).
-    ```bash
-    # Clone your fork to your local machine
-    git clone https://github.com/your-username/secure-ai-tooling.git
-    cd secure-ai-tooling
-
-    # Create a new branch
-    git checkout -b feature/add-new-risk-xyz
-
-    # Change to the risk-map sub-project
-    cd risk-map
-    ```
-2.  **Make Changes**: Follow the relevant guide below to make your changes to the schema and YAML files.
-3.  **Validate & Create a Pull Request**: After making your changes, ensure they conform to the schema using a JSON schema validator. Once validated, commit your changes with a clear message and open a pull request (PR) to the main repository, detailing your contribution.
+1. Read and follow the repository-wide [CONTRIBUTING.md](../../CONTRIBUTING.md) for branching, commit conventions, PR workflow, and CLA.
+2. Make content changes per the guides below (components, controls, risks, personas).
+3. Validate your changes against the relevant JSON Schemas.
+4. Open a PR describing the Risk Map updates and validation performed.
 
 ---
 
