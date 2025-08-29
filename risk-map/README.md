@@ -45,7 +45,7 @@ You can use these files to:
 * **Learn**: Read the `.yaml` files to understand the landscape of AI security risks.
 * **Assess**: Use the framework as a guide for security reviews of your AI projects.
 * **Build**: Leverage the `.schema.json` files to expand the framework to address your organization's risk management and governance needs.
-   * See [docs/developing.md](./docs/developing.md) for more details. 
+   * See [Contributing to the Risk Map](./docs/developing.md) for authoring and validation details.
 
 ## Background
 Building and using AI systems involves many potential risks. We created the Securing AI Framework to help manage these risks by tackling several foundational challenges. The industry needed:
