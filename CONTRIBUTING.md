@@ -74,6 +74,12 @@ Anyone can do a pull request and commit. In order for your work to be merged, yo
 The iCLA is administered by a bot which will comment on your PR and direct you to sign the iCLA if you haven’t previously done so. This happens automatically when people submit a pull request.
 
 
+### Subproject: Risk Map
+
+If you are contributing to the CoSAI Risk Map (schemas and YAML under `risk-map/`), follow this document for branching, commits, PRs, and CLA.
+
+- Risk Map authoring guide (schemas/YAML, IDs, validation, examples): see [`risk-map/docs/developing.md`](risk-map/docs/developing.md).
+
 ## Feedback
 
 Questions or comments about this project's work may be composed as GitHub issues or comments or may be directed to the project's general email list at cosai-op@lists.oasis-open-projects.org. General questions about OASIS Open Projects may be directed to OASIS staff at [op-admin@lists.oasis-open-projects.org](mailto:op-admin@lists.oasis-open-projects.org).
