@@ -49,7 +49,8 @@ Major changes on Github or to a WS document using any other official project pla
 
 ### Branch naming
 
-* `main` – main development branch, feature and release branches branched from it, changes only through the PR process.
+* `main` – main development branch; feature, develop and release branches branched from it, changes only through the PR process.
+* `develop` - integration branch for all proposed `feature` changes which require CoSAI community approval
 * `feature` – feature/this-is-a-new-feature-branch
 * `codebugfix` – codebugfix/name-of-the-bug
 * `languagefix` - languagefix/fix-details
