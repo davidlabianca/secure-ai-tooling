@@ -1,15 +1,17 @@
 # Expanding the CoSAI Risk Map
 
 > This guide complements the repository-wide [`CONTRIBUTING.md`](../../CONTRIBUTING.md). Use that for branching, commit/PR workflow, code review expectations, and CLA. This document focuses on how to author and validate Risk Map content (schemas and YAML).
+>
+> *Note: all contributions discussed in this document would fall under the [Content Update Process](../../CONTRIBUTING.md#content-update-governance-process) covered in detail in the `CONTRIBUTING.md` document*
 
 This guide outlines how you can contribute to the Coalition for Secure AI (CoSAI) Risk Map. By following these steps, you can help expand the framework while ensuring your contributions are consistent with the project's structure and pass all validation checks.
 
-## General Contribution Workflow
+## General Content Contribution Workflow
 
-1. Read and follow the repository-wide [CONTRIBUTING.md](../../CONTRIBUTING.md) for branching, commit conventions, PR workflow, and CLA.
+1. Read the repository-wide [CONTRIBUTING.md](../../CONTRIBUTING.md) and follow the [Content Update Branching Process](../../CONTRIBUTING.md#for-content-updates-two-stage-process) for all content authoring
 2. Make content changes per the guides below (components, controls, risks, personas).
 3. Validate your changes against the relevant JSON Schemas.
-4. Open a PR describing the Risk Map updates and validation performed.
+4. Open a PR against the `develop` branch describing the Risk Map updates and validation performed.
 
 ---
 
@@ -116,7 +118,7 @@ To make the connections bidirectional, you must now update the corresponding `ed
 
 ### 5. Validate and Create a Pull Request
 
-After making your changes, use a JSON schema validator to ensure that your updated `components.yaml` file still conforms to the `components.schema.json`. Once validated, follow the [General Contribution Workflow](#general-contribution-workflow) to create your pull request.
+After making your changes, use a JSON schema validator to ensure that your updated `components.yaml` file still conforms to the `components.schema.json`. Once validated, follow the [General Content Contribution Workflow](#general-content-contribution-workflow) to create your pull request.
 
 ---
 
@@ -206,7 +208,7 @@ To ensure the framework remains fully connected, every risk that your new contro
 
 ### 4. Validate and Create a Pull Request
 
-After making your changes, use a JSON schema validator to ensure that your updated `controls.yaml` file still conforms to the `controls.schema.json`. Once validated, follow the [General Contribution Workflow](#general-contribution-workflow) to create your pull request.
+After making your changes, use a JSON schema validator to ensure that your updated `controls.yaml` file still conforms to the `controls.schema.json`. Once validated, follow the [General Content Contribution Workflow](#general-content-contribution-workflow) to create your pull request.
 
 ---
 
@@ -285,7 +287,7 @@ To ensure the framework remains fully connected, every control that mitigates yo
 
 ### 4. Validate and Create a Pull Request
 
-After making your changes, use a JSON schema validator to ensure that your updated `risks.yaml` file still conforms to the `risks.schema.json`. Once validated, follow the [General Contribution Workflow](#general-contribution-workflow) to create your pull request.
+After making your changes, use a JSON schema validator to ensure that your updated `risks.yaml` file still conforms to the `risks.schema.json`. Once validated, follow the [General Content Contribution Workflow](#general-content-contribution-workflow) to create your pull request.
 
 ---
 
@@ -344,4 +346,4 @@ If this new persona is affected by existing risks or is responsible for implemen
 
 ### 4. Validate and Create a Pull Request
 
-After making your changes, use a JSON schema validator to ensure that your updated files conform to their schemas. Once validated, follow the [General Contribution Workflow](#general-contribution-workflow) to create your pull request.
+After making your changes, use a JSON schema validator to ensure that your updated files conform to their schemas. Once validated, follow the [General Content Contribution Workflow](#general-content-contribution-workflow) to create your pull request.
