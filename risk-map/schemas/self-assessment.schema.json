@@ -5,6 +5,7 @@
   "properties": {
     "selfAssessment": {"$ref": "#/definitions/selfAssessment"}
   },
+  "required": ["selfAssessment"],
   "definitions": {
     "selfAssessment": {
       "type": "object",
@@ -26,16 +27,19 @@
                     "type": "integer",
                     "enum": [1, 2]
                   }
-                }
+                },
+                "required": ["label", "value"]
               }
             }
-          }
+          },
+          "required": ["text", "answers"]
         },
         "questions": {
           "type": "array",
           "items": {"$ref": "#/definitions/selfAssessment/definitions/question"}
         }
       },
+      "required": ["title", "description", "personas", "questions"],
 
       "definitions": {
         "question": {
@@ -56,7 +60,8 @@
               "type": "array",
               "items": {"$ref": "#/definitions/selfAssessment/definitions/answers/items/properties/label"}
             }
-          }
+          },
+          "required": ["id", "text", "answers"]
         },
 
         "answers": {
@@ -73,22 +78,8 @@
                 "enum": [1, 2, 3]
               }
             }
-          }
-        }
-      }
-    },
-
-    "utils": {
-      "text": {
-        "type": "array",
-        "items": {
-          "oneOf": [
-            {"type": "string"},
-            {
-              "type": "array",
-              "items": {"type": "string"}
-            }
-          ]
+          },
+          "required": ["label", "value"]
         }
       }
     }

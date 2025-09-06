@@ -10,6 +10,7 @@
       "items": {"$ref": "#/definitions/risk"}
     }
   },
+  "required": ["title", "description", "risks"],
   "definitions": {
     "risk": {
       "type": "object",
@@ -42,14 +43,8 @@
           "type": "array",
           "items": {"type": "string"}
         }
-      }
-    },
-    "stage": {
-      "type": "object",
-      "properties": {
-        "title": {"type": "string"},
-        "description": {"$ref": "riskmap.schema.json#/definitions/utils/text"}
-      }
+      },
+      "required": ["id", "title", "shortDescription", "longDescription", "personas", "controls"]
     }
   }
 }
