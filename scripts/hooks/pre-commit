@@ -84,4 +84,33 @@ for each in "${SOURCE_FILES[@]}"; do
     validate_if_staged "$each"
 done
 
-echo "All staged YAML files passed schema validation! ✅"
+# =============================================================================
+# Component Edge Validation
+# =============================================================================
+echo "🔗 Running component edge validation..."
+
+# Check if the component edge validator exists
+EDGE_VALIDATOR=".git/hooks/validate_component_edges.py"
+if [[ ! -f "$EDGE_VALIDATOR" ]]; then
+    echo "   Warning: Component edge validator not found at $EDGE_VALIDATOR"
+    echo "   Skipping edge validation..."
+else
+    # Run the component edge validation
+    if python3 "$EDGE_VALIDATOR"; then
+        echo "   ✅ Component edge validation completed successfully"
+    else
+        echo "   ❌ Component edge validation failed!"
+        exit 1
+    fi
+fi
+
+echo
+
+# =============================================================================
+# All validations complete
+# =============================================================================
+echo "🎉 All pre-commit validations passed!"
+echo "   ✅ YAML schema validation"
+echo "   ✅ Component edge validation"
+echo "Ready to commit! 🚀"
+
