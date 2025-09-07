@@ -107,10 +107,33 @@ fi
 echo
 
 # =============================================================================
+# Control-to-Risk Reference Validation
+# =============================================================================
+echo "🔗 Running control-to-risk reference validation..."
+
+# Check if the component edge validator exists
+REF_VALIDATOR=".git/hooks/validate_control_risk_references.py"
+if [[ ! -f "$REF_VALIDATOR" ]]; then
+    echo "   Warning: Control-to-risk reference validator not found at $REF_VALIDATOR"
+    echo "   Skipping reference validation..."
+else
+    # Run the component edge validation
+    if python3 "$REF_VALIDATOR"; then
+        echo "   ✅ Control-to-risk reference validation completed successfully"
+    else
+        echo "   ❌ Control-to-risk reference validation failed!"
+        exit 1
+    fi
+fi
+
+echo
+
+# =============================================================================
 # All validations complete
 # =============================================================================
 echo "🎉 All pre-commit validations passed!"
 echo "   ✅ YAML schema validation"
 echo "   ✅ Component edge validation"
+echo "   ✅ Control-to-risk reference validation"
 echo "Ready to commit! 🚀"
 

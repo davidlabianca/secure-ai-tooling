@@ -12,7 +12,7 @@ Before contributing to the Risk Map, ensure you have the necessary validation to
 
 ### Setting Up Pre-commit Hooks
 
-The repository includes automated schema validation and component edge consistency checks via git pre-commit hooks. 
+The repository includes automated schema validation, component edge consistency checks, and control-to-risk reference validation via git pre-commit hooks. 
 
 1. **Install the pre-commit hook (one-time setup)**:
    ```bash
@@ -46,6 +46,23 @@ The validation script checks for:
 - **Valid component references**: All components referenced in edges must exist
 
 *See [scripts documentation](../../scripts/README.md) for more information on the git hooks and validation.*
+
+### Manual Control-to-Risk Reference Validation
+
+You can run control-to-risk reference validation at any time:
+
+```bash
+# Validate control-to-risk references if at least on of controls.yaml or risks.yaml is staged
+python scripts/hooks/validate_control_risk_references.py
+
+# Force control-to-risk references validation regardless of git status
+python scripts/hooks/validate_control_risk_references.py --force
+```
+
+The control-to-risk validates cross-reference consistency between `controls.yaml` and `risks.yaml`:
+- **Bidirectional consistency**: Ensures that if a control lists a risk, that risk also references the control
+- **Isolated entry detection**: Finds controls with no risk references or risks with no control references
+- **all or none awareness**: Will not flag controls that leverage the `all` or `none` risk mappings
 
 ## General Content Contribution Workflow
 
@@ -269,9 +286,45 @@ To ensure the framework remains fully connected, every risk that your new contro
   - controlNewControl # Add your new control here
 ```
 
-### 4. Validate and Create a Pull Request
+### 4. Validate Control-Risk References
+Before committing, validate that your control-risk cross-references are consistent:
 
-After making your changes, use a JSON schema validator to ensure that your updated `controls.yaml` file still conforms to the `controls.schema.json`. Once validated, follow the [General Content Contribution Workflow](#general-content-contribution-workflow) to create your pull request.
+```bash
+# Manual validation (recommended during development)
+python scripts/validate_control_risk_references.py --force
+
+# The pre-commit hook will also run automatically when you commit
+git add risk-map/yaml/controls.yaml risk-map/yaml/risks.yaml
+git commit -m "Add new control CTRL-005 with proper risk relationships"
+```
+
+The validation will check:
+- ✅ All controls that list risks in `controls.yaml` are referenced back by those risks in `risks.yaml`
+- ✅ All risks that reference controls in `risks.yaml` have those controls listing them in `controls.yaml`
+- ✅ No isolated entries (controls with empty risk lists, risks with empty control lists)
+
+**Example of consistent cross-references:**
+```yaml
+# controls.yaml
+controls:
+  - id: CTRL-001
+    risks:  # Control addresses these risks
+    - RISK-001
+    - RISK-002 
+    
+# risks.yaml  
+risks:
+  - id: RISK-001
+    controls:
+    - CTRL-001         # Risk acknowledges this control
+  - id: RISK-002
+    controls:
+    - CTRL-001         # Bidirectional consistency ✅
+```
+
+### 5. Validate and Create a Pull Request
+
+Once validated, follow the [General Content Contribution Workflow](#general-content-contribution-workflow) to create your pull request.
 
 ---
 
@@ -348,9 +401,45 @@ To ensure the framework remains fully connected, every control that mitigates yo
   - NEW # Add your new risk ID here
 ```
 
-### 4. Validate and Create a Pull Request
+### 4. Validate Control-Risk References
+Before committing, validate that your control-to-risk cross-references are consistent:
 
-After making your changes, use a JSON schema validator to ensure that your updated `risks.yaml` file still conforms to the `risks.schema.json`. Once validated, follow the [General Content Contribution Workflow](#general-content-contribution-workflow) to create your pull request.
+```bash
+# Manual validation (recommended during development)
+python scripts/validate_control_risk_references.py --force
+
+# The pre-commit hook will also run automatically when you commit
+git add risk-map/yaml/controls.yaml risk-map/yaml/risks.yaml
+git commit -m "Add new control CTRL-005 with proper risk relationships"
+```
+
+The validation will check:
+- ✅ All controls that list risks in `controls.yaml` are referenced back by those risks in `risks.yaml`
+- ✅ All risks that reference controls in `risks.yaml` have those controls listing them in `controls.yaml`
+- ✅ No isolated entries (controls with empty risk lists, risks with empty control lists)
+
+**Example of consistent cross-references:**
+```yaml
+# controls.yaml
+controls:
+  - id: CTRL-001
+    risks:  # Control addresses these risks
+    - RISK-001
+    - RISK-002 
+    
+# risks.yaml  
+risks:
+  - id: RISK-001
+    controls:
+    - CTRL-001         # Risk acknowledges this control
+  - id: RISK-002
+    controls:
+    - CTRL-001         # Bidirectional consistency ✅
+```
+
+### 5. Validate and Create a Pull Request
+
+Once validated, follow the [General Content Contribution Workflow](#general-content-contribution-workflow) to create your pull request.
 
 ---
 
