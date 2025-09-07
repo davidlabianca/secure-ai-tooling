@@ -6,12 +6,54 @@
 
 This guide outlines how you can contribute to the Coalition for Secure AI (CoSAI) Risk Map. By following these steps, you can help expand the framework while ensuring your contributions are consistent with the project's structure and pass all validation checks.
 
+## Prerequisites
+
+Before contributing to the Risk Map, ensure you have the necessary validation tools set up:
+
+### Setting Up Pre-commit Hooks
+
+The repository includes automated schema validation and component edge consistency checks via git pre-commit hooks. 
+
+1. **Install the pre-commit hook (one-time setup)**:
+   ```bash
+   # From the repository root
+   bash ./scripts/install-precommit-hook.sh
+   ```
+
+2. **Verify the hook is working**:
+   ```bash
+   # Make a test change to risk-map/yaml/components.yaml
+   # Attempt to commit - the hook should run validation
+   git add risk-map/yaml/components.yaml
+   git commit -m "test commit"
+   ```
+
+### Manual Edge Validation
+
+You can also run edge validation manually at any time:
+
+```bash
+# Validate only if components.yaml is staged for commit
+python scripts/hooks/validate_component_edges.py
+
+# Force validation regardless of git status
+python scripts/hooks/validate_component_edges.py --force
+```
+
+The validation script checks for:
+- **Bidirectional edge consistency**: If Component A references Component B in its `to` edges, Component B must have Component A in its `from` edges
+- **No isolated components**: Components should have at least one `to` or `from` edge
+- **Valid component references**: All components referenced in edges must exist
+
+*See [scripts documentation](../../scripts/README.md) for more information on the git hooks and validation.*
+
 ## General Content Contribution Workflow
 
 1. Read the repository-wide [CONTRIBUTING.md](../../CONTRIBUTING.md) and follow the [Content Update Branching Process](../../CONTRIBUTING.md#for-content-updates-two-stage-process) for all content authoring
-2. Make content changes per the guides below (components, controls, risks, personas).
-3. Validate your changes against the relevant JSON Schemas.
-4. Open a PR against the `develop` branch describing the Risk Map updates and validation performed.
+2. **Set up pre-commit hooks** (see Prerequisites above)
+3. Make content changes per the guides below (components, controls, risks, personas)
+4. **Validate your changes** against the relevant JSON Schemas and edge consistency rules
+5. Open a PR against the `develop` branch describing the Risk Map updates and validation performed
 
 ---
 
@@ -72,6 +114,8 @@ Next, define the properties of your new component in the main data file. This in
 
 Now, define the connections for your new component within its own `edges` block. The `to` list specifies where your component sends data (outgoing), and the `from` list specifies where it receives data from (incoming).
 
+⚠️ **Critical**: Component edges must be **bidirectionally consistent**. The pre-commit hook will enforce this rule.
+
 * **File to edit**: `components.yaml`
 * **Action**: Update the `edges` block for `componentNewComponent`. For our example, let's say it receives data from `componentInputHandling` and sends data to `componentApplication`.
 
@@ -86,7 +130,7 @@ Now, define the connections for your new component within its own `edges` block.
 
 ### 4. Update Edges on Connected Components
 
-To make the connections bidirectional, you must now update the corresponding `edges` on the components you just referenced.
+To make the connections bidirectional, you must now update the corresponding `edges` on the components you just referenced. **This step is critical** - the pre-commit hook will prevent commits if edges are not bidirectionally consistent.
 
 * **File to edit**: `components.yaml`
 * **Action**:
@@ -116,9 +160,28 @@ To make the connections bidirectional, you must now update the corresponding `ed
       - componentNewComponent # Add incoming edge from your new component
 ```
 
-### 5. Validate and Create a Pull Request
+### 5. Validate Edge Consistency
 
-After making your changes, use a JSON schema validator to ensure that your updated `components.yaml` file still conforms to the `components.schema.json`. Once validated, follow the [General Content Contribution Workflow](#general-content-contribution-workflow) to create your pull request.
+Before committing, validate that your component edges are consistent:
+
+```bash
+# Manual validation (recommended during development)
+python scripts/validate_component_edges.py --force
+
+# The pre-commit hook will also run automatically when you commit
+git add risk-map/yaml/components.yaml
+git commit -m "Add componentNewComponent with proper edge relationships"
+```
+
+The validation will check:
+- ✅ All outgoing edges (`to`) have corresponding incoming edges (`from`) in target components
+- ✅ All incoming edges (`from`) have corresponding outgoing edges (`to`) in source components  
+- ✅ No components are isolated (unless intentionally designed)
+- ✅ All referenced components exist in the YAML file
+
+### 6. Create a Pull Request
+
+After successful validation, follow the [General Content Contribution Workflow](#general-content-contribution-workflow) to create your pull request.
 
 ---
 
@@ -347,3 +410,51 @@ If this new persona is affected by existing risks or is responsible for implemen
 ### 4. Validate and Create a Pull Request
 
 After making your changes, use a JSON schema validator to ensure that your updated files conform to their schemas. Once validated, follow the [General Content Contribution Workflow](#general-content-contribution-workflow) to create your pull request.
+
+---
+
+## Troubleshooting Validation Issues
+
+### Edge Validation Errors
+
+If the pre-commit hook or manual validation fails with edge consistency errors:
+
+1. **Bidirectional Edge Mismatch**: 
+   ```
+   Component 'componentA': missing incoming edges for: componentB
+   ```
+   **Fix**: Add `componentA` to `componentB`'s `edges.from` list
+
+2. **Isolated Component**:
+   ```
+   Found 1 isolated components (no edges): componentX
+   ```
+   **Fix**: Add appropriate `to` and/or `from` edges, or verify if isolation is intentional
+
+### Bypassing Validation (Not Recommended)
+
+If you need to commit without running the pre-commit hook (strongly discouraged):
+```bash
+git commit --no-verify -m "commit message"
+```
+
+However, your changes will still be validated during the PR review process.
+
+---
+
+## Best Practices
+
+1. **Always run manual validation** during development:
+   ```bash
+   python scripts/validate_component_edges.py --force
+   ```
+
+2. **Test edge changes incrementally** - add one component connection at a time
+
+3. **Document complex edge relationships** in commit messages
+
+4. **Use meaningful component IDs** following the `component[Name]` convention
+
+5. **Validation against JSON schemas** is enforced by the pre-commit otherwise validate before committing 
+
+6. **Review existing components** to understand established patterns before adding new ones
