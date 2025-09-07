@@ -38,7 +38,7 @@ echo "Installing git hooks..."
 
 # Check if source hook exists
 if [[ ! -f "$REPO_ROOT/${PRECOMMIT_SRC}" ]]; then
-    echo "❌ Error: scripts/tools/precommit not found"
+    echo "❌ Error: scripts/hooks/pre-commit not found"
     exit 1
 fi
 
@@ -62,4 +62,4 @@ if [[ "$FORCE" == "true" ]]; then
 else
     echo "✅ Git hooks installed successfully!"
 fi
-echo "📝 Pre-commit hook installed from scripts/tools/precommit"
+echo "📝 Pre-commit hook installed from scripts/hooks/pre-commit"
