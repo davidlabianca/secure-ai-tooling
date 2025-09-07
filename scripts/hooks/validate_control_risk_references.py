@@ -21,10 +21,10 @@ from typing import Dict, List, Set
 
 
 def get_staged_yaml_files(force_check: bool = False) -> List[Path]:
-    """Get the specific controls.yaml and risks.yaml file if it's staged for commit or if forced."""
-    target_files: list[Path] = [Path("risk-map/yaml/controls.yaml"),Path("risk-map/yaml/risks.yaml")]
+    """Get the specific controls.yaml and risks.yaml files if either is staged for commit or if forced."""
+    target_files: list[Path] = [Path("risk-map/yaml/controls.yaml"), Path("risk-map/yaml/risks.yaml")]
     
-    # If force flag is set, return the target file if it exists
+    # If force flag is set, return the target files if they exist
     if force_check:
         if all(path.exists() for path in target_files):
             return target_files
@@ -43,8 +43,13 @@ def get_staged_yaml_files(force_check: bool = False) -> List[Path]:
         
         staged_files = result.stdout.strip().split('\n') if result.stdout.strip() else []
         
-        # Check if our target file is in the staged files and exists
-        if any(str(target_files)) in staged_files and all(path.exists() for path in target_files):
+        # Check if ANY of our target files is in the staged files
+        target_file_strings = [str(path) for path in target_files]
+        staged_target_files = [path for path in target_files 
+                              if str(path) in staged_files and path.exists()]
+        
+        # Return target files if at least one is staged and both exist
+        if staged_target_files and all(path.exists() for path in target_files):
             return target_files
         else:
             return []
