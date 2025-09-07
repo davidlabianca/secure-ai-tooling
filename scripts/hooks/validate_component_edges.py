@@ -12,13 +12,24 @@ Only runs when YAML files are modified in the commit.
 
 import sys
 import yaml
+import argparse
 import subprocess
 from pathlib import Path
 from typing import Dict, List, Set
 
 
-def get_staged_yaml_files() -> List[Path]:
-    """Get list of staged YAML files from git."""
+def get_staged_yaml_files(force_check: bool = False) -> List[Path]:
+    """Get the specific components.yaml file if it's staged for commit or if forced."""
+    target_file = Path("risk-map/yaml/components.yaml")
+    
+    # If force flag is set, return the target file if it exists
+    if force_check:
+        if target_file.exists():
+            return [target_file]
+        else:
+            print(f"  ⚠️  Target file {target_file} does not exist")
+            return []
+    
     try:
         # Get all staged files
         result = subprocess.run(
@@ -30,14 +41,11 @@ def get_staged_yaml_files() -> List[Path]:
         
         staged_files = result.stdout.strip().split('\n') if result.stdout.strip() else []
         
-        # Filter to only YAML files that exist
-        yaml_files = []
-        for file_path in staged_files:
-            path = Path(file_path)
-            if path.suffix.lower() in ['.yaml', '.yml'] and path.exists():
-                yaml_files.append(path)
-        
-        return yaml_files
+        # Check if our target file is in the staged files and exists
+        if str(target_file) in staged_files and target_file.exists():
+            return [target_file]
+        else:
+            return []
         
     except subprocess.CalledProcessError as e:
         print(f"Error getting staged files: {e}")
@@ -121,9 +129,9 @@ def compare_edge_maps(map1: Dict[str, List[str]], map2: Dict[str, List[str]]) ->
             extra_in_map2 = set(map2[key]) - set(values)
             
             if missing_in_map2:
-                errors.append(f"Component '{key}': missing incoming edges for: {', '.join(missing_in_map2)}")
+                errors.append(f"Component '{key}' →  missing incoming edges for: {', '.join(missing_in_map2)}")
             if extra_in_map2:
-                errors.append(f"Component '{key}': extra incoming edges for: {', '.join(extra_in_map2)}")
+                errors.append(f"Component '{key}' →  extra incoming edges for: {', '.join(extra_in_map2)}")
     
     # Check if all keys in map2 exist in map1
     for key in map2.keys():
@@ -135,7 +143,7 @@ def compare_edge_maps(map1: Dict[str, List[str]], map2: Dict[str, List[str]]) ->
 
 def validate_component_edges(file_path: Path) -> bool:
     """Validate component edge consistency in YAML file."""
-    print(f"Validating component edges in: {file_path}")
+    print(f"   Validating component edges in: {file_path}")
     
     # Load and parse YAML
     yaml_data = load_yaml_file(file_path)
@@ -164,13 +172,13 @@ def validate_component_edges(file_path: Path) -> bool:
     success = True
     
     if isolated:
-        print(f"  ❌ Found {len(isolated)} isolated components (no edges):")
+        print(f"   ❌ Found {len(isolated)} isolated components (no edges):")
         for component in sorted(isolated):
             print(f"     - {component}")
         success = False
     
     if errors:
-        print(f"  ❌ Found {len(errors)} edge consistency errors:")
+        print(f"   ❌ Found {len(errors)} edge consistency errors:")
         for error in errors:
             print(f"     - {error}")
         success = False
@@ -180,19 +188,41 @@ def validate_component_edges(file_path: Path) -> bool:
     
     return success
 
+def parse_args():
+    """Parse command line arguments."""
+    parser = argparse.ArgumentParser(
+        description="Validate component edge consistency in YAML files",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  python %(prog)s              # Check only if components.yaml is staged
+  python %(prog)s --force      # Force check components.yaml regardless of git status
+        """
+    )
+    parser.add_argument(
+        '--force', '-f',
+        action='store_true',
+        help='Force validation of components.yaml even if not staged'
+    )
+    return parser.parse_args()
 
 def main():
     """Main function for git pre-commit hook."""
-    print("🔍 Checking for YAML file changes...")
+    args = parse_args()
     
-    # Get staged YAML files
-    yaml_files = get_staged_yaml_files()
+    if args.force:
+        print("🔍 Force checking components.yaml...")
+    else:
+        print("🔍 Checking for YAML file changes...")
     
+    # Get staged YAML files (or force check)
+    yaml_files = get_staged_yaml_files(args.force)
+
     if not yaml_files:
         print("   No YAML files modified - skipping component edge validation")
         sys.exit(0)
     
-    print(f"   Found {len(yaml_files)} staged YAML file(s)")
+    print(f"   Found staged components.yaml file")
     
     # Validate each YAML file
     all_valid = True
@@ -202,7 +232,7 @@ def main():
         print()  # Add spacing between files
     
     if not all_valid:
-        print("❌ Component edge validation failed!")
+        print("   ❌ Component edge validation failed!")
         print("   Fix the above errors before committing.")
         sys.exit(1)
     
