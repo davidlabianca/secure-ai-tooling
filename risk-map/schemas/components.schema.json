@@ -14,6 +14,7 @@
       "items": {"$ref": "#/definitions/component"}
     }
   },
+  "required": ["title", "description", "categories", "components"],
   "definitions": {
     "category": {
       "type": "object",
@@ -24,7 +25,8 @@
         },
         "title": {"type": "string"},
         "description": {"$ref": "riskmap.schema.json#/definitions/utils/text"}
-      }
+      },
+      "required": ["id", "title"]
     },
     "component": {
       "type": "object",
@@ -68,7 +70,11 @@
           "type": "array",
           "items": {"$ref": "#/definitions/component/properties/id"}
         }
-      }
+      },
+      "anyOf": [
+        {"required": ["to"]},
+        {"required": ["from"]}
+      ]
     }
   }
 }

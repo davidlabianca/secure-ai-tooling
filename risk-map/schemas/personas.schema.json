@@ -10,6 +10,7 @@
       "items": {"$ref": "#/definitions/persona"}
     }
   },
+  "required": ["title", "description", "personas"],
   "definitions": {
     "persona": {
       "type": "object",
@@ -20,7 +21,8 @@
         },
         "title": {"type": "string"},
         "description": {"$ref": "riskmap.schema.json#/definitions/utils/text"}
-      }
+      }, 
+      "required": ["id", "title", "description"]
     }
   }
 }

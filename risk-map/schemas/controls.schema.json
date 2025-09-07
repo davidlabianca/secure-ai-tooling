@@ -14,6 +14,7 @@
       "items": {"$ref": "#/definitions/control"}
     }
   },
+  "required": ["title", "description", "categories", "controls"],
   "definitions": {
     "category": {
       "type": "object",
@@ -23,7 +24,8 @@
           "enum": ["controlsData", "controlsInfrastructure", "controlsModel", "controlsApplication", "controlsAssurance", "controlsGovernance"]
         },
         "title": {"type": "string"}
-      }
+      },
+      "required": ["id", "title"]
     },
     "control": {
       "type": "object",
