@@ -884,6 +884,7 @@ risks:
   - controlModelAndDataAccessControls
   - controlThreatDetection
   - controlVulnerabilityManagement
+  - controlAcceleratorIsolationAndSideChannelMitigation
   examples:
   - >
     Research has demonstrated <a href="https://arxiv.org/abs/2006.12784" target="_blank"
@@ -954,6 +955,7 @@ risks:
   - controlApplicationAccessManagement
   - controlThreatDetection
   - controlVulnerabilityManagement
+  - controlCostQuotaGuardrails
   examples:
   - >
     Research has shown <a href="https://arxiv.org/abs/2401.07464" target="_blank"
@@ -1018,6 +1020,7 @@ risks:
   - controlModelAndDataIntegrityManagement
   - controlThreatDetection
   - controlSecureByDefaultMLTooling
+  - controlFederatedTrainingPrivacyAndRobustAggregation
   examples:
   - >
     Research demonstrates <a href="https://arxiv.org/abs/1906.08935" target="_blank"
@@ -1085,6 +1088,8 @@ risks:
   - controlModelAndDataAccessControls
   - controlSecureByDefaultMLTooling
   - controlVulnerabilityManagement
+  - controlAdapterIntegrityAndAllowlisting
+  - controlModelRepositoryTrustAndAttestation
   examples:
   - >
     Research demonstrates <a href="https://arxiv.org/abs/2311.03262" target="_blank"
@@ -1151,6 +1156,7 @@ risks:
   - controlModelAndDataAccessControls
   - controlSecureByDefaultMLTooling
   - controlThreatDetection
+  - controlOrchestratorAndRouteIntegrity
   examples:
   - >
     Security research shows <a href="https://arxiv.org/abs/2402.14020" target="_blank"
@@ -1218,6 +1224,7 @@ risks:
   - controlRedTeaming
   - controlVulnerabilityManagement
   - controlThreatDetection
+  - controlEvaluationProvenanceAndDriftDetection
   examples:
   - >
     Research demonstrates <a href="https://arxiv.org/abs/2108.07258" target="_blank"
@@ -1360,6 +1367,8 @@ risks:
   - controlSecureByDefaultMLTooling
   - controlInputValidationAndSanitization
   - controlVulnerabilityManagement
+  - controlAdapterIntegrityAndAllowlisting
+  - controlModelRepositoryTrustAndAttestation
   examples:
   - >
     Research has demonstrated <a href="https://blog.trailofbits.com/2021/03/15/never-a-dill-moment-exploiting-machine-learning-pickle-files/"
@@ -1494,6 +1503,7 @@ risks:
   - controlModelAndDataIntegrityManagement
   - controlInputValidationAndSanitization
   - controlOutputValidationAndSanitization
+  - controlRetrievalAndVectorStorePoisoningDefense
   examples:
   - >
     Researchers have demonstrated <a href="https://arxiv.org/abs/2310.19156"

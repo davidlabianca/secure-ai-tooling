@@ -448,6 +448,8 @@ controls:
   risks:
   - ADI
   - MLD
+  - MST
+  - MXF 
 - id: controlFederatedTrainingPrivacyAndRobustAggregation
   title: Federated Training Privacy and Robust Aggregation
   description:
@@ -479,6 +481,7 @@ controls:
   - componentApplication
   risks:
   - ORH
+  - MDT
 - id: controlModelRepositoryTrustAndAttestation
   title: Model Repository Trust and Attestation
   description:
@@ -496,6 +499,8 @@ controls:
   risks:
   - ADI
   - MLD
+  - MST
+  - MXF
 - id: controlCostQuotaGuardrails
   title: Cost Quota Guardrails
   description:
@@ -511,6 +516,7 @@ controls:
   - componentModelServing
   risks:
   - EDW
+  - DMS
 - id: controlEvaluationProvenanceAndDriftDetection
   title: Evaluation Provenance and Drift Detection
   description:
