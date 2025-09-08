@@ -262,6 +262,7 @@ components:
       - componentTheModel
     from:
       - componentApplication
+      - componentAgentPlugin
 - id: componentOutputHandling
   title: Output Handling
   description:

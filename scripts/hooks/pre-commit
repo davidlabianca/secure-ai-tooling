@@ -84,4 +84,56 @@ for each in "${SOURCE_FILES[@]}"; do
     validate_if_staged "$each"
 done
 
-echo "All staged YAML files passed schema validation! ✅"
+# =============================================================================
+# Component Edge Validation
+# =============================================================================
+echo "🔗 Running component edge validation..."
+
+# Check if the component edge validator exists
+EDGE_VALIDATOR=".git/hooks/validate_component_edges.py"
+if [[ ! -f "$EDGE_VALIDATOR" ]]; then
+    echo "   Warning: Component edge validator not found at $EDGE_VALIDATOR"
+    echo "   Skipping edge validation..."
+else
+    # Run the component edge validation
+    if python3 "$EDGE_VALIDATOR"; then
+        echo "   ✅ Component edge validation completed successfully"
+    else
+        echo "   ❌ Component edge validation failed!"
+        exit 1
+    fi
+fi
+
+echo
+
+# =============================================================================
+# Control-to-Risk Reference Validation
+# =============================================================================
+echo "🔗 Running control-to-risk reference validation..."
+
+# Check if the component edge validator exists
+REF_VALIDATOR=".git/hooks/validate_control_risk_references.py"
+if [[ ! -f "$REF_VALIDATOR" ]]; then
+    echo "   Warning: Control-to-risk reference validator not found at $REF_VALIDATOR"
+    echo "   Skipping reference validation..."
+else
+    # Run the component edge validation
+    if python3 "$REF_VALIDATOR"; then
+        echo "   ✅ Control-to-risk reference validation completed successfully"
+    else
+        echo "   ❌ Control-to-risk reference validation failed!"
+        exit 1
+    fi
+fi
+
+echo
+
+# =============================================================================
+# All validations complete
+# =============================================================================
+echo "🎉 All pre-commit validations passed!"
+echo "   ✅ YAML schema validation"
+echo "   ✅ Component edge validation"
+echo "   ✅ Control-to-risk reference validation"
+echo "Ready to commit! 🚀"
+

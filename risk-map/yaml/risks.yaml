@@ -204,6 +204,7 @@ risks:
   - personaModelCreator
   controls:
   - controlUserDataManagement
+  - controlUserTransparencyAndControls
   examples:
   - >
     <a href="https://www.forbes.com/sites/siladityaray/2023/05/02/samsung-bans-chatgpt-and-other-chatbots-for-employees-after-sensitive-code-leak/"
@@ -461,6 +462,7 @@ risks:
   - personaModelConsumer
   controls:
   - controlAgentPluginPermissions
+  - controlUserPoliciesAndEducation
   examples:
   - >
     By uploading a malicious Alexa skill / Google action (plugins), <a href="https://www.theverge.com/2019/10/21/20924886/alexa-google-home-security-vulnerability-srlabs-phishing-eavesdropping"
@@ -643,6 +645,9 @@ risks:
   - controlPrivacyEnhancingTechnologies
   - controlUserDataManagement
   - controlOutputValidationAndSanitization
+  - controlAdversarialTrainingAndTesting
+  - controlUserTransparencyAndControls
+  - controlUserPoliciesAndEducation
   examples:
   - >
     One study showed that <a href="https://arxiv.org/abs/2210.17546" target="_blank"
@@ -702,6 +707,7 @@ risks:
   controls:
   - controlTrainingDataManagement
   - controlOutputValidationAndSanitization
+  - controlAdversarialTrainingAndTesting
   examples:
   - >
     Examples include papers on <a href="https://osf.io/preprints/psyarxiv/hv28a"
@@ -750,6 +756,7 @@ risks:
   - personaModelConsumer
   controls:
   - controlOutputValidationAndSanitization
+  - controlAdversarialTrainingAndTesting
   examples:
   - >
     <a href="https://www.theregister.com/2024/03/28/ai_bots_hallucinate_software_packages/"
