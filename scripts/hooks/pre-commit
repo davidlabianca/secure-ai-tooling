@@ -1,139 +1,258 @@
 #!/bin/bash
 
-# Git pre-commit hook for YAML schema validation
-# Save this as .git/hooks/pre-commit and make executable: chmod +x .git/hooks/pre-commit
+# =============================================================================
+# Git Pre-commit Hook for Risk-Map Validation
+# =============================================================================
+# This hook validates:
+# - component edge consistency
+# - control-risk cross-reference integrity
+# - YAML schema compliance
+# 
+# Manual Installation: 
+#   Save as .git/hooks/pre-commit and chmod +x .git/hooks/pre-commit
+#
+# Behavior:
+#   - Validates only staged files by default
+#   - If riskmap.schema.json changes, validates YAML schema compliance for 
+#     all files
+#   - Use --force/-f to run all validations against all files regardless of 
+#     staging status
+# =============================================================================
 
-#set -e  # Exit on any error
+# =============================================================================
+# Configuration and Constants
+# =============================================================================
 
-echo "Running YAML schema validation..."
-
+# Base URI for schema resolution - must be absolute file:// path
 BASE_URI="file://$(pwd)/risk-map/schemas/"
+
+# Directory paths for YAML files and schemas
 YAML_BASE_DIR="risk-map/yaml"
 SCHEMA_BASE_DIR="risk-map/schemas"
-SCHEMA_SUFFIX=".schema.json"
-SOURCE_FILES=("controls" "categories" "components" "personas" "risks" "self-assessment")
 
-# Check if check-jsonschema is installed
+# Suffix for schema files
+SCHEMA_SUFFIX=".schema.json"
+
+# List of YAML|schema files to validate without extensions
+SOURCE_FILES=("controls" "components" "personas" "risks" "self-assessment")
+
+# =============================================================================
+# Global Variables and Flags
+# =============================================================================
+
+# Flag to force validation of all files (0=false, 1=true)
+FORCE_VALIDATE=0
+
+# Arguments to pass to edge/reference validators ("" or "--force")
+EDGE_ARGS=""
+
+# Variable to track if any validation failed (0=all passed, 1=some failed)
+VALIDATION_FAILED=0
+
+# =============================================================================
+# Dependency Checks
+# =============================================================================
+
+# Ensure check-jsonschema is installed before proceeding
 if ! command -v check-jsonschema &> /dev/null; then
     echo "Error: check-jsonschema is not installed. Install with: pip install check-jsonschema"
     exit 1
 fi
 
-# Function to validate a file if it's staged for commit
+# =============================================================================
+# Core Schema Validation Functions
+# =============================================================================
+
+# Validates a single YAML file against its corresponding JSON schema
+# Args:
+#   $1 - target: filename without extension (e.g., "controls")
+#   $2 - error_type: optional custom error message
 check_schema() {
     local target="$1"
     local error_type="$2"
 
+    # Construct file paths
     local schema_file="${SCHEMA_BASE_DIR}/${target}${SCHEMA_SUFFIX}"
     local yaml_file="${YAML_BASE_DIR}/${target}.yaml"
 
     echo "Validating $yaml_file against $schema_file..."
+    
+    # Run validation and capture exit code
     if ! check-jsonschema --base-uri "$BASE_URI" --schemafile "${schema_file}" "${yaml_file}" > /dev/null ; then
+        # Handle validation failure
         if [[ -n "$error_type" ]]; then
             echo "$error_type"
-            return 1
+            return 1  # Return error but don't exit (for batch validation)
         else 
             echo "❌ Schema validation failed for ${target}.yaml"
-            exit 1
+            return 1   # Return error but don't exit 
         fi
     fi
     
     echo "✅ Schema validation passed for ${target}.yaml"
 }
 
+# Validates a YAML file only if it or its schema is staged for commit
+# Args:
+#   $1 - target: filename without extension
+# Returns:
+#   0 if validation passed or file not staged, 1 if validation failed
 validate_if_staged() {
     local target=$1
     local yaml_file="${YAML_BASE_DIR}/${target}.yaml"
     local schema_file="${SCHEMA_BASE_DIR}/${target}${SCHEMA_SUFFIX}"
 
-    # Check if the YAML file is staged for commit
+    # Check if either the YAML file or its schema is staged
     if git diff --cached --name-only | grep -q "${yaml_file}$\|${schema_file}$"; then
         check_schema "$target"
+
+        return $?  # Return error if validation failed
     fi
+
+    return 0  # No validation needed, file not staged   
 }
 
-# Function to validate all YAML files (used when riskmap.schema.json changes)
+# Validates all YAML files (used when riskmap.schema.json changes)
+# This is necessary because riskmap.schema.json affects all YAML validations
+# Returns:
+#   0 if validation passed or file not staged, 1 if validation failed
 validate_all_yaml() {
     echo "riskmap.schema.json changed - validating all YAML files..."
     local failed=0
     echo ${SOURCE_FILES[@]} 
-    # Check which YAML files exist and add them to validation list
+
+    # Validate each existing YAML file
     for input_file in "${SOURCE_FILES[@]}"; do
         if [[ -f "${YAML_BASE_DIR}/${input_file}.yaml" ]]; then
+            # Use custom error message for batch validation
             check_schema "$input_file" "❌ Schema validation for ${input_file}.yaml failed due to riskmap.schema.json changes"
             if [[ $? -ne 0 ]]; then
-                failed=1
+                failed=1  # Mark as failed but continue checking other files
             fi
         fi
     done
 
+    # Exit with error if any validation failed
     if [[ $failed -ne 0 ]]; then
-        exit 1
+        return 1
     fi 
 
     echo "✅ All YAML files still valid after riskmap schema changes"
 }
 
-# Check if riskmap.schema.json is being modified
-if git diff --cached --name-only | grep -q "schemas/riskmap\.schema\.json$"; then
+# =============================================================================
+# Command Line Argument Parsing
+# =============================================================================
+
+# Parse command-line arguments for help and force options
+case $1 in
+    --help|-h)
+        echo "Usage: pre-commit hook for validating risk-map tooling"
+        echo "Validates only staged files unless riskmap.schema.json is modified or -f|--force , in which case all YAML files are validated."
+        echo "----"
+        echo "Options:"
+        echo "  --help|-h       Show this help message and exit"
+        echo "  --force|-f      Force validation of all risk-map files regardless of staging status"
+        echo "----"
+        echo "Validations performed:"
+        echo "  - YAML schema validation"
+        echo "  - Component edge validation"
+        echo "  - Control-to-risk reference validation"
+        exit 0
+        ;;
+    --force|-f)
+        echo "Force validating all risk-map files..."
+        FORCE_VALIDATE=1
+        EDGE_ARGS="--force"  # Pass force flag to sub-validators
+esac
+
+# =============================================================================
+# Main Schema Validation Logic
+# =============================================================================
+
+echo "Running YAML schema validation..."
+
+# If riskmap.schema.json is being modified, validate all YAML files
+# This is necessary because this master schema affects all other validations
+if git diff --cached --name-only | grep -q "schemas/riskmap\.schema\.json$" ; then
     validate_all_yaml
+    if [[ $? -ne 0 ]]; then
+        VALIDATION_FAILED=1  # Mark as failed but continue checking other files
+    fi
 fi
 
-# Validate each YAML file against its schema (only if staged)
+# Validate individual YAML files based on what's staged or force flag
+failed=0
 for each in "${SOURCE_FILES[@]}"; do
-    validate_if_staged "$each"
+    if [[ $FORCE_VALIDATE -eq 1 ]]; then
+        # Force mode: validate all files regardless of staging status
+        check_schema "$each"
+        failed=$?
+    else
+        # Normal mode: only validate if file is staged
+        validate_if_staged "$each"
+        failed=$?
+    fi
+    if [[ $failed -ne 0 ]]; then
+        VALIDATION_FAILED=1  # Mark as failed but continue checking other files
+    fi
 done
+
+
 
 # =============================================================================
 # Component Edge Validation
 # =============================================================================
 echo "🔗 Running component edge validation..."
 
-# Check if the component edge validator exists
+# Path to the component edge validation script
 EDGE_VALIDATOR=".git/hooks/validate_component_edges.py"
+
+# Check if validator exists before attempting to run it
 if [[ ! -f "$EDGE_VALIDATOR" ]]; then
     echo "   Warning: Component edge validator not found at $EDGE_VALIDATOR"
     echo "   Skipping edge validation..."
 else
-    # Run the component edge validation
-    if python3 "$EDGE_VALIDATOR"; then
-        echo "   ✅ Component edge validation completed successfully"
-    else
-        echo "   ❌ Component edge validation failed!"
-        exit 1
+    # Run the component edge validation with appropriate args based on passed flags
+    if ! python3 "$EDGE_VALIDATOR" $EDGE_ARGS; then
+        VALIDATION_FAILED=1 # Mark as failed if edge validation fails
     fi
 fi
 
-echo
+echo  # Add blank line for readability
 
 # =============================================================================
 # Control-to-Risk Reference Validation
 # =============================================================================
 echo "🔗 Running control-to-risk reference validation..."
 
-# Check if the component edge validator exists
+# Path to the control-risk reference validation script
 REF_VALIDATOR=".git/hooks/validate_control_risk_references.py"
+
+# Check if validator exists before attempting to run it
 if [[ ! -f "$REF_VALIDATOR" ]]; then
     echo "   Warning: Control-to-risk reference validator not found at $REF_VALIDATOR"
     echo "   Skipping reference validation..."
 else
-    # Run the component edge validation
-    if python3 "$REF_VALIDATOR"; then
-        echo "   ✅ Control-to-risk reference validation completed successfully"
-    else
-        echo "   ❌ Control-to-risk reference validation failed!"
-        exit 1
+    # Run the control-risk reference validation
+    # Uses same EDGE_ARGS since both validators support --force flag
+    if ! python3 "$REF_VALIDATOR" $EDGE_ARGS; then
+        VALIDATION_FAILED=1 # Mark as failed if reference validation fails
     fi
 fi
 
-echo
+echo  # Add blank line for readability
+
+# Exit with error if any validation failed
+if [[ $VALIDATION_FAILED -ne 0 ]]; then
+    exit 1
+fi 
 
 # =============================================================================
-# All validations complete
+# Success Summary
 # =============================================================================
 echo "🎉 All pre-commit validations passed!"
 echo "   ✅ YAML schema validation"
 echo "   ✅ Component edge validation"
 echo "   ✅ Control-to-risk reference validation"
 echo "Ready to commit! 🚀"
-

@@ -84,6 +84,24 @@ When you commit changes to YAML files, the hook will:
 3. **Control-Risk Validation** - Verify control-risk cross-reference consistency
 4. **Block commit** if any validation fails
 
+#### Manual Validation of Unstaged Files
+The `pre-commit` hook and all individual validation scripts support the `--force` flag to validate all files regardless of their git staging status (useful during development).
+
+```bash
+# Validating unstaged files during development...
+# Note: --force validates all relevant files, not just those staged for commit
+
+# Run all validation steps
+.git/hooks/pre-commit --force
+
+# Run component edge validation-only
+.git/hooks/validate_component_edges.py --force
+
+# Run control-to-risk reference validation-only
+.git/hooks/validate_control_risk_references.py --force
+
+```
+
 ### Troubleshooting
 
 #### Installing over existing hooks
