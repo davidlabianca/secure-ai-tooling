@@ -11,7 +11,11 @@ BASE_URI="file://$(pwd)/risk-map/schemas/"
 YAML_BASE_DIR="risk-map/yaml"
 SCHEMA_BASE_DIR="risk-map/schemas"
 SCHEMA_SUFFIX=".schema.json"
-SOURCE_FILES=("controls" "categories" "components" "personas" "risks" "self-assessment")
+SOURCE_FILES=("controls" "components" "personas" "risks" "self-assessment")
+
+### Flags used in validating force validating the risk-map files
+FORCE_VALIDATE=0
+EDGE_ARGS=""
 
 # Check if check-jsonschema is installed
 if ! command -v check-jsonschema &> /dev/null; then
@@ -46,7 +50,7 @@ validate_if_staged() {
     local yaml_file="${YAML_BASE_DIR}/${target}.yaml"
     local schema_file="${SCHEMA_BASE_DIR}/${target}${SCHEMA_SUFFIX}"
 
-    # Check if the YAML file is staged for commit
+    # Check if the YAML or schema.json file is staged for commit
     if git diff --cached --name-only | grep -q "${yaml_file}$\|${schema_file}$"; then
         check_schema "$target"
     fi
@@ -57,6 +61,7 @@ validate_all_yaml() {
     echo "riskmap.schema.json changed - validating all YAML files..."
     local failed=0
     echo ${SOURCE_FILES[@]} 
+
     # Check which YAML files exist and add them to validation list
     for input_file in "${SOURCE_FILES[@]}"; do
         if [[ -f "${YAML_BASE_DIR}/${input_file}.yaml" ]]; then
@@ -74,14 +79,38 @@ validate_all_yaml() {
     echo "✅ All YAML files still valid after riskmap schema changes"
 }
 
+# Parse command-line arguments
+case $1 in
+    --help|-h)
+        echo "Usage: pre-commit hook for validating risk-map tooling"
+        echo "Validates only staged files unless riskmap.schema.json is modified or -f|--force , in which case all YAML files are validated."
+        echo "----"
+        echo "Validations performed:"
+        echo "  - YAML schema validation"
+        echo "  - Component edge validation"
+        echo "  - Control-to-risk reference validation"
+        exit 0
+        ;;
+    --force|-f)
+        echo "Force validating all risk-map files..."
+        FORCE_VALIDATE=1
+        EDGE_ARGS="--force"
+esac
+
 # Check if riskmap.schema.json is being modified
-if git diff --cached --name-only | grep -q "schemas/riskmap\.schema\.json$"; then
+if git diff --cached --name-only | grep -q "schemas/riskmap\.schema\.json$" ; then
     validate_all_yaml
 fi
 
 # Validate each YAML file against its schema (only if staged)
 for each in "${SOURCE_FILES[@]}"; do
-    validate_if_staged "$each"
+    if [[ $FORCE_VALIDATE -eq 1 ]]; then
+        check_schema "$each"
+        continue
+    else
+        validate_if_staged "$each"
+    fi
+
 done
 
 # =============================================================================
@@ -91,15 +120,13 @@ echo "🔗 Running component edge validation..."
 
 # Check if the component edge validator exists
 EDGE_VALIDATOR=".git/hooks/validate_component_edges.py"
+
 if [[ ! -f "$EDGE_VALIDATOR" ]]; then
     echo "   Warning: Component edge validator not found at $EDGE_VALIDATOR"
     echo "   Skipping edge validation..."
 else
     # Run the component edge validation
-    if python3 "$EDGE_VALIDATOR"; then
-        echo "   ✅ Component edge validation completed successfully"
-    else
-        echo "   ❌ Component edge validation failed!"
+    if ! python3 "$EDGE_VALIDATOR" $EDGE_ARGS; then
         exit 1
     fi
 fi
@@ -118,10 +145,7 @@ if [[ ! -f "$REF_VALIDATOR" ]]; then
     echo "   Skipping reference validation..."
 else
     # Run the component edge validation
-    if python3 "$REF_VALIDATOR"; then
-        echo "   ✅ Control-to-risk reference validation completed successfully"
-    else
-        echo "   ❌ Control-to-risk reference validation failed!"
+    if ! python3 "$REF_VALIDATOR" $EDGE_ARGS; then
         exit 1
     fi
 fi
