@@ -1,13 +1,100 @@
 #!/usr/bin/env python3
 """
-Git pre-commit hook to validate component edge consistency.
+Git Pre-Commit Hook: Component Edge Consistency Validator and Graph Generator
 
-This script validates that:
-1. Each component's 'to' edges match the 'from' edges in the corresponding components
-2. Each component's 'from' edges match the 'to' edges in the corresponding components  
-3. There are no components with no edges (isolated components)
+This script validates the integrity of component relationships in YAML configuration files,
+ensuring that edge definitions are bidirectionally consistent and identifying orphaned components.
+Additionally, it can generate Mermaid graph visualizations of the component relationships.
 
-Only runs when YAML files are modified in the commit.
+VALIDATION RULES:
+    1. Bidirectional Consistency: Each component's 'to' edges must have corresponding 
+       'from' edges in the target components
+    2. Reverse Consistency: Each component's 'from' edges must have corresponding 
+       'to' edges in the source components  
+    3. No Isolation: Components should not exist without any connections (configurable)
+
+GRAPH GENERATION:
+    - Generates Mermaid-compatible graph visualizations
+    - Automatically calculates topological ranks (componentDataSources is always rank 1)
+    - Organizes components into category-based subgraphs (Data, Infrastructure, Model, Application)
+    - Uses dynamic tilde spacing based on rank hierarchy
+    - Supports debug mode for rank annotations
+
+USAGE:
+    As a git pre-commit hook:
+        python validate_component_edges.py
+    
+    For manual validation:
+        python validate_component_edges.py --force
+    
+    For custom file paths:
+        python validate_component_edges.py --file path/to/components.yaml
+    
+    Generate graph visualization:
+        python validate_component_edges.py --to-graph output.md
+    
+    Generate graph with debug annotations:
+        python validate_component_edges.py --to-graph output.md --debug
+    
+    Allow isolated components:
+        python validate_component_edges.py --allow-isolated
+    
+    Quiet mode (errors only):
+        python validate_component_edges.py --quiet
+
+COMMAND LINE OPTIONS:
+    --force               Force validation even if files not staged for commit
+    --file PATH           Path to YAML file to validate (default: risk-map/yaml/components.yaml)
+    --allow-isolated      Allow components with no edges (isolated components)
+    --quiet, -q           Minimize output (only show errors)
+    --to-graph PATH       Output component graph visualization to specified file
+    --debug               Include rank comments in graph output
+
+EXIT CODES:
+    0 - All validations passed
+    1 - Validation failures found  
+    2 - Configuration or runtime error
+
+YAML STRUCTURE EXPECTED:
+    components:
+      - id: component-a
+        title: Component A
+        category: infrastructure
+        edges:
+          to: 
+            - component-b
+            - component-c
+          from: component-d
+      - id: component-b
+        title: Component B
+        category: application
+        edges:
+          to: []
+          from: 
+          - component-a
+
+GRAPH OUTPUT FORMAT:
+    The generated graph uses Mermaid syntax with:
+    - Topological ranking (componentDataSources = rank 1)
+    - Category-based subgraphs with color coding
+    - Dynamic tilde spacing: 3 + (max_rank - component_rank)
+    - Optional debug comments showing node ranks
+    - Automatic cross-subgraph linkage via anchor nodes
+
+EXAMPLES:
+    # Basic validation
+    python validate_component_edges.py --force
+    
+    # Generate clean graph
+    python validate_component_edges.py --force --to-graph component_map.md
+    
+    # Generate graph with rank debugging
+    python validate_component_edges.py --force --to-graph debug_graph.md --debug
+    
+    # Validate custom file with isolated components allowed
+    python validate_component_edges.py --file custom/components.yaml --allow-isolated
+
+
 """
 
 import sys
@@ -15,14 +102,663 @@ import yaml
 import argparse
 import subprocess
 from pathlib import Path
-from typing import Dict, List, Set
+from typing import Dict, List, Set, Optional, Tuple
 
 
-def get_staged_yaml_files(force_check: bool = False) -> List[Path]:
-    """Get the specific components.yaml file if it's staged for commit or if forced."""
-    target_file = Path("risk-map/yaml/components.yaml")
+# Configuration Constants
+DEFAULT_COMPONENTS_FILE = Path("risk-map/yaml/components.yaml")
+SUPPORTED_EXTENSIONS = {'.yaml', '.yml'}
+
+
+class EdgeValidationError(Exception):
+    """Custom exception for edge validation failures."""
+    pass
+
+class ComponentNode:
+    """
+    This class encapsulates a component's title and its connections (edges)
+    to and from other components. It includes validation to ensure data integrity.
+    """
+    def __init__(self, title: str, category: str, to_edges: List[str], from_edges: List[str]) -> None:
+        """
+        Initializes a Component object with validation.
+
+        Args:
+            title: The name of the component.
+            to_edges: A list of component titles it connects to.
+            from_edges: A list of component titles that connect to it.
+
+        Raises:
+            TypeError: If arguments are not of the expected type.
+            ValueError: If the title is an empty string.
+        """
+        # Validate and set the title
+        if not isinstance(title, str) or not title.strip():
+            raise TypeError("The 'title' must be a string consisting of at least one printing character.")
+        self.title: str = title
+
+        # Validate and set the category
+        if not isinstance(category, str) or not category.strip():
+            raise TypeError("The 'category' must be a string consisting of at least one printing character.")
+        self.category: str = category
+
+        # Validate and set 'to_edges'
+        if not isinstance(to_edges, list) or not all(isinstance(edge, str) for edge in to_edges):
+            raise TypeError("The 'to_edges' must be a list of strings.")
+        self.to_edges: List[str] = to_edges
+
+        # Validate and set 'from_edges'
+        if not isinstance(from_edges, list) or not all(isinstance(edge, str) for edge in from_edges):
+            raise TypeError("The 'from_edges' must be a list of strings.")
+        self.from_edges: List[str] = from_edges
+
+    def __repr__(self) -> str:
+        """
+        Provides an unambiguous, official string representation of the object.
+        Useful for debugging.
+        """
+        return (f"Component(title='{self.title}', "
+                f"category={self.category}, "
+                f"to_edges={self.to_edges}, "
+                f"from_edges={self.from_edges})")
+
+    def __str__(self) -> str:
+        """
+        Provides a user-friendly, readable string representation of the object.
+        """
+        return (f"Component '{self.title}':\n"
+                f"category: '{self.category}'\n"
+                f"  -> Connects To: {self.to_edges}\n"
+                f"  <- From: {self.from_edges}")
     
-    # If force flag is set, return the target file if it exists
+    def __eq__(self, other) -> bool:
+        """
+        Defines equality between two Component objects.
+        They are equal if their title, to_edges, and from_edges are identical.
+        """
+        if not isinstance(other, ComponentNode):
+            return NotImplemented
+        return (self.title == other.title and
+                self.category == other.category and
+                self.to_edges == other.to_edges and
+                self.from_edges == other.from_edges)
+
+class ComponentEdgeValidator:
+    """
+    Main validator class for component edge consistency.
+    
+    This class encapsulates all validation logic and can be easily extended
+    with additional validation rules or integrated into other systems.
+    """
+    
+    def __init__(self, allow_isolated: bool = False, verbose: bool = True):
+        """
+        Initialize the validator.
+        
+        Args:
+            allow_isolated: If True, isolated components won't trigger validation failure
+            verbose: If True, print detailed validation progress
+        """
+        self.allow_isolated = allow_isolated
+        self.verbose = verbose
+        self.components: Dict[str, ComponentNode] = {}
+        self.forward_map: Dict[str, List[str]] = {}
+        
+    def log(self, message: str, level: str = "info") -> None:
+        """Log messages based on verbosity setting."""
+        if self.verbose:
+            icons = {"info": "ℹ️", "success": "✅", "warning": "⚠️", "error": "❌"}
+            print(f"   {icons.get(level, 'ℹ️')} {message}")
+    
+    def load_yaml_file(self, file_path: Path) -> Optional[Dict]:
+        """
+        Load and parse YAML file with comprehensive error handling.
+        
+        Args:
+            file_path: Path to the YAML file
+            
+        Returns:
+            Parsed YAML data as dictionary, None if loading fails
+            
+        Raises:
+            EdgeValidationError: If file cannot be loaded or parsed
+        """
+        try:
+            if not file_path.exists():
+                raise EdgeValidationError(f"File not found: {file_path}")
+                
+            with open(file_path, 'r', encoding='utf-8') as f:
+                data = yaml.safe_load(f)
+                
+            if data is None:
+                self.log(f"Warning: {file_path} is empty or contains only comments", "warning")
+                return {}
+                
+            return data
+            
+        except yaml.YAMLError as e:
+            raise EdgeValidationError(f"YAML parsing error in {file_path}: {e}")
+        except (IOError, OSError) as e:
+            raise EdgeValidationError(f"File access error for {file_path}: {e}")
+    
+    def extract_component_edges(self, yaml_data: Dict) -> dict[str, ComponentNode]:
+        """
+        Extract component IDs and their edge relationships from YAML data.
+        
+        Args:
+            yaml_data: Parsed YAML data
+            
+        Returns:
+            Dictionary mapping component IDs to their edge definitions
+            Format: {component_id: {'to': [targets], 'from': [sources]}}
+        """
+        components = {}
+        new_components: dict[str, ComponentNode] = {}
+        
+        if not yaml_data or 'components' not in yaml_data:
+            self.log("No 'components' section found in YAML data", "warning")
+            return components
+        
+        for i, component in enumerate(yaml_data['components']):
+            if not isinstance(component, dict):
+                self.log(f"Skipping invalid component at index {i}: not a dictionary", "warning")
+                continue
+                
+            component_id: str | None = component.get('id')
+            if not component_id:
+                self.log(f"Skipping component at index {i}: missing 'id' field", "warning")
+                continue
+            
+            if not isinstance(component_id, str):
+                self.log(f"Skipping component at index {i}: 'id' must be a string", "warning")
+                continue
+
+            # Extract title
+            component_title: str | None = component.get('title')
+            if not component_title:
+                self.log(f"Skipping component at index {i}: missing 'title' field", "warning")
+                continue
+            
+            if not isinstance(component_title, str):
+                self.log(f"Skipping component at index {i}: 'title' must be a string", "warning")
+                continue
+
+            # Extract category
+            category: str | None = component.get('category')
+            if not category:
+                self.log(f"Skipping component '{component_id}': missing 'category' field", "warning")
+                continue    
+
+            if not isinstance(category, str):
+                self.log(f"Skipping component '{component_id}': 'category' must be a string", "warning")
+                continue
+            
+            # Extract edges with default empty lists
+            edges = component.get('edges', {})
+            if not isinstance(edges, dict):
+                self.log(f"Component '{component_id}': 'edges' must be a dictionary, using empty edges", "warning")
+                edges = {}
+            
+            # Ensure edge lists are actually lists
+            to_edges = edges.get('to', [])
+            from_edges = edges.get('from', [])
+            
+            if not isinstance(to_edges, list):
+                self.log(f"Component '{component_id}': 'to' edges must be a list, using empty list", "warning")
+                to_edges = []
+                
+            if not isinstance(from_edges, list):
+                self.log(f"Component '{component_id}': 'from' edges must be a list, using empty list", "warning")
+                from_edges = []
+            
+            # Create the ComponentNode instance, which handles internal validation
+            try:
+                components[component_id] = ComponentNode(
+                    title=component_title,
+                    category=category,
+                    to_edges=[str(edge) for edge in to_edges if edge],
+                    from_edges=[str(edge) for edge in from_edges if edge]
+                )
+            except (TypeError, ValueError) as e:
+                 self.log(f"Skipping component '{component_id}' due to invalid data: {e}", "error")
+                 continue
+            
+        self.log(f"Extracted {len(components)} components from YAML data")
+        return components
+    
+    def build_edge_maps(self, components: dict[str,ComponentNode]) -> tuple[dict[str, list[str]], dict[str, list[str]]]:
+        """
+        Build forward and reverse edge mappings for validation.
+        
+        Args:
+            components: Component edge definitions
+            
+        Returns:
+            Tuple of (forward_map, reverse_map)
+            - forward_map: component -> list of components it points to
+            - reverse_map: component -> list of components that point to it
+        """
+        forward_map = {}
+        reverse_map = {}
+        
+        for component_id, node in components.items():
+            # Forward edges (this component -> other components)
+            if node.to_edges:
+                forward_map[component_id] = node.to_edges[:]  # Create copy
+            
+            # Build reverse mapping from 'from' edges
+            for from_node in node.from_edges:
+                if from_node not in reverse_map:
+                    reverse_map[from_node] = []
+                reverse_map[from_node].append(component_id)
+       
+        self.forward_map = forward_map  # Store for potential future use 
+
+        return forward_map, reverse_map
+    
+    def find_isolated_components(self, components: dict[str, ComponentNode] ) -> set[str]:
+        """
+        Identify components with no edges (neither to nor from).
+        
+        Args:
+            components: Component edge definitions
+            
+        Returns:
+            Set of isolated component IDs
+        """
+        isolated = set()
+        
+        for component_id, node in components.items():
+            if not node.to_edges and not node.from_edges:
+                isolated.add(component_id)
+        
+        return isolated
+    
+    def find_missing_components(self, components: dict[str, ComponentNode]) -> Set[str]:
+        """
+        Find components that are referenced in edges but don't exist in the components list.
+        
+        Args:
+            components: Component edge definitions
+            
+        Returns:
+            Set of missing component IDs
+        """
+        existing_components = set(components.keys())
+        referenced_components = set()
+        
+        # Collect all referenced component IDs
+        for node in components.values():
+            referenced_components.update(node.to_edges)
+            referenced_components.update(node.from_edges)
+        
+        return referenced_components - existing_components
+    
+    def validate_edge_consistency(self, forward_map: dict[str, list[str]], reverse_map: dict[str, list[str]]) -> list[str]:
+        """
+        Compare forward and reverse edge maps to find inconsistencies.
+        
+        Args:
+            forward_map: Component -> list of outgoing connections
+            reverse_map: Component -> list of incoming connections
+            
+        Returns:
+            List of error messages describing inconsistencies
+        """
+        errors = []
+        
+        # Check forward -> reverse consistency
+        for component, targets in forward_map.items():
+            if component not in reverse_map:
+                errors.append(f"Component '{component}' has outgoing edges but no corresponding incoming edges")
+            else:
+                expected_incoming = set(targets)
+                actual_incoming = set(reverse_map[component])
+                
+                missing = expected_incoming - actual_incoming
+                extra = actual_incoming - expected_incoming
+                
+                if missing:
+                    errors.append(f"Component '{component}' → missing incoming edges from: {', '.join(sorted(missing))}")
+                if extra:
+                    errors.append(f"Component '{component}' → unexpected incoming edges from: {', '.join(sorted(extra))}")
+        
+        # Check reverse -> forward consistency
+        for component in reverse_map.keys():
+            if component not in forward_map:
+                errors.append(f"Component '{component}' has incoming edges but no corresponding outgoing edges")
+        
+        return errors
+    
+    def validate_file(self, file_path: Path) -> bool:
+        """
+        Validate component edge consistency in a single YAML file.
+        
+        Args:
+            file_path: Path to YAML file to validate
+            
+        Returns:
+            True if validation passes, False otherwise
+        """
+        self.log(f"Validating component edges in: {file_path}")
+        
+        try:
+            # Load and parse YAML
+            yaml_data = self.load_yaml_file(file_path)
+            if not yaml_data:
+                self.log("No data to validate - skipping", "warning")
+                return True
+            
+            # Extract component edges
+            self.components = self.extract_component_edges(yaml_data)
+            
+            if not self.components:
+                self.log("No components found - skipping validation", "info")
+                return True
+            
+            # Run all validation checks
+            success = True
+            
+            # Check for missing component references
+            missing_components = self.find_missing_components(self.components)
+            if missing_components:
+                self.log(f"Found {len(missing_components)} missing component references:", "error")
+                for component in sorted(missing_components):
+                    self.log(f"  - {component}", "error")
+                success = False
+            
+            # Check for isolated components
+            isolated = self.find_isolated_components(self.components)
+            if isolated and not self.allow_isolated:
+                self.log(f"Found {len(isolated)} isolated components (no edges):", "error")
+                for component in sorted(isolated):
+                    self.log(f"  - {component}", "error")
+                success = False
+            elif isolated:
+                self.log(f"Found {len(isolated)} isolated components (allowed by configuration)", "warning")
+            
+            # Check edge consistency
+            forward_map, reverse_map = self.build_edge_maps(self.components)
+            consistency_errors = self.validate_edge_consistency(forward_map, reverse_map)
+            
+            if consistency_errors:
+                self.log(f"Found {len(consistency_errors)} edge consistency errors:", "error")
+                for error in consistency_errors:
+                    self.log(f"  - {error}", "error")
+                success = False
+            
+            if success:
+                self.log("Component edges are consistent", "success")
+            
+            return success
+            
+        except EdgeValidationError as e:
+            self.log(f"Validation error: {e}", "error")
+            return False
+
+class ComponentGraph:
+    """
+    Represents the component graph and outputs mermaid.js syntax for rendering
+    """
+    def __init__(self, forward_map: Dict[str, List[str]],  components: dict[str, ComponentNode], debug: bool = False):
+        self.components = components
+        self.forward_map = forward_map
+        self.debug = debug
+        self.graph = self.build_graph(debug=debug)
+        
+    def build_graph(self, layout="horizontal", debug=False) -> str:
+        """
+        Build a Mermaid-compatible graph representation with controlled layout.
+
+        Args:
+            layout: "horizontal" (data left to right) or "vertical" (data bottom to top)
+            debug: If True, include rank comments in the output
+        """
+
+        # Calculate node ranks first
+        node_ranks = self._calculate_node_ranks()
+
+        # Define category order and layout positioning
+        category_order = ["Data", "Infrastructure", "Model", "Application"]
+
+        # Build main connections and collect components by category
+        lines = {'main': [], 'subgraphs': []}
+        components_by_category = {}
+
+        # Initialize category tracking
+        for category in category_order:
+            components_by_category[category] = []
+
+        # Process connections and categorize components
+        for src, targets in self.forward_map.items():
+            src_title = self.components[src].title if src in self.components else src
+            src_category = self._normalize_category(src)
+
+            # Track components by category
+            if src_category not in components_by_category:
+                components_by_category[src_category] = []
+            if src not in [comp[0] for comp in components_by_category[src_category]]:
+                components_by_category[src_category].append((src, src_title))
+
+            for tgt in targets:
+                tgt_title = self.components[tgt].title if tgt in self.components else tgt
+                tgt_category = self._normalize_category(tgt)
+
+                # Track target components
+                if tgt_category not in components_by_category:
+                    components_by_category[tgt_category] = []
+                if tgt not in [comp[0] for comp in components_by_category[tgt_category]]:
+                    components_by_category[tgt_category].append((tgt, tgt_title))
+
+                # Add main connection with optional rank comments
+                if debug:
+                    src_rank = node_ranks.get(src, 1)
+                    tgt_rank = node_ranks.get(tgt, 1)
+                    lines['main'].append(f"    %% {src} rank {src_rank}, {tgt} rank {tgt_rank}")
+                lines['main'].append(f"    {src}[{src_title}] --> {tgt}[{tgt_title}]")
+
+        # Build subgraphs with hidden positioning nodes
+        for category in category_order:
+            if category in components_by_category and components_by_category[category]:
+                subgraph_lines = self._build_subgraph(category, components_by_category[category], layout, components_by_category, node_ranks, debug)
+                lines['subgraphs'].extend(subgraph_lines)
+
+        # Combine all parts
+        graph_content = [
+            "```mermaid",
+            "graph TD",
+            "    classDef hidden display: none;",
+            ""
+        ]
+
+        # Add main connections
+        graph_content.extend(lines['main'])
+        graph_content.append("")
+
+        # Add subgraphs (which now include positioning)
+        graph_content.extend(lines['subgraphs'])
+
+        # Add styling
+        graph_content.extend([
+            "",
+            "%% Style definitions",
+            "    style Infrastructure fill:#e6f3e6,stroke:#333,stroke-width:2px",
+            "    style Data fill:#fff5e6,stroke:#333,stroke-width:2px", 
+            "    style Application fill:#e6f0ff,stroke:#333,stroke-width:2px",
+            "    style Model fill:#ffe6e6,stroke:#333,stroke-width:2px",
+            "```"
+        ])
+
+        return "\n".join(graph_content)
+
+    def _normalize_category(self, component_id: str) -> str:
+        """Normalize category name by removing 'components' prefix."""
+        if component_id in self.components:
+            category = self.components[component_id].category
+            return category.replace("components", "").strip().title()
+        return "Unknown"
+
+    def _get_first_component_in_category(self, components_by_category: dict, target_category: str) -> str|None:
+        """Get the first component ID in the specified category."""
+        if target_category in components_by_category and components_by_category[target_category]:
+            return components_by_category[target_category][0][0]
+        return None
+
+    def _calculate_node_ranks(self) -> dict[str, int]:
+        """
+        Calculate the topological rank of each node in the graph.
+        Rank 1 = root nodes (no incoming edges) or nodes in cycles
+        Rank 2 = nodes that depend only on rank 1 nodes
+        etc.
+        
+        For graphs with cycles, we use a modified approach:
+        1. Find strongly connected components (cycles)
+        2. Assign same rank to all nodes in a cycle
+        3. Calculate ranks based on dependencies between components
+        """
+        # Build reverse map to find incoming edges
+        incoming_edges = {}
+        for node in self.components:
+            incoming_edges[node] = []
+        
+        for src, targets in self.forward_map.items():
+            for target in targets:
+                if target in incoming_edges:
+                    incoming_edges[target].append(src)
+        
+        # Initialize ranks
+        ranks = {}
+        
+        # Hardcode componentDataSources as the single root (rank 1)
+        if 'componentDataSources' in self.components:
+            ranks['componentDataSources'] = 1
+        else:
+            # Fallback if componentDataSources doesn't exist
+            if self.components:
+                first_node = next(iter(self.components))
+                ranks[first_node] = 1
+        
+        # Calculate ranks for remaining nodes using iterative approach
+        max_iterations = len(self.components) * 2  # Prevent infinite loops
+        iteration = 0
+        
+        while iteration < max_iterations:
+            changed = False
+            iteration += 1
+            
+            for node in self.components:
+                if node not in ranks:
+                    dependencies = incoming_edges[node]
+                    
+                    # If node has dependencies, check if any have ranks
+                    ranked_deps = [dep for dep in dependencies if dep in ranks]
+                    
+                    if ranked_deps:
+                        # Use minimum rank of ranked dependencies + 1
+                        # This handles cycles better than waiting for all deps
+                        min_dep_rank = min(ranks[dep] for dep in ranked_deps)
+                        ranks[node] = min_dep_rank + 1
+                        changed = True
+            
+            if not changed:
+                break
+        
+        # Handle any remaining unranked nodes (nodes in cycles without ranked dependencies)
+        for node in self.components:
+            if node not in ranks:
+                ranks[node] = 1  # Assign rank 1 to break cycles
+                
+        return ranks
+
+    def _build_subgraph(self, category: str, components: list, layout: str, components_by_category: dict, node_ranks: dict[str, int], debug: bool = False) -> list:
+        """Build a single subgraph with positioning controls."""
+        subgraph_lines = [f"subgraph {category}"]
+
+        # Add components with optional rank comments
+        for comp_id, comp_title in components:
+            if debug:
+                rank = node_ranks.get(comp_id, 1)
+                subgraph_lines.append(f"    %% {comp_id} Rank {rank}")
+            subgraph_lines.append(f"    {comp_id}[{comp_title}]")
+
+        # Add positioning connections within subgraph based on category
+        if category == "Data":
+            # For Data: first component with calculated tildes to DataEnd:::hidden
+            if len(components) > 0:
+                first_comp = components[0][0]
+                first_comp_rank = node_ranks.get(first_comp, 1)
+                max_rank = max(node_ranks.values()) if node_ranks else 1
+                tilde_count = 3 + (max_rank - first_comp_rank)  # min_tildes + (total_rank - first_node_rank)
+                tildes = "~" * tilde_count
+                subgraph_lines.append(f"    {first_comp} {tildes} DataEnd:::hidden")
+        elif category == "Infrastructure":
+            # For Infrastructure: InfrastructureAnchor:::hidden ~~~~~~~ first_model_component
+            # and componentModelServing with calculated tildes to InfrastructureEnd:::hidden
+            anchor_name = f"{category}Anchor:::hidden"
+            first_model_comp = self._get_first_component_in_category(components_by_category, "Model")
+            if first_model_comp:
+                subgraph_lines.append(f"    {anchor_name} ~~~~~~~ {first_model_comp}")
+            if len(components) > 0:
+                # Find componentModelServing
+                for comp_id, comp_title in components:
+                    if "Model Serving" in comp_title:
+                        comp_rank = node_ranks.get(comp_id, 1)
+                        max_rank = max(node_ranks.values()) if node_ranks else 1
+                        tilde_count = 3 + (max_rank - comp_rank)  # min_tildes + (total_rank - node_rank)
+                        tildes = "~" * tilde_count
+                        subgraph_lines.append(f"    {comp_id} {tildes} InfrastructureEnd:::hidden")
+                        break
+        elif category == "Model":
+            # For Model: ModelAnchor:::hidden ~~~~~~~ first_model_component
+            # and first_model_component with calculated tildes to ModelEnd:::hidden
+            anchor_name = f"{category}Anchor:::hidden"
+            if len(components) > 0:
+                first_model_comp = components[0][0]
+                subgraph_lines.append(f"    {anchor_name} ~~~~~~~ {first_model_comp}")
+                comp_rank = node_ranks.get(first_model_comp, 1)
+                max_rank = max(node_ranks.values()) if node_ranks else 1
+                tilde_count = max_rank - comp_rank
+                tildes = "~" * max(3, tilde_count)  # At least 3 tildes for Mermaid
+                subgraph_lines.append(f"    {first_model_comp} {tildes} ModelEnd:::hidden")
+        elif category == "Application":
+            # For Application: ApplicationAnchor:::hidden ~~~~~~~ first_model_component
+            # and componentApplication with calculated tildes to ApplicationEnd:::hidden
+            anchor_name = f"{category}Anchor:::hidden"
+            first_model_comp = self._get_first_component_in_category(components_by_category, "Model")
+            if first_model_comp:
+                subgraph_lines.append(f"    {anchor_name} ~~~~~~~ {first_model_comp}")
+            if len(components) > 0:
+                # Find componentApplication
+                for comp_id, comp_title in components:
+                    if comp_title == "Application":
+                        comp_rank = node_ranks.get(comp_id, 1)
+                        max_rank = max(node_ranks.values()) if node_ranks else 1
+                        tilde_count = 3 + (max_rank - comp_rank)  # min_tildes + (total_rank - node_rank)
+                        tildes = "~" * tilde_count
+                        subgraph_lines.append(f"    {comp_id} {tildes} ApplicationEnd:::hidden")
+                        break
+
+        subgraph_lines.append("end")
+        return subgraph_lines    
+
+    def to_mermaid(self) -> str:
+        return self.graph
+    
+def get_staged_yaml_files(target_file: Path|None = None, force_check: bool = False) -> List[Path]:
+    """
+    Get YAML files that are staged for commit or force check specific file.
+    
+    Args:
+        target_file: Specific file to check (defaults to DEFAULT_COMPONENTS_FILE)
+        force_check: If True, return target file regardless of git status
+        
+    Returns:
+        List of Path objects for files to validate
+    """
+    if target_file is None:
+        target_file = DEFAULT_COMPONENTS_FILE
+    
+    # Force check mode - return file if it exists
     if force_check:
         if target_file.exists():
             return [target_file]
@@ -31,7 +767,7 @@ def get_staged_yaml_files(force_check: bool = False) -> List[Path]:
             return []
     
     try:
-        # Get all staged files
+        # Get all staged files from git
         result = subprocess.run(
             ['git', 'diff', '--cached', '--name-only'],
             capture_output=True,
@@ -41,204 +777,162 @@ def get_staged_yaml_files(force_check: bool = False) -> List[Path]:
         
         staged_files = result.stdout.strip().split('\n') if result.stdout.strip() else []
         
-        # Check if our target file is in the staged files and exists
+        # Filter for our target file
         if str(target_file) in staged_files and target_file.exists():
             return [target_file]
         else:
             return []
         
     except subprocess.CalledProcessError as e:
-        print(f"Error getting staged files: {e}")
+        print(f"⚠️  Error getting staged files: {e}")
+        print("   Make sure you're in a git repository")
+        return []
+    except FileNotFoundError:
+        print("⚠️  Git command not found - make sure git is installed")
         return []
 
 
-def load_yaml_file(file_path: Path) -> Dict:
-    """Load and parse YAML file."""
-    try:
-        with open(file_path, 'r', encoding='utf-8') as f:
-            return yaml.safe_load(f)
-    except yaml.YAMLError as e:
-        print(f"Error parsing YAML file {file_path}: {e}")
-        return None
-    except FileNotFoundError:
-        print(f"File not found: {file_path}")
-        return None
-
-
-def extract_component_edges(yaml_data: Dict) -> Dict[str, Dict[str, List[str]]]:
-    """Extract component IDs and their edges from YAML data."""
-    components = {}
+def parse_args() -> argparse.Namespace:
+    """
+    Parse and validate command line arguments.
     
-    if not yaml_data or 'components' not in yaml_data:
-        return components
-    
-    for component in yaml_data['components']:
-        component_id = component.get('id')
-        if not component_id:
-            continue
-            
-        edges = component.get('edges', {})
-        components[component_id] = {
-            'to': edges.get('to', []),
-            'from': edges.get('from', [])
-        }
-    
-    return components
-
-
-def build_edge_maps(components: Dict[str, Dict[str, List[str]]]) -> tuple:
-    """Build forward and reverse edge mappings."""
-    forward_map = {}  # component -> list of components it points to
-    reverse_map = {}  # component -> list of components that point to it
-    
-    for component_id, edges in components.items():
-        # Forward edges (this component -> other components)
-        if edges['to']:
-            forward_map[component_id] = edges['to']
-        
-        # Build reverse mapping from 'from' edges
-        for from_node in edges['from']:
-            if from_node not in reverse_map:
-                reverse_map[from_node] = []
-            reverse_map[from_node].append(component_id)
-    
-    return forward_map, reverse_map
-
-
-def find_isolated_components(components: Dict[str, Dict[str, List[str]]]) -> Set[str]:
-    """Find components with no edges (neither to nor from)."""
-    isolated = set()
-    
-    for component_id, edges in components.items():
-        if not edges['to'] and not edges['from']:
-            isolated.add(component_id)
-    
-    return isolated
-
-
-def compare_edge_maps(map1: Dict[str, List[str]], map2: Dict[str, List[str]]) -> List[str]:
-    """Compare two edge maps and return list of inconsistencies."""
-    errors = []
-    
-    # Check if all keys in map1 exist in map2 with matching values
-    for key, values in map1.items():
-        if key not in map2:
-            errors.append(f"Component '{key}' has outgoing edges but no corresponding incoming edges")
-        elif sorted(values) != sorted(map2[key]):
-            missing_in_map2 = set(values) - set(map2[key])
-            extra_in_map2 = set(map2[key]) - set(values)
-            
-            if missing_in_map2:
-                errors.append(f"Component '{key}' →  missing incoming edges for: {', '.join(missing_in_map2)}")
-            if extra_in_map2:
-                errors.append(f"Component '{key}' →  extra incoming edges for: {', '.join(extra_in_map2)}")
-    
-    # Check if all keys in map2 exist in map1
-    for key in map2.keys():
-        if key not in map1:
-            errors.append(f"Component '{key}' has incoming edges but no corresponding outgoing edges")
-    
-    return errors
-
-
-def validate_component_edges(file_path: Path) -> bool:
-    """Validate component edge consistency in YAML file."""
-    print(f"   Validating component edges in: {file_path}")
-    
-    # Load and parse YAML
-    yaml_data = load_yaml_file(file_path)
-    
-    if not yaml_data:
-        print(f"  ⚠️  Skipping {file_path} - could not load YAML data")
-        return True  # Don't fail commit for parsing issues
-    
-    # Extract component edges
-    components = extract_component_edges(yaml_data)
-    
-    if not components:
-        print(f"  ℹ️  No components found in {file_path} - skipping validation")
-        return True
-    
-    # Build edge mappings
-    forward_map, reverse_map = build_edge_maps(components)
-    
-    # Find isolated components
-    isolated = find_isolated_components(components)
-    
-    # Validate edge consistency
-    errors = compare_edge_maps(forward_map, reverse_map)
-    
-    # Report results
-    success = True
-    
-    if isolated:
-        print(f"   ❌ Found {len(isolated)} isolated components (no edges):")
-        for component in sorted(isolated):
-            print(f"     - {component}")
-        success = False
-    
-    if errors:
-        print(f"   ❌ Found {len(errors)} edge consistency errors:")
-        for error in errors:
-            print(f"     - {error}")
-        success = False
-    
-    if success:
-        print(f"  ✅ Component edges are consistent")
-    
-    return success
-
-def parse_args():
-    """Parse command line arguments."""
+    Returns:
+        Parsed arguments namespace
+    """
     parser = argparse.ArgumentParser(
         description="Validate component edge consistency in YAML files",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  python %(prog)s              # Check only if components.yaml is staged
-  python %(prog)s --force      # Force check components.yaml regardless of git status
+  %(prog)s                                    # Check staged components.yaml  
+  %(prog)s --force                            # Force check default file
+  %(prog)s --file custom/components.yaml      # Check specific file
+  %(prog)s --allow-isolated                   # Allow components with no edges
+  %(prog)s --to-graph graph.md                # Output graph as .md code block
+  %(prog)s --quiet                            # Minimal output
+  %(prog)s --help                             # Show this help
+
+Exit Codes:
+  0 - All validations passed
+  1 - Validation failures found
+  2 - Configuration or runtime error
         """
     )
+    
     parser.add_argument(
         '--force', '-f',
         action='store_true',
-        help='Force validation of components.yaml even if not staged'
+        help='Force validation even if files not staged for commit'
     )
+    
+    parser.add_argument(
+        '--file',
+        type=Path,
+        default=DEFAULT_COMPONENTS_FILE,
+        help=f'Path to YAML file to validate (default: {DEFAULT_COMPONENTS_FILE})'
+    )
+    
+    parser.add_argument(
+        '--allow-isolated',
+        action='store_true',
+        help='Allow components with no edges (isolated components)'
+    )
+    
+    parser.add_argument(
+        '--quiet', '-q',
+        action='store_true',
+        help='Minimize output (only show errors)'
+    )
+    
+    parser.add_argument(
+        '--to-graph',
+        type=Path,
+        help='Output component graph visualization to specified txt file'
+    )
+    
+    parser.add_argument(
+        '--debug',
+        action='store_true',
+        help='Include rank comments in graph output'
+    ) 
+    
     return parser.parse_args()
 
-def main():
-    """Main function for git pre-commit hook."""
-    args = parse_args()
-    
-    if args.force:
-        print("🔍 Force checking components.yaml...")
-    else:
-        print("🔍 Checking for YAML file changes...")
-    
-    # Get staged YAML files (or force check)
-    yaml_files = get_staged_yaml_files(args.force)
 
-    if not yaml_files:
-        print("   No YAML files modified - skipping component edge validation")
+def main() -> None:
+    """
+    Main entry point for the component edge validator.
+    
+    Designed to be used as a git pre-commit hook or standalone validation tool.
+    Exit codes follow standard conventions for shell integration.
+    """
+    try:
+        args = parse_args()
+        
+        # Initialize validator
+        validator = ComponentEdgeValidator(
+            allow_isolated=args.allow_isolated,
+            verbose=not args.quiet
+        )
+        
+        if not args.quiet:
+            if args.force:
+                print("🔍 Force checking components...")
+            else:
+                print("🔍 Checking for staged YAML files...")
+        
+        # Get files to validate
+        yaml_files = get_staged_yaml_files(args.file, args.force)
+        
+        if not yaml_files:
+            if not args.quiet:
+                print("   No YAML files to validate - skipping")
+            sys.exit(0)
+        
+        if not args.quiet:
+            file_count = len(yaml_files)
+            file_word = "file" if file_count == 1 else "files"
+            print(f"   Found {file_count} YAML {file_word} to validate")
+        
+        # Validate all files
+        all_valid = True
+        for yaml_file in yaml_files:
+            if not validator.validate_file(yaml_file):
+                all_valid = False
+            if not args.quiet and len(yaml_files) > 1:
+                print()  # Add spacing between files
+        
+        # Report final results
+        if not all_valid:
+            print("❌ Component edge validation failed!")
+            print("   Fix the above errors before committing.")
+            sys.exit(1)
+        
+        if not args.quiet:
+            print("✅ All YAML files passed component edge validation")
+        
+        if args.to_graph:
+            graph = ComponentGraph(validator.forward_map, validator.components, debug=args.debug)
+            try:
+                graph_output = graph.to_mermaid()
+                # Write graph_output to file
+                with open(args.to_graph, "w", encoding="utf-8") as f:
+                    f.write(graph_output)
+
+                print(f"   Graph visualization saved to {args.to_graph}")
+            except Exception as e:
+                print(f"⚠️  Failed to generate graph: {e}")
+
         sys.exit(0)
-    
-    print(f"   Found staged components.yaml file")
-    
-    # Validate each YAML file
-    all_valid = True
-    for yaml_file in yaml_files:
-        if not validate_component_edges(yaml_file):
-            all_valid = False
-        print()  # Add spacing between files
-    
-    if not all_valid:
-        print("   ❌ Component edge validation failed!")
-        print("   Fix the above errors before committing.")
-        sys.exit(1)
-    
-    print("✅ All YAML files passed component edge validation")
-    sys.exit(0)
+        
+    except KeyboardInterrupt:
+        print("\n⚠️  Validation interrupted by user")
+        sys.exit(2)
+    except Exception as e:
+        print(f"❌ Unexpected error: {e}")
+        print("   Please report this issue to the maintainers")
+        sys.exit(2)
 
 
 if __name__ == "__main__":
-    main()
+    main() 

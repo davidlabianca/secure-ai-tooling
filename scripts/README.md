@@ -4,8 +4,12 @@ Development tools and utilities for this project.
 ## Git Hooks
 
 ### Setup
-Install the pre-commit hook (one-time setup):
+Install Python dependencies and pre-commit hook (one-time setup):
 ```bash
+# Install required Python packages
+pip install -r requirements.txt
+
+# Install the pre-commit hook
 ./install-precommit-hook.sh
 ```
 
@@ -22,11 +26,20 @@ Validates all YAML files against their corresponding JSON schemas.
 - `yaml/risks.yaml` → `schemas/risks.schema.json`
 - `yaml/self-assessment.yaml` → `schemas/self-assessment.schema.json`
 
-#### 2. Component Edge Validation
-Validates the consistency of component relationships in `components.yaml`:
+#### 2. Component Edge Validation & Graph Generation
+Validates the consistency of component relationships in `components.yaml` and generates visual graphs:
+
+**Validation Features:**
 - **Edge consistency**: Ensures that if Component A has `to: [B]`, then Component B has `from: [A]`
 - **Bidirectional matching**: Verifies that all `to` edges have corresponding `from` edges and vice versa
 - **Isolated component detection**: Identifies components with no edges (neither `to` nor `from`)
+
+**Graph Generation Features:**
+- **Automatic generation**: When `components.yaml` is staged for commit, automatically generates `./risk-map/docs/risk-map-graph.md`
+- **Topological ranking**: Components are ranked with `componentDataSources` always at rank 1
+- **Category-based subgraphs**: Organizes components into Data, Infrastructure, Model, and Application subgraphs
+- **Mermaid format**: Generates Mermaid-compatible diagrams with color coding and dynamic spacing
+- **Auto-staging**: Generated graph is automatically added to staged files for inclusion in commit
 
 **Example validation:**
 ```yaml
@@ -67,8 +80,20 @@ risks:
 ```
 
 ### Requirements
-- `check-jsonschema`: Install with `pip install check-jsonschema`
-- `python3` with `pyyaml`: Install with `pip install pyyaml`
+Install all required Python packages:
+```bash
+pip install -r requirements.txt
+```
+
+**Required packages** (from `requirements.txt`):
+- `PyYAML` - YAML file parsing and manipulation
+- `check-jsonschema` - JSON schema validation for YAML files
+- `pytest` - Testing framework for validation scripts
+
+**Individual installation** (if needed):
+```bash
+pip install PyYAML check-jsonschema pytest
+```
 
 ### Files
 - `hooks/pre-commit` - The main git hook script that orchestrates all validations
@@ -81,8 +106,11 @@ When you commit changes to YAML files, the hook will:
 
 1. **Schema Validation** - Check YAML structure and data types
 2. **Edge Validation** - Verify component relationship consistency
-3. **Control-Risk Validation** - Verify control-risk cross-reference consistency
-4. **Block commit** if any validation fails
+3. **Graph Generation** - If `components.yaml` changed, generate and stage `./risk-map/docs/risk-map-graph.md`
+4. **Control-Risk Validation** - Verify control-risk cross-reference consistency
+5. **Block commit** if any validation fails
+
+**Note**: Graph generation only occurs when `components.yaml` is staged for commit, not in `--force` mode.
 
 #### Manual Validation of Unstaged Files
 The `pre-commit` hook and all individual validation scripts support the `--force` flag to validate all files regardless of their git staging status (useful during development).
@@ -101,6 +129,26 @@ The `pre-commit` hook and all individual validation scripts support the `--force
 .git/hooks/validate_control_risk_references.py --force
 
 ```
+
+#### Manual Graph Generation
+Generate component graphs manually using the validation script:
+
+```bash
+# Generate clean graph without debug comments
+.git/hooks/validate_component_edges.py --to-graph ./docs/component-map.md --force
+
+# Generate graph with rank debugging information
+.git/hooks/validate_component_edges.py --to-graph ./docs/debug-graph.md --debug --force
+
+# Validate edges and generate graph in one command
+.git/hooks/validate_component_edges.py --to-graph ./risk-map/docs/risk-map-graph.md --force
+```
+
+**Graph Generation Options:**
+- `--to-graph PATH` - Output Mermaid graph to specified file
+- `--debug` - Include rank comments for debugging
+- `--quiet` - Minimize output (only show errors)
+- `--allow-isolated` - Allow components with no edges
 
 ### Troubleshooting
 
@@ -166,3 +214,27 @@ Force validation of control-risk references even if files aren't staged:
 ```bash
 python3 .git/hooks/validate_control_risk_references.py --force
 ```
+
+#### Debugging graph generation
+Test graph generation without affecting git staging:
+```bash
+# Generate graph to test output
+python3 .git/hooks/validate_component_edges.py --to-graph ./test-graph.md --force
+
+# Generate graph with debug information to understand ranking
+python3 .git/hooks/validate_component_edges.py --to-graph ./debug-graph.md --debug --force
+
+# View help for all graph options
+python3 .git/hooks/validate_component_edges.py --help
+```
+
+**Common graph generation issues:**
+```
+❌ Graph generation failed
+```
+**Fix**: Check that the component YAML file is valid and accessible, ensure write permissions for output directory
+
+```
+⚠️ Warning: Could not stage generated graph
+```
+**Fix**: This occurs during pre-commit when git staging fails - check file permissions and git repository status

@@ -12,11 +12,15 @@ Before contributing to the Risk Map, ensure you have the necessary validation to
 
 ### Setting Up Pre-commit Hooks
 
-The repository includes automated schema validation, component edge consistency checks, and control-to-risk reference validation via git pre-commit hooks. 
+The repository includes automated schema validation, component edge consistency checks, control-to-risk reference validation, and automatic graph generation via git pre-commit hooks. 
 
-1. **Install the pre-commit hook (one-time setup)**:
+1. **Install Python dependencies and pre-commit hook (one-time setup)**:
    ```bash
    # From the repository root
+   # Install required Python packages
+   pip install -r requirements.txt
+   
+   # Install the pre-commit hook
    bash ./scripts/install-precommit-hook.sh
    ```
 
@@ -28,9 +32,9 @@ The repository includes automated schema validation, component edge consistency 
    git commit -m "test commit"
    ```
 
-### Manual Edge Validation
+### Manual Edge Validation & Graph Generation
 
-You can also run edge validation manually at any time:
+You can run edge validation and graph generation manually at any time:
 
 ```bash
 # Validate only if components.yaml is staged for commit
@@ -38,12 +42,24 @@ python scripts/hooks/validate_component_edges.py
 
 # Force validation regardless of git status
 python scripts/hooks/validate_component_edges.py --force
+
+# Generate component graph visualization
+python scripts/hooks/validate_component_edges.py --to-graph ./my-graph.md --force
+
+# Generate graph with debug ranking information
+python scripts/hooks/validate_component_edges.py --to-graph ./debug-graph.md --debug --force
 ```
 
 The validation script checks for:
 - **Bidirectional edge consistency**: If Component A references Component B in its `to` edges, Component B must have Component A in its `from` edges
 - **No isolated components**: Components should have at least one `to` or `from` edge
 - **Valid component references**: All components referenced in edges must exist
+
+**Automatic Graph Generation**: When you stage changes to `components.yaml` for commit, the pre-commit hook automatically:
+- Generates an updated component graph at `./risk-map/docs/risk-map-graph.md`
+- Stages the generated graph for inclusion in your commit
+- Uses topological ranking with `componentDataSources` always at rank 1
+- Organizes components into category-based subgraphs with color coding
 
 *See [scripts documentation](../../scripts/README.md) for more information on the git hooks and validation.*
 
@@ -177,13 +193,16 @@ To make the connections bidirectional, you must now update the corresponding `ed
       - componentNewComponent # Add incoming edge from your new component
 ```
 
-### 5. Validate Edge Consistency
+### 5. Validate Edge Consistency & Generate Graph
 
 Before committing, validate that your component edges are consistent:
 
 ```bash
 # Manual validation (recommended during development)
-python scripts/validate_component_edges.py --force
+python scripts/hooks/validate_component_edges.py --force
+
+# Optional: Generate graph to visualize your changes
+python scripts/hooks/validate_component_edges.py --to-graph ./preview-graph.md --force
 
 # The pre-commit hook will also run automatically when you commit
 git add risk-map/yaml/components.yaml
@@ -195,6 +214,8 @@ The validation will check:
 - ✅ All incoming edges (`from`) have corresponding outgoing edges (`to`) in source components  
 - ✅ No components are isolated (unless intentionally designed)
 - ✅ All referenced components exist in the YAML file
+
+**Note**: When you commit changes to `components.yaml`, the pre-commit hook will automatically generate an updated graph at `./risk-map/docs/risk-map-graph.md` and include it in your commit.
 
 ### 6. Create a Pull Request
 
@@ -520,6 +541,31 @@ If the pre-commit hook or manual validation fails with edge consistency errors:
    ```
    **Fix**: Add appropriate `to` and/or `from` edges, or verify if isolation is intentional
 
+### Graph Generation Issues
+
+If you encounter issues with the automatic graph generation:
+
+1. **Graph generation failed during pre-commit**:
+   ```
+   ❌ Graph generation failed
+   ```
+   **Fix**: Check that `components.yaml` is valid and accessible. Test manually:
+   ```bash
+   python scripts/hooks/validate_component_edges.py --to-graph ./test-graph.md --force
+   ```
+
+2. **Generated graph not staged**:
+   ```
+   ⚠️ Warning: Could not stage generated graph
+   ```
+   **Fix**: Check file permissions and git repository status. Ensure `./risk-map/docs/` directory is writable.
+
+3. **Component ranking seems wrong**:
+   **Fix**: Use debug mode to see rank calculations:
+   ```bash
+   python scripts/hooks/validate_component_edges.py --to-graph ./debug-graph.md --debug --force
+   ```
+
 ### Bypassing Validation (Not Recommended)
 
 If you need to commit without running the pre-commit hook (strongly discouraged):
@@ -535,15 +581,27 @@ However, your changes will still be validated during the PR review process.
 
 1. **Always run manual validation** during development:
    ```bash
-   python scripts/validate_component_edges.py --force
+   python scripts/hooks/validate_component_edges.py --force
    ```
 
-2. **Test edge changes incrementally** - add one component connection at a time
+2. **Preview your changes visually** by generating a graph:
+   ```bash
+   python scripts/hooks/validate_component_edges.py --to-graph ./preview-graph.md --force
+   ```
 
-3. **Document complex edge relationships** in commit messages
+3. **Test edge changes incrementally** - add one component connection at a time
 
-4. **Use meaningful component IDs** following the `component[Name]` convention
+4. **Document complex edge relationships** in commit messages
 
-5. **Validation against JSON schemas** is enforced by the pre-commit otherwise validate before committing 
+5. **Use meaningful component IDs** following the `component[Name]` convention
 
-6. **Review existing components** to understand established patterns before adding new ones
+6. **Validation against JSON schemas** is enforced by the pre-commit otherwise validate before committing 
+
+7. **Review existing components** to understand established patterns before adding new ones
+
+8. **Leverage automatic graph generation** - when you commit changes to `components.yaml`, the updated graph is automatically generated and staged
+
+9. **Use debug mode for troubleshooting** component ranking issues:
+   ```bash
+   python scripts/hooks/validate_component_edges.py --to-graph ./debug-graph.md --debug --force
+   ```

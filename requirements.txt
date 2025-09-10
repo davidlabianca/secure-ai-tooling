@@ -1,0 +1,3 @@
+PyYAML
+check-jsonschema
+pytest

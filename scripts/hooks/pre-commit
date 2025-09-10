@@ -13,10 +13,16 @@
 #
 # Behavior:
 #   - Validates only staged files by default
-#   - If riskmap.schema.json changes, validates YAML schema compliance for 
-#     all files
+#   - If... 
+#        - riskmap.schema.json changes, validates YAML schema compliance for 
+#          all files
+#        - components.yaml chamges, generates a new graph at
+#          ./docs/risk-map-graph.md and adds it to the staged files
 #   - Use --force/-f to run all validations against all files regardless of 
-#     staging status
+#     staging status. NOTE: --force will not generate a new 
+#     ./risk-map/docs/risk-map-graph.md
+#   - See ./git/hooks/validate_component_edges.py for manual graph generation
+#        
 # =============================================================================
 
 # =============================================================================
@@ -29,6 +35,9 @@ BASE_URI="file://$(pwd)/risk-map/schemas/"
 # Directory paths for YAML files and schemas
 YAML_BASE_DIR="risk-map/yaml"
 SCHEMA_BASE_DIR="risk-map/schemas"
+
+# Path for generated component graph
+GRAPH_OUTPUT_PATH="./risk-map/docs/risk-map-graph.md"
 
 # Suffix for schema files
 SCHEMA_SUFFIX=".schema.json"
@@ -158,6 +167,12 @@ case $1 in
         echo "  - YAML schema validation"
         echo "  - Component edge validation"
         echo "  - Control-to-risk reference validation"
+        echo ""
+        echo "Graph generation:"
+        echo "  - When components.yaml is staged, automatically generates $GRAPH_OUTPUT_PATH"
+        echo "  - Generated graph is added to staged files for inclusion in commit"
+        echo "  - Graph generation is skipped in --force mode"
+        echo "  - Use .git/hooks/validate_component_edges.py for manual graph generation"
         exit 0
         ;;
     --force|-f)
@@ -219,6 +234,33 @@ else
     fi
 fi
 
+# =============================================================================
+# Graph Generation (when components.yaml changes)
+# =============================================================================
+
+# Only generate graph in normal mode (not --force) when components.yaml is staged
+if [[ $FORCE_VALIDATE -eq 0 ]] && git diff --cached --name-only | grep -q "risk-map/yaml/components\.yaml$"; then
+    echo "📊 Components.yaml changed - generating new graph..."
+    
+    # Ensure docs directory exists
+    mkdir -p "$(dirname "$GRAPH_OUTPUT_PATH")"
+    
+    # Generate the graph using the validator script
+    if python3 "$EDGE_VALIDATOR" --to-graph "$GRAPH_OUTPUT_PATH" --quiet; then
+        echo "   ✅ Graph generated at $GRAPH_OUTPUT_PATH"
+        
+        # Add the generated graph to staging area
+        if git add "$GRAPH_OUTPUT_PATH"; then
+            echo "   ✅ Graph added to staged files"
+        else
+            echo "   ⚠️  Warning: Could not stage generated graph"
+        fi
+    else
+        echo "   ❌ Graph generation failed"
+        VALIDATION_FAILED=1
+    fi
+fi
+
 echo  # Add blank line for readability
 
 # =============================================================================
@@ -255,4 +297,10 @@ echo "🎉 All pre-commit validations passed!"
 echo "   ✅ YAML schema validation"
 echo "   ✅ Component edge validation"
 echo "   ✅ Control-to-risk reference validation"
+
+# Check if graph was generated and add to summary
+if [[ $FORCE_VALIDATE -eq 0 ]] && git diff --cached --name-only | grep -q "risk-map/yaml/components\.yaml$"; then
+    echo "   📊 Graph generated and staged"
+fi
+
 echo "Ready to commit! 🚀"
