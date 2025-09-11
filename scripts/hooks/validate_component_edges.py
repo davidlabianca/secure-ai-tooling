@@ -15,7 +15,7 @@ VALIDATION RULES:
 
 GRAPH GENERATION:
     - Generates Mermaid-compatible graph visualizations
-    - Automatically calculates topological ranks (componentDataSources is always rank 1)
+    - Automatically calculates topological ranks using zero-based indexing (componentDataSources is always rank 0)
     - Organizes components into category-based subgraphs (Data, Infrastructure, Model, Application)
     - Uses dynamic tilde spacing based on rank hierarchy
     - Supports debug mode for rank annotations
@@ -75,9 +75,9 @@ YAML STRUCTURE EXPECTED:
 
 GRAPH OUTPUT FORMAT:
     The generated graph uses Mermaid syntax with:
-    - Topological ranking (componentDataSources = rank 1)
+    - Topological ranking using zero-based indexing (componentDataSources = rank 0)
     - Category-based subgraphs with color coding
-    - Dynamic tilde spacing: 3 + (max_rank - component_rank)
+    - Dynamic tilde spacing: anchor = 3 + min_node_rank, end = 3 + (global_max_rank - max_node_rank)
     - Optional debug comments showing node ranks
     - Automatic cross-subgraph linkage via anchor nodes
 
@@ -96,6 +96,7 @@ EXAMPLES:
 
 
 """
+## Graph generation implementation complete with proper subgraph structure and component placement
 
 import sys
 import yaml
@@ -521,49 +522,19 @@ class ComponentGraph:
         # Define category order and layout positioning
         category_order = ["Data", "Infrastructure", "Model", "Application"]
 
-        # Build main connections and collect components by category
-        lines = {'main': [], 'subgraphs': []}
+        # Collect components by category first
         components_by_category = {}
-
-        # Initialize category tracking
         for category in category_order:
             components_by_category[category] = []
 
-        # Process connections and categorize components
-        for src, targets in self.forward_map.items():
-            src_title = self.components[src].title if src in self.components else src
-            src_category = self._normalize_category(src)
+        # Categorize all components
+        for comp_id, comp_node in self.components.items():
+            category = self._normalize_category(comp_id)
+            if category not in components_by_category:
+                components_by_category[category] = []
+            components_by_category[category].append((comp_id, comp_node.title))
 
-            # Track components by category
-            if src_category not in components_by_category:
-                components_by_category[src_category] = []
-            if src not in [comp[0] for comp in components_by_category[src_category]]:
-                components_by_category[src_category].append((src, src_title))
-
-            for tgt in targets:
-                tgt_title = self.components[tgt].title if tgt in self.components else tgt
-                tgt_category = self._normalize_category(tgt)
-
-                # Track target components
-                if tgt_category not in components_by_category:
-                    components_by_category[tgt_category] = []
-                if tgt not in [comp[0] for comp in components_by_category[tgt_category]]:
-                    components_by_category[tgt_category].append((tgt, tgt_title))
-
-                # Add main connection with optional rank comments
-                if debug:
-                    src_rank = node_ranks.get(src, 1)
-                    tgt_rank = node_ranks.get(tgt, 1)
-                    lines['main'].append(f"    %% {src} rank {src_rank}, {tgt} rank {tgt_rank}")
-                lines['main'].append(f"    {src}[{src_title}] --> {tgt}[{tgt_title}]")
-
-        # Build subgraphs with hidden positioning nodes
-        for category in category_order:
-            if category in components_by_category and components_by_category[category]:
-                subgraph_lines = self._build_subgraph(category, components_by_category[category], layout, components_by_category, node_ranks, debug)
-                lines['subgraphs'].extend(subgraph_lines)
-
-        # Combine all parts
+        # Build graph structure
         graph_content = [
             "```mermaid",
             "graph TD",
@@ -571,12 +542,38 @@ class ComponentGraph:
             ""
         ]
 
-        # Add main connections
-        graph_content.extend(lines['main'])
-        graph_content.append("")
+        # Add invisible root node
+        graph_content.append("    root:::hidden")
+        graph_content.append("    ")
 
-        # Add subgraphs (which now include positioning)
-        graph_content.extend(lines['subgraphs'])
+        # Build subgraphs (components only, no internal links)
+        for category in category_order:
+            if category in components_by_category and components_by_category[category]:
+                subgraph_lines = self._build_subgraph_structure(category, components_by_category[category], node_ranks, debug)
+                graph_content.extend(subgraph_lines)
+
+        # Add root connections to lowest rank items in each subgraph
+        anchor_connections = []
+        for category in category_order:
+            if category in components_by_category and components_by_category[category]:
+                anchor_name = f"{category}Anchor:::hidden"
+                anchor_connections.append(f"    root ~~~ {anchor_name}")
+
+        graph_content.extend(anchor_connections)
+
+        # Add all inter-component connections outside of subgraphs
+        graph_content.append("")
+        for src, targets in self.forward_map.items():
+            src_title = self.components[src].title if src in self.components else src
+            for tgt in targets:
+                tgt_title = self.components[tgt].title if tgt in self.components else tgt
+                
+                # Add connection with optional rank comments
+                if debug:
+                    src_rank = node_ranks.get(src, 0)
+                    tgt_rank = node_ranks.get(tgt, 0)
+                    graph_content.append(f"    %% {src} rank {src_rank}, {tgt} rank {tgt_rank}")
+                graph_content.append(f"    {src}[{src_title}] --> {tgt}[{tgt_title}]")
 
         # Add styling
         graph_content.extend([
@@ -606,10 +603,13 @@ class ComponentGraph:
 
     def _calculate_node_ranks(self) -> dict[str, int]:
         """
-        Calculate the topological rank of each node in the graph.
-        Rank 1 = root nodes (no incoming edges) or nodes in cycles
-        Rank 2 = nodes that depend only on rank 1 nodes
+        Calculate the topological rank of each node in the graph using zero-based indexing.
+        Rank 0 = root nodes (componentDataSources) or nodes in cycles
+        Rank 1 = nodes that depend only on rank 0 nodes
         etc.
+        
+        Special handling for nodes with no incoming edges but outgoing connections:
+        - Their rank is based on their lowest-ranked target: min_target_rank - 1
         
         For graphs with cycles, we use a modified approach:
         1. Find strongly connected components (cycles)
@@ -629,14 +629,14 @@ class ComponentGraph:
         # Initialize ranks
         ranks = {}
         
-        # Hardcode componentDataSources as the single root (rank 1)
+        # Hardcode componentDataSources as the single root (rank 0 - zero-based)
         if 'componentDataSources' in self.components:
-            ranks['componentDataSources'] = 1
+            ranks['componentDataSources'] = 0
         else:
             # Fallback if componentDataSources doesn't exist
             if self.components:
                 first_node = next(iter(self.components))
-                ranks[first_node] = 1
+                ranks[first_node] = 0
         
         # Calculate ranks for remaining nodes using iterative approach
         max_iterations = len(self.components) * 2  # Prevent infinite loops
@@ -654,11 +654,21 @@ class ComponentGraph:
                     ranked_deps = [dep for dep in dependencies if dep in ranks]
                     
                     if ranked_deps:
-                        # Use minimum rank of ranked dependencies + 1
-                        # This handles cycles better than waiting for all deps
-                        min_dep_rank = min(ranks[dep] for dep in ranked_deps)
-                        ranks[node] = min_dep_rank + 1
+                        # Use maximum rank of ranked dependencies + 1
+                        # This ensures proper topological ordering
+                        max_dep_rank = max(ranks[dep] for dep in ranked_deps)
+                        ranks[node] = max_dep_rank + 1
                         changed = True
+                    elif not dependencies and node in self.forward_map:
+                        # Node has no incoming edges but has outgoing edges (not isolated)
+                        # Find the lowest ranked target and set rank = target_rank - 1
+                        targets = self.forward_map[node]
+                        ranked_targets = [target for target in targets if target in ranks]
+                        
+                        if ranked_targets:
+                            min_target_rank = min(ranks[target] for target in ranked_targets)
+                            ranks[node] = max(0, min_target_rank - 1)  # Ensure non-negative
+                            changed = True
             
             if not changed:
                 break
@@ -666,77 +676,77 @@ class ComponentGraph:
         # Handle any remaining unranked nodes (nodes in cycles without ranked dependencies)
         for node in self.components:
             if node not in ranks:
-                ranks[node] = 1  # Assign rank 1 to break cycles
+                ranks[node] = 0  # Assign rank 0 to break cycles
                 
         return ranks
 
-    def _build_subgraph(self, category: str, components: list, layout: str, components_by_category: dict, node_ranks: dict[str, int], debug: bool = False) -> list:
-        """Build a single subgraph with positioning controls."""
+    def _build_subgraph_structure(self, category: str, components: list, node_ranks: dict[str, int], debug: bool = False) -> list:
+        """
+        Build a single subgraph structure with proper anchor and end elements.
+        
+        Args:
+            category: Subgraph category name (Data, Infrastructure, Model, Application)
+            components: List of (component_id, component_title) tuples in this category
+            node_ranks: Dictionary mapping component IDs to their zero-based ranks
+            debug: If True, include debug comments with rank information
+            
+        Returns:
+            List of Mermaid syntax lines for the subgraph
+            
+        Tilde calculation formula:
+        - anchor_tildes = 3 + min_node_rank_in_subgraph
+        - end_tildes = 3 + (global_max_rank - max_node_rank_in_subgraph)
+        - global_max_rank = 11 (highest component rank 9 + 2 for anchor/end spacing)
+        """
         subgraph_lines = [f"subgraph {category}"]
 
-        # Add components with optional rank comments
-        for comp_id, comp_title in components:
-            if debug:
-                rank = node_ranks.get(comp_id, 1)
-                subgraph_lines.append(f"    %% {comp_id} Rank {rank}")
-            subgraph_lines.append(f"    {comp_id}[{comp_title}]")
+        # Calculate global max rank (highest node rank is 9 with zero-based, plus 2 for anchor/end = 11 total)
+        global_max_rank = 11
 
-        # Add positioning connections within subgraph based on category
-        if category == "Data":
-            # For Data: first component with calculated tildes to DataEnd:::hidden
-            if len(components) > 0:
-                first_comp = components[0][0]
-                first_comp_rank = node_ranks.get(first_comp, 1)
-                max_rank = max(node_ranks.values()) if node_ranks else 1
-                tilde_count = 3 + (max_rank - first_comp_rank)  # min_tildes + (total_rank - first_node_rank)
-                tildes = "~" * tilde_count
-                subgraph_lines.append(f"    {first_comp} {tildes} DataEnd:::hidden")
-        elif category == "Infrastructure":
-            # For Infrastructure: InfrastructureAnchor:::hidden ~~~~~~~ first_model_component
-            # and componentModelServing with calculated tildes to InfrastructureEnd:::hidden
+        # Add min rank comment if debug
+        if debug and components:
+            min_rank = min(node_ranks.get(comp_id, 0) for comp_id, _ in components)
+            subgraph_lines.append(f"%% min = {min_rank}")
+
+        # Add anchor node and end connections only if we have components
+        if components:
+            # Find lowest and highest rank components in this subgraph
+            components_with_ranks = [(comp_id, comp_title, node_ranks.get(comp_id, 0)) for comp_id, comp_title in components]
+            lowest_rank_comp = min(components_with_ranks, key=lambda x: x[2])
+            highest_rank_comp = max(components_with_ranks, key=lambda x: x[2])
+            
+            min_node_rank_in_subgraph = lowest_rank_comp[2]
+            max_node_rank_in_subgraph = highest_rank_comp[2]
+            
+            # Calculate tilde counts using the formula:
+            # anchor_incr = min_node_in_subgraph_rank
+            # end_incr = max_rank - max_node_rank_in_subgraph
+            anchor_incr = min_node_rank_in_subgraph
+            end_incr = global_max_rank - max_node_rank_in_subgraph
+            
+            # Minimum 3 tildes + increment
+            anchor_tilde_count = 3 + anchor_incr
+            end_tilde_count = 3 + end_incr
+            
+            # Add anchor node
             anchor_name = f"{category}Anchor:::hidden"
-            first_model_comp = self._get_first_component_in_category(components_by_category, "Model")
-            if first_model_comp:
-                subgraph_lines.append(f"    {anchor_name} ~~~~~~~ {first_model_comp}")
-            if len(components) > 0:
-                # Find componentModelServing
-                for comp_id, comp_title in components:
-                    if "Model Serving" in comp_title:
-                        comp_rank = node_ranks.get(comp_id, 1)
-                        max_rank = max(node_ranks.values()) if node_ranks else 1
-                        tilde_count = 3 + (max_rank - comp_rank)  # min_tildes + (total_rank - node_rank)
-                        tildes = "~" * tilde_count
-                        subgraph_lines.append(f"    {comp_id} {tildes} InfrastructureEnd:::hidden")
-                        break
-        elif category == "Model":
-            # For Model: ModelAnchor:::hidden ~~~~~~~ first_model_component
-            # and first_model_component with calculated tildes to ModelEnd:::hidden
-            anchor_name = f"{category}Anchor:::hidden"
-            if len(components) > 0:
-                first_model_comp = components[0][0]
-                subgraph_lines.append(f"    {anchor_name} ~~~~~~~ {first_model_comp}")
-                comp_rank = node_ranks.get(first_model_comp, 1)
-                max_rank = max(node_ranks.values()) if node_ranks else 1
-                tilde_count = max_rank - comp_rank
-                tildes = "~" * max(3, tilde_count)  # At least 3 tildes for Mermaid
-                subgraph_lines.append(f"    {first_model_comp} {tildes} ModelEnd:::hidden")
-        elif category == "Application":
-            # For Application: ApplicationAnchor:::hidden ~~~~~~~ first_model_component
-            # and componentApplication with calculated tildes to ApplicationEnd:::hidden
-            anchor_name = f"{category}Anchor:::hidden"
-            first_model_comp = self._get_first_component_in_category(components_by_category, "Model")
-            if first_model_comp:
-                subgraph_lines.append(f"    {anchor_name} ~~~~~~~ {first_model_comp}")
-            if len(components) > 0:
-                # Find componentApplication
-                for comp_id, comp_title in components:
-                    if comp_title == "Application":
-                        comp_rank = node_ranks.get(comp_id, 1)
-                        max_rank = max(node_ranks.values()) if node_ranks else 1
-                        tilde_count = 3 + (max_rank - comp_rank)  # min_tildes + (total_rank - node_rank)
-                        tildes = "~" * tilde_count
-                        subgraph_lines.append(f"    {comp_id} {tildes} ApplicationEnd:::hidden")
-                        break
+            anchor_tildes = "~" * anchor_tilde_count
+            subgraph_lines.append(f"    {anchor_name} {anchor_tildes} {lowest_rank_comp[0]}")
+
+            # Add all components with optional rank comments
+            for comp_id, comp_title in components:
+                if debug:
+                    rank = node_ranks.get(comp_id, 1)
+                    subgraph_lines.append(f"    %% {comp_id} Rank {rank}")
+                subgraph_lines.append(f"    {comp_id}[{comp_title}]")
+
+            # Add highest rank to end element connection
+            end_name = f"{category}End:::hidden"
+            end_tildes = "~" * end_tilde_count
+            subgraph_lines.append(f"    {highest_rank_comp[0]} {end_tildes} {end_name}")
+            
+            if debug:
+                subgraph_lines.append(f"%% anchor_incr={anchor_incr}, end_incr={end_incr}")
 
         subgraph_lines.append("end")
         return subgraph_lines    

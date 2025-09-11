@@ -34,11 +34,11 @@ def get_git_root():
         # Fallback to relative path if not in git repo
         return Path(__file__).parent.parent.parent
 
-# Add tools directory to path
+# Add scripts/hooks directory to path
 git_root = get_git_root()
-sys.path.insert(0, str(git_root / "tools"))
+sys.path.insert(0, str(git_root / "scripts" / "hooks"))
 
-from create_component_map import ComponentEdgeValidator, EdgeValidationError, get_staged_yaml_files, ComponentNode, ComponentGraph
+from validate_component_edges import ComponentEdgeValidator, EdgeValidationError, get_staged_yaml_files, ComponentNode, ComponentGraph
 
 class TestComponentEdgeValidator:
     """Test the main ComponentEdgeValidator class functionality."""
@@ -591,9 +591,9 @@ class TestComponentGraph:
         ranks = graph._calculate_node_ranks()
         
         # componentDataSources should be rank 1
-        assert ranks['componentDataSources'] == 1
-        assert ranks['comp-b'] == 2
-        assert ranks['comp-c'] == 3
+        assert ranks['componentDataSources'] == 0
+        assert ranks['comp-b'] == 1
+        assert ranks['comp-c'] == 2
     
     def test_calculate_node_ranks_with_cycles(self, complex_forward_map, complex_components):
         """Test node ranking with cycles in graph."""
@@ -601,13 +601,13 @@ class TestComponentGraph:
         ranks = graph._calculate_node_ranks()
         
         # infra should be rank 1 (no incoming edges)
-        assert ranks['infra'] == 1
+        assert ranks['infra'] == 0
         
         # All nodes should have ranks assigned
         assert len(ranks) == 4
         for node_id, rank in ranks.items():
             assert isinstance(rank, int)
-            assert rank >= 1
+            assert rank >= 0  # Zero-based ranking
     
     def test_calculate_node_ranks_data_sources_priority(self):
         """Test that componentDataSources gets rank 1 priority."""
@@ -625,10 +625,10 @@ class TestComponentGraph:
         graph = ComponentGraph(forward_map, components)
         ranks = graph._calculate_node_ranks()
         
-        # componentDataSources should always be rank 1
-        assert ranks['componentDataSources'] == 1
-        assert ranks['other'] == 2
-        assert ranks['cycle'] == 3
+        # componentDataSources should always be rank 0 (zero-based)
+        assert ranks['componentDataSources'] == 0
+        assert ranks['other'] == 1
+        assert ranks['cycle'] == 2
     
     def test_normalize_category(self, simple_forward_map, simple_components):
         """Test category normalization."""
@@ -704,15 +704,15 @@ class TestComponentGraph:
         
         graph = ComponentGraph(forward_map, components)
         
-        # Mock node ranks
-        node_ranks = {'comp-rank1': 1, 'comp-rank5': 5}
+        # Mock node ranks (zero-based)
+        node_ranks = {'comp-rank1': 0, 'comp-rank5': 4}
         components_by_category = {
             'Data': [('comp-rank1', 'Rank 1')]
         }
         
-        # Test Data category with rank 1 component (max_rank = 5)
-        # Expected tildes: 3 + (5 - 1) = 7
-        subgraph_lines = graph._build_subgraph('Data', [('comp-rank1', 'Rank 1')], 'horizontal', components_by_category, node_ranks, debug=False)
+        # Test Data category with rank 0 component (global_max_rank = 11)
+        # end_incr = 11 - 0 = 11, so tildes = 3 + 11 = 14
+        subgraph_lines = graph._build_subgraph_structure('Data', [('comp-rank1', 'Rank 1')], node_ranks, debug=False)
         
         # Find the tilde line
         tilde_line = None
@@ -722,9 +722,9 @@ class TestComponentGraph:
                 break
         
         assert tilde_line is not None
-        # Count tildes: should be 7
+        # Count tildes: should be 14 (3 + 11 where 11 = 11 - 0)
         tilde_count = tilde_line.count('~')
-        assert tilde_count == 7
+        assert tilde_count == 14
     
     def test_build_subgraph_minimum_tildes(self):
         """Test minimum tilde count of 3."""
@@ -735,14 +735,14 @@ class TestComponentGraph:
         
         graph = ComponentGraph(forward_map, components)
         
-        # Mock node ranks where component has high rank (close to max)
-        node_ranks = {'comp-high-rank': 9}  # max_rank will also be 9
+        # Mock node ranks where component has high rank (zero-based)
+        node_ranks = {'comp-high-rank': 9}  # high rank node
         components_by_category = {
             'Data': [('comp-high-rank', 'High Rank')]
         }
         
-        # Test: 3 + (9 - 9) = 3 tildes minimum
-        subgraph_lines = graph._build_subgraph('Data', [('comp-high-rank', 'High Rank')], 'horizontal', components_by_category, node_ranks, debug=False)
+        # Test: 3 + (11 - 9) = 5 tildes (global_max_rank = 11)
+        subgraph_lines = graph._build_subgraph_structure('Data', [('comp-high-rank', 'High Rank')], node_ranks, debug=False)
         
         # Find the tilde line
         tilde_line = None
@@ -752,9 +752,9 @@ class TestComponentGraph:
                 break
         
         assert tilde_line is not None
-        # Should have exactly 3 tildes
+        # Should have 5 tildes (3 + 2 where 2 = 11 - 9)
         tilde_count = tilde_line.count('~')
-        assert tilde_count == 3
+        assert tilde_count == 5
     
     def test_mermaid_output_format(self, simple_forward_map, simple_components):
         """Test that mermaid output has correct format."""
@@ -800,8 +800,8 @@ class TestComponentGraph:
         graph = ComponentGraph(forward_map, components)
         ranks = graph._calculate_node_ranks()
         
-        # Isolated component should get rank 1
-        assert ranks['isolated'] == 1
+        # Isolated component should get rank 0 (zero-based)
+        assert ranks['isolated'] == 0
         
         # Graph should still generate (but isolated components won't appear since they have no connections)
         mermaid_output = graph.to_mermaid()

@@ -2,6 +2,43 @@
 graph TD
     classDef hidden display: none;
 
+    root:::hidden
+    
+subgraph Data
+    DataAnchor:::hidden ~~~ componentDataSources
+    componentDataSources[Data Sources]
+    componentDataFilteringAndProcessing[Data Filtering and Processing]
+    componentTrainingData[Training Data]
+    componentTrainingData ~~~~~~~~~~~~ DataEnd:::hidden
+end
+subgraph Infrastructure
+    InfrastructureAnchor:::hidden ~~~~~~ componentDataStorage
+    componentDataStorage[Data Storage Infrastructure]
+    componentModelFrameworksAndCode[Model Frameworks and Code]
+    componentModelEvaluation[Model Evaluation]
+    componentTrainingTuning[Training and Tuning]
+    componentModelStorage[Model Storage]
+    componentModelServing[Model Serving Infrastructure]
+    componentModelEvaluation ~~~~~~~~ InfrastructureEnd:::hidden
+end
+subgraph Model
+    ModelAnchor:::hidden ~~~~~~~~ componentTheModel
+    componentTheModel[The Model]
+    componentInputHandling[Input Handling]
+    componentOutputHandling[Output Handling]
+    componentInputHandling ~~~~~ ModelEnd:::hidden
+end
+subgraph Application
+    ApplicationAnchor:::hidden ~~~~~~~~~~ componentApplication
+    componentApplication[Application]
+    componentAgentPlugin[Agent/Plugin]
+    componentAgentPlugin ~~~~~~ ApplicationEnd:::hidden
+end
+    root ~~~ DataAnchor:::hidden
+    root ~~~ InfrastructureAnchor:::hidden
+    root ~~~ ModelAnchor:::hidden
+    root ~~~ ApplicationAnchor:::hidden
+
     componentDataSources[Data Sources] --> componentDataFilteringAndProcessing[Data Filtering and Processing]
     componentDataFilteringAndProcessing[Data Filtering and Processing] --> componentTrainingData[Training Data]
     componentTrainingData[Training Data] --> componentDataStorage[Data Storage Infrastructure]
@@ -21,36 +58,6 @@ graph TD
     componentApplication[Application] --> componentDataSources[Data Sources]
     componentAgentPlugin[Agent/Plugin] --> componentInputHandling[Input Handling]
     componentAgentPlugin[Agent/Plugin] --> componentApplication[Application]
-
-subgraph Data
-    componentDataSources[Data Sources]
-    componentDataFilteringAndProcessing[Data Filtering and Processing]
-    componentTrainingData[Training Data]
-    componentDataSources ~~~~~~~~~~~ DataEnd:::hidden
-end
-subgraph Infrastructure
-    componentDataStorage[Data Storage Infrastructure]
-    componentTrainingTuning[Training and Tuning]
-    componentModelFrameworksAndCode[Model Frameworks and Code]
-    componentModelEvaluation[Model Evaluation]
-    componentModelStorage[Model Storage]
-    componentModelServing[Model Serving Infrastructure]
-    InfrastructureAnchor:::hidden ~~~~~~~ componentTheModel
-    componentModelServing ~~~~~~~~~~~ InfrastructureEnd:::hidden
-end
-subgraph Model
-    componentTheModel[The Model]
-    componentOutputHandling[Output Handling]
-    componentInputHandling[Input Handling]
-    ModelAnchor:::hidden ~~~~~~~ componentTheModel
-    componentTheModel ~~~ ModelEnd:::hidden
-end
-subgraph Application
-    componentApplication[Application]
-    componentAgentPlugin[Agent/Plugin]
-    ApplicationAnchor:::hidden ~~~~~~~ componentTheModel
-    componentApplication ~~~~ ApplicationEnd:::hidden
-end
 
 %% Style definitions
     style Infrastructure fill:#e6f3e6,stroke:#333,stroke-width:2px
