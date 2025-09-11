@@ -16,12 +16,11 @@ import argparse
 import subprocess
 import sys
 from pathlib import Path
-from typing import Dict, List, Set
 
 import yaml
 
 
-def get_staged_yaml_files(force_check: bool = False) -> List[Path]:
+def get_staged_yaml_files(force_check: bool = False) -> list[Path]:
     """Get the specific controls.yaml and risks.yaml files if either is staged for commit or if forced."""
     target_files: list[Path] = [
         Path("risk-map/yaml/controls.yaml"),
@@ -45,15 +44,10 @@ def get_staged_yaml_files(force_check: bool = False) -> List[Path]:
             check=True,
         )
 
-        staged_files = (
-            result.stdout.strip().split("\n") if result.stdout.strip() else []
-        )
+        staged_files = result.stdout.strip().split("\n") if result.stdout.strip() else []
 
         # Check if ANY of our target files is in the staged files
-        target_file_strings = [str(path) for path in target_files]
-        staged_target_files = [
-            path for path in target_files if str(path) in staged_files and path.exists()
-        ]
+        staged_target_files = [path for path in target_files if str(path) in staged_files and path.exists()]
 
         # Return target files if at least one is staged and both exist
         if staged_target_files and all(path.exists() for path in target_files):
@@ -66,7 +60,7 @@ def get_staged_yaml_files(force_check: bool = False) -> List[Path]:
         return []
 
 
-def load_yaml_file(file_path: Path) -> Dict:
+def load_yaml_file(file_path: Path) -> dict | None:
     """Load and parse YAML file."""
     try:
         with open(file_path, "r", encoding="utf-8") as f:
@@ -79,7 +73,7 @@ def load_yaml_file(file_path: Path) -> Dict:
         return None
 
 
-def extract_controls_data(yaml_data: Dict) -> Dict[str, Dict[str, List[str]]]:
+def extract_controls_data(yaml_data: dict) -> dict[str, list[str]]:
     """Extract control IDs and their risks from YAML data."""
     controls = {}
 
@@ -97,7 +91,7 @@ def extract_controls_data(yaml_data: Dict) -> Dict[str, Dict[str, List[str]]]:
     return controls
 
 
-def extract_risks_data(yaml_data: Dict) -> Dict[str, Dict[str, List[str]]]:
+def extract_risks_data(yaml_data: dict) -> dict[str, list[str]]:
     """Extract risk IDs and their controls from YAML data."""
     risks_by_control = {}
 
@@ -129,25 +123,19 @@ def find_isolated_entries(
         tuple of (isolated_controls, isolated_risks)
     """
     # Find controls that don't reference any risks
-    isolated_controls = {
-        control_id for control_id, risk_list in controls.items() if not risk_list
-    }
+    isolated_controls = {control_id for control_id, risk_list in controls.items() if not risk_list}
 
     # Find risks that aren't referenced by any controls
     all_referenced_risks = set()
     for risk_list in controls.values():
         all_referenced_risks.update(risk_list)
 
-    isolated_risks = (
-        set()
-    )  # Would need actual risk IDs from risks.yaml to populate this
+    isolated_risks = set()  # Would need actual risk IDs from risks.yaml to populate this
 
     return isolated_controls, isolated_risks
 
 
-def compare_control_maps(
-    controls: dict[str, list[str]], risks: dict[str, list[str]]
-) -> list[str]:
+def compare_control_maps(controls: dict[str, list[str]], risks: dict[str, list[str]]) -> list[str]:
     """
     Compare control-to-risk mappings for consistency.
 
@@ -168,9 +156,7 @@ def compare_control_maps(
     for control_id in all_control_ids:
         # Get risk lists from both perspectives
         risks_per_control_yaml = controls.get(control_id, [])  # What controls.yaml says
-        risks_per_risks_yaml = risks.get(
-            control_id, []
-        )  # What we derive from risks.yaml
+        risks_per_risks_yaml = risks.get(control_id, [])  # What we derive from risks.yaml
 
         # Skip if either lists "all" or "none" for the risks addressed
         # Skip if either list is empty - covered in isolated checks
@@ -197,12 +183,8 @@ def compare_control_maps(
 
         # Case 3: Control exists in both but the risk lists don't match
         if sorted(risks_per_control_yaml) != sorted(risks_per_risks_yaml):
-            missing_from_risks_yaml = set(risks_per_control_yaml) - set(
-                risks_per_risks_yaml
-            )
-            extra_in_risks_yaml = set(risks_per_risks_yaml) - set(
-                risks_per_control_yaml
-            )
+            missing_from_risks_yaml = set(risks_per_control_yaml) - set(risks_per_risks_yaml)
+            extra_in_risks_yaml = set(risks_per_risks_yaml) - set(risks_per_control_yaml)
 
             if missing_from_risks_yaml:
                 errors.append(
@@ -224,16 +206,14 @@ def compare_control_maps(
 
 def validate_control_to_risk(file_paths: list[Path]) -> bool:
     """Validate control-to-risk reference consistency."""
-    print(
-        f"   Validating control-to-risk references in: {', '.join(map(str, file_paths))}"
-    )
+    print(f"   Validating control-to-risk references in: {', '.join(map(str, file_paths))}")
 
     # Load and parse YAML
     controls_yaml_data = load_yaml_file(file_paths[0])  # controls.yaml
     risks_yaml_data = load_yaml_file(file_paths[1])  # risks.yaml
 
     if not controls_yaml_data or not risks_yaml_data:
-        print(f"  ❌   Failing - could not load YAML data")
+        print("  ❌   Failing - could not load YAML data")
         return False
 
     # Extract mappings
@@ -260,17 +240,13 @@ def validate_control_to_risk(file_paths: list[Path]) -> bool:
     success = True
 
     if isolated_controls:
-        print(
-            f"   ❌ Found {len(isolated_controls)} isolated controls (no risk references):"
-        )
+        print(f"   ❌ Found {len(isolated_controls)} isolated controls (no risk references):")
         for control in sorted(isolated_controls):
             print(f"     - Control '{control}' in controls.yaml has empty 'risks' list")
         success = False
 
     if isolated_risks:
-        print(
-            f"   ❌ Found {len(isolated_risks)} isolated risks (no control references):"
-        )
+        print(f"   ❌ Found {len(isolated_risks)} isolated risks (no control references):")
         for risk in sorted(isolated_risks):
             print(f"     - Risk '{risk}' in risks.yaml has empty 'controls' list")
         success = False
@@ -282,7 +258,7 @@ def validate_control_to_risk(file_paths: list[Path]) -> bool:
         success = False
 
     if success:
-        print(f"  ✅ Control-to-risk references are consistent")
+        print("  ✅ Control-to-risk references are consistent")
 
     return success
 
@@ -320,12 +296,10 @@ def main():
     yaml_files = get_staged_yaml_files(args.force)
 
     if not yaml_files:
-        print(
-            "   No YAML files modified - skipping control-to-risk reference validation"
-        )
+        print("   No YAML files modified - skipping control-to-risk reference validation")
         sys.exit(0)
 
-    print(f"   Found staged controls.yaml and/or risk.yaml file")
+    print("   Found staged controls.yaml and/or risk.yaml file")
 
     # Validate control to risk references
     if not validate_control_to_risk(yaml_files):

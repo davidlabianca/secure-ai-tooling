@@ -936,7 +936,7 @@ def parse_args() -> argparse.Namespace:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  %(prog)s                                    # Check staged components.yaml  
+  %(prog)s                                    # Check staged components.yaml
   %(prog)s --force                            # Force check default file
   %(prog)s --file custom/components.yaml      # Check specific file
   %(prog)s --allow-isolated                   # Allow components with no edges
