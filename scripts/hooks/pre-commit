@@ -163,6 +163,7 @@ case $1 in
         echo "Validations performed:"
         echo "  - YAML schema validation"
         echo "  - Prettier formatting (risk-map/yaml/ files only)"
+        echo "  - Ruff linting (Python files only)"
         echo "  - Component edge validation"
         echo "  - Control-to-risk reference validation"
         echo ""
@@ -281,6 +282,63 @@ if [[ $? -ne 0 ]]; then
     VALIDATION_FAILED=1
 fi
 
+# =============================================================================
+# Ruff Linting for Python Files
+# =============================================================================
+
+# Runs ruff linting on Python files
+# Args: none (uses global FORCE_VALIDATE flag)
+# Behavior:
+#   - Normal mode: lints only staged Python files
+#   - Force mode: lints all Python files in the repository
+run_ruff_check() {
+    echo "🔍 Running ruff linting on Python files..."
+    
+    local ruff_failed=0
+    local files_to_check=()
+    
+    if [[ $FORCE_VALIDATE -eq 1 ]]; then
+        # Force mode: check all Python files
+        echo "   Force mode: linting all Python files"
+        if ! ruff check .; then
+            echo "   ❌ Ruff linting failed"
+            ruff_failed=1
+        else
+            echo "   ✅ All Python files passed ruff linting"
+        fi
+    else
+        # Normal mode: check only staged Python files
+        echo "   Normal mode: linting staged Python files"
+        
+        # Get staged Python files
+        while IFS= read -r -d '' file; do
+            if [[ -f "$file" ]]; then
+                files_to_check+=("$file")
+            fi
+        done < <(git diff --cached --name-only -z | grep -z '\.py$')
+        
+        if [[ ${#files_to_check[@]} -gt 0 ]]; then
+            echo "   Checking ${#files_to_check[@]} Python file(s)..."
+            if ! ruff check "${files_to_check[@]}"; then
+                echo "   ❌ Ruff linting failed for staged files"
+                ruff_failed=1
+            else
+                echo "   ✅ All staged Python files passed ruff linting"
+            fi
+        else
+            echo "   No staged Python files to check"
+        fi
+    fi
+    
+    return $ruff_failed
+}
+
+# Run ruff check
+run_ruff_check
+if [[ $? -ne 0 ]]; then
+    VALIDATION_FAILED=1
+fi
+
 echo  # Add blank line for readability
 
 # =============================================================================
@@ -364,6 +422,7 @@ fi
 echo "🎉 All pre-commit validations passed!"
 echo "   ✅ YAML schema validation"
 echo "   ✅ Prettier formatting"
+echo "   ✅ Ruff linting"
 echo "   ✅ Component edge validation"
 echo "   ✅ Control-to-risk reference validation"
 
