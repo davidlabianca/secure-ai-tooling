@@ -85,7 +85,7 @@ jobs:
     
         formatting_failed=0
 
-        YAML_BASE_DIR="file://$(pwd)/risk-map/yaml/"
+        YAML_BASE_DIR="./risk-map/yaml/"
         PRETTIER_CMD="npx prettier"
         PRETTIER_ARGS="--list-different"
 
