@@ -26,16 +26,23 @@ jobs:
       uses: actions/setup-python@v4
       with:
         python-version: '3.11'
-        
-    - name: Install validation dependencies
-      run: |
-        pip install check-jsonschema pyyaml
-        
+    
+    - name: Setup Node
+      uses: actions/setup-node@v5 
+      with: 
+        node-version: '22.x'
+        cache: 'npm'     
+
     - name: Copy validation scripts to working directory
       run: |
         # Copy the scripts from the repo to make them executable in CI
         cp scripts/hooks/validate_component_edges.py .
         cp scripts/hooks/validate_control_risk_references.py .
+
+    - name: Install dependencies
+      run: |
+        pip install -r requirements.txt
+        npm ci  # or npm install'
         
     - name: Run YAML Schema Validation
       run: |
@@ -72,6 +79,30 @@ jobs:
         
         echo "🎉 All YAML schema validations passed!"
         
+    - name: Run YAML Formatting Validation
+      run: |
+        echo "🎨 Running prettier format validation on YAML files..."
+    
+        formatting_failed=0
+
+        YAML_BASE_DIR="file://$(pwd)/risk-map/yaml/"
+        PRETTIER_CMD="npx prettier"
+        PRETTIER_ARGS="--list-different"
+
+        # Set PRETTIER_EXPERIMENTAL_CLI due to a bug in 3.6.x's --list-different 
+        export PRETTIER_EXPERIMENTAL_CLI=1
+        if ! output=$($PRETTIER_CMD $PRETTIER_ARGS $YAML_BASE_DIR 2>&1); then
+            echo "   ❌ Prettier formatting failed for: ${output//$'\n'/, }"
+            formatting_failed=1
+        fi
+            
+        if [[ $formatting_failed -eq 0 ]]; then
+            echo "   ✅ All YAML files formatted successfully"
+        else
+          echo "::error::YAML formatting validation failed"
+          exit 1
+        fi
+
     - name: Run Component Edge Validation
       run: |
         echo "🔗 Running component edge validation..."
@@ -91,7 +122,7 @@ jobs:
           echo "::error::Control-to-risk reference validation failed"
           exit 1
         fi
-        
+    
     - name: Validation Summary
       if: success()
       run: |
