@@ -93,15 +93,11 @@ jobs:
         # Set PRETTIER_EXPERIMENTAL_CLI due to a bug in 3.6.x's --list-different 
         export PRETTIER_EXPERIMENTAL_CLI=1
         if ! output=$($PRETTIER_CMD $PRETTIER_ARGS $YAML_BASE_DIR 2>&1); then
-            echo "   ❌ Prettier formatting failed for: ${output//$'\n'/, }"
-            formatting_failed=1
-        fi
-            
-        if [[ $formatting_failed -eq 0 ]]; then
-            echo "   ✅ All YAML files formatted successfully"
-        else
+          echo "   ❌ Prettier formatting failed for: ${output//$'\n'/, }"
           echo "::error::YAML formatting validation failed"
           exit 1
+        else
+            echo "   ✅ All YAML files formatted successfully"
         fi
 
     - name: Run Component Edge Validation
