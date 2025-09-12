@@ -35,30 +35,72 @@ jobs:
     
     - name: Lint with Ruff
       run: |
-        # Recursive check starting at repo root
-        RUFF="ruff"
-        RUFF_ARGS="check --output-format=github "
-
-        if ! $(${RUFF} ${RUFF_ARGS}); then
-          echo "   ❌ Python linting failed - check output"
-          echo "::error::Python formatting validation failed"
-          exit 1
+        echo "🔍 Running Python linting with Ruff..."
+        
+        lint_failed=false
+        
+        if ! ruff check --output-format=github; then
+          echo "   ❌ Python linting failed - check output above"
+          lint_failed=true
         else
           echo "   ✅ All python files successfully passed linting"
         fi
-      continue-on-error: true
+        
+        # Store linting result for final summary
+        echo "LINT_VALIDATION_FAILED=$lint_failed" >> $GITHUB_ENV
+        
+        if [ "$lint_failed" = true ]; then
+          echo "::error::Python linting validation failed"
+        fi
     
     - name: Test Python
       run: |
-        PYTHON_TEST_DIR="./test"
-
-        pytest --junitxml=junit/test-results.xml
+        echo "🧪 Running Python tests..."
+        
+        test_failed=false
+        
+        if ! pytest --junitxml=junit/test-results.xml; then
+          echo "   ❌ Python tests failed - check output above"
+          test_failed=true
+        else
+          echo "   ✅ All Python tests passed successfully"
+        fi
+        
+        # Store test result for final summary
+        echo "TEST_VALIDATION_FAILED=$test_failed" >> $GITHUB_ENV
+        
+        if [ "$test_failed" = true ]; then
+          echo "::error::Python test validation failed"
+        fi
 
     - name: Validation Summary
-      if: success()
+      if: always()
       run: |
-        echo "🎉 All secure-ai-tooling python validations completed successfully!"
-        echo "  ✅ Python linting validation"
-        echo "  ✅ Python test validation"
+        echo "📋 Python Validation Summary:"
+        
+        overall_failed=false
+        
+        # Check each validation result
+        if [ "$LINT_VALIDATION_FAILED" = "true" ]; then
+          echo "  ❌ Python linting validation"
+          overall_failed=true
+        else
+          echo "  ✅ Python linting validation"
+        fi
+        
+        if [ "$TEST_VALIDATION_FAILED" = "true" ]; then
+          echo "  ❌ Python test validation"
+          overall_failed=true
+        else
+          echo "  ✅ Python test validation"
+        fi
+        
         echo ""
-        echo "The secure-ai-tooling repository maintains full integrity and consistency."
+        if [ "$overall_failed" = "true" ]; then
+          echo "💥 One or more Python validations failed. Please review the errors above."
+          echo "::error::Python validation failed - see summary above"
+          exit 1
+        else
+          echo "🎉 All secure-ai-tooling python validations completed successfully!"
+          echo "The secure-ai-tooling repository maintains full integrity and consistency."
+        fi
