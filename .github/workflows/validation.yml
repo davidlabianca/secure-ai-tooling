@@ -6,14 +6,13 @@ on:
     paths:
       - 'risk-map/yaml/**'
       - 'risk-map/schemas/**'
-      - '.github/workflows/validation.yml'
   push:
     branches: [main, develop]
     paths:
       - 'risk-map/yaml/**'
       - 'risk-map/schemas/**'
 
-jobs:
+jobs: 
   validate-risk-map:
     runs-on: ubuntu-latest
     name: Validate Risk Map Data
@@ -23,19 +22,27 @@ jobs:
       uses: actions/checkout@v4
       
     - name: Set up Python
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v5
       with:
         python-version: '3.11'
-        
-    - name: Install validation dependencies
-      run: |
-        pip install check-jsonschema pyyaml
-        
+        cache: 'pip'
+    
+    - name: Setup Node
+      uses: actions/setup-node@v5 
+      with: 
+        node-version: '22.x'
+        cache: 'npm'     
+
     - name: Copy validation scripts to working directory
       run: |
         # Copy the scripts from the repo to make them executable in CI
         cp scripts/hooks/validate_component_edges.py .
         cp scripts/hooks/validate_control_risk_references.py .
+
+    - name: Install dependencies
+      run: |
+        pip install -r requirements.txt
+        npm ci  # or npm install'
         
     - name: Run YAML Schema Validation
       run: |
@@ -65,39 +72,124 @@ jobs:
           fi
         done
         
+        # Store schema validation result for final summary
+        echo "SCHEMA_VALIDATION_FAILED=$validation_failed" >> $GITHUB_ENV
+        
         if [ "$validation_failed" = true ]; then
           echo "::error::YAML schema validation failed"
-          exit 1
+        else
+          echo "🎉 All YAML schema validations passed!"
         fi
         
-        echo "🎉 All YAML schema validations passed!"
+    - name: Run YAML Formatting Validation
+      run: |
+        echo "🎨 Running prettier format validation on YAML files..."
+    
+        formatting_failed=false
+
+        YAML_BASE_DIR="./risk-map/yaml/"
+        PRETTIER_CMD="npx prettier"
+        PRETTIER_ARGS="--list-different"
+
+        # Set PRETTIER_EXPERIMENTAL_CLI due to a bug in 3.6.x's --list-different 
+        export PRETTIER_EXPERIMENTAL_CLI=1
+        if ! output=$($PRETTIER_CMD $PRETTIER_ARGS $YAML_BASE_DIR 2>&1); then
+          echo "   ❌ Prettier formatting failed for: ${output//$'\n'/, }"
+          formatting_failed=true
+        else
+            echo "   ✅ All YAML files formatted successfully"
+        fi
         
+        # Store formatting validation result for final summary
+        echo "FORMATTING_VALIDATION_FAILED=$formatting_failed" >> $GITHUB_ENV
+        
+        if [ "$formatting_failed" = true ]; then
+          echo "::error::YAML formatting validation failed"
+        fi
+
     - name: Run Component Edge Validation
       run: |
         echo "🔗 Running component edge validation..."
+        
+        edge_validation_failed=false
+        
         if python3 validate_component_edges.py --force; then
           echo "✅ Component edge validation completed successfully"
         else
+          echo "❌ Component edge validation failed"
+          edge_validation_failed=true
+        fi
+        
+        # Store edge validation result for final summary
+        echo "EDGE_VALIDATION_FAILED=$edge_validation_failed" >> $GITHUB_ENV
+        
+        if [ "$edge_validation_failed" = true ]; then
           echo "::error::Component edge validation failed"
-          exit 1
         fi
         
     - name: Run Control-Risk Reference Validation
       run: |
         echo "🔗 Running control-to-risk reference validation..."
+        
+        control_risk_validation_failed=false
+        
         if python3 validate_control_risk_references.py --force; then
           echo "✅ Control-to-risk reference validation completed successfully"
         else
-          echo "::error::Control-to-risk reference validation failed"
-          exit 1
+          echo "❌ Control-to-risk reference validation failed"
+          control_risk_validation_failed=true
         fi
         
+        # Store control-risk validation result for final summary
+        echo "CONTROL_RISK_VALIDATION_FAILED=$control_risk_validation_failed" >> $GITHUB_ENV
+        
+        if [ "$control_risk_validation_failed" = true ]; then
+          echo "::error::Control-to-risk reference validation failed"
+        fi
+    
     - name: Validation Summary
-      if: success()
+      if: always()
       run: |
-        echo "🎉 All CoSAI Risk Map validations completed successfully!"
-        echo "  ✅ YAML schema validation"
-        echo "  ✅ Component edge validation" 
-        echo "  ✅ Control-to-risk reference validation"
+        echo "📋 CoSAI Risk Map Validation Summary:"
+        
+        overall_failed=false
+        
+        # Check each validation result
+        if [ "$SCHEMA_VALIDATION_FAILED" = "true" ]; then
+          echo "  ❌ YAML schema validation"
+          overall_failed=true
+        else
+          echo "  ✅ YAML schema validation"
+        fi
+        
+        if [ "$FORMATTING_VALIDATION_FAILED" = "true" ]; then
+          echo "  ❌ YAML format validation"
+          overall_failed=true
+        else
+          echo "  ✅ YAML format validation"
+        fi
+        
+        if [ "$EDGE_VALIDATION_FAILED" = "true" ]; then
+          echo "  ❌ Component edge validation"
+          overall_failed=true
+        else
+          echo "  ✅ Component edge validation"
+        fi
+        
+        if [ "$CONTROL_RISK_VALIDATION_FAILED" = "true" ]; then
+          echo "  ❌ Control-to-risk reference validation"
+          overall_failed=true
+        else
+          echo "  ✅ Control-to-risk reference validation"
+        fi
+        
         echo ""
-        echo "The Risk Map data maintains full integrity and consistency."
+        if [ "$overall_failed" = "true" ]; then
+          echo "💥 One or more validations failed. Please review the errors above."
+          echo "::error::Risk Map validation failed - see summary above"
+          exit 1
+        else
+          echo "🎉 All CoSAI Risk Map validations completed successfully!"
+          echo "The Risk Map data maintains full integrity and consistency."
+        fi
+
