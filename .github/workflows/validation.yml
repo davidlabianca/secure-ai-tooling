@@ -13,7 +13,7 @@ on:
       - 'risk-map/yaml/**'
       - 'risk-map/schemas/**'
 
-jobs:
+jobs: 
   validate-risk-map:
     runs-on: ubuntu-latest
     name: Validate Risk Map Data
@@ -26,6 +26,7 @@ jobs:
       uses: actions/setup-python@v4
       with:
         python-version: '3.11'
+        cache: 'pip'
     
     - name: Setup Node
       uses: actions/setup-node@v5 
@@ -128,7 +129,9 @@ jobs:
       run: |
         echo "🎉 All CoSAI Risk Map validations completed successfully!"
         echo "  ✅ YAML schema validation"
+        echo "  ✅ YAML format validation"
         echo "  ✅ Component edge validation" 
         echo "  ✅ Control-to-risk reference validation"
         echo ""
         echo "The Risk Map data maintains full integrity and consistency."
+
