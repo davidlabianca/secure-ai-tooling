@@ -147,6 +147,35 @@ jobs:
           echo "::error::Control-to-risk reference validation failed"
         fi
     
+    - name: Validate component graph
+      run: |
+        graph_compare_failed=false
+        TEMP_FILE=$(mktemp)
+        RISKMAP_PATH="./risk-map/docs/risk-map-graph.md"
+
+        if ! python3 validate_component_edges.py --force --to-graph ${TEMP_FILE}; then
+          echo "❌ Component graph generation via validate_component_edges.py failed..."
+          graph_compare_failed=true
+        elif ! output=$(diff -u ${RISKMAP_PATH} ${TEMP_FILE} 2>&1;); then
+          echo "❌ Generated risk-map-graph.md does not match PR risk-map-graph.md..."
+          echo "::error title=Files differ::Differences found between expected and actual files"
+          echo "::group::Diff Output"
+          echo "${output}"
+          echo "::endgroup::"
+          graph_compare_failed=true
+        else
+          echo "✅ Generated graph matches ${RISKMAP_PATH}"
+        fi
+
+        # Store validate component graph result for final summary
+        echo "COMPONENT_GRAPH_VALIDATION_FAILED=$graph_compare_failed" >> $GITHUB_ENV
+        
+        # Cleanup temp file
+        rm -f ${TEMP_FILE}
+        
+        if [ "$graph_compare_failed" = true ]; then
+          echo "::error::Component graph validation failed"
+        fi
     - name: Validation Summary
       if: always()
       run: |
@@ -181,6 +210,13 @@ jobs:
           overall_failed=true
         else
           echo "  ✅ Control-to-risk reference validation"
+        fi
+
+        if [ "$COMPONENT_GRAPH_VALIDATION_FAILED" = "true" ]; then
+          echo "  ❌ Risk-map-graph.md validation"
+          overall_failed=true
+        else
+          echo "  ✅ Risk-map-graph.md reference validation"
         fi
         
         echo ""
