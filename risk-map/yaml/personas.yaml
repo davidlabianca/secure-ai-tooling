@@ -15,22 +15,22 @@
 id: personas
 title: Personas
 description:
-- >
-  The following personas describe who is responsible for enacting the <a href="controls.html">controls</a>
-  that can mitigate each of the <a href="risks.html">risks</a>, based on their
-  use of AI.
+  - >
+    The following personas describe who is responsible for enacting the <a href="controls.html">controls</a>
+    that can mitigate each of the <a href="risks.html">risks</a>, based on their
+    use of AI.
 personas:
-- id: personaModelCreator
-  title: Model Creator
-  description:
-  - >
-    Organizations that either train and tune foundation models for Generative AI,
-    or tune acquired models for more domain-specific tasks.
-- id: personaModelConsumer
-  title: Model Consumer
-  description:
-  - >
-    Organizations that build AI applications, features, or products using models,
-    but do not create or tune the models themselves. The models may be accessed
-    via an API to a managed service, or downloaded and packaged into the application
-    or product being produced.
+  - id: personaModelCreator
+    title: Model Creator
+    description:
+      - >
+        Organizations that either train and tune foundation models for Generative AI,
+        or tune acquired models for more domain-specific tasks.
+  - id: personaModelConsumer
+    title: Model Consumer
+    description:
+      - >
+        Organizations that build AI applications, features, or products using models,
+        but do not create or tune the models themselves. The models may be accessed
+        via an API to a managed service, or downloaded and packaged into the application
+        or product being produced.
