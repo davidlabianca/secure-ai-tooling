@@ -6,13 +6,11 @@ on:
       - '**.py'
       - 'requirements*.txt'
       - 'pyproject.toml'
-      - 'setup.py'
   pull_request:
     paths:
       - '**.py'
       - 'requirements*.txt'
       - 'pyproject.toml'
-      - 'setup.py'
 
 jobs:
   ci-tools-validation:  

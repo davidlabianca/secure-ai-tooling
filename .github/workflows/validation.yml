@@ -6,7 +6,6 @@ on:
     paths:
       - 'risk-map/yaml/**'
       - 'risk-map/schemas/**'
-      - '.github/workflows/validation.yml'
   push:
     branches: [main, develop]
     paths:
