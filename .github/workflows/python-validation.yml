@@ -41,10 +41,10 @@ jobs:
 
         if ! $(${RUFF} ${RUFF_ARGS}); then
           echo "   ❌ Python linting failed - check output"
+          echo "::error::Python formatting validation failed"
           exit 1
         else
           echo "   ✅ All python files successfully passed linting"
-          echo "::error::YAML formatting validation failed"
         fi
       continue-on-error: true
     
