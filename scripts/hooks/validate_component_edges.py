@@ -30,8 +30,11 @@ USAGE:
     For custom file paths:
         python validate_component_edges.py --file path/to/components.yaml
 
-    Generate graph visualization:
+    Generate component graph visualization:
         python validate_component_edges.py --to-graph output.md
+
+    Generate control-to-component graph visualization:
+        python validate_component_edges.py --to-controls-graph controls.md
 
     Generate graph with debug annotations:
         python validate_component_edges.py --to-graph output.md --debug
@@ -48,6 +51,7 @@ COMMAND LINE OPTIONS:
     --allow-isolated      Allow components with no edges (isolated components)
     --quiet, -q           Minimize output (only show errors)
     --to-graph PATH       Output component graph visualization to specified file
+    --to-controls-graph PATH  Output control-to-component graph visualization to specified file
     --debug               Include rank comments in graph output
 
 EXIT CODES:
@@ -123,9 +127,7 @@ class ComponentNode:
     to and from other components. It includes validation to ensure data integrity.
     """
 
-    def __init__(
-        self, title: str, category: str, to_edges: List[str], from_edges: List[str]
-    ) -> None:
+    def __init__(self, title: str, category: str, to_edges: List[str], from_edges: List[str]) -> None:
         """
         Initializes a Component object with validation.
 
@@ -140,29 +142,21 @@ class ComponentNode:
         """
         # Validate and set the title
         if not isinstance(title, str) or not title.strip():
-            raise TypeError(
-                "The 'title' must be a string consisting of at least one printing character."
-            )
+            raise TypeError("The 'title' must be a string consisting of at least one printing character.")
         self.title: str = title
 
         # Validate and set the category
         if not isinstance(category, str) or not category.strip():
-            raise TypeError(
-                "The 'category' must be a string consisting of at least one printing character."
-            )
+            raise TypeError("The 'category' must be a string consisting of at least one printing character.")
         self.category: str = category
 
         # Validate and set 'to_edges'
-        if not isinstance(to_edges, list) or not all(
-            isinstance(edge, str) for edge in to_edges
-        ):
+        if not isinstance(to_edges, list) or not all(isinstance(edge, str) for edge in to_edges):
             raise TypeError("The 'to_edges' must be a list of strings.")
         self.to_edges: List[str] = to_edges
 
         # Validate and set 'from_edges'
-        if not isinstance(from_edges, list) or not all(
-            isinstance(edge, str) for edge in from_edges
-        ):
+        if not isinstance(from_edges, list) or not all(isinstance(edge, str) for edge in from_edges):
             raise TypeError("The 'from_edges' must be a list of strings.")
         self.from_edges: List[str] = from_edges
 
@@ -202,6 +196,98 @@ class ComponentNode:
             and self.to_edges == other.to_edges
             and self.from_edges == other.from_edges
         )
+
+
+class ControlNode:
+    """
+    Encapsulates a control's metadata and its relationships to components and risks.
+    Used for generating control-to-component graphs.
+    """
+
+    def __init__(
+        self,
+        title: str,
+        category: str,
+        components: List[str],
+        risks: List[str],
+        personas: List[str],
+    ) -> None:
+        """
+        Initializes a ControlNode with validation.
+
+        Args:
+            title: The control's title
+            category: The control category (controlsData, controlsInfrastructure, etc.)
+            components: List of component IDs this control applies to
+            risks: List of risk IDs this control mitigates
+            personas: List of persona IDs responsible for this control
+
+        Raises:
+            TypeError: If arguments are not of the expected type.
+        """
+        if not isinstance(title, str) or not title.strip():
+            raise TypeError("Control 'title' must be a non-empty string.")
+        self.title: str = title
+
+        if not isinstance(category, str) or not category.strip():
+            raise TypeError("Control 'category' must be a non-empty string.")
+        self.category: str = category
+
+        if not isinstance(components, list) or not all(isinstance(c, str) for c in components):
+            raise TypeError("Control 'components' must be a list of strings.")
+        self.components: List[str] = components
+
+        if not isinstance(risks, list) or not all(isinstance(r, str) for r in risks):
+            raise TypeError("Control 'risks' must be a list of strings.")
+        self.risks: List[str] = risks
+
+        if not isinstance(personas, list) or not all(isinstance(p, str) for p in personas):
+            raise TypeError("Control 'personas' must be a list of strings.")
+        self.personas: List[str] = personas
+
+    def __repr__(self) -> str:
+        return (
+            f"ControlNode(title='{self.title}', category='{self.category}', "
+            f"components={self.components}, risks={self.risks}, personas={self.personas})"
+        )
+
+    def __str__(self) -> str:
+        return (
+            f"Control '{self.title}':\n"
+            f"  Category: {self.category}\n"
+            f"  Components: {self.components}\n"
+            f"  Risks: {self.risks}\n"
+            f"  Personas: {self.personas}"
+        )
+
+
+class RiskNode:
+    """
+    Encapsulates a risk's metadata for graph generation.
+    Used for risk-to-control visualization.
+    """
+
+    def __init__(self, title: str, category: str = "") -> None:
+        """
+        Initializes a RiskNode with validation.
+
+        Args:
+            title: The risk's title
+            category: The risk category (optional for now)
+        """
+        if not isinstance(title, str) or not title.strip():
+            raise TypeError("Risk 'title' must be a non-empty string.")
+        self.title: str = title
+
+        if not isinstance(category, str):
+            raise TypeError("Risk 'category' must be a string.")
+        self.category: str = category
+
+    def __repr__(self) -> str:
+        return f"RiskNode(title='{self.title}', category='{self.category}')"
+
+    def __str__(self) -> str:
+        return f"Risk '{self.title}' (Category: {self.category or 'Unknown'})"
 
 
 class ComponentEdgeValidator:
@@ -292,23 +378,17 @@ class ComponentEdgeValidator:
 
             component_id: str | None = component.get("id")
             if not component_id:
-                self.log(
-                    f"Skipping component at index {i}: missing 'id' field", "warning"
-                )
+                self.log(f"Skipping component at index {i}: missing 'id' field", "warning")
                 continue
 
             if not isinstance(component_id, str):
-                self.log(
-                    f"Skipping component at index {i}: 'id' must be a string", "warning"
-                )
+                self.log(f"Skipping component at index {i}: 'id' must be a string", "warning")
                 continue
 
             # Extract title
             component_title: str | None = component.get("title")
             if not component_title:
-                self.log(
-                    f"Skipping component at index {i}: missing 'title' field", "warning"
-                )
+                self.log(f"Skipping component at index {i}: missing 'title' field", "warning")
                 continue
 
             if not isinstance(component_title, str):
@@ -411,9 +491,7 @@ class ComponentEdgeValidator:
 
         return forward_map, reverse_map
 
-    def find_isolated_components(
-        self, components: dict[str, ComponentNode]
-    ) -> set[str]:
+    def find_isolated_components(self, components: dict[str, ComponentNode]) -> set[str]:
         """
         Identify components with no edges (neither to nor from).
 
@@ -469,9 +547,7 @@ class ComponentEdgeValidator:
         # Check forward -> reverse consistency
         for component, targets in forward_map.items():
             if component not in reverse_map:
-                errors.append(
-                    f"Component '{component}' has outgoing edges but no corresponding incoming edges"
-                )
+                errors.append(f"Component '{component}' has outgoing edges but no corresponding incoming edges")
             else:
                 expected_incoming = set(targets)
                 actual_incoming = set(reverse_map[component])
@@ -491,9 +567,7 @@ class ComponentEdgeValidator:
         # Check reverse -> forward consistency
         for component in reverse_map.keys():
             if component not in forward_map:
-                errors.append(
-                    f"Component '{component}' has incoming edges but no corresponding outgoing edges"
-                )
+                errors.append(f"Component '{component}' has incoming edges but no corresponding outgoing edges")
 
         return errors
 
@@ -540,9 +614,7 @@ class ComponentEdgeValidator:
             # Check for isolated components
             isolated = self.find_isolated_components(self.components)
             if isolated and not self.allow_isolated:
-                self.log(
-                    f"Found {len(isolated)} isolated components (no edges):", "error"
-                )
+                self.log(f"Found {len(isolated)} isolated components (no edges):", "error")
                 for component in sorted(isolated):
                     self.log(f"  - {component}", "error")
                 success = False
@@ -554,14 +626,10 @@ class ComponentEdgeValidator:
 
             # Check edge consistency
             forward_map, reverse_map = self.build_edge_maps(self.components)
-            consistency_errors = self.validate_edge_consistency(
-                forward_map, reverse_map
-            )
+            consistency_errors = self.validate_edge_consistency(forward_map, reverse_map)
 
             if consistency_errors:
-                self.log(
-                    f"Found {len(consistency_errors)} edge consistency errors:", "error"
-                )
+                self.log(f"Found {len(consistency_errors)} edge consistency errors:", "error")
                 for error in consistency_errors:
                     self.log(f"  - {error}", "error")
                 success = False
@@ -653,17 +721,13 @@ class ComponentGraph:
         for src, targets in self.forward_map.items():
             src_title = self.components[src].title if src in self.components else src
             for tgt in targets:
-                tgt_title = (
-                    self.components[tgt].title if tgt in self.components else tgt
-                )
+                tgt_title = self.components[tgt].title if tgt in self.components else tgt
 
                 # Add connection with optional rank comments
                 if debug:
                     src_rank = node_ranks.get(src, 0)
                     tgt_rank = node_ranks.get(tgt, 0)
-                    graph_content.append(
-                        f"    %% {src} rank {src_rank}, {tgt} rank {tgt_rank}"
-                    )
+                    graph_content.append(f"    %% {src} rank {src_rank}, {tgt} rank {tgt_rank}")
                 graph_content.append(f"    {src}[{src_title}] --> {tgt}[{tgt_title}]")
 
         # Add styling
@@ -688,14 +752,9 @@ class ComponentGraph:
             return category.replace("components", "").strip().title()
         return "Unknown"
 
-    def _get_first_component_in_category(
-        self, components_by_category: dict, target_category: str
-    ) -> str | None:
+    def _get_first_component_in_category(self, components_by_category: dict, target_category: str) -> str | None:
         """Get the first component ID in the specified category."""
-        if (
-            target_category in components_by_category
-            and components_by_category[target_category]
-        ):
+        if target_category in components_by_category and components_by_category[target_category]:
             return components_by_category[target_category][0][0]
         return None
 
@@ -761,17 +820,11 @@ class ComponentGraph:
                         # Node has no incoming edges but has outgoing edges (not isolated)
                         # Find the lowest ranked target and set rank = target_rank - 1
                         targets = self.forward_map[node]
-                        ranked_targets = [
-                            target for target in targets if target in ranks
-                        ]
+                        ranked_targets = [target for target in targets if target in ranks]
 
                         if ranked_targets:
-                            min_target_rank = min(
-                                ranks[target] for target in ranked_targets
-                            )
-                            ranks[node] = max(
-                                0, min_target_rank - 1
-                            )  # Ensure non-negative
+                            min_target_rank = min(ranks[target] for target in ranked_targets)
+                            ranks[node] = max(0, min_target_rank - 1)  # Ensure non-negative
                             changed = True
 
             if not changed:
@@ -822,8 +875,7 @@ class ComponentGraph:
         if components:
             # Find lowest and highest rank components in this subgraph
             components_with_ranks = [
-                (comp_id, comp_title, node_ranks.get(comp_id, 0))
-                for comp_id, comp_title in components
+                (comp_id, comp_title, node_ranks.get(comp_id, 0)) for comp_id, comp_title in components
             ]
             lowest_rank_comp = min(components_with_ranks, key=lambda x: x[2])
             highest_rank_comp = max(components_with_ranks, key=lambda x: x[2])
@@ -844,9 +896,7 @@ class ComponentGraph:
             # Add anchor node
             anchor_name = f"{category}Anchor:::hidden"
             anchor_tildes = "~" * anchor_tilde_count
-            subgraph_lines.append(
-                f"    {anchor_name} {anchor_tildes} {lowest_rank_comp[0]}"
-            )
+            subgraph_lines.append(f"    {anchor_name} {anchor_tildes} {lowest_rank_comp[0]}")
 
             # Add all components with optional rank comments
             for comp_id, comp_title in components:
@@ -861,9 +911,7 @@ class ComponentGraph:
             subgraph_lines.append(f"    {highest_rank_comp[0]} {end_tildes} {end_name}")
 
             if debug:
-                subgraph_lines.append(
-                    f"%% anchor_incr={anchor_incr}, end_incr={end_incr}"
-                )
+                subgraph_lines.append(f"%% anchor_incr={anchor_incr}, end_incr={end_incr}")
 
         subgraph_lines.append("end")
         return subgraph_lines
@@ -872,9 +920,252 @@ class ComponentGraph:
         return self.graph
 
 
-def get_staged_yaml_files(
-    target_file: Path | None = None, force_check: bool = False
-) -> List[Path]:
+class ControlGraph:
+    """
+    Generates Mermaid graph visualization for control-to-component relationships.
+    """
+
+    def __init__(
+        self,
+        controls: Dict[str, ControlNode],
+        components: Dict[str, ComponentNode],
+        debug: bool = False,
+    ):
+        """
+        Initialize ControlGraph with controls and components data.
+
+        Args:
+            controls: Dictionary mapping control IDs to ControlNode objects
+            components: Dictionary mapping component IDs to ComponentNode objects
+            debug: Whether to include debug information in output
+        """
+        self.controls = controls
+        self.components = components
+        self.debug = debug
+
+        # Build mappings for graph generation
+        self.control_to_component_map = self._build_control_component_mapping()
+        self.controls_mapped_to_all = self._track_controls_mapped_to_all()
+        self.control_by_category = self._group_controls_by_category()
+        self.component_by_category = self._group_components_by_category()
+
+    def _build_control_component_mapping(self) -> Dict[str, List[str]]:
+        """
+        Build mapping of control IDs to component IDs they apply to.
+        Handles special cases: 'all', 'none', and specific component lists.
+
+        Returns:
+            Dictionary mapping control IDs to lists of component IDs
+        """
+        mapping = {}
+        all_component_ids = list(self.components.keys())
+
+        for control_id, control in self.controls.items():
+            if control.components == ["all"]:
+                # Control applies to all components
+                mapping[control_id] = all_component_ids.copy()
+            elif control.components == ["none"] or not control.components:
+                # Control applies to no components
+                mapping[control_id] = []
+            else:
+                # Control applies to specific components
+                # Filter to only include components that actually exist
+                valid_components = [comp_id for comp_id in control.components if comp_id in self.components]
+                mapping[control_id] = valid_components
+
+        return mapping
+
+    def _track_controls_mapped_to_all(self) -> Set[str]:
+        """
+        Track which controls were originally mapped to 'all' components.
+
+        Returns:
+            Set of control IDs that were mapped to 'all'
+        """
+        controls_with_all = set()
+        for control_id, control in self.controls.items():
+            if control.components == ["all"]:
+                controls_with_all.add(control_id)
+        return controls_with_all
+
+    def _group_controls_by_category(self) -> Dict[str, List[str]]:
+        """Group control IDs by their category."""
+        groups = {}
+        for control_id, control in self.controls.items():
+            category = control.category
+            if category not in groups:
+                groups[category] = []
+            groups[category].append(control_id)
+        return groups
+
+    def _group_components_by_category(self) -> Dict[str, List[str]]:
+        """Group component IDs by their category."""
+        groups = {}
+        for comp_id, component in self.components.items():
+            category = component.category
+            if category not in groups:
+                groups[category] = []
+            groups[category].append(comp_id)
+        return groups
+
+    def _get_category_display_name(self, category: str) -> str:
+        """Convert category ID to display name."""
+        category_names = {
+            # Control categories
+            "controlsData": "Data Controls",
+            "controlsInfrastructure": "Infrastructure Controls",
+            "controlsModel": "Model Controls",
+            "controlsApplication": "Application Controls",
+            "controlsAssurance": "Assurance Controls",
+            "controlsGovernance": "Governance Controls",
+            # Component categories
+            "componentsData": "Data Components",
+            "componentsInfrastructure": "Infrastructure Components",
+            "componentsModel": "Model Components",
+            "componentsApplication": "Application Components",
+        }
+        return category_names.get(category, category.title())
+
+    def build_controls_graph(self) -> str:
+        """
+        Build Mermaid graph showing control-to-component relationships.
+
+        Returns:
+            Mermaid graph syntax as a string
+        """
+        lines = [
+            "graph LR",
+            "    classDef hidden display: none;",
+            "    classDef allControl stroke:#4285f4,stroke-width:2px,stroke-dasharray: 5 5;",
+            "",
+        ]
+
+        # Add control subgraphs
+        for category, control_ids in self.control_by_category.items():
+            if not control_ids:
+                continue
+
+            category_name = self._get_category_display_name(category)
+            lines.append(f'    subgraph "{category_name}"')
+
+            for control_id in sorted(control_ids):
+                control = self.controls[control_id]
+                lines.append(f"        {control_id}[{control.title}]")
+
+            lines.append("    end")
+            lines.append("")
+
+        # Add component subgraphs
+        for category, comp_ids in self.component_by_category.items():
+            if not comp_ids:
+                continue
+
+            category_name = self._get_category_display_name(category)
+            lines.append(f'    subgraph "{category_name}"')
+
+            for comp_id in sorted(comp_ids):
+                component = self.components[comp_id]
+                lines.append(f"        {comp_id}[{component.title}]")
+
+            lines.append("    end")
+            lines.append("")
+
+        # Add control-to-component relationships
+        lines.append("    %% Control to Component relationships")
+        for control_id, component_ids in self.control_to_component_map.items():
+            if not component_ids:  # Skip controls with no component mappings
+                continue
+
+            # Check if this control was originally mapped to "all"
+            is_all_control = control_id in self.controls_mapped_to_all
+
+            for comp_id in sorted(component_ids):
+                if comp_id in self.components:  # Ensure component exists
+                    if is_all_control:
+                        # Use dotted arrow for controls mapped to "all"
+                        lines.append(f"    {control_id} -.-> {comp_id}")
+                    else:
+                        # Use solid arrow for specific control mappings
+                        lines.append(f"    {control_id} --> {comp_id}")
+
+        # Apply styling to controls that were mapped to "all"
+        lines.append("")
+        lines.append("    %% Apply styling to controls mapped to 'all'")
+        for control_id in sorted(self.controls_mapped_to_all):
+            if control_id in self.control_to_component_map and self.control_to_component_map[control_id]:
+                lines.append(f"    {control_id} :::allControl")
+
+        return "\n".join(lines)
+
+    def to_mermaid(self) -> str:
+        """Generate the Mermaid graph output."""
+        return self.build_controls_graph()
+
+
+def parse_controls_yaml(file_path: Path = None) -> Dict[str, ControlNode]:
+    """
+    Parse controls.yaml file and return dictionary of ControlNode objects.
+
+    Args:
+        file_path: Path to controls.yaml file. Defaults to risk-map/yaml/controls.yaml
+
+    Returns:
+        Dictionary mapping control IDs to ControlNode objects
+
+    Raises:
+        FileNotFoundError: If controls.yaml file doesn't exist
+        yaml.YAMLError: If YAML parsing fails
+        KeyError: If required fields are missing
+    """
+    if file_path is None:
+        file_path = Path("risk-map/yaml/controls.yaml")
+
+    if not file_path.exists():
+        raise FileNotFoundError(f"Controls file not found: {file_path}")
+
+    try:
+        with open(file_path, "r", encoding="utf-8") as f:
+            data = yaml.safe_load(f)
+
+        controls = {}
+
+        for control_data in data.get("controls", []):
+            control_id = control_data["id"]
+            title = control_data["title"]
+            category = control_data["category"]
+
+            # Handle components field - can be list, "all", or "none"
+            components_raw = control_data.get("components", [])
+            if isinstance(components_raw, str):
+                components = [components_raw]  # Convert "all" or "none" to list
+            elif isinstance(components_raw, list):
+                components = components_raw
+            else:
+                components = []
+
+            # Handle risks and personas fields
+            risks = control_data.get("risks", [])
+            personas = control_data.get("personas", [])
+
+            # Ensure all fields are lists of strings
+            if not isinstance(risks, list):
+                risks = []
+            if not isinstance(personas, list):
+                personas = []
+
+            controls[control_id] = ControlNode(
+                title=title, category=category, components=components, risks=risks, personas=personas
+            )
+
+        return controls
+
+    except yaml.YAMLError as e:
+        raise yaml.YAMLError(f"Error parsing controls YAML: {e}")
+    except KeyError as e:
+        raise KeyError(f"Missing required field in controls.yaml: {e}")
+
+
+def get_staged_yaml_files(target_file: Path | None = None, force_check: bool = False) -> List[Path]:
     """
     Get YAML files that are staged for commit or force check specific file.
 
@@ -905,9 +1196,7 @@ def get_staged_yaml_files(
             check=True,
         )
 
-        staged_files = (
-            result.stdout.strip().split("\n") if result.stdout.strip() else []
-        )
+        staged_files = result.stdout.strip().split("\n") if result.stdout.strip() else []
 
         # Filter for our target file
         if str(target_file) in staged_files and target_file.exists():
@@ -940,7 +1229,8 @@ Examples:
   %(prog)s --force                            # Force check default file
   %(prog)s --file custom/components.yaml      # Check specific file
   %(prog)s --allow-isolated                   # Allow components with no edges
-  %(prog)s --to-graph graph.md                # Output graph as .md code block
+  %(prog)s --to-graph graph.md                # Output component graph as .md code block
+  %(prog)s --to-controls-graph controls.md    # Output control-to-component graph
   %(prog)s --quiet                            # Minimal output
   %(prog)s --help                             # Show this help
 
@@ -971,9 +1261,7 @@ Exit Codes:
         help="Allow components with no edges (isolated components)",
     )
 
-    parser.add_argument(
-        "--quiet", "-q", action="store_true", help="Minimize output (only show errors)"
-    )
+    parser.add_argument("--quiet", "-q", action="store_true", help="Minimize output (only show errors)")
 
     parser.add_argument(
         "--to-graph",
@@ -982,8 +1270,12 @@ Exit Codes:
     )
 
     parser.add_argument(
-        "--debug", action="store_true", help="Include rank comments in graph output"
+        "--to-controls-graph",
+        type=Path,
+        help="Output control-to-component graph visualization to specified file",
     )
+
+    parser.add_argument("--debug", action="store_true", help="Include rank comments in graph output")
 
     return parser.parse_args()
 
@@ -999,9 +1291,7 @@ def main() -> None:
         args = parse_args()
 
         # Initialize validator
-        validator = ComponentEdgeValidator(
-            allow_isolated=args.allow_isolated, verbose=not args.quiet
-        )
+        validator = ComponentEdgeValidator(allow_isolated=args.allow_isolated, verbose=not args.quiet)
 
         if not args.quiet:
             if args.force:
@@ -1040,9 +1330,7 @@ def main() -> None:
             print("✅ All YAML files passed component edge validation")
 
         if args.to_graph:
-            graph = ComponentGraph(
-                validator.forward_map, validator.components, debug=args.debug
-            )
+            graph = ComponentGraph(validator.forward_map, validator.components, debug=args.debug)
             try:
                 graph_output = graph.to_mermaid()
                 # Write graph_output to file
@@ -1052,6 +1340,22 @@ def main() -> None:
                 print(f"   Graph visualization saved to {args.to_graph}")
             except Exception as e:
                 print(f"⚠️  Failed to generate graph: {e}")
+
+        if args.to_controls_graph:
+            try:
+                # Parse controls and generate controls graph
+                controls = parse_controls_yaml()
+                control_graph = ControlGraph(controls, validator.components, debug=args.debug)
+
+                controls_graph_output = control_graph.to_mermaid()
+
+                # Write controls graph to file
+                with open(args.to_controls_graph, "w", encoding="utf-8") as f:
+                    f.write(controls_graph_output)
+
+                print(f"   Controls graph visualization saved to {args.to_controls_graph}")
+            except Exception as e:
+                print(f"⚠️  Failed to generate controls graph: {e}")
 
         sys.exit(0)
 
