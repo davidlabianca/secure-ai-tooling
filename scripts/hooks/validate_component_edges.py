@@ -996,7 +996,19 @@ class ControlGraph:
                 remaining_components = set(valid_components)
 
                 # Check each category to see if control covers all components in that category
+                # Start with sub-categories first (more specific), then main categories
+                categories_to_check = []
+
+                # Add sub-categories first
+                if "componentsModelInfrastructure" in self.component_by_category:
+                    categories_to_check.append("componentsModelInfrastructure")
+
+                # Add main categories (excluding the ones that have sub-categories processed)
                 for category in self.component_by_category.keys():
+                    if category != "componentsModelInfrastructure":
+                        categories_to_check.append(category)
+
+                for category in categories_to_check:
                     if self._maps_to_full_category(valid_components, category):
                         # Control covers all components in this category - use category-level mapping
                         optimized_mapping.append(category)
@@ -1035,13 +1047,31 @@ class ControlGraph:
         return groups
 
     def _group_components_by_category(self) -> Dict[str, List[str]]:
-        """Group component IDs by their category."""
+        """Group component IDs by their category and sub-categories."""
         groups = {}
+
+        # Initialize main categories
         for comp_id, component in self.components.items():
             category = component.category
             if category not in groups:
                 groups[category] = []
             groups[category].append(comp_id)
+
+        # Create sub-category for model infrastructure components
+        if "componentsInfrastructure" in groups:
+            model_infra_components = [
+                comp_id for comp_id in groups["componentsInfrastructure"]
+                if comp_id.startswith("componentModel") and not comp_id == "componentModelFrameworksAndCode"
+            ]
+
+            if model_infra_components:
+                groups["componentsModelInfrastructure"] = model_infra_components
+                # Remove model components from main infrastructure category
+                groups["componentsInfrastructure"] = [
+                    comp_id for comp_id in groups["componentsInfrastructure"]
+                    if not comp_id.startswith("componentModel") or comp_id == "componentModelFrameworksAndCode"
+                ]
+
         return groups
 
     def _get_category_display_name(self, category: str) -> str:
@@ -1059,6 +1089,7 @@ class ControlGraph:
             "componentsInfrastructure": "Infrastructure Components",
             "componentsModel": "Model Components",
             "componentsApplication": "Application Components",
+            "componentsModelInfrastructure": "Model Infrastructure",
         }
         return category_names.get(category, category.title())
 
@@ -1097,25 +1128,62 @@ class ControlGraph:
 
         # Add components subgraph as container for all components subgraphs
         lines.append("    subgraph components")
-        # Add component subgraphs
+        # Add component subgraphs with nested structure
         for category, comp_ids in self.component_by_category.items():
             if not comp_ids:
                 continue
 
             category_name = self._get_category_display_name(category)
-            lines.append(f'    subgraph {category} ["{category_name}"]')
 
-            for comp_id in sorted(comp_ids):
-                component = self.components[comp_id]
-                lines.append(f"        {comp_id}[{component.title}]")
+            # Handle nested subgraph for model infrastructure
+            if category == "componentsInfrastructure":
+                lines.append(f'    subgraph {category} ["{category_name}"]')
 
-            lines.append("    end")
-            lines.append("")
+                # Add non-model infrastructure components first
+                for comp_id in sorted(comp_ids):
+                    component = self.components[comp_id]
+                    lines.append(f"        {comp_id}[{component.title}]")
+
+                # Add nested model infrastructure subgraph
+                if "componentsModelInfrastructure" in self.component_by_category:
+                    model_infra_category = "componentsModelInfrastructure"
+                    model_infra_name = self._get_category_display_name(model_infra_category)
+                    model_infra_comps = self.component_by_category[model_infra_category]
+
+                    lines.append(f'        subgraph {model_infra_category} ["{model_infra_name}"]')
+                    for comp_id in sorted(model_infra_comps):
+                        component = self.components[comp_id]
+                        lines.append(f"            {comp_id}[{component.title}]")
+                    lines.append("        end")
+
+                lines.append("    end")
+                lines.append("")
+
+            elif category == "componentsModelInfrastructure":
+                # Skip - handled as nested subgraph above
+                continue
+
+            else:
+                # Regular category subgraph
+                lines.append(f'    subgraph {category} ["{category_name}"]')
+
+                for comp_id in sorted(comp_ids):
+                    component = self.components[comp_id]
+                    lines.append(f"        {comp_id}[{component.title}]")
+
+                lines.append("    end")
+                lines.append("")
         lines.append("    end")
         lines.append("")
 
         # Add control-to-component relationships
         lines.append("    %% Control to Component relationships")
+
+        # Track edge indices for styling
+        edge_index = 0
+        all_control_edges = []  # Edges from controls mapped to "all"
+        subgraph_edges = []     # Edges targeting subgraphs/categories
+
         for control_id, component_ids in self.control_to_component_map.items():
             if not component_ids:  # Skip controls with no component mappings
                 continue
@@ -1124,12 +1192,16 @@ class ControlGraph:
                 if comp_id == "components":
                     # This is a mapping to the components container (for 'all' controls)
                     lines.append(f"    {control_id} -.-> {comp_id}")
+                    all_control_edges.append(edge_index)
                 elif comp_id in self.component_by_category.keys():
-                    # This is a category-level mapping
+                    # This is a category-level mapping (including sub-categories)
                     lines.append(f"    {control_id} --> {comp_id}")
+                    subgraph_edges.append(edge_index)
                 elif comp_id in self.components:
                     # This is an individual component mapping
                     lines.append(f"    {control_id} --> {comp_id}")
+
+                edge_index += 1
 
         # Apply styling to controls that were mapped to "all"
         lines.append("")
@@ -1138,15 +1210,30 @@ class ControlGraph:
             if control_id in self.control_to_component_map and self.control_to_component_map[control_id]:
                 lines.append(f"    {control_id}:::allControl")
 
-        # Add styling
+        # Add edge styling
+        lines.append("")
+        lines.append("    %% Edge styling")
+
+        # Style edges from 'all' controls (dotted, thick, blue)
+        if all_control_edges:
+            edge_list = ",".join(map(str, all_control_edges))
+            lines.append(f"    linkStyle {edge_list} stroke:#4285f4,stroke-width:3px,stroke-dasharray: 8 4")
+
+        # Style edges to subgraphs/categories (solid, thick, green)
+        if subgraph_edges:
+            edge_list = ",".join(map(str, subgraph_edges))
+            lines.append(f"    linkStyle {edge_list} stroke:#34a853,stroke-width:2px")
+
+        # Add node styling
         lines.extend([
             "",
-            "%% Style definitions",
+            "%% Node style definitions",
             "    style components fill:#f0f0f0,stroke:#666,stroke-width:3px,stroke-dasharray: 10 5",
             "    style componentsInfrastructure fill:#e6f3e6,stroke:#333,stroke-width:2px",
             "    style componentsData fill:#fff5e6,stroke:#333,stroke-width:2px",
             "    style componentsApplication fill:#e6f0ff,stroke:#333,stroke-width:2px",
             "    style componentsModel fill:#ffe6e6,stroke:#333,stroke-width:2px",
+            "    style componentsModelInfrastructure fill:#d4e6d4,stroke:#333,stroke-width:1px",
         ])
 
         lines.append("```")
