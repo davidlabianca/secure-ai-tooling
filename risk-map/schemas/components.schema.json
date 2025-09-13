@@ -40,7 +40,7 @@
             "componentDataStorage",
             "componentModelFrameworksAndCode",
             "componentModelEvaluation",
-            "componentTrainingTuning",
+            "componentModelTrainingTuning",
             "componentModelStorage",
             "componentModelServing",
             "componentTheModel",

@@ -46,7 +46,7 @@ controls:
       - personaModelCreator
     components:
       - componentOutputHandling
-      - componentTrainingTuning
+      - componentModelTrainingTuning
       - componentModelEvaluation
     risks:
       - SDD
@@ -62,7 +62,7 @@ controls:
     components:
       - componentDataSources
       - componentTrainingData
-      - componentTrainingTuning
+      - componentModelTrainingTuning
       - componentModelEvaluation
     risks:
       - ISD
@@ -108,7 +108,7 @@ controls:
     components:
       - componentModelServing
       - componentModelEvaluation
-      - componentTrainingTuning
+      - componentModelTrainingTuning
       - componentModelStorage
     risks:
       - DP
@@ -127,7 +127,7 @@ controls:
     components:
       - componentModelServing
       - componentModelEvaluation
-      - componentTrainingTuning
+      - componentModelTrainingTuning
       - componentModelStorage
     risks:
       - DP
@@ -146,7 +146,7 @@ controls:
     components:
       - componentModelServing
       - componentModelEvaluation
-      - componentTrainingTuning
+      - componentModelTrainingTuning
       - componentModelStorage
     risks:
       - DP
@@ -164,7 +164,7 @@ controls:
       - personaModelConsumer
     components:
       - componentModelServing
-      - componentTrainingTuning
+      - componentModelTrainingTuning
       - componentModelEvaluation
       - componentModelStorage
     risks:
