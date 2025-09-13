@@ -4,13 +4,28 @@ Development tools and utilities for this project.
 ## Git Hooks
 
 ### Setup
-Install the pre-commit hook (one-time setup):
+
+**Prerequisites:**
+- Python 3.10 or higher
+- Node.js and npm
+
+Install dependencies and pre-commit hook (one-time setup):
 ```bash
+# Install required Python packages
+pip install -r requirements.txt
+
+# Install Node.js dependencies (prettier, etc.)
+npm install
+
+# Install ruff (Python linter)
+pip install ruff
+
+# Install the pre-commit hook
 ./install-precommit-hook.sh
 ```
 
 ### What it does
-The pre-commit hook runs three validations before allowing commits:
+The pre-commit hook runs five validations before allowing commits:
 
 #### 1. YAML Schema Validation
 Validates all YAML files against their corresponding JSON schemas.
@@ -22,11 +37,45 @@ Validates all YAML files against their corresponding JSON schemas.
 - `yaml/risks.yaml` → `schemas/risks.schema.json`
 - `yaml/self-assessment.yaml` → `schemas/self-assessment.schema.json`
 
-#### 2. Component Edge Validation
-Validates the consistency of component relationships in `components.yaml`:
+#### 2. Prettier YAML Formatting
+Automatically formats YAML files in the `risk-map/yaml/` directory using Prettier to ensure consistent code style.
+
+**Behavior:**
+- **Normal mode**: Formats only staged YAML files in `risk-map/yaml/`
+- **Force mode**: Formats all YAML files in `risk-map/yaml/`
+- **Auto-staging**: Formatted files are automatically re-staged in normal mode
+
+**Files formatted:**
+- `risk-map/yaml/components.yaml`
+- `risk-map/yaml/controls.yaml`
+- `risk-map/yaml/personas.yaml`
+- `risk-map/yaml/risks.yaml`
+- `risk-map/yaml/self-assessment.yaml`
+
+#### 3. Ruff Python Linting
+Runs ruff linting on Python files to enforce code quality and style standards.
+
+**Behavior:**
+- **Normal mode**: Lints only staged Python files
+- **Force mode**: Lints all Python files in the repository
+- **Strict enforcement**: Commit fails if any linting issues are found
+
+**Configuration**: Uses the project's `pyproject.toml` or `ruff.toml` configuration file.
+
+#### 4. Component Edge Validation & Graph Generation
+Validates the consistency of component relationships in `components.yaml` and generates visual graphs:
+
+**Validation Features:**
 - **Edge consistency**: Ensures that if Component A has `to: [B]`, then Component B has `from: [A]`
 - **Bidirectional matching**: Verifies that all `to` edges have corresponding `from` edges and vice versa
 - **Isolated component detection**: Identifies components with no edges (neither `to` nor `from`)
+
+**Graph Generation Features:**
+- **Automatic generation**: When `components.yaml` is staged for commit, automatically generates `./risk-map/docs/risk-map-graph.md`
+- **Topological ranking**: Components are ranked with `componentDataSources` always at rank 1
+- **Category-based subgraphs**: Organizes components into Data, Infrastructure, Model, and Application subgraphs
+- **Mermaid format**: Generates Mermaid-compatible diagrams with color coding and dynamic spacing
+- **Auto-staging**: Generated graph is automatically added to staged files for inclusion in commit
 
 **Example validation:**
 ```yaml
@@ -41,7 +90,7 @@ components:
       from: [componentA]  # ✅ Matches componentA's 'to' edge
 ```
 
-#### 3. Control-to-Risk Reference Validation
+#### 5. Control-to-Risk Reference Validation
 Validates cross-reference consistency between `controls.yaml` and `risks.yaml`:
 - **Bidirectional consistency**: Ensures that if a control lists a risk, that risk also references the control
 - **Isolated entry detection**: Finds controls with no risk references or risks with no control references
@@ -67,8 +116,25 @@ risks:
 ```
 
 ### Requirements
-- `check-jsonschema`: Install with `pip install check-jsonschema`
-- `python3` with `pyyaml`: Install with `pip install pyyaml`
+Install all required Python packages:
+```bash
+pip install -r requirements.txt
+```
+
+**Required packages** (from `requirements.txt`):
+- `PyYAML` - YAML file parsing and manipulation
+- `check-jsonschema` - JSON schema validation for YAML files
+- `pytest` - Testing framework for validation scripts
+- `ruff` - Python linting and formatting
+
+**Additional dependencies** (from `package.json`):
+- `prettier` - Code formatting for YAML files
+
+**Individual installation** (if needed):
+```bash
+pip install PyYAML check-jsonschema pytest ruff
+npm install prettier
+```
 
 ### Files
 - `hooks/pre-commit` - The main git hook script that orchestrates all validations
@@ -77,12 +143,55 @@ risks:
 - `install-precommit-hook.sh` - Installs all hooks to your local `.git/hooks/`
 
 ### Validation Flow
-When you commit changes to YAML files, the hook will:
+When you commit changes, the hook will:
 
 1. **Schema Validation** - Check YAML structure and data types
-2. **Edge Validation** - Verify component relationship consistency
-3. **Control-Risk Validation** - Verify control-risk cross-reference consistency
-4. **Block commit** if any validation fails
+2. **Prettier Formatting** - Format YAML files in `risk-map/yaml/` and re-stage them
+3. **Ruff Linting** - Lint Python files for code quality
+4. **Edge Validation** - Verify component relationship consistency
+5. **Graph Generation** - If `components.yaml` changed, generate and stage `./risk-map/docs/risk-map-graph.md`
+6. **Control-Risk Validation** - Verify control-risk cross-reference consistency
+7. **Block commit** if any validation fails
+
+**Note**: Graph generation only occurs when `components.yaml` is staged for commit, not in `--force` mode.
+
+#### Manual Validation of Unstaged Files
+The `pre-commit` hook and all individual validation scripts support the `--force` flag to validate all files regardless of their git staging status (useful during development).
+
+```bash
+# Validating unstaged files during development...
+# Note: --force validates all relevant files, not just those staged for commit
+
+# Run all validation steps
+.git/hooks/pre-commit --force
+
+# Run component edge validation-only
+.git/hooks/validate_component_edges.py --force
+
+# Run control-to-risk reference validation-only
+.git/hooks/validate_control_risk_references.py --force
+
+```
+
+#### Manual Graph Generation
+Generate component graphs manually using the validation script:
+
+```bash
+# Generate clean graph without debug comments
+.git/hooks/validate_component_edges.py --to-graph ./docs/component-map.md --force
+
+# Generate graph with rank debugging information
+.git/hooks/validate_component_edges.py --to-graph ./docs/debug-graph.md --debug --force
+
+# Validate edges and generate graph in one command
+.git/hooks/validate_component_edges.py --to-graph ./risk-map/docs/risk-map-graph.md --force
+```
+
+**Graph Generation Options:**
+- `--to-graph PATH` - Output Mermaid graph to specified file
+- `--debug` - Include rank comments for debugging
+- `--quiet` - Minimize output (only show errors)
+- `--allow-isolated` - Allow components with no edges
 
 ### Troubleshooting
 
@@ -128,6 +237,28 @@ git commit --no-verify -m "emergency commit"
 ```
 **Fix**: Either create `CTRL-002` in `controls.yaml` or remove the reference from `risks.yaml`
 
+#### Common prettier formatting errors
+```
+❌ Prettier formatting failed for risk-map/yaml/components.yaml
+```
+**Fix**: Check that prettier is installed (`npm install -g prettier`) and the YAML file syntax is valid
+
+```
+⚠️ Warning: Could not stage formatted file risk-map/yaml/components.yaml
+```
+**Fix**: Check file permissions and git repository status
+
+#### Common ruff linting errors
+```
+❌ Ruff linting failed for staged files
+```
+**Fix**: Run `ruff check --fix .` to automatically fix auto-fixable issues, or manually address the linting violations shown in the output
+
+```
+❌ Ruff linting failed
+```
+**Fix**: Check that ruff is installed (`pip install ruff`) and review the specific linting errors in the output
+
 #### Debugging validation manually
 Run the component edge validator manually:
 ```bash
@@ -148,3 +279,48 @@ Force validation of control-risk references even if files aren't staged:
 ```bash
 python3 .git/hooks/validate_control_risk_references.py --force
 ```
+
+Run prettier formatting manually:
+```bash
+# Format all YAML files in risk-map/yaml/
+npx prettier --write risk-map/yaml/*.yaml
+
+# Check formatting without modifying files
+npx prettier --check risk-map/yaml/*.yaml
+```
+
+Run ruff linting manually:
+```bash
+# Lint all Python files
+ruff check .
+
+# Lint specific files
+ruff check tools/ scripts/
+
+# Auto-fix issues where possible
+ruff check --fix .
+```
+
+#### Debugging graph generation
+Test graph generation without affecting git staging:
+```bash
+# Generate graph to test output
+python3 .git/hooks/validate_component_edges.py --to-graph ./test-graph.md --force
+
+# Generate graph with debug information to understand ranking
+python3 .git/hooks/validate_component_edges.py --to-graph ./debug-graph.md --debug --force
+
+# View help for all graph options
+python3 .git/hooks/validate_component_edges.py --help
+```
+
+**Common graph generation issues:**
+```
+❌ Graph generation failed
+```
+**Fix**: Check that the component YAML file is valid and accessible, ensure write permissions for output directory
+
+```
+⚠️ Warning: Could not stage generated graph
+```
+**Fix**: This occurs during pre-commit when git staging fails - check file permissions and git repository status

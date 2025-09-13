@@ -12,11 +12,22 @@ Before contributing to the Risk Map, ensure you have the necessary validation to
 
 ### Setting Up Pre-commit Hooks
 
-The repository includes automated schema validation, component edge consistency checks, and control-to-risk reference validation via git pre-commit hooks. 
+The repository includes automated schema validation, prettier YAML formatting, ruff Python linting, component edge consistency checks, control-to-risk reference validation, and automatic graph generation via git pre-commit hooks.
 
-1. **Install the pre-commit hook (one-time setup)**:
+**Prerequisites:**
+- Python 3.10 or higher
+- Node.js and npm
+
+1. **Install dependencies and pre-commit hook (one-time setup)**:
    ```bash
    # From the repository root
+   # Install required Python packages
+   pip install -r requirements.txt
+   
+   # Install Node.js dependencies (prettier, etc.)
+   npm install
+   
+   # Install the pre-commit hook
    bash ./scripts/install-precommit-hook.sh
    ```
 
@@ -28,9 +39,9 @@ The repository includes automated schema validation, component edge consistency 
    git commit -m "test commit"
    ```
 
-### Manual Edge Validation
+### Manual Edge Validation & Graph Generation
 
-You can also run edge validation manually at any time:
+You can run edge validation and graph generation manually at any time:
 
 ```bash
 # Validate only if components.yaml is staged for commit
@@ -38,12 +49,24 @@ python scripts/hooks/validate_component_edges.py
 
 # Force validation regardless of git status
 python scripts/hooks/validate_component_edges.py --force
+
+# Generate component graph visualization
+python scripts/hooks/validate_component_edges.py --to-graph ./my-graph.md --force
+
+# Generate graph with debug ranking information
+python scripts/hooks/validate_component_edges.py --to-graph ./debug-graph.md --debug --force
 ```
 
 The validation script checks for:
 - **Bidirectional edge consistency**: If Component A references Component B in its `to` edges, Component B must have Component A in its `from` edges
 - **No isolated components**: Components should have at least one `to` or `from` edge
 - **Valid component references**: All components referenced in edges must exist
+
+**Automatic Graph Generation**: When you stage changes to `components.yaml` for commit, the pre-commit hook automatically:
+- Generates an updated component graph at `./risk-map/docs/risk-map-graph.md`
+- Stages the generated graph for inclusion in your commit
+- Uses topological ranking with `componentDataSources` always at rank 1
+- Organizes components into category-based subgraphs with color coding
 
 *See [scripts documentation](../../scripts/README.md) for more information on the git hooks and validation.*
 
@@ -64,13 +87,53 @@ The control-to-risk validates cross-reference consistency between `controls.yaml
 - **Isolated entry detection**: Finds controls with no risk references or risks with no control references
 - **all or none awareness**: Will not flag controls that leverage the `all` or `none` risk mappings
 
+### Manual Prettier Formatting
+
+You can run prettier formatting on YAML files manually:
+
+```bash
+# Format all YAML files in risk-map/yaml/
+npx prettier --write risk-map/yaml/*.yaml
+
+# Check formatting without modifying files
+npx prettier --check risk-map/yaml/*.yaml
+```
+
+Prettier ensures consistent formatting across all YAML files in the `risk-map/yaml/` directory, automatically handling indentation, spacing, and other style conventions.
+
+### Manual Ruff Linting
+
+You can run ruff linting on Python files manually:
+
+```bash
+# Lint all Python files
+ruff check .
+
+# Lint specific directories
+ruff check tools/ scripts/
+
+# Auto-fix issues where possible
+ruff check --fix .
+
+# Check specific staged files
+ruff check $(git diff --cached --name-only --diff-filter=ACM | grep '\.py$')
+```
+
+Ruff enforces Python code quality and style standards, catching potential issues before they make it into the repository.
+
 ## General Content Contribution Workflow
 
-1. Read the repository-wide [CONTRIBUTING.md](../../CONTRIBUTING.md) and follow the [Content Update Branching Process](../../CONTRIBUTING.md#for-content-updates-two-stage-process) for all content authoring
-2. **Set up pre-commit hooks** (see Prerequisites above)
-3. Make content changes per the guides below (components, controls, risks, personas)
-4. **Validate your changes** against the relevant JSON Schemas and edge consistency rules
-5. Open a PR against the `develop` branch describing the Risk Map updates and validation performed
+1. **Create a GitHub issue** to track your work (see Best Practices below)
+2. Read the repository-wide [CONTRIBUTING.md](../../CONTRIBUTING.md) and follow the [Content Update Branching Process](../../CONTRIBUTING.md#for-content-updates-two-stage-process) for all content authoring
+3. **Set up pre-commit hooks** (see Prerequisites above)
+4. Make content changes per the guides below (components, controls, risks, personas)
+5. **Validate your changes** against all validation rules:
+   - JSON Schema validation
+   - Prettier YAML formatting
+   - Ruff Python linting (if modifying Python files)
+   - Component edge consistency
+   - Control-to-risk reference consistency
+6. Open a PR against the `develop` branch describing the Risk Map updates and validation performed
 
 ---
 
@@ -118,9 +181,9 @@ Next, define the properties of your new component in the main data file. This in
 - id: componentNewComponent
   title: New Component
   description:
-  - >
-    A detailed description of what this new component represents in the
-    AI development lifecycle and why it is important for understanding risk.
+    - >
+      A detailed description of what this new component represents in the
+      AI development lifecycle and why it is important for understanding risk.
   category: componentsApplication # Must match an id from the components.schema.json#/definitions/category/properties/id
   edges:
     to: []
@@ -138,11 +201,11 @@ Now, define the connections for your new component within its own `edges` block.
 
 ```yaml
 # In yaml/components.yaml, under your new component's definition
-  edges:
-    to:
-      - componentApplication # Outgoing connection
-    from:
-      - componentInputHandling # Incoming connection
+edges:
+  to:
+    - componentApplication # Outgoing connection
+  from:
+    - componentInputHandling # Incoming connection
 ```
 
 ### 4. Update Edges on Connected Components
@@ -157,7 +220,7 @@ To make the connections bidirectional, you must now update the corresponding `ed
 ```yaml
 # In the componentInputHandling definition:
 - id: componentInputHandling
-  ...
+  # other properties
   edges:
     to:
       - componentTheModel
@@ -167,7 +230,7 @@ To make the connections bidirectional, you must now update the corresponding `ed
 
 # In the componentApplication definition:
 - id: componentApplication
-  ...
+  # other properties
   edges:
     to:
       - componentInputHandling
@@ -177,15 +240,21 @@ To make the connections bidirectional, you must now update the corresponding `ed
       - componentNewComponent # Add incoming edge from your new component
 ```
 
-### 5. Validate Edge Consistency
+### 5. Validate Changes & Generate Graph
 
-Before committing, validate that your component edges are consistent:
+Before committing, validate that your changes are consistent:
 
 ```bash
 # Manual validation (recommended during development)
-python scripts/validate_component_edges.py --force
+python scripts/hooks/validate_component_edges.py --force
 
-# The pre-commit hook will also run automatically when you commit
+# Optional: Generate graph to visualize your changes
+python scripts/hooks/validate_component_edges.py --to-graph ./preview-graph.md --force
+
+# Format YAML files (auto-runs in pre-commit but useful for preview)
+npx prettier --write risk-map/yaml/components.yaml
+
+# The pre-commit hook will also run all validations automatically when you commit
 git add risk-map/yaml/components.yaml
 git commit -m "Add componentNewComponent with proper edge relationships"
 ```
@@ -195,6 +264,8 @@ The validation will check:
 - ✅ All incoming edges (`from`) have corresponding outgoing edges (`to`) in source components  
 - ✅ No components are isolated (unless intentionally designed)
 - ✅ All referenced components exist in the YAML file
+
+**Note**: When you commit changes to `components.yaml`, the pre-commit hook will automatically generate an updated graph at `./risk-map/docs/risk-map-graph.md` and include it in your commit.
 
 ### 6. Create a Pull Request
 
@@ -241,31 +312,31 @@ Next, define the control's properties in the main `controls.yaml` data file. Thi
 - id: controlNewControl
   title: A New and Important Control
   description:
-  - >
-    A clear and concise description of what this control does, how it works,
-    and why it is an effective safeguard.
+    - >
+      A clear and concise description of what this control does, how it works,
+      and why it is an effective safeguard.
   category: controlsModel
   personas:
-  - personaModelCreator
-  - personaModelConsumer
+    - personaModelCreator
+    - personaModelConsumer
   components:
-  - componentTheModel
-  - componentOutputHandling
+    - componentTheModel
+    - componentOutputHandling
   risks:
-  - IMO # Mapped to Insecure Model Output
-  - PIJ # Mapped to Prompt Injection
+    - IMO # Mapped to Insecure Model Output
+    - PIJ # Mapped to Prompt Injection
 
 # Example of a universal (governance) control
 - id: controlRedTeaming
   title: Red Teaming
   description:
-  - >
-    Drive security and privacy improvements through self-driven adversarial attacks
-    on AI infrastructure and products.
+    - >
+      Drive security and privacy improvements through self-driven adversarial attacks
+      on AI infrastructure and products.
   category: controlsAssurance
   personas:
-  - personaModelCreator
-  - personaModelConsumer
+    - personaModelCreator
+    - personaModelConsumer
   components: all # This control applies to all components
   risks: all # This control applies to all risks
 ```
@@ -280,10 +351,10 @@ To ensure the framework remains fully connected, every risk that your new contro
 ```yaml
 # In yaml/risks.yaml, under the IMO risk definition
 - id: IMO
-  # ... other properties
+  # other properties
   controls:
-  - controlOutputValidationAndSanitization
-  - controlNewControl # Add your new control here
+    - controlOutputValidationAndSanitization
+    - controlNewControl # Add your new control here
 ```
 
 ### 4. Validate Control-Risk References
@@ -291,11 +362,14 @@ Before committing, validate that your control-risk cross-references are consiste
 
 ```bash
 # Manual validation (recommended during development)
-python scripts/validate_control_risk_references.py --force
+python scripts/hooks/validate_control_risk_references.py --force
 
-# The pre-commit hook will also run automatically when you commit
+# Format YAML files (auto-runs in pre-commit but useful for preview)
+npx prettier --write risk-map/yaml/controls.yaml risk-map/yaml/risks.yaml
+
+# The pre-commit hook will also run all validations automatically when you commit
 git add risk-map/yaml/controls.yaml risk-map/yaml/risks.yaml
-git commit -m "Add new control CTRL-005 with proper risk relationships"
+git commit -m "Add new control with proper risk relationships"
 ```
 
 The validation will check:
@@ -308,18 +382,18 @@ The validation will check:
 # controls.yaml
 controls:
   - id: CTRL-001
-    risks:  # Control addresses these risks
-    - RISK-001
-    - RISK-002 
-    
-# risks.yaml  
+    risks: # Control addresses these risks
+      - RISK-001
+      - RISK-002
+
+# risks.yaml
 risks:
   - id: RISK-001
     controls:
-    - CTRL-001         # Risk acknowledges this control
+      - CTRL-001 # Risk acknowledges this control
   - id: RISK-002
     controls:
-    - CTRL-001         # Bidirectional consistency ✅
+      - CTRL-001 # Bidirectional consistency ✅
 ```
 
 ### 5. Validate and Create a Pull Request
@@ -359,29 +433,29 @@ Next, provide the full definition of the risk in `risks.yaml`. This includes its
 - id: NEW
   title: New Example Risk
   shortDescription:
-  - >
-    A brief, one-sentence explanation of the new risk.
+    - >
+      A brief, one-sentence explanation of the new risk.
   longDescription:
-  - >
-    A more detailed explanation of the risk, including how it can manifest
-    and what its potential impact is.
+    - >
+      A more detailed explanation of the risk, including how it can manifest
+      and what its potential impact is.
   personas:
-  - personaModelConsumer
+    - personaModelConsumer
   controls:
-  - controlNewControl
+    - controlNewControl
   examples: # Provide links to real-world examples or research
-  - >
-    A link to a real-world example or research paper describing this risk.
+    - >
+      A link to a real-world example or research paper describing this risk.
   tourContent: # Describe how the risk appears in the lifecycle map
     introduced:
-    - >
-      Where in the lifecycle this risk is typically introduced.
+      - >
+        Where in the lifecycle this risk is typically introduced.
     exposed:
-    - >
-      Where in the lifecycle this risk is typically exposed or exploited.
+      - >
+        Where in the lifecycle this risk is typically exposed or exploited.
     mitigated:
-    - >
-      Where in the lifecycle this risk is typically mitigated.
+      - >
+        Where in the lifecycle this risk is typically mitigated.
 ```
 
 ### 3. Update Corresponding Controls
@@ -394,11 +468,11 @@ To ensure the framework remains fully connected, every control that mitigates yo
 ```yaml
 # In yaml/controls.yaml, under the controlNewControl definition
 - id: controlNewControl
-  # ... other properties
+  # other properties
   risks:
-  - IMO
-  - PIJ
-  - NEW # Add your new risk ID here
+    - IMO
+    - PIJ
+    - NEW # Add your new risk ID here
 ```
 
 ### 4. Validate Control-Risk References
@@ -406,11 +480,14 @@ Before committing, validate that your control-to-risk cross-references are consi
 
 ```bash
 # Manual validation (recommended during development)
-python scripts/validate_control_risk_references.py --force
+python scripts/hooks/validate_control_risk_references.py --force
 
-# The pre-commit hook will also run automatically when you commit
+# Format YAML files (auto-runs in pre-commit but useful for preview)
+npx prettier --write risk-map/yaml/controls.yaml risk-map/yaml/risks.yaml
+
+# The pre-commit hook will also run all validations automatically when you commit
 git add risk-map/yaml/controls.yaml risk-map/yaml/risks.yaml
-git commit -m "Add new control CTRL-005 with proper risk relationships"
+git commit -m "Add new risk with proper control relationships"
 ```
 
 The validation will check:
@@ -423,18 +500,18 @@ The validation will check:
 # controls.yaml
 controls:
   - id: CTRL-001
-    risks:  # Control addresses these risks
-    - RISK-001
-    - RISK-002 
-    
-# risks.yaml  
+    risks: # Control addresses these risks
+      - RISK-001
+      - RISK-002
+
+# risks.yaml
 risks:
   - id: RISK-001
     controls:
-    - CTRL-001         # Risk acknowledges this control
+      - CTRL-001 # Risk acknowledges this control
   - id: RISK-002
     controls:
-    - CTRL-001         # Bidirectional consistency ✅
+      - CTRL-001 # Bidirectional consistency ✅
 ```
 
 ### 5. Validate and Create a Pull Request
@@ -474,9 +551,9 @@ Next, provide the definition for the new persona in the `personas.yaml` file.
 - id: personaNewPersona
   title: New Persona
   description:
-  - >
-    A description of this new role, its responsibilities, and its
-    relationship to the AI lifecycle.
+    - >
+      A description of this new role, its responsibilities, and its
+      relationship to the AI lifecycle.
 ```
 
 ### 3. Update Existing Risks and Controls
@@ -489,11 +566,11 @@ If this new persona is affected by existing risks or is responsible for implemen
 ```yaml
 # In yaml/controls.yaml, for an existing control:
 - id: controlRiskGovernance
-  # ... other properties
+  # other properties
   personas:
-  - personaModelCreator
-  - personaModelConsumer
-  - personaNewPersona # Add the new persona if they are responsible
+    - personaModelCreator
+    - personaModelConsumer
+    - personaNewPersona # Add the new persona if they are responsible
 ```
 
 ### 4. Validate and Create a Pull Request
@@ -520,6 +597,31 @@ If the pre-commit hook or manual validation fails with edge consistency errors:
    ```
    **Fix**: Add appropriate `to` and/or `from` edges, or verify if isolation is intentional
 
+### Graph Generation Issues
+
+If you encounter issues with the automatic graph generation:
+
+1. **Graph generation failed during pre-commit**:
+   ```
+   ❌ Graph generation failed
+   ```
+   **Fix**: Check that `components.yaml` is valid and accessible. Test manually:
+   ```bash
+   python scripts/hooks/validate_component_edges.py --to-graph ./test-graph.md --force
+   ```
+
+2. **Generated graph not staged**:
+   ```
+   ⚠️ Warning: Could not stage generated graph
+   ```
+   **Fix**: Check file permissions and git repository status. Ensure `./risk-map/docs/` directory is writable.
+
+3. **Component ranking seems wrong**:
+   **Fix**: Use debug mode to see rank calculations:
+   ```bash
+   python scripts/hooks/validate_component_edges.py --to-graph ./debug-graph.md --debug --force
+   ```
+
 ### Bypassing Validation (Not Recommended)
 
 If you need to commit without running the pre-commit hook (strongly discouraged):
@@ -533,17 +635,50 @@ However, your changes will still be validated during the PR review process.
 
 ## Best Practices
 
-1. **Always run manual validation** during development:
+1. **Create a GitHub issue first** for any ongoing development work:
    ```bash
-   python scripts/validate_component_edges.py --force
+   # Before starting work, create an issue to:
+   # - Document the planned changes
+   # - Enable collaboration and discussion
+   # - Track progress and link related PRs
+   # - Provide context for reviewers
+   ```
+   This helps maintain project visibility and enables better collaboration.
+
+2. **Always run manual validation** during development:
+   ```bash
+   python scripts/hooks/validate_component_edges.py --force
    ```
 
-2. **Test edge changes incrementally** - add one component connection at a time
+3. **Preview your changes visually** by generating a graph:
+   ```bash
+   python scripts/hooks/validate_component_edges.py --to-graph ./preview-graph.md --force
+   ```
 
-3. **Document complex edge relationships** in commit messages
+4. **Format files before committing** (though pre-commit handles this automatically):
+   ```bash
+   npx prettier --write risk-map/yaml/*.yaml
+   ```
 
-4. **Use meaningful component IDs** following the `component[Name]` convention
+5. **Test edge changes incrementally** - add one component connection at a time
 
-5. **Validation against JSON schemas** is enforced by the pre-commit otherwise validate before committing 
+6. **Document complex edge relationships** in commit messages
 
-6. **Review existing components** to understand established patterns before adding new ones
+7. **Use meaningful component IDs** following the `component[Name]` convention
+
+8. **Validation against JSON schemas** is enforced by the pre-commit otherwise validate before committing 
+
+9. **Review existing components** to understand established patterns before adding new ones
+
+10. **Leverage automatic graph generation** - when you commit changes to `components.yaml`, the updated graph is automatically generated and staged
+
+11. **Use debug mode for troubleshooting** component ranking issues:
+    ```bash
+    python scripts/hooks/validate_component_edges.py --to-graph ./debug-graph.md --debug --force
+    ```
+
+12. **Run all validations locally** before pushing:
+    ```bash
+    # Run the full pre-commit suite manually
+    .git/hooks/pre-commit --force
+    ```
