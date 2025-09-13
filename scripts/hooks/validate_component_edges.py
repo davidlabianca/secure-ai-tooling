@@ -1059,6 +1059,8 @@ class ControlGraph:
             lines.append("    end")
             lines.append("")
 
+        # Add components subgraph as container for all components subgraphs
+        lines.append("    subgraph components")
         # Add component subgraphs
         for category, comp_ids in self.component_by_category.items():
             if not comp_ids:
@@ -1073,6 +1075,8 @@ class ControlGraph:
 
             lines.append("    end")
             lines.append("")
+        lines.append("    end")
+        lines.append("")
 
         # Add control-to-component relationships
         lines.append("    %% Control to Component relationships")
@@ -1097,6 +1101,9 @@ class ControlGraph:
         for control_id in sorted(self.controls_mapped_to_all):
             if control_id in self.control_to_component_map and self.control_to_component_map[control_id]:
                 lines.append(f"    {control_id}:::allControl")
+
+        # Hide containers of containers
+        lines.append("    class components hidden")
 
         lines.append("```")
         return "\n".join(lines)
