@@ -944,10 +944,10 @@ class ControlGraph:
         self.debug = debug
 
         # Build mappings for graph generation
+        self.component_by_category = self._group_components_by_category()
         self.control_to_component_map = self._build_control_component_mapping()
         self.controls_mapped_to_all = self._track_controls_mapped_to_all()
         self.control_by_category = self._group_controls_by_category()
-        self.component_by_category = self._group_components_by_category()
 
     def _build_control_component_mapping(self) -> Dict[str, List[str]]:
         """
@@ -958,12 +958,12 @@ class ControlGraph:
             Dictionary mapping control IDs to lists of component IDs
         """
         mapping = {}
-        all_component_ids = list(self.components.keys())
+        all_component_category_ids = list(self.component_by_category.keys())
 
         for control_id, control in self.controls.items():
             if control.components == ["all"]:
                 # Control applies to all components
-                mapping[control_id] = all_component_ids.copy()
+                mapping[control_id] = all_component_category_ids.copy()
             elif control.components == ["none"] or not control.components:
                 # Control applies to no components
                 mapping[control_id] = []
@@ -1034,6 +1034,7 @@ class ControlGraph:
             Mermaid graph syntax as a string
         """
         lines = [
+            "```mermaid",
             "graph LR",
             "    classDef hidden display: none;",
             "    classDef allControl stroke:#4285f4,stroke-width:2px,stroke-dasharray: 5 5;",
@@ -1046,7 +1047,10 @@ class ControlGraph:
                 continue
 
             category_name = self._get_category_display_name(category)
-            lines.append(f'    subgraph "{category_name}"')
+            lines.append(f'    subgraph {category} ["{category_name}"]')
+
+            if category == "controlsGovernance":
+                lines.append("        direction LR")
 
             for control_id in sorted(control_ids):
                 control = self.controls[control_id]
@@ -1061,7 +1065,7 @@ class ControlGraph:
                 continue
 
             category_name = self._get_category_display_name(category)
-            lines.append(f'    subgraph "{category_name}"')
+            lines.append(f'    subgraph {category} ["{category_name}"]')
 
             for comp_id in sorted(comp_ids):
                 component = self.components[comp_id]
@@ -1080,21 +1084,21 @@ class ControlGraph:
             is_all_control = control_id in self.controls_mapped_to_all
 
             for comp_id in sorted(component_ids):
+                if is_all_control and comp_id in self.component_by_category.keys():
+                    # Use dotted arrow for controls mapped to "all"
+                    lines.append(f"    {control_id} -.-> {comp_id}")
                 if comp_id in self.components:  # Ensure component exists
-                    if is_all_control:
-                        # Use dotted arrow for controls mapped to "all"
-                        lines.append(f"    {control_id} -.-> {comp_id}")
-                    else:
-                        # Use solid arrow for specific control mappings
-                        lines.append(f"    {control_id} --> {comp_id}")
+                    lines.append(f"    {control_id} --> {comp_id}")
+                    # Use solid arrow for specific control mappings
 
         # Apply styling to controls that were mapped to "all"
         lines.append("")
         lines.append("    %% Apply styling to controls mapped to 'all'")
         for control_id in sorted(self.controls_mapped_to_all):
             if control_id in self.control_to_component_map and self.control_to_component_map[control_id]:
-                lines.append(f"    {control_id} :::allControl")
+                lines.append(f"    {control_id}:::allControl")
 
+        lines.append("```")
         return "\n".join(lines)
 
     def to_mermaid(self) -> str:
