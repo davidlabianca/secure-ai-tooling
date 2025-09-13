@@ -949,6 +949,26 @@ class ControlGraph:
         self.controls_mapped_to_all = self._track_controls_mapped_to_all()
         self.control_by_category = self._group_controls_by_category()
 
+    def _maps_to_full_category(self, control_components: List[str], category: str) -> bool:
+        """
+        Check if a control's component list covers ALL components in a specific category.
+
+        Args:
+            control_components: List of component IDs from the control
+            category: Category ID to check (e.g., 'componentsData')
+
+        Returns:
+            True if control maps to all components in the category, False otherwise
+        """
+        if category not in self.component_by_category:
+            return False
+
+        category_components = set(self.component_by_category[category])
+        control_component_set = set(control_components)
+
+        # Check if all components in this category are present in the control's component list
+        return category_components.issubset(control_component_set)
+
     def _build_control_component_mapping(self) -> Dict[str, List[str]]:
         """
         Build mapping of control IDs to component IDs they apply to.
@@ -958,12 +978,11 @@ class ControlGraph:
             Dictionary mapping control IDs to lists of component IDs
         """
         mapping = {}
-        all_component_category_ids = list(self.component_by_category.keys())
 
         for control_id, control in self.controls.items():
             if control.components == ["all"]:
-                # Control applies to all components
-                mapping[control_id] = all_component_category_ids.copy()
+                # Control applies to all components - map to the components container subgraph
+                mapping[control_id] = ["components"]
             elif control.components == ["none"] or not control.components:
                 # Control applies to no components
                 mapping[control_id] = []
@@ -971,7 +990,24 @@ class ControlGraph:
                 # Control applies to specific components
                 # Filter to only include components that actually exist
                 valid_components = [comp_id for comp_id in control.components if comp_id in self.components]
-                mapping[control_id] = valid_components
+
+                # Check if this control maps to complete categories and optimize accordingly
+                optimized_mapping = []
+                remaining_components = set(valid_components)
+
+                # Check each category to see if control covers all components in that category
+                for category in self.component_by_category.keys():
+                    if self._maps_to_full_category(valid_components, category):
+                        # Control covers all components in this category - use category-level mapping
+                        optimized_mapping.append(category)
+                        # Remove all components from this category from remaining list
+                        category_components = set(self.component_by_category[category])
+                        remaining_components -= category_components
+
+                # Add any remaining individual components that don't form complete categories
+                optimized_mapping.extend(sorted(remaining_components))
+
+                mapping[control_id] = optimized_mapping
 
         return mapping
 
@@ -1084,16 +1120,16 @@ class ControlGraph:
             if not component_ids:  # Skip controls with no component mappings
                 continue
 
-            # Check if this control was originally mapped to "all"
-            is_all_control = control_id in self.controls_mapped_to_all
-
             for comp_id in sorted(component_ids):
-                if is_all_control and comp_id in self.component_by_category.keys():
-                    # Use dotted arrow for controls mapped to "all"
+                if comp_id == "components":
+                    # This is a mapping to the components container (for 'all' controls)
                     lines.append(f"    {control_id} -.-> {comp_id}")
-                if comp_id in self.components:  # Ensure component exists
+                elif comp_id in self.component_by_category.keys():
+                    # This is a category-level mapping
                     lines.append(f"    {control_id} --> {comp_id}")
-                    # Use solid arrow for specific control mappings
+                elif comp_id in self.components:
+                    # This is an individual component mapping
+                    lines.append(f"    {control_id} --> {comp_id}")
 
         # Apply styling to controls that were mapped to "all"
         lines.append("")
@@ -1102,8 +1138,16 @@ class ControlGraph:
             if control_id in self.control_to_component_map and self.control_to_component_map[control_id]:
                 lines.append(f"    {control_id}:::allControl")
 
-        # Hide containers of containers
-        lines.append("    class components hidden")
+        # Add styling
+        lines.extend([
+            "",
+            "%% Style definitions",
+            "    style components fill:#f0f0f0,stroke:#666,stroke-width:3px,stroke-dasharray: 10 5",
+            "    style componentsInfrastructure fill:#e6f3e6,stroke:#333,stroke-width:2px",
+            "    style componentsData fill:#fff5e6,stroke:#333,stroke-width:2px",
+            "    style componentsApplication fill:#e6f0ff,stroke:#333,stroke-width:2px",
+            "    style componentsModel fill:#ffe6e6,stroke:#333,stroke-width:2px",
+        ])
 
         lines.append("```")
         return "\n".join(lines)
