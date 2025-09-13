@@ -162,7 +162,7 @@ selfAssessment:
       answers:
         - label: Yes
           value: 1
-        - label: "No"
+        - label: 'No'
           value: 2
         - label: Maybe
           value: 3
