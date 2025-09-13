@@ -13,10 +13,16 @@
 #
 # Behavior:
 #   - Validates only staged files by default
-#   - If riskmap.schema.json changes, validates YAML schema compliance for 
-#     all files
+#   - If... 
+#        - riskmap.schema.json changes, validates YAML schema compliance for 
+#          all files
+#        - components.yaml chamges, generates a new graph at
+#          ./docs/risk-map-graph.md and adds it to the staged files
 #   - Use --force/-f to run all validations against all files regardless of 
-#     staging status
+#     staging status. NOTE: --force will not generate a new 
+#     ./risk-map/docs/risk-map-graph.md
+#   - See ./git/hooks/validate_component_edges.py for manual graph generation
+#        
 # =============================================================================
 
 # =============================================================================
@@ -156,8 +162,16 @@ case $1 in
         echo "----"
         echo "Validations performed:"
         echo "  - YAML schema validation"
+        echo "  - Prettier formatting (risk-map/yaml/ files only)"
+        echo "  - Ruff linting (Python files only)"
         echo "  - Component edge validation"
         echo "  - Control-to-risk reference validation"
+        echo ""
+        echo "Graph generation:"
+        echo "  - When components.yaml is staged, automatically generates ./risk-map/docs/risk-map-graph.md"
+        echo "  - Generated graph is added to staged files for inclusion in commit"
+        echo "  - Graph generation is skipped in --force mode"
+        echo "  - Use .git/hooks/validate_component_edges.py for manual graph generation"
         exit 0
         ;;
     --force|-f)
@@ -201,6 +215,133 @@ done
 
 
 # =============================================================================
+# Prettier Formatting for YAML Files
+# =============================================================================
+
+# Formats YAML files in risk-map/yaml directory using prettier
+# Args: none (uses global FORCE_VALIDATE and EDGE_ARGS flags)
+# Behavior:
+#   - Normal mode: formats only staged YAML files in risk-map/yaml/
+#   - Force mode: formats all YAML files in risk-map/yaml/
+format_yaml_files() {
+    echo "🎨 Running prettier formatting on YAML files..."
+    
+    local files_to_format=()
+    local formatting_failed=0
+    
+    if [[ $FORCE_VALIDATE -eq 1 ]]; then
+        # Force mode: format all YAML files in risk-map/yaml/
+        echo "   Force mode: formatting all YAML files in risk-map/yaml/"
+        for file in risk-map/yaml/*.yaml; do
+            if [[ -f "$file" ]]; then
+                files_to_format+=("$file")
+            fi
+        done
+    else
+        # Normal mode: format only staged YAML files in risk-map/yaml/
+        echo "   Normal mode: formatting staged YAML files in risk-map/yaml/"
+        while IFS= read -r -d '' file; do
+            # Only include files that are in risk-map/yaml/ directory
+            if [[ "$file" == risk-map/yaml/*.yaml ]]; then
+                files_to_format+=("$file")
+            fi
+        done < <(git diff --cached --name-only -z | grep -z '\.ya\?ml$')
+    fi
+    
+    # Format files if any were found
+    if [[ ${#files_to_format[@]} -gt 0 ]]; then
+        echo "   Formatting ${#files_to_format[@]} YAML file(s)..."
+        
+        for file in "${files_to_format[@]}"; do
+            echo "   Formatting $file..."
+            if ! npx prettier --write "$file"; then
+                echo "   ❌ Prettier formatting failed for $file"
+                formatting_failed=1
+            else
+                echo "   ✅ Formatted $file"
+                # Add formatted file back to staging area (only in normal mode)
+                if [[ $FORCE_VALIDATE -eq 0 ]] && ! git add "$file"; then
+                    echo "   ⚠️  Warning: Could not stage formatted file $file"
+                fi
+            fi
+        done
+        
+        if [[ $formatting_failed -eq 0 ]]; then
+            echo "   ✅ All YAML files formatted successfully"
+        fi
+    else
+        echo "   No YAML files in risk-map/yaml/ to format"
+    fi
+    
+    return $formatting_failed
+}
+
+# Run prettier formatting
+format_yaml_files
+if [[ $? -ne 0 ]]; then
+    VALIDATION_FAILED=1
+fi
+
+# =============================================================================
+# Ruff Linting for Python Files
+# =============================================================================
+
+# Runs ruff linting on Python files
+# Args: none (uses global FORCE_VALIDATE flag)
+# Behavior:
+#   - Normal mode: lints only staged Python files
+#   - Force mode: lints all Python files in the repository
+run_ruff_check() {
+    echo "🔍 Running ruff linting on Python files..."
+    
+    local ruff_failed=0
+    local files_to_check=()
+    
+    if [[ $FORCE_VALIDATE -eq 1 ]]; then
+        # Force mode: check all Python files
+        echo "   Force mode: linting all Python files"
+        if ! ruff check .; then
+            echo "   ❌ Ruff linting failed"
+            ruff_failed=1
+        else
+            echo "   ✅ All Python files passed ruff linting"
+        fi
+    else
+        # Normal mode: check only staged Python files
+        echo "   Normal mode: linting staged Python files"
+        
+        # Get staged Python files
+        while IFS= read -r -d '' file; do
+            if [[ -f "$file" ]]; then
+                files_to_check+=("$file")
+            fi
+        done < <(git diff --cached --name-only -z | grep -z '\.py$')
+        
+        if [[ ${#files_to_check[@]} -gt 0 ]]; then
+            echo "   Checking ${#files_to_check[@]} Python file(s)..."
+            if ! ruff check "${files_to_check[@]}"; then
+                echo "   ❌ Ruff linting failed for staged files"
+                ruff_failed=1
+            else
+                echo "   ✅ All staged Python files passed ruff linting"
+            fi
+        else
+            echo "   No staged Python files to check"
+        fi
+    fi
+    
+    return $ruff_failed
+}
+
+# Run ruff check
+run_ruff_check
+if [[ $? -ne 0 ]]; then
+    VALIDATION_FAILED=1
+fi
+
+echo  # Add blank line for readability
+
+# =============================================================================
 # Component Edge Validation
 # =============================================================================
 echo "🔗 Running component edge validation..."
@@ -216,6 +357,33 @@ else
     # Run the component edge validation with appropriate args based on passed flags
     if ! python3 "$EDGE_VALIDATOR" $EDGE_ARGS; then
         VALIDATION_FAILED=1 # Mark as failed if edge validation fails
+    fi
+fi
+
+# =============================================================================
+# Graph Generation (when components.yaml changes)
+# =============================================================================
+
+# Only generate graph in normal mode (not --force) when components.yaml is staged
+if [[ $FORCE_VALIDATE -eq 0 ]] && git diff --cached --name-only | grep -q "risk-map/yaml/components\.yaml$"; then
+    echo "📊 Components.yaml changed - generating new graph..."
+    
+    # Ensure docs directory exists
+    mkdir -p docs
+    
+    # Generate the graph using the validator script
+    if python3 "$EDGE_VALIDATOR" --to-graph "./risk-map/docs/risk-map-graph.md" --quiet; then
+        echo "   ✅ Graph generated at ./risk-map/docs/risk-map-graph.md"
+        
+        # Add the generated graph to staging area
+        if git add "./risk-map/docs/risk-map-graph.md"; then
+            echo "   ✅ Graph added to staged files"
+        else
+            echo "   ⚠️  Warning: Could not stage generated graph"
+        fi
+    else
+        echo "   ❌ Graph generation failed"
+        VALIDATION_FAILED=1
     fi
 fi
 
@@ -253,6 +421,14 @@ fi
 # =============================================================================
 echo "🎉 All pre-commit validations passed!"
 echo "   ✅ YAML schema validation"
+echo "   ✅ Prettier formatting"
+echo "   ✅ Ruff linting"
 echo "   ✅ Component edge validation"
 echo "   ✅ Control-to-risk reference validation"
+
+# Check if graph was generated and add to summary
+if [[ $FORCE_VALIDATE -eq 0 ]] && git diff --cached --name-only | grep -q "risk-map/yaml/components\.yaml$"; then
+    echo "   📊 Graph generated and staged"
+fi
+
 echo "Ready to commit! 🚀"
