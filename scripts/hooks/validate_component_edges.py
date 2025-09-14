@@ -260,6 +260,21 @@ class ControlNode:
             f"  Personas: {self.personas}"
         )
 
+    def __eq__(self, other) -> bool:
+        """
+        Defines equality between two ControlNode objects.
+        They are equal if all their attributes are identical.
+        """
+        if not isinstance(other, ControlNode):
+            return NotImplemented
+        return (
+            self.title == other.title
+            and self.category == other.category
+            and self.components == other.components
+            and self.risks == other.risks
+            and self.personas == other.personas
+        )
+
 
 class RiskNode:
     """
