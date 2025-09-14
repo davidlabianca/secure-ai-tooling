@@ -65,19 +65,25 @@ The validation script checks for:
 - **No isolated components**: Components should have at least one `to` or `from` edge
 - **Valid component references**: All components referenced in edges must exist
 
-**Automatic Graph Generation**: When you stage changes to `components.yaml` for commit, the pre-commit hook automatically:
-- Generates an updated component graph at `./risk-map/docs/risk-map-graph.md`
-- Stages the generated graph for inclusion in your commit
-- Uses topological ranking with `componentDataSources` always at rank 1
-- Organizes components into category-based subgraphs with color coding
+**Automatic Graph Generation**: The pre-commit hook automatically generates graphs when relevant files are staged:
+- **Component Graph**: When `components.yaml` is staged, generates `./risk-map/docs/risk-map-graph.md`
+  - Uses topological ranking with `componentDataSources` always at rank 1
+  - Organizes components into category-based subgraphs with color coding
+- **Control Graph**: When `components.yaml` OR `controls.yaml` is staged, generates `./risk-map/docs/controls-graph.md`
+  - Shows control-to-component relationships with optimization
+  - Dynamic component clustering and multi-edge styling
+- Both generated graphs are automatically staged for inclusion in your commit
 
 *See [scripts documentation](../../scripts/README.md) for more information on the git hooks and validation.*
 
-### Manual Control-to-Component Graph Generation
+### Manual Graph Generation
 
-The validation script can also generate control-to-component relationship graphs that visualize how security controls map to AI system components:
+Beyond automatic generation, you can manually generate both types of graphs using the validation script:
 
 ```bash
+# Generate component relationship graph
+python scripts/hooks/validate_component_edges.py --to-graph ./components.md --force
+
 # Generate control-to-component graph
 python scripts/hooks/validate_component_edges.py --to-controls-graph ./controls-graph.md --force
 
@@ -146,6 +152,51 @@ ruff check $(git diff --cached --name-only --diff-filter=ACM | grep '\.py$')
 
 Ruff enforces Python code quality and style standards, catching potential issues before they make it into the repository.
 
+## GitHub Actions Validation
+
+The repository includes automated GitHub Actions that validate all pull requests against the same standards as local pre-commit hooks:
+
+### Automated PR Validation
+
+When you create a pull request, GitHub Actions automatically runs:
+
+- **YAML Schema Validation**: All YAML files are validated against their JSON schemas
+- **YAML Format Validation**: Ensures prettier formatting compliance
+- **Python Code Quality**: Runs ruff linting on modified Python files
+- **Component Edge Consistency**: Verifies bidirectional component relationships
+- **Control-Risk Reference Integrity**: Validates control-risk cross-references
+- **Graph Validation**: Generates and compares both graph types
+
+### Graph Validation in CI
+
+The GitHub Actions workflow performs comprehensive graph validation:
+
+1. **Generation**: Creates fresh graphs using `validate_component_edges.py`
+2. **Comparison**: Compares generated graphs against committed versions in your PR
+3. **Validation**: Ensures graphs are up-to-date with YAML changes
+4. **Diff Output**: Provides detailed differences if validation fails
+
+**Graphs Validated:**
+- Component relationship graph (`./risk-map/docs/risk-map-graph.md`)
+- Control-to-component graph (`./risk-map/docs/controls-graph.md`)
+
+### Handling CI Validation Failures
+
+If GitHub Actions reports graph validation failures:
+
+```bash
+# Most common fix: regenerate graphs locally
+python scripts/hooks/validate_component_edges.py --to-graph ./risk-map/docs/risk-map-graph.md --force
+python scripts/hooks/validate_component_edges.py --to-controls-graph ./risk-map/docs/controls-graph.md --force
+
+# Commit the updated graphs
+git add risk-map/docs/risk-map-graph.md risk-map/docs/controls-graph.md
+git commit -m "Update generated graphs to reflect YAML changes"
+git push
+```
+
+The CI validation ensures that all contributions maintain consistency and that generated documentation stays synchronized with the underlying data.
+
 ## General Content Contribution Workflow
 
 1. **Create a GitHub issue** to track your work (see Best Practices below)
@@ -159,6 +210,8 @@ Ruff enforces Python code quality and style standards, catching potential issues
    - Component edge consistency
    - Control-to-risk reference consistency
 6. Open a PR against the `develop` branch describing the Risk Map updates and validation performed
+   - GitHub Actions will automatically run the same validations on your PR
+   - Address any CI failures before requesting review
 
 ---
 
@@ -293,7 +346,7 @@ The validation will check:
 - ✅ No components are isolated (unless intentionally designed)
 - ✅ All referenced components exist in the YAML file
 
-**Note**: When you commit changes to `components.yaml`, the pre-commit hook will automatically generate an updated graph at `./risk-map/docs/risk-map-graph.md` and include it in your commit.
+**Note**: When you commit changes to `components.yaml`, the pre-commit hook will automatically generate updated graphs at `./risk-map/docs/risk-map-graph.md` and `./risk-map/docs/controls-graph.md` and include them in your commit.
 
 ### 6. Create a Pull Request
 
@@ -404,6 +457,8 @@ The validation will check:
 - ✅ All controls that list risks in `controls.yaml` are referenced back by those risks in `risks.yaml`
 - ✅ All risks that reference controls in `risks.yaml` have those controls listing them in `controls.yaml`
 - ✅ No isolated entries (controls with empty risk lists, risks with empty control lists)
+
+**Note**: When you commit changes to `controls.yaml`, the pre-commit hook will automatically generate an updated control graph at `./risk-map/docs/controls-graph.md` and include it in your commit.
 
 **Example of consistent cross-references:**
 ```yaml

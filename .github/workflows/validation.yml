@@ -147,34 +147,56 @@ jobs:
           echo "::error::Control-to-risk reference validation failed"
         fi
     
-    - name: Validate component graph
+    - name: Validate graphs
       run: |
-        graph_compare_failed=false
-        TEMP_FILE=$(mktemp)
+        # Setup temporary files and paths
+        RISK_MAP_TEMP_FILE=$(mktemp)
+        CONTROLS_TEMP_FILE=$(mktemp)
         RISKMAP_PATH="./risk-map/docs/risk-map-graph.md"
+        CONTROL_GRAPH_PATH="./risk-map/docs/controls-graph.md"
+        VALIDATE_CMD="validate_component_edges.py"
 
-        if ! python3 validate_component_edges.py --force --to-graph ${TEMP_FILE}; then
-          echo "❌ Component graph generation via validate_component_edges.py failed..."
-          graph_compare_failed=true
-        elif ! output=$(diff -u ${RISKMAP_PATH} ${TEMP_FILE} 2>&1;); then
-          echo "❌ Generated risk-map-graph.md does not match PR risk-map-graph.md..."
-          echo "::error title=Files differ::Differences found between expected and actual files"
-          echo "::group::Diff Output"
-          echo "${output}"
-          echo "::endgroup::"
-          graph_compare_failed=true
-        else
-          echo "✅ Generated graph matches ${RISKMAP_PATH}"
-        fi
+        # Define graph configurations as arrays
+        GRAPH_NAMES=("Component Graph" "Control Graph")
+        TEMP_FILES=("${RISK_MAP_TEMP_FILE}" "${CONTROLS_TEMP_FILE}")
+        TARGET_PATHS=("${RISKMAP_PATH}" "${CONTROL_GRAPH_PATH}")
+        GENERATE_ARGS=("--to-graph" "--to-controls-graph")
 
-        # Store validate component graph result for final summary
-        echo "COMPONENT_GRAPH_VALIDATION_FAILED=$graph_compare_failed" >> $GITHUB_ENV
-        
-        # Cleanup temp file
-        rm -f ${TEMP_FILE}
-        
+        graph_compare_failed=false
+
+        # Loop through both graph types
+        for i in "${!GRAPH_NAMES[@]}"; do
+            graph_name="${GRAPH_NAMES[$i]}"
+            temp_file="${TEMP_FILES[$i]}"
+            target_path="${TARGET_PATHS[$i]}"
+            gen_args="${GENERATE_ARGS[$i]}"
+
+            echo "🔍 Validating ${graph_name}..."
+
+            if ! python3 ${VALIDATE_CMD} --force ${gen_args} "${temp_file}"; then
+                echo "❌ ${graph_name} generation via ${VALIDATE_CMD} failed..."
+                graph_compare_failed=true
+            elif ! output=$(diff -u "${target_path}" "${temp_file}" 2>&1); then
+                echo "❌ Generated ${graph_name,,} does not match PR ${graph_name,,}..."
+                echo "::error title=Files differ::Differences found in ${graph_name}"
+                echo "::group::${graph_name} Diff Output"
+                echo "${output}"
+                echo "::endgroup::"
+                graph_compare_failed=true
+            else
+                echo "✅ Generated ${graph_name,,} matches ${target_path}"
+            fi
+        done
+
+        # Store graph validation result for final summary
+        echo "GRAPH_VALIDATION_FAILED=$graph_compare_failed" >> $GITHUB_ENV
+
+        # Cleanup temp files
+        rm -f ${RISK_MAP_TEMP_FILE}
+        rm -f ${CONTROLS_TEMP_FILE}
+
         if [ "$graph_compare_failed" = true ]; then
-          echo "::error::Component graph validation failed"
+          echo "::error::Graph validation failed"
         fi
     - name: Validation Summary
       if: always()
@@ -212,11 +234,11 @@ jobs:
           echo "  ✅ Control-to-risk reference validation"
         fi
 
-        if [ "$COMPONENT_GRAPH_VALIDATION_FAILED" = "true" ]; then
-          echo "  ❌ Risk-map-graph.md validation"
+        if [ "$GRAPH_VALIDATION_FAILED" = "true" ]; then
+          echo "  ❌ Graph validation (component & control graphs)"
           overall_failed=true
         else
-          echo "  ✅ Risk-map-graph.md reference validation"
+          echo "  ✅ Graph validation (component & control graphs)"
         fi
         
         echo ""

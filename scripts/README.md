@@ -70,12 +70,16 @@ Validates the consistency of component relationships in `components.yaml` and ge
 - **Bidirectional matching**: Verifies that all `to` edges have corresponding `from` edges and vice versa
 - **Isolated component detection**: Identifies components with no edges (neither `to` nor `from`)
 
-**Graph Generation Features:**
-- **Automatic generation**: When `components.yaml` is staged for commit, automatically generates `./risk-map/docs/risk-map-graph.md`
-- **Topological ranking**: Components are ranked with `componentDataSources` always at rank 1
-- **Category-based subgraphs**: Organizes components into Data, Infrastructure, Model, and Application subgraphs
-- **Mermaid format**: Generates Mermaid-compatible diagrams with color coding and dynamic spacing
-- **Auto-staging**: Generated graph is automatically added to staged files for inclusion in commit
+**Automatic Graph Generation Features:**
+- **Component Graph**: When `components.yaml` is staged for commit, automatically generates `./risk-map/docs/risk-map-graph.md`
+  - Topological ranking with `componentDataSources` always at rank 1
+  - Category-based subgraphs (Data, Infrastructure, Model, Application)
+  - Mermaid format with color coding and dynamic spacing
+- **Control Graph**: When `components.yaml` OR `controls.yaml` is staged for commit, automatically generates `./risk-map/docs/controls-graph.md`
+  - Shows control-to-component relationships with optimization
+  - Dynamic component clustering and category-level mappings
+  - Multi-edge styling with professional color schemes
+- **Auto-staging**: Both generated graphs are automatically added to staged files for inclusion in commit
 
 **Example validation:**
 ```yaml
@@ -149,11 +153,13 @@ When you commit changes, the hook will:
 2. **Prettier Formatting** - Format YAML files in `risk-map/yaml/` and re-stage them
 3. **Ruff Linting** - Lint Python files for code quality
 4. **Edge Validation** - Verify component relationship consistency
-5. **Graph Generation** - If `components.yaml` changed, generate and stage `./risk-map/docs/risk-map-graph.md`
+5. **Graph Generation** - Generate and stage graphs based on file changes:
+   - If `components.yaml` changed: generate `./risk-map/docs/risk-map-graph.md`
+   - If `components.yaml` or `controls.yaml` changed: generate `./risk-map/docs/controls-graph.md`
 6. **Control-Risk Validation** - Verify control-risk cross-reference consistency
 7. **Block commit** if any validation fails
 
-**Note**: Graph generation only occurs when `components.yaml` is staged for commit, not in `--force` mode.
+**Note**: Graph generation only occurs when relevant files are staged for commit, not in `--force` mode.
 
 #### Manual Validation of Unstaged Files
 The `pre-commit` hook and all individual validation scripts support the `--force` flag to validate all files regardless of their git staging status (useful during development).
@@ -171,6 +177,42 @@ The `pre-commit` hook and all individual validation scripts support the `--force
 # Run control-to-risk reference validation-only
 .git/hooks/validate_control_risk_references.py --force
 
+```
+
+### GitHub Actions Validation
+
+In addition to local pre-commit validation, the repository includes GitHub Actions that run the same validations on pull requests:
+
+**Automated PR Validation includes:**
+- **YAML Schema Validation**: Validates all YAML files against their JSON schemas
+- **YAML Format Validation**: Checks prettier formatting compliance
+- **Python Linting**: Runs ruff linting on all Python files
+- **Component Edge Validation**: Verifies component relationship consistency
+- **Control-Risk Reference Validation**: Checks control-risk cross-reference integrity
+- **Graph Validation**: Generates and compares both graph types against committed versions
+  - Component graph (`./risk-map/docs/risk-map-graph.md`)
+  - Control graph (`./risk-map/docs/controls-graph.md`)
+
+**Graph Validation Process:**
+- GitHub Actions generates fresh graphs using the validation script
+- Compares generated graphs with the committed versions in the PR
+- Fails the build if graphs don't match, indicating they need to be regenerated
+- Provides diff output showing exactly what differences were found
+
+**When Graph Validation Fails:**
+```bash
+# The most common cause is missing graph regeneration
+# Fix by running locally and committing the updated graphs:
+
+# For component graph issues:
+python3 .git/hooks/validate_component_edges.py --to-graph ./risk-map/docs/risk-map-graph.md --force
+
+# For control graph issues:
+python3 .git/hooks/validate_component_edges.py --to-controls-graph ./risk-map/docs/controls-graph.md --force
+
+# Then commit the updated graphs:
+git add risk-map/docs/risk-map-graph.md risk-map/docs/controls-graph.md
+git commit -m "Update generated graphs"
 ```
 
 #### Manual Graph Generation
