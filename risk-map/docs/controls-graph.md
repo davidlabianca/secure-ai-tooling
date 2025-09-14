@@ -114,7 +114,7 @@ graph LR
     linkStyle 0,3 stroke:#9c27b0,stroke-width:2px
     linkStyle 1,4 stroke:#ff9800,stroke-width:2px,stroke-dasharray: 5 5
     linkStyle 2,5 stroke:#e91e63,stroke-width:2px,stroke-dasharray: 10 2
-    linkStyle 6 stroke:#795548,stroke-width:2px,stroke-dasharray: 2 3
+    linkStyle 6 stroke:#C95792,stroke-width:2px,stroke-dasharray: 10 5
 
 %% Node style definitions
     style components fill:#f0f0f0,stroke:#666,stroke-width:3px,stroke-dasharray: 10 5

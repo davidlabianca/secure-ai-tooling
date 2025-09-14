@@ -1772,7 +1772,7 @@ class ControlGraph:
             "stroke:#9c27b0,stroke-width:2px",  # Purple solid
             "stroke:#ff9800,stroke-width:2px,stroke-dasharray: 5 5",  # Orange dashed
             "stroke:#e91e63,stroke-width:2px,stroke-dasharray: 10 2",  # Pink long-dash
-            "stroke:#795548,stroke-width:2px,stroke-dasharray: 2 3",  # Brown dot-dash
+            "stroke:#C95792,stroke-width:2px,stroke-dasharray: 10 5",  # Magenta long-dash
         ]
 
         for i, style_group in enumerate(multi_edge_style_groups):
