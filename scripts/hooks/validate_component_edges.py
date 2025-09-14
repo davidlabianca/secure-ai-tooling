@@ -201,7 +201,44 @@ class ComponentNode:
 class ControlNode:
     """
     Encapsulates a control's metadata and its relationships to components and risks.
-    Used for generating control-to-component graphs.
+
+    A ControlNode represents a security or compliance control that can be applied
+    to mitigate specific risks across AI system components. Controls are organized
+    into categories (Data, Infrastructure, Model, Application, Assurance, Governance)
+    and define which components they protect and which risks they address.
+
+    This class is used for:
+    - Storing control metadata (title, category, components, risks, personas)
+    - Validating control data integrity
+    - Generating control-to-component relationship graphs
+    - Supporting control optimization and clustering algorithms
+
+    Attributes:
+        title (str): Human-readable name of the control
+        category (str): Control category ID (e.g., 'controlsData', 'controlsModel')
+        components (List[str]): List of component IDs this control applies to
+        risks (List[str]): List of risk IDs this control mitigates
+        personas (List[str]): List of persona IDs responsible for implementing this control
+
+    Example:
+        >>> control = ControlNode(
+        ...     title="Input Validation and Sanitization",
+        ...     category="controlsModel",
+        ...     components=["componentInputHandling"],
+        ...     risks=["PIJ"],
+        ...     personas=["personaModelCreator"]
+        ... )
+        >>> print(control.title)
+        Input Validation and Sanitization
+        >>> print(len(control.components))
+        1
+
+    Note:
+        - All attributes are validated for type and non-empty content during initialization
+        - Component IDs should reference valid components in the system
+        - Risk IDs should reference valid risks in the risk framework
+        - Persona IDs should reference valid personas (Model Creator, Model Consumer)
+        - Special component values "all" and "none" have specific semantic meanings
     """
 
     def __init__(
@@ -263,7 +300,37 @@ class ControlNode:
     def __eq__(self, other) -> bool:
         """
         Defines equality between two ControlNode objects.
-        They are equal if all their attributes are identical.
+
+        Two ControlNode instances are considered equal if and only if all their
+        attributes (title, category, components, risks, personas) are identical.
+        This enables proper comparison, deduplication, and use in collections
+        like sets and dictionaries.
+
+        Args:
+            other: Object to compare with this ControlNode. Can be any type,
+                  but equality will only return True for ControlNode instances.
+
+        Returns:
+            bool: True if other is a ControlNode with identical attributes,
+                 False otherwise. Returns NotImplemented for non-ControlNode types
+                 to allow Python's rich comparison protocol to handle the comparison.
+
+        Example:
+            >>> control1 = ControlNode("Test", "controlsData", ["comp1"], ["risk1"], ["persona1"])
+            >>> control2 = ControlNode("Test", "controlsData", ["comp1"], ["risk1"], ["persona1"])
+            >>> control3 = ControlNode("Different", "controlsData", ["comp1"], ["risk1"], ["persona1"])
+            >>> print(control1 == control2)
+            True
+            >>> print(control1 == control3)
+            False
+            >>> print(control1 == "not a control")
+            False
+
+        Note:
+            - List order matters: ["comp1", "comp2"] != ["comp2", "comp1"]
+            - All attributes must match exactly (case-sensitive)
+            - Empty lists are considered equal to other empty lists
+            - This method enables ControlNode objects to be used in sets and as dictionary keys
         """
         if not isinstance(other, ControlNode):
             return NotImplemented
@@ -937,7 +1004,68 @@ class ComponentGraph:
 
 class ControlGraph:
     """
-    Generates Mermaid graph visualization for control-to-component relationships.
+    Generates optimized Mermaid graph visualizations for control-to-component relationships.
+
+    The ControlGraph class creates visual representations of how security controls map
+    to AI system components, applying sophisticated optimization algorithms to reduce
+    visual complexity while maintaining accuracy. It supports dynamic component clustering,
+    category-level optimizations, and multi-edge styling to create clear, readable diagrams.
+
+    Key Features:
+    - **Dynamic Component Clustering**: Automatically groups components that share multiple
+      controls into subgroups to reduce edge complexity
+    - **Category Optimization**: Maps controls to entire categories when they apply to all
+      components in that category
+    - **Multi-Edge Styling**: Applies distinct visual styles to controls with 3+ edges
+      using 4 cycling colors (purple, orange, pink, brown)
+    - **Special Control Handling**: Provides dedicated styling for "all" controls and
+      subgraph-targeted controls
+    - **Dynamic Category Loading**: Loads category display names from YAML configuration files
+
+    Graph Structure:
+    The generated graph consists of three main sections:
+    1. **Control Subgraphs**: Grouped by control category (Data, Infrastructure, etc.)
+    2. **Component Container**: Nested subgraphs for component categories and dynamic clusters
+    3. **Relationship Edges**: Styled connections showing control-to-component mappings
+
+    Optimization Algorithms:
+    - **Subgrouping Detection**: Uses `_find_component_clusters()` to identify components
+      with shared control relationships (min 2 shared controls, min 2 components)
+    - **Category Mapping**: Uses `_maps_to_full_category()` to detect when controls apply
+      to complete component categories
+    - **Edge Styling**: Applies different visual treatments based on edge type and count
+
+    Example:
+        >>> controls = {
+        ...     "control1": ControlNode(
+        ...         "Data Encryption", "controlsData", ["comp1", "comp2"], ["SDD"], ["persona1"]
+        ...     )
+        ... }
+        >>> components = {
+        ...     "comp1": ComponentNode("Data Storage", "componentsData", [], []),
+        ...     "comp2": ComponentNode("Model Storage", "componentsModel", [], [])
+        ... }
+        >>> graph = ControlGraph(controls, components, debug=True)
+        >>> mermaid_code = graph.to_mermaid()
+        >>> print("```mermaid" in mermaid_code)
+        True
+
+    Attributes:
+        controls (Dict[str, ControlNode]): Dictionary of control ID to ControlNode mappings
+        components (Dict[str, ComponentNode]): Dictionary of component ID to ComponentNode mappings
+        debug (bool): Whether to include debug comments in generated graphs
+        component_by_category (Dict[str, List[str]]): Components grouped by category/subgroup
+        subgroupings (Dict[str, Dict[str, List[str]]]): Dynamic subgroups within categories
+        control_to_component_map (Dict[str, List[str]]): Optimized control-to-component mappings
+        controls_mapped_to_all (Set[str]): Controls originally mapped to "all" components
+        control_by_category (Dict[str, List[str]]): Controls grouped by category
+
+    Note:
+        - The class automatically applies optimizations during initialization
+        - Subgrouping algorithms have configurable thresholds (min_shared_controls=2, min_components=2)
+        - Category display names are loaded from risk-map/yaml/ configuration files
+        - Multi-edge styling only applies to individual component mappings, not category mappings
+        - The generated Mermaid code includes comprehensive styling for professional visualization
     """
 
     def __init__(
@@ -949,10 +1077,44 @@ class ControlGraph:
         """
         Initialize ControlGraph with controls and components data.
 
+        Performs comprehensive initialization including component categorization,
+        dynamic subgrouping detection, control-to-component mapping optimization,
+        and preparation of all data structures needed for graph generation.
+
+        The initialization process follows this sequence:
+        1. Group components by their categories
+        2. Detect optimal subgroupings using clustering algorithms
+        3. Integrate subgroupings into the category structure
+        4. Build optimized control-to-component mappings
+        5. Track controls mapped to "all" components
+        6. Group controls by their categories
+
         Args:
-            controls: Dictionary mapping control IDs to ControlNode objects
-            components: Dictionary mapping component IDs to ComponentNode objects
-            debug: Whether to include debug information in output
+            controls (Dict[str, ControlNode]): Dictionary mapping control IDs to ControlNode objects.
+                Each ControlNode should have valid title, category, components, risks, and personas.
+            components (Dict[str, ComponentNode]): Dictionary mapping component IDs to ComponentNode objects.
+                Each ComponentNode should have valid title, category, and edge relationships.
+            debug (bool, optional): Whether to include debug information in generated output.
+                Defaults to False. When True, adds debug comments to Mermaid diagrams.
+
+        Raises:
+            TypeError: If controls or components are not dictionaries, or if they contain
+                      invalid ControlNode/ComponentNode objects.
+            ValueError: If control or component IDs are empty or contain invalid characters.
+
+        Side Effects:
+            - Populates self.component_by_category with categorized components
+            - Creates self.subgroupings with dynamically detected component clusters
+            - Builds self.control_to_component_map with optimized mappings
+            - Initializes self.controls_mapped_to_all set
+            - Creates self.control_by_category groupings
+
+        Example:
+            >>> controls = {"ctrl1": ControlNode("Test", "controlsData", ["comp1"], [], [])}
+            >>> components = {"comp1": ComponentNode("Test", "componentsData", [], [])}
+            >>> graph = ControlGraph(controls, components, debug=True)
+            >>> assert hasattr(graph, 'control_to_component_map')
+            >>> assert hasattr(graph, 'subgroupings')
         """
         self.controls = controls
         self.components = components
@@ -1048,15 +1210,55 @@ class ControlGraph:
         self, component_to_controls: Dict[str, set], min_shared_controls: int = 2, min_components: int = 2
     ) -> Dict[str, List[str]]:
         """
-        Find clusters of components that share significant control overlap.
+        Find clusters of components that share significant control overlap using graph clustering.
+
+        This algorithm identifies components that have substantial shared control relationships
+        and groups them into subgroups to reduce visual complexity in the generated graphs.
+        The clustering reduces edge count by replacing multiple individual component edges
+        with single subgroup edges.
+
+        Algorithm:
+        1. **Pairwise Analysis**: Examines all component pairs to find shared controls
+        2. **Cluster Formation**: Groups components with sufficient control overlap
+        3. **Cluster Merging**: Combines overlapping clusters iteratively
+        4. **Size Filtering**: Retains only clusters meeting minimum size requirements
+        5. **Name Generation**: Creates unique subgroup names based on common prefixes
+
+        Optimization Impact:
+        - Without clustering: Control -> [comp1, comp2, comp3, comp4] = 4 edges
+        - With clustering: Control -> [subgroup] = 1 edge (75% reduction)
 
         Args:
-            component_to_controls: Map of component_id -> set of control_ids
-            min_shared_controls: Minimum number of shared controls to form a cluster
-            min_components: Minimum number of components in a cluster
+            component_to_controls (Dict[str, set]): Mapping from component IDs to sets of
+                control IDs that apply to each component. Used to calculate control overlap.
+            min_shared_controls (int, optional): Minimum number of shared controls required
+                for components to be clustered together. Defaults to 2. Higher values create
+                more selective clusters with stronger control relationships.
+            min_components (int, optional): Minimum number of components required to form
+                a valid cluster. Defaults to 2. Prevents single-component "clusters".
 
         Returns:
-            Dict of subgroup_name -> list of component_ids
+            Dict[str, List[str]]: Dictionary mapping generated subgroup names to lists of
+            component IDs in each cluster. Subgroup names are generated automatically
+            using common prefixes (e.g., "componentsComp" for component clustering).
+
+        Example:
+            >>> component_controls = {
+            ...     "comp1": {"control1", "control2"},
+            ...     "comp2": {"control1", "control2"},
+            ...     "comp3": {"control3"}
+            ... }
+            >>> graph = ControlGraph({}, {})
+            >>> clusters = graph._find_component_clusters(component_controls)
+            >>> # Returns: {"componentsComp": ["comp1", "comp2"]}
+            >>> # comp3 not clustered (only 1 component, below min_components=2)
+
+        Note:
+            - The algorithm is greedy and may not find optimal global clusters
+            - Clusters with identical control sets are prioritized
+            - Component ordering within clusters is deterministic (sorted)
+            - Empty clusters are automatically filtered out
+            - Subgroup names use intelligent prefix detection for readability
         """
         components = list(component_to_controls.keys())
         clusters = []
@@ -1177,11 +1379,59 @@ class ControlGraph:
 
     def _build_control_component_mapping(self) -> Dict[str, List[str]]:
         """
-        Build mapping of control IDs to component IDs they apply to.
-        Handles special cases: 'all', 'none', and specific component lists.
+        Build optimized mapping of control IDs to component IDs they apply to.
+
+        This method performs sophisticated optimization to reduce visual complexity by
+        detecting when controls apply to complete categories or subgroups and mapping
+        to those higher-level constructs instead of individual components.
+
+        Optimization Strategy:
+        1. **Special Cases**: Handle "all" and "none" component mappings
+        2. **Component Validation**: Filter out non-existent component references
+        3. **Category Detection**: Identify controls that map to complete categories
+        4. **Subgroup Detection**: Identify controls that map to complete subgroups
+        5. **Hierarchical Mapping**: Prefer subgroups over categories, categories over individuals
+
+        Mapping Types:
+        - **"all" Controls**: Mapped to ["components"] (entire component container)
+        - **"none" Controls**: Mapped to [] (empty list)
+        - **Category Complete**: Mapped to [category_name] when all category components included
+        - **Subgroup Complete**: Mapped to [subgroup_name] when all subgroup components included
+        - **Individual**: Mapped to [comp1, comp2, ...] for partial category coverage
+
+        Priority Order (highest to lowest):
+        1. Dynamic subgroups (most specific)
+        2. Component categories (broader scope)
+        3. Individual components (fallback)
 
         Returns:
-            Dictionary mapping control IDs to lists of component IDs
+            Dict[str, List[str]]: Dictionary mapping control IDs to lists of target identifiers.
+            Targets can be individual component IDs, category names, or subgroup names,
+            depending on optimization results.
+
+        Example:
+            >>> # Control mapping to full category
+            >>> control1_components = ["comp1", "comp2"]  # All components in "componentsData"
+            >>> # Result: {"control1": ["componentsData"]}
+            >>>
+            >>> # Control mapping to subgroup
+            >>> control2_components = ["comp3", "comp4"]  # All components in "componentsComp" subgroup
+            >>> # Result: {"control2": ["componentsComp"]}
+            >>>
+            >>> # Control mapping to individuals
+            >>> control3_components = ["comp1"]  # Partial category coverage
+            >>> # Result: {"control3": ["comp1"]}
+
+        Side Effects:
+            - Validates component references against self.components
+            - Uses self.component_by_category for category detection
+            - Applies category check order from _get_category_check_order()
+
+        Note:
+            - Invalid component references are silently filtered out
+            - Empty component lists result in empty mappings
+            - The optimization significantly reduces edge count in generated graphs
+            - Category mappings take precedence over individual component mappings
         """
         mapping = {}
 
@@ -1313,10 +1563,67 @@ class ControlGraph:
 
     def build_controls_graph(self) -> str:
         """
-        Build Mermaid graph showing control-to-component relationships.
+        Build comprehensive Mermaid graph showing optimized control-to-component relationships.
+
+        Generates a complete Mermaid flowchart with professional styling that visualizes
+        how security controls map to AI system components. The graph includes multiple
+        optimization techniques to reduce complexity while maintaining clarity and accuracy.
+
+        Graph Structure:
+        1. **Control Subgraphs**: Groups controls by category (Data, Infrastructure, Model, etc.)
+        2. **Component Container**: Nested subgraph structure with:
+           - Main component categories (componentsData, componentsModel, etc.)
+           - Dynamic subgroups for clustered components
+           - Individual component nodes
+        3. **Styled Relationships**: Edges with different visual treatments:
+           - Dotted blue edges for "all" controls (apply to everything)
+           - Solid green edges for category/subgroup mappings
+           - Multi-colored edges for controls with 3+ individual component mappings
+        4. **Professional Styling**: Color-coded categories and comprehensive visual hierarchy
+
+        Visual Optimizations Applied:
+        - **Component Clustering**: Groups related components into subgroups
+        - **Category Mapping**: Maps controls to entire categories when applicable
+        - **Edge Styling**: Differentiates edge types through color and pattern
+        - **Node Styling**: Color-codes categories for better visual organization
+
+        Edge Styling Legend:
+        - **Blue Dotted (All Controls)**: stroke:#4285f4, dasharray:8 4 - Universal controls
+        - **Green Solid (Categories)**: stroke:#34a853 - Category-level mappings
+        - **Purple/Orange/Pink/Brown (Multi-edge)**: Various colors for individual mappings
 
         Returns:
-            Mermaid graph syntax as a string
+            str: Complete Mermaid graph definition wrapped in ```mermaid code blocks,
+                ready for rendering in documentation or web interfaces. Includes all
+                styling definitions, subgraph structures, and relationship mappings.
+
+        Example Output Structure:
+            ```mermaid
+            graph LR
+                subgraph controlsData ["Data Controls"]
+                    control1[Input Validation]
+                end
+                subgraph components
+                    subgraph componentsData ["Data Components"]
+                        comp1[Data Sources]
+                    end
+                end
+                control1 --> componentsData
+            ```
+
+        Side Effects:
+            - None. This method is read-only and generates output based on existing state.
+
+        Performance Notes:
+            - Graph complexity scales with number of controls and components
+            - Optimizations significantly reduce edge count for large datasets
+            - Generated strings can be large for complex control frameworks
+
+        Note:
+            - The graph uses left-to-right layout (graph LR) for optimal readability
+            - All styling is embedded for standalone rendering
+            - Subgraph nesting follows hierarchical component organization
+            - Edge indices are automatically calculated for proper styling application
         """
         lines = [
             "```mermaid",
@@ -1504,7 +1811,41 @@ class ControlGraph:
         return "\n".join(lines)
 
     def to_mermaid(self) -> str:
-        """Generate the Mermaid graph output."""
+        """
+        Generate the complete Mermaid graph output for control-to-component relationships.
+
+        This is the primary public interface for accessing the generated Mermaid graph.
+        It delegates to build_controls_graph() to create a comprehensive visualization
+        of how security controls map to AI system components with full optimization
+        and professional styling applied.
+
+        The output is ready for rendering in any Mermaid-compatible environment,
+        including documentation platforms, web interfaces, and diagram tools.
+
+        Returns:
+            str: Complete Mermaid graph definition as a string, including:
+                - ```mermaid code block markers for proper rendering
+                - Optimized control-to-component relationships
+                - Professional styling and color coding
+                - Hierarchical subgraph structure
+                - Multi-style edge formatting
+
+        Example:
+            >>> controls = {"ctrl1": ControlNode("Test", "controlsData", ["comp1"], [], [])}
+            >>> components = {"comp1": ComponentNode("Test", "componentsData", [], [])}
+            >>> graph = ControlGraph(controls, components)
+            >>> mermaid_code = graph.to_mermaid()
+            >>> print(mermaid_code.startswith("```mermaid"))
+            True
+            >>> print(mermaid_code.endswith("```"))
+            True
+
+        Note:
+            - This method is stateless and can be called multiple times safely
+            - The output includes all optimizations applied during initialization
+            - Graph complexity depends on the number of controls and components provided
+            - All styling and formatting is embedded for standalone rendering
+        """
         return self.build_controls_graph()
 
 

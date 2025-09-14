@@ -174,22 +174,23 @@ The `pre-commit` hook and all individual validation scripts support the `--force
 ```
 
 #### Manual Graph Generation
-Generate component graphs manually using the validation script:
+Generate component graphs and control-to-component graphs manually using the validation script:
 
 ```bash
-# Generate clean graph without debug comments
+# Validate edges and generate clean component graph without debug comments
 .git/hooks/validate_component_edges.py --to-graph ./docs/component-map.md --force
 
-# Generate graph with rank debugging information
+# Generate component graph with rank debugging information
 .git/hooks/validate_component_edges.py --to-graph ./docs/debug-graph.md --debug --force
 
-# Validate edges and generate graph in one command
-.git/hooks/validate_component_edges.py --to-graph ./risk-map/docs/risk-map-graph.md --force
+# Generate control-to-component graph visualization
+.git/hooks/validate_component_edges.py --to-controls-graph ./docs/controls-graph.md --force
 ```
 
 **Graph Generation Options:**
-- `--to-graph PATH` - Output Mermaid graph to specified file
-- `--debug` - Include rank comments for debugging
+- `--to-graph PATH` - Output component relationship Mermaid graph to specified file
+- `--to-controls-graph PATH` - Output control-to-component relationship graph to specified file
+- `--debug` - Include rank comments for debugging (component graphs only)
 - `--quiet` - Minimize output (only show errors)
 - `--allow-isolated` - Allow components with no edges
 
@@ -304,11 +305,14 @@ ruff check --fix .
 #### Debugging graph generation
 Test graph generation without affecting git staging:
 ```bash
-# Generate graph to test output
+# Generate component graph to test output
 python3 .git/hooks/validate_component_edges.py --to-graph ./test-graph.md --force
 
-# Generate graph with debug information to understand ranking
+# Generate component graph with debug information to understand ranking
 python3 .git/hooks/validate_component_edges.py --to-graph ./debug-graph.md --debug --force
+
+# Generate control-to-component graph to test relationships
+python3 .git/hooks/validate_component_edges.py --to-controls-graph ./controls-test.md --force
 
 # View help for all graph options
 python3 .git/hooks/validate_component_edges.py --help
@@ -318,9 +322,15 @@ python3 .git/hooks/validate_component_edges.py --help
 ```
 ❌ Graph generation failed
 ```
-**Fix**: Check that the component YAML file is valid and accessible, ensure write permissions for output directory
+**Fix**: Check that the component and control YAML files are valid and accessible, ensure write permissions for output directory
 
 ```
 ⚠️ Warning: Could not stage generated graph
 ```
 **Fix**: This occurs during pre-commit when git staging fails - check file permissions and git repository status
+
+**Control graph specific issues:**
+```
+❌ Control-to-component graph generation failed
+```
+**Fix**: Verify that both `controls.yaml` and `components.yaml` are accessible and properly formatted. Check that control component references are valid.

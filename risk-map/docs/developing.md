@@ -53,8 +53,11 @@ python scripts/hooks/validate_component_edges.py --force
 # Generate component graph visualization
 python scripts/hooks/validate_component_edges.py --to-graph ./my-graph.md --force
 
-# Generate graph with debug ranking information
+# Generate component graph with debug ranking information
 python scripts/hooks/validate_component_edges.py --to-graph ./debug-graph.md --debug --force
+
+# Generate control-to-component relationship graph
+python scripts/hooks/validate_component_edges.py --to-controls-graph ./controls-graph.md --force
 ```
 
 The validation script checks for:
@@ -69,6 +72,28 @@ The validation script checks for:
 - Organizes components into category-based subgraphs with color coding
 
 *See [scripts documentation](../../scripts/README.md) for more information on the git hooks and validation.*
+
+### Manual Control-to-Component Graph Generation
+
+The validation script can also generate control-to-component relationship graphs that visualize how security controls map to AI system components:
+
+```bash
+# Generate control-to-component graph
+python scripts/hooks/validate_component_edges.py --to-controls-graph ./controls-graph.md --force
+
+# Generate both component and control graphs
+python scripts/hooks/validate_component_edges.py --to-graph ./components.md --to-controls-graph ./controls.md --force
+```
+
+**Control Graph Features:**
+- **Dynamic Component Clustering**: Automatically groups components that share multiple controls
+- **Category Optimization**: Maps controls to entire categories when they apply to all components in that category
+- **Multi-Edge Styling**: Uses different colors and patterns for controls with 3+ edges
+- **Professional Styling**: Color-coded categories and comprehensive visual hierarchy
+- **Mermaid Format**: Generates Mermaid-compatible diagrams ready for documentation
+
+**Example Control Graph Output:**
+The generated graph shows controls (grouped by category) connected to the components they protect, with optimization applied to reduce visual complexity while maintaining accuracy.
 
 ### Manual Control-to-Risk Reference Validation
 
@@ -248,8 +273,11 @@ Before committing, validate that your changes are consistent:
 # Manual validation (recommended during development)
 python scripts/hooks/validate_component_edges.py --force
 
-# Optional: Generate graph to visualize your changes
+# Optional: Generate component graph to visualize your changes
 python scripts/hooks/validate_component_edges.py --to-graph ./preview-graph.md --force
+
+# Optional: Generate control-to-component graph to visualize control relationships
+python scripts/hooks/validate_component_edges.py --to-controls-graph ./preview-controls.md --force
 
 # Format YAML files (auto-runs in pre-commit but useful for preview)
 npx prettier --write risk-map/yaml/components.yaml
@@ -601,7 +629,7 @@ If the pre-commit hook or manual validation fails with edge consistency errors:
 
 If you encounter issues with the automatic graph generation:
 
-1. **Graph generation failed during pre-commit**:
+1. **Component graph generation failed during pre-commit**:
    ```
    ❌ Graph generation failed
    ```
@@ -610,17 +638,32 @@ If you encounter issues with the automatic graph generation:
    python scripts/hooks/validate_component_edges.py --to-graph ./test-graph.md --force
    ```
 
-2. **Generated graph not staged**:
+2. **Control-to-component graph generation failed**:
+   ```
+   ❌ Control-to-component graph generation failed
+   ```
+   **Fix**: Verify that both `controls.yaml` and `components.yaml` are accessible and properly formatted. Test manually:
+   ```bash
+   python scripts/hooks/validate_component_edges.py --to-controls-graph ./test-controls.md --force
+   ```
+
+3. **Generated graph not staged**:
    ```
    ⚠️ Warning: Could not stage generated graph
    ```
    **Fix**: Check file permissions and git repository status. Ensure `./risk-map/docs/` directory is writable.
 
-3. **Component ranking seems wrong**:
+4. **Component ranking seems wrong**:
    **Fix**: Use debug mode to see rank calculations:
    ```bash
    python scripts/hooks/validate_component_edges.py --to-graph ./debug-graph.md --debug --force
    ```
+
+5. **Control graph looks cluttered or confusing**:
+   **Fix**: The control graph uses automatic optimization. If results seem wrong, verify:
+   - Control component references are accurate in `controls.yaml`
+   - Component categories are correctly assigned in `components.yaml`
+   - Test the graph generation manually to inspect the output
 
 ### Bypassing Validation (Not Recommended)
 
@@ -650,9 +693,13 @@ However, your changes will still be validated during the PR review process.
    python scripts/hooks/validate_component_edges.py --force
    ```
 
-3. **Preview your changes visually** by generating a graph:
+3. **Preview your changes visually** by generating graphs:
    ```bash
+   # Generate component relationship graph
    python scripts/hooks/validate_component_edges.py --to-graph ./preview-graph.md --force
+
+   # Generate control-to-component relationship graph
+   python scripts/hooks/validate_component_edges.py --to-controls-graph ./preview-controls.md --force
    ```
 
 4. **Format files before committing** (though pre-commit handles this automatically):
@@ -677,7 +724,13 @@ However, your changes will still be validated during the PR review process.
     python scripts/hooks/validate_component_edges.py --to-graph ./debug-graph.md --debug --force
     ```
 
-12. **Run all validations locally** before pushing:
+12. **Use control graphs to validate control-component mappings** when adding or modifying controls:
+    ```bash
+    # Generate control graph to verify your control mappings are logical
+    python scripts/hooks/validate_component_edges.py --to-controls-graph ./verify-controls.md --force
+    ```
+
+13. **Run all validations locally** before pushing:
     ```bash
     # Run the full pre-commit suite manually
     .git/hooks/pre-commit --force
