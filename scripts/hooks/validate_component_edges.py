@@ -945,6 +945,11 @@ class ControlGraph:
 
         # Build mappings for graph generation
         self.component_by_category = self._group_components_by_category()
+
+        # Find optimal subgroupings and merge them into component_by_category
+        self.subgroupings = self._find_optimal_subgroupings()
+        self._integrate_subgroupings()
+
         self.control_to_component_map = self._build_control_component_mapping()
         self.controls_mapped_to_all = self._track_controls_mapped_to_all()
         self.control_by_category = self._group_controls_by_category()
@@ -968,6 +973,192 @@ class ControlGraph:
 
         # Check if all components in this category are present in the control's component list
         return category_components.issubset(control_component_set)
+
+    def _find_optimal_subgroupings(self) -> Dict[str, Dict[str, List[str]]]:
+        """
+        Analyze control-component relationships to find optimal subgroupings.
+
+        Returns:
+            Dict mapping parent categories to their optimal subgroups:
+            {
+                "componentsInfrastructure": {
+                    "componentsModelInfrastructure": ["comp1", "comp2", ...],
+                    "componentsDataInfrastructure": ["comp3", "comp4", ...]
+                }
+            }
+        """
+        # Build initial control-component map (without optimization)
+        initial_mapping = {}
+        for control_id, control in self.controls.items():
+            if control.components == ["all"]:
+                continue  # Skip 'all' controls for subgrouping analysis
+            elif control.components == ["none"] or not control.components:
+                continue  # Skip 'none' controls
+            else:
+                # Filter to only include components that actually exist
+                valid_components = [comp_id for comp_id in control.components if comp_id in self.components]
+                initial_mapping[control_id] = valid_components
+
+        # Find categories with 3+ components that could benefit from subgrouping
+        subgroupings = {}
+
+        for category, components in self.component_by_category.items():
+            if len(components) < 3:
+                continue  # Skip small categories
+
+            # Find components in this category that are targeted by controls
+            category_components = set(components)
+
+            # Build a map of component -> set of controls that target it
+            component_to_controls = {}
+            for comp_id in category_components:
+                component_to_controls[comp_id] = set()
+
+            for control_id, target_components in initial_mapping.items():
+                for comp_id in target_components:
+                    if comp_id in component_to_controls:
+                        component_to_controls[comp_id].add(control_id)
+
+            # Find groups of components that share 2+ controls
+            subgroups = self._find_component_clusters(
+                component_to_controls, min_shared_controls=2, min_components=2
+            )
+
+            if subgroups:
+                subgroupings[category] = subgroups
+
+        return subgroupings
+
+    def _find_component_clusters(
+        self, component_to_controls: Dict[str, set], min_shared_controls: int = 2, min_components: int = 2
+    ) -> Dict[str, List[str]]:
+        """
+        Find clusters of components that share significant control overlap.
+
+        Args:
+            component_to_controls: Map of component_id -> set of control_ids
+            min_shared_controls: Minimum number of shared controls to form a cluster
+            min_components: Minimum number of components in a cluster
+
+        Returns:
+            Dict of subgroup_name -> list of component_ids
+        """
+        components = list(component_to_controls.keys())
+        clusters = []
+
+        # Find all pairs of components with significant overlap
+        for i in range(len(components)):
+            for j in range(i + 1, len(components)):
+                comp1, comp2 = components[i], components[j]
+                shared_controls = component_to_controls[comp1] & component_to_controls[comp2]
+
+                if len(shared_controls) >= min_shared_controls:
+                    # Try to merge with existing cluster or create new one
+                    merged = False
+                    for cluster in clusters:
+                        if comp1 in cluster or comp2 in cluster:
+                            cluster.update([comp1, comp2])
+                            merged = True
+                            break
+
+                    if not merged:
+                        clusters.append({comp1, comp2})
+
+        # Merge overlapping clusters
+        merged_clusters = []
+        for cluster in clusters:
+            merged = False
+            for existing in merged_clusters:
+                if cluster & existing:  # Overlapping clusters
+                    existing.update(cluster)
+                    merged = True
+                    break
+            if not merged:
+                merged_clusters.append(cluster)
+
+        # Convert to named subgroups and filter by size
+        result = {}
+        for i, cluster in enumerate(merged_clusters):
+            if len(cluster) >= min_components:
+                # Generate a meaningful subgroup name
+                cluster_list = sorted(list(cluster))
+
+                # Try to find a common prefix for naming, avoiding conflicts
+                common_prefix = self._find_common_prefix([comp.replace("component", "") for comp in cluster_list])
+                if common_prefix and len(common_prefix) > 2:
+                    # Check if this would conflict with existing categories
+                    proposed_name = f"components{common_prefix.title()}"
+                    if proposed_name in self.component_by_category:
+                        # Avoid conflict by adding parent category context
+                        subgroup_name = f"components{common_prefix.title()}Infrastructure"
+                    else:
+                        subgroup_name = proposed_name
+                else:
+                    subgroup_name = f"componentsSubgroup{i + 1}"
+
+                result[subgroup_name] = cluster_list
+
+        return result
+
+    def _find_common_prefix(self, strings: List[str]) -> str:
+        """Find the longest common prefix among a list of strings."""
+        if not strings:
+            return ""
+
+        # Find the shortest string length
+        min_len = min(len(s) for s in strings)
+
+        for i in range(min_len):
+            char = strings[0][i]
+            if not all(s[i] == char for s in strings):
+                return strings[0][:i]
+
+        return strings[0][:min_len]
+
+    def _integrate_subgroupings(self) -> None:
+        """
+        Integrate discovered subgroupings into component_by_category.
+        Remove subgrouped components from parent categories and add subgroups.
+        """
+        for parent_category, subgroups in self.subgroupings.items():
+            if parent_category not in self.component_by_category:
+                continue
+
+            # Remove subgrouped components from parent category
+            all_subgrouped_components = set()
+            for subgroup_components in subgroups.values():
+                all_subgrouped_components.update(subgroup_components)
+
+            # Update parent category to exclude subgrouped components
+            self.component_by_category[parent_category] = [
+                comp_id
+                for comp_id in self.component_by_category[parent_category]
+                if comp_id not in all_subgrouped_components
+            ]
+
+            # Add subgroups as new categories
+            for subgroup_name, subgroup_components in subgroups.items():
+                self.component_by_category[subgroup_name] = subgroup_components
+
+    def _get_category_check_order(self) -> List[str]:
+        """
+        Get the order in which to check categories for optimization.
+        Returns subgroups first (most specific), then main categories.
+        """
+        # Collect all dynamically created subgroups
+        subgroup_names = []
+        main_categories = []
+
+        for parent_category, subgroups in self.subgroupings.items():
+            subgroup_names.extend(subgroups.keys())
+
+        # Add main categories (excluding those that have subgroups)
+        for category in self.component_by_category.keys():
+            if category not in subgroup_names:
+                main_categories.append(category)
+
+        # Return subgroups first, then main categories
+        return subgroup_names + main_categories
 
     def _build_control_component_mapping(self) -> Dict[str, List[str]]:
         """
@@ -997,16 +1188,7 @@ class ControlGraph:
 
                 # Check each category to see if control covers all components in that category
                 # Start with sub-categories first (more specific), then main categories
-                categories_to_check = []
-
-                # Add sub-categories first
-                if "componentsModelInfrastructure" in self.component_by_category:
-                    categories_to_check.append("componentsModelInfrastructure")
-
-                # Add main categories (excluding the ones that have sub-categories processed)
-                for category in self.component_by_category.keys():
-                    if category != "componentsModelInfrastructure":
-                        categories_to_check.append(category)
+                categories_to_check = self._get_category_check_order()
 
                 for category in categories_to_check:
                     if self._maps_to_full_category(valid_components, category):
@@ -1047,50 +1229,71 @@ class ControlGraph:
         return groups
 
     def _group_components_by_category(self) -> Dict[str, List[str]]:
-        """Group component IDs by their category and sub-categories."""
+        """Group component IDs by their category (simple mapping without subgroups)."""
         groups = {}
 
-        # Initialize main categories
+        # Initialize main categories only - subgrouping handled dynamically in optimization
         for comp_id, component in self.components.items():
             category = component.category
             if category not in groups:
                 groups[category] = []
             groups[category].append(comp_id)
 
-        # Create sub-category for model infrastructure components
-        if "componentsInfrastructure" in groups:
-            model_infra_components = [
-                comp_id for comp_id in groups["componentsInfrastructure"]
-                if comp_id.startswith("componentModel") and not comp_id == "componentModelFrameworksAndCode"
-            ]
-
-            if model_infra_components:
-                groups["componentsModelInfrastructure"] = model_infra_components
-                # Remove model components from main infrastructure category
-                groups["componentsInfrastructure"] = [
-                    comp_id for comp_id in groups["componentsInfrastructure"]
-                    if not comp_id.startswith("componentModel") or comp_id == "componentModelFrameworksAndCode"
-                ]
-
         return groups
+
+    def _load_category_names(self) -> Dict[str, str]:
+        """Load category names from YAML files."""
+        category_names = {}
+
+        # Load control categories
+        try:
+            controls_yaml_path = Path("risk-map/yaml/controls.yaml")
+            if controls_yaml_path.exists():
+                with open(controls_yaml_path, "r", encoding="utf-8") as f:
+                    controls_data = yaml.safe_load(f)
+
+                for category in controls_data.get("categories", []):
+                    if "id" in category and "title" in category:
+                        # Append "Controls" to control category titles
+                        category_names[category["id"]] = f"{category['title']} Controls"
+        except Exception:
+            pass  # Fallback to generated names if loading fails
+
+        # Load component categories
+        try:
+            components_yaml_path = Path("risk-map/yaml/components.yaml")
+            if components_yaml_path.exists():
+                with open(components_yaml_path, "r", encoding="utf-8") as f:
+                    components_data = yaml.safe_load(f)
+
+                for category in components_data.get("categories", []):
+                    if "id" in category and "title" in category:
+                        # Use the title as-is (already includes "Components")
+                        category_names[category["id"]] = category["title"].title()
+        except Exception:
+            pass  # Fallback to generated names if loading fails
+
+        return category_names
 
     def _get_category_display_name(self, category: str) -> str:
         """Convert category ID to display name."""
-        category_names = {
-            # Control categories
-            "controlsData": "Data Controls",
-            "controlsInfrastructure": "Infrastructure Controls",
-            "controlsModel": "Model Controls",
-            "controlsApplication": "Application Controls",
-            "controlsAssurance": "Assurance Controls",
-            "controlsGovernance": "Governance Controls",
-            # Component categories
-            "componentsData": "Data Components",
-            "componentsInfrastructure": "Infrastructure Components",
-            "componentsModel": "Model Components",
-            "componentsApplication": "Application Components",
-            "componentsModelInfrastructure": "Model Infrastructure",
-        }
+        # Load category names if not already cached
+        if not hasattr(self, "_category_names_cache"):
+            self._category_names_cache = self._load_category_names()
+
+        category_names = self._category_names_cache
+
+        # Handle dynamically generated category names
+        if category not in category_names:
+            # Remove "components" prefix and capitalize
+            display_name = category.replace("components", "").strip()
+            if display_name:
+                # Add spacing before capital letters for better readability
+                import re
+
+                spaced_name = re.sub(r"([a-z])([A-Z])", r"\1 \2", display_name)
+                return spaced_name.title()
+
         return category_names.get(category, category.title())
 
     def build_controls_graph(self) -> str:
@@ -1128,43 +1331,44 @@ class ControlGraph:
 
         # Add components subgraph as container for all components subgraphs
         lines.append("    subgraph components")
-        # Add component subgraphs with nested structure
+        # Add component subgraphs with dynamic nested structure
+        processed_subgroups = set()
+
         for category, comp_ids in self.component_by_category.items():
-            if not comp_ids:
+            if not comp_ids or category in processed_subgroups:
                 continue
 
             category_name = self._get_category_display_name(category)
 
-            # Handle nested subgraph for model infrastructure
-            if category == "componentsInfrastructure":
+            # Check if this category has subgroups
+            category_subgroups = self.subgroupings.get(category, {})
+
+            if category_subgroups:
+                # This category has subgroups - create nested structure
                 lines.append(f'    subgraph {category} ["{category_name}"]')
 
-                # Add non-model infrastructure components first
+                # Add remaining components in the main category (not subgrouped)
                 for comp_id in sorted(comp_ids):
                     component = self.components[comp_id]
                     lines.append(f"        {comp_id}[{component.title}]")
 
-                # Add nested model infrastructure subgraph
-                if "componentsModelInfrastructure" in self.component_by_category:
-                    model_infra_category = "componentsModelInfrastructure"
-                    model_infra_name = self._get_category_display_name(model_infra_category)
-                    model_infra_comps = self.component_by_category[model_infra_category]
+                # Add nested subgroups
+                for subgroup_name, subgroup_components in category_subgroups.items():
+                    subgroup_display_name = self._get_category_display_name(subgroup_name)
+                    lines.append(f'        subgraph {subgroup_name} ["{subgroup_display_name}"]')
 
-                    lines.append(f'        subgraph {model_infra_category} ["{model_infra_name}"]')
-                    for comp_id in sorted(model_infra_comps):
+                    for comp_id in sorted(subgroup_components):
                         component = self.components[comp_id]
                         lines.append(f"            {comp_id}[{component.title}]")
+
                     lines.append("        end")
+                    processed_subgroups.add(subgroup_name)
 
                 lines.append("    end")
                 lines.append("")
 
-            elif category == "componentsModelInfrastructure":
-                # Skip - handled as nested subgraph above
-                continue
-
             else:
-                # Regular category subgraph
+                # Regular category subgraph (no subgroups)
                 lines.append(f'    subgraph {category} ["{category_name}"]')
 
                 for comp_id in sorted(comp_ids):
@@ -1182,11 +1386,22 @@ class ControlGraph:
         # Track edge indices for styling
         edge_index = 0
         all_control_edges = []  # Edges from controls mapped to "all"
-        subgraph_edges = []     # Edges targeting subgraphs/categories
+        subgraph_edges = []  # Edges targeting subgraphs/categories
+        multi_edge_style_groups = [[], [], [], []]  # 4 style groups for multi-edge controls
+        control_edge_counts = {}  # Track edge count per control
 
+        # First pass: count edges per control
+        for control_id, component_ids in self.control_to_component_map.items():
+            if component_ids:
+                control_edge_counts[control_id] = len(component_ids)
+
+        # Second pass: generate edges and track indices with per-control styling
         for control_id, component_ids in self.control_to_component_map.items():
             if not component_ids:  # Skip controls with no component mappings
                 continue
+
+            is_multi_edge_control = control_edge_counts.get(control_id, 0) >= 3
+            control_edge_style_index = 0  # Reset for each control
 
             for comp_id in sorted(component_ids):
                 if comp_id == "components":
@@ -1200,6 +1415,12 @@ class ControlGraph:
                 elif comp_id in self.components:
                     # This is an individual component mapping
                     lines.append(f"    {control_id} --> {comp_id}")
+
+                    # Track multi-edge controls with cyclic style assignment per control
+                    if is_multi_edge_control:
+                        style_group = control_edge_style_index % 4
+                        multi_edge_style_groups[style_group].append(edge_index)
+                        control_edge_style_index += 1
 
                 edge_index += 1
 
@@ -1224,17 +1445,45 @@ class ControlGraph:
             edge_list = ",".join(map(str, subgraph_edges))
             lines.append(f"    linkStyle {edge_list} stroke:#34a853,stroke-width:2px")
 
+        # Style edges from controls with 3+ individual component mappings (4 distinct styles)
+        multi_edge_styles = [
+            "stroke:#9c27b0,stroke-width:2px",  # Purple solid
+            "stroke:#ff9800,stroke-width:2px,stroke-dasharray: 5 5",  # Orange dashed
+            "stroke:#e91e63,stroke-width:2px,stroke-dasharray: 10 2",  # Pink long-dash
+            "stroke:#795548,stroke-width:2px,stroke-dasharray: 2 3",  # Brown dot-dash
+        ]
+
+        for i, style_group in enumerate(multi_edge_style_groups):
+            if style_group:  # Only add if there are edges in this group
+                edge_list = ",".join(map(str, style_group))
+                lines.append(f"    linkStyle {edge_list} {multi_edge_styles[i]}")
+
         # Add node styling
-        lines.extend([
-            "",
-            "%% Node style definitions",
-            "    style components fill:#f0f0f0,stroke:#666,stroke-width:3px,stroke-dasharray: 10 5",
-            "    style componentsInfrastructure fill:#e6f3e6,stroke:#333,stroke-width:2px",
-            "    style componentsData fill:#fff5e6,stroke:#333,stroke-width:2px",
-            "    style componentsApplication fill:#e6f0ff,stroke:#333,stroke-width:2px",
-            "    style componentsModel fill:#ffe6e6,stroke:#333,stroke-width:2px",
-            "    style componentsModelInfrastructure fill:#d4e6d4,stroke:#333,stroke-width:1px",
-        ])
+        lines.extend(
+            [
+                "",
+                "%% Node style definitions",
+                "    style components fill:#f0f0f0,stroke:#666,stroke-width:3px,stroke-dasharray: 10 5",
+                "    style componentsInfrastructure fill:#e6f3e6,stroke:#333,stroke-width:2px",
+                "    style componentsData fill:#fff5e6,stroke:#333,stroke-width:2px",
+                "    style componentsApplication fill:#e6f0ff,stroke:#333,stroke-width:2px",
+                "    style componentsModel fill:#ffe6e6,stroke:#333,stroke-width:2px",
+            ]
+        )
+
+        # Add dynamic styling for subgroups
+        for parent_category, subgroups in self.subgroupings.items():
+            for subgroup_name in subgroups.keys():
+                if "Infrastructure" in parent_category:
+                    lines.append(f"    style {subgroup_name} fill:#d4e6d4,stroke:#333,stroke-width:1px")
+                elif "Data" in parent_category:
+                    lines.append(f"    style {subgroup_name} fill:#f5f0e6,stroke:#333,stroke-width:1px")
+                elif "Model" in parent_category:
+                    lines.append(f"    style {subgroup_name} fill:#f0e6e6,stroke:#333,stroke-width:1px")
+                elif "Application" in parent_category:
+                    lines.append(f"    style {subgroup_name} fill:#e0f0ff,stroke:#333,stroke-width:1px")
+
+        lines.extend([])
 
         lines.append("```")
         return "\n".join(lines)
