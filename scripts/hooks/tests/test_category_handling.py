@@ -107,7 +107,7 @@ class TestCategoryHandling:
             yaml.dump(components_yaml, f)
 
         # Patch the file paths to use our temp files
-        with patch("pathlib.Path") as mock_path:
+        with patch("riskmap_validator.graphing.Path") as mock_path:
 
             def path_side_effect(path_str):
                 if "controls.yaml" in str(path_str):
