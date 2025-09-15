@@ -12,220 +12,340 @@ on:
       - 'risk-map/yaml/**'
       - 'risk-map/schemas/**'
 
-jobs: 
-  validate-risk-map:
+jobs:
+  # Setup job to install dependencies and prepare validation scripts
+  setup:
     runs-on: ubuntu-latest
-    name: Validate Risk Map Data
-    
+    name: Setup Environment
+    outputs:
+      cache-key: ${{ steps.cache-key.outputs.key }}
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
-      
+
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
         python-version: '3.11'
         cache: 'pip'
-    
+
     - name: Setup Node
-      uses: actions/setup-node@v5 
-      with: 
+      uses: actions/setup-node@v5
+      with:
         node-version: '22.x'
-        cache: 'npm'     
+        cache: 'npm'
 
     - name: Copy validation scripts to working directory
       run: |
         # Copy the scripts from the repo to make them executable in CI
-        cp scripts/hooks/validate_component_edges.py .
+        cp scripts/hooks/validate_riskmap.py .
+        mkdir -p riskmap_validator
+        cp scripts/hooks/riskmap_validator/*.py ./riskmap_validator/
         cp scripts/hooks/validate_control_risk_references.py .
 
     - name: Install dependencies
       run: |
         pip install -r requirements.txt
-        npm ci  # or npm install'
-        
+        npm ci
+
+    - name: Generate cache key
+      id: cache-key
+      run: |
+        echo "key=deps-${{ hashFiles('requirements.txt', 'package-lock.json') }}" >> $GITHUB_OUTPUT
+
+  # Individual validation jobs that can fail independently
+  schema-validation:
+    runs-on: ubuntu-latest
+    name: YAML Schema Validation
+    needs: setup
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+        cache: 'pip'
+
+    - name: Setup Node
+      uses: actions/setup-node@v5
+      with:
+        node-version: '22.x'
+        cache: 'npm'
+
+    - name: Install dependencies
+      run: |
+        pip install -r requirements.txt
+        npm ci
+
     - name: Run YAML Schema Validation
       run: |
         echo "🔍 Running YAML schema validation..."
-        
+
         BASE_URI="file://$(pwd)/risk-map/schemas/"
         YAML_BASE_DIR="risk-map/yaml"
         SCHEMA_BASE_DIR="risk-map/schemas"
-        SOURCE_FILES=("controls" "components" "personas" "risks" "self-assessment")
-        
+        SOURCE_FILES=("controls" "components" "personas" "risks" "self-assessment" "mermaid-styles")
+
         validation_failed=false
-        
+
         for target in "${SOURCE_FILES[@]}"; do
           schema_file="${SCHEMA_BASE_DIR}/${target}.schema.json"
           yaml_file="${YAML_BASE_DIR}/${target}.yaml"
-          
+
           if [[ -f "$yaml_file" && -f "$schema_file" ]]; then
-            echo "Validating $yaml_file against $schema_file..."
-            if ! check-jsonschema --base-uri "$BASE_URI" --schemafile "$schema_file" "$yaml_file"; then
-              echo "❌ Schema validation failed for ${target}.yaml"
-              validation_failed=true
+            echo "📄 Validating ${yaml_file} against ${schema_file}..."
+
+            if check-jsonschema --base-uri "$BASE_URI" --schemafile "$schema_file" "$yaml_file"; then
+              echo "✅ ${yaml_file} is valid"
             else
-              echo "✅ Schema validation passed for ${target}.yaml"
+              echo "❌ ${yaml_file} validation failed"
+              validation_failed=true
             fi
           else
-            echo "⚠️ Skipping ${target} - missing file(s)"
+            echo "⚠️  Skipping ${target}: missing files"
           fi
         done
-        
-        # Store schema validation result for final summary
-        echo "SCHEMA_VALIDATION_FAILED=$validation_failed" >> $GITHUB_ENV
-        
+
         if [ "$validation_failed" = true ]; then
           echo "::error::YAML schema validation failed"
-        else
-          echo "🎉 All YAML schema validations passed!"
+          exit 1
         fi
-        
-    - name: Run YAML Formatting Validation
+
+        echo "✅ All YAML schema validations passed"
+
+  format-validation:
+    runs-on: ubuntu-latest
+    name: YAML Format Validation
+    needs: setup
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Setup Node
+      uses: actions/setup-node@v5
+      with:
+        node-version: '22.x'
+        cache: 'npm'
+
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Run YAML Format Validation
       run: |
-        echo "🎨 Running prettier format validation on YAML files..."
-    
-        formatting_failed=false
+        echo "🎨 Running YAML format validation..."
 
-        YAML_BASE_DIR="./risk-map/yaml/"
-        PRETTIER_CMD="npx prettier"
-        PRETTIER_ARGS="--list-different"
-
-        # Set PRETTIER_EXPERIMENTAL_CLI due to a bug in 3.6.x's --list-different 
-        export PRETTIER_EXPERIMENTAL_CLI=1
-        if ! output=$($PRETTIER_CMD $PRETTIER_ARGS $YAML_BASE_DIR 2>&1); then
-          echo "   ❌ Prettier formatting failed for: ${output//$'\n'/, }"
-          formatting_failed=true
+        if npx prettier --check risk-map/yaml/*.yaml; then
+          echo "✅ YAML format validation completed successfully"
         else
-            echo "   ✅ All YAML files formatted successfully"
+          echo "❌ YAML format validation failed"
+          echo "::error::YAML files are not properly formatted. Run 'npx prettier --write risk-map/yaml/*.yaml' locally."
+          exit 1
         fi
-        
-        # Store formatting validation result for final summary
-        echo "FORMATTING_VALIDATION_FAILED=$formatting_failed" >> $GITHUB_ENV
-        
-        if [ "$formatting_failed" = true ]; then
-          echo "::error::YAML formatting validation failed"
-        fi
+
+  component-edge-validation:
+    runs-on: ubuntu-latest
+    name: Component Edge Validation
+    needs: setup
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+        cache: 'pip'
+
+    - name: Copy validation scripts
+      run: |
+        cp scripts/hooks/validate_riskmap.py .
+        mkdir -p riskmap_validator
+        cp scripts/hooks/riskmap_validator/*.py ./riskmap_validator/
+
+    - name: Install dependencies
+      run: pip install -r requirements.txt
 
     - name: Run Component Edge Validation
       run: |
         echo "🔗 Running component edge validation..."
-        
-        edge_validation_failed=false
-        
-        if python3 validate_component_edges.py --force; then
+
+        if python3 validate_riskmap.py --force; then
           echo "✅ Component edge validation completed successfully"
         else
           echo "❌ Component edge validation failed"
-          edge_validation_failed=true
-        fi
-        
-        # Store edge validation result for final summary
-        echo "EDGE_VALIDATION_FAILED=$edge_validation_failed" >> $GITHUB_ENV
-        
-        if [ "$edge_validation_failed" = true ]; then
           echo "::error::Component edge validation failed"
+          exit 1
         fi
-        
+
+  control-risk-validation:
+    runs-on: ubuntu-latest
+    name: Control-Risk Reference Validation
+    needs: setup
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+        cache: 'pip'
+
+    - name: Copy validation scripts
+      run: cp scripts/hooks/validate_control_risk_references.py .
+
+    - name: Install dependencies
+      run: pip install -r requirements.txt
+
     - name: Run Control-Risk Reference Validation
       run: |
-        echo "🔗 Running control-to-risk reference validation..."
-        
-        control_risk_validation_failed=false
-        
+        echo "🔒 Running control-to-risk reference validation..."
+
         if python3 validate_control_risk_references.py --force; then
           echo "✅ Control-to-risk reference validation completed successfully"
         else
           echo "❌ Control-to-risk reference validation failed"
-          control_risk_validation_failed=true
-        fi
-        
-        # Store control-risk validation result for final summary
-        echo "CONTROL_RISK_VALIDATION_FAILED=$control_risk_validation_failed" >> $GITHUB_ENV
-        
-        if [ "$control_risk_validation_failed" = true ]; then
           echo "::error::Control-to-risk reference validation failed"
+          exit 1
         fi
-    
-    - name: Validate component graph
+
+  graph-validation:
+    runs-on: ubuntu-latest
+    name: Graph Validation
+    needs: setup
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+        cache: 'pip'
+
+    - name: Copy validation scripts
       run: |
-        graph_compare_failed=false
-        TEMP_FILE=$(mktemp)
+        cp scripts/hooks/validate_riskmap.py .
+        mkdir -p riskmap_validator
+        cp scripts/hooks/riskmap_validator/*.py ./riskmap_validator/
+
+    - name: Install dependencies
+      run: pip install -r requirements.txt
+
+    - name: Validate graphs
+      run: |
+        # Setup temporary files and paths
+        RISK_MAP_TEMP_FILE=$(mktemp)
+        CONTROLS_TEMP_FILE=$(mktemp)
         RISKMAP_PATH="./risk-map/docs/risk-map-graph.md"
+        CONTROL_GRAPH_PATH="./risk-map/docs/controls-graph.md"
+        VALIDATE_CMD="validate_riskmap.py"
 
-        if ! python3 validate_component_edges.py --force --to-graph ${TEMP_FILE}; then
-          echo "❌ Component graph generation via validate_component_edges.py failed..."
-          graph_compare_failed=true
-        elif ! output=$(diff -u ${RISKMAP_PATH} ${TEMP_FILE} 2>&1;); then
-          echo "❌ Generated risk-map-graph.md does not match PR risk-map-graph.md..."
-          echo "::error title=Files differ::Differences found between expected and actual files"
-          echo "::group::Diff Output"
-          echo "${output}"
-          echo "::endgroup::"
-          graph_compare_failed=true
-        else
-          echo "✅ Generated graph matches ${RISKMAP_PATH}"
-        fi
+        # Define graph configurations as arrays
+        GRAPH_NAMES=("Component Graph" "Control Graph")
+        TEMP_FILES=("${RISK_MAP_TEMP_FILE}" "${CONTROLS_TEMP_FILE}")
+        TARGET_PATHS=("${RISKMAP_PATH}" "${CONTROL_GRAPH_PATH}")
+        GENERATE_ARGS=("--to-graph" "--to-controls-graph")
 
-        # Store validate component graph result for final summary
-        echo "COMPONENT_GRAPH_VALIDATION_FAILED=$graph_compare_failed" >> $GITHUB_ENV
-        
-        # Cleanup temp file
-        rm -f ${TEMP_FILE}
-        
+        graph_compare_failed=false
+
+        # Loop through both graph types
+        for i in "${!GRAPH_NAMES[@]}"; do
+            graph_name="${GRAPH_NAMES[$i]}"
+            temp_file="${TEMP_FILES[$i]}"
+            target_path="${TARGET_PATHS[$i]}"
+            gen_args="${GENERATE_ARGS[$i]}"
+
+            echo "🔍 Validating ${graph_name}..."
+
+            if ! python3 ${VALIDATE_CMD} --force ${gen_args} "${temp_file}"; then
+                echo "❌ ${graph_name} generation via ${VALIDATE_CMD} failed..."
+                graph_compare_failed=true
+            elif ! output=$(diff -u "${target_path}" "${temp_file}" 2>&1); then
+                echo "❌ Generated ${graph_name,,} does not match PR ${graph_name,,}..."
+                echo "::error title=Files differ::Differences found in ${graph_name}"
+                echo "::group::${graph_name} Diff Output"
+                echo "${output}"
+                echo "::endgroup::"
+                graph_compare_failed=true
+            else
+                echo "✅ Generated ${graph_name,,} matches ${target_path}"
+            fi
+        done
+
+        # Cleanup temp files
+        rm -f ${RISK_MAP_TEMP_FILE}
+        rm -f ${CONTROLS_TEMP_FILE}
+
         if [ "$graph_compare_failed" = true ]; then
-          echo "::error::Component graph validation failed"
+          echo "::error::Graph validation failed"
+          exit 1
         fi
-    - name: Validation Summary
-      if: always()
+
+        echo "✅ All graph validations passed"
+
+  # Summary job that requires all other jobs but doesn't fail
+  validation-summary:
+    runs-on: ubuntu-latest
+    name: Validation Summary
+    needs: [schema-validation, format-validation, component-edge-validation, control-risk-validation, graph-validation]
+    if: always()
+    steps:
+    - name: Generate Summary
       run: |
         echo "📋 CoSAI Risk Map Validation Summary:"
-        
-        overall_failed=false
-        
-        # Check each validation result
-        if [ "$SCHEMA_VALIDATION_FAILED" = "true" ]; then
-          echo "  ❌ YAML schema validation"
-          overall_failed=true
-        else
-          echo "  ✅ YAML schema validation"
-        fi
-        
-        if [ "$FORMATTING_VALIDATION_FAILED" = "true" ]; then
-          echo "  ❌ YAML format validation"
-          overall_failed=true
-        else
-          echo "  ✅ YAML format validation"
-        fi
-        
-        if [ "$EDGE_VALIDATION_FAILED" = "true" ]; then
-          echo "  ❌ Component edge validation"
-          overall_failed=true
-        else
-          echo "  ✅ Component edge validation"
-        fi
-        
-        if [ "$CONTROL_RISK_VALIDATION_FAILED" = "true" ]; then
-          echo "  ❌ Control-to-risk reference validation"
-          overall_failed=true
-        else
-          echo "  ✅ Control-to-risk reference validation"
-        fi
-
-        if [ "$COMPONENT_GRAPH_VALIDATION_FAILED" = "true" ]; then
-          echo "  ❌ Risk-map-graph.md validation"
-          overall_failed=true
-        else
-          echo "  ✅ Risk-map-graph.md reference validation"
-        fi
-        
         echo ""
-        if [ "$overall_failed" = "true" ]; then
-          echo "💥 One or more validations failed. Please review the errors above."
-          echo "::error::Risk Map validation failed - see summary above"
-          exit 1
+
+        # Check individual job results
+        schema_result="${{ needs.schema-validation.result }}"
+        format_result="${{ needs.format-validation.result }}"
+        edge_result="${{ needs.component-edge-validation.result }}"
+        control_result="${{ needs.control-risk-validation.result }}"
+        graph_result="${{ needs.graph-validation.result }}"
+
+        overall_success=true
+
+        if [ "$schema_result" = "success" ]; then
+          echo "  ✅ YAML schema validation"
         else
-          echo "🎉 All CoSAI Risk Map validations completed successfully!"
-          echo "The Risk Map data maintains full integrity and consistency."
+          echo "  ❌ YAML schema validation ($schema_result)"
+          overall_success=false
         fi
 
+        if [ "$format_result" = "success" ]; then
+          echo "  ✅ YAML format validation"
+        else
+          echo "  ❌ YAML format validation ($format_result)"
+          overall_success=false
+        fi
+
+        if [ "$edge_result" = "success" ]; then
+          echo "  ✅ Component edge validation"
+        else
+          echo "  ❌ Component edge validation ($edge_result)"
+          overall_success=false
+        fi
+
+        if [ "$control_result" = "success" ]; then
+          echo "  ✅ Control-to-risk reference validation"
+        else
+          echo "  ❌ Control-to-risk reference validation ($control_result)"
+          overall_success=false
+        fi
+
+        if [ "$graph_result" = "success" ]; then
+          echo "  ✅ Graph validation (component & control graphs)"
+        else
+          echo "  ❌ Graph validation ($graph_result)"
+          overall_success=false
+        fi
+
+        echo ""
+        if [ "$overall_success" = "true" ]; then
+          echo "🎉 All validations passed!"
+        else
+          echo "💥 Some validations failed. Check individual job details above."
+          exit 1
+        fi
