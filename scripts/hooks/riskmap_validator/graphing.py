@@ -1,14 +1,14 @@
 """
 Graph generation classes for Mermaid visualization.
 
-Provides MermaidConfigLoader, ComponentGraph, and ControlGraph classes
-for generating Mermaid graph visualizations of component relationships
-and control-to-component mappings.
+Provides MermaidConfigLoader, ComponentGraph, ControlGraph, and RiskGraph classes
+for generating Mermaid graph visualizations of component relationships,
+control-to-component mappings, and risk-to-control-to-component relationships.
 
 Dependencies:
     - PyYAML: For configuration file parsing
     - .config: Default configuration file paths
-    - .models: ComponentNode and ControlNode data models
+    - .models: ComponentNode, ControlNode, and RiskNode data models
 """
 
 from pathlib import Path
@@ -17,7 +17,7 @@ from typing import Any
 import yaml
 
 from .config import DEFAULT_MERMAID_CONFIG_FILE
-from .models import ComponentNode, ControlNode
+from .models import ComponentNode, ControlNode, RiskNode
 
 
 class BaseGraph:
@@ -2364,3 +2364,255 @@ class ControlGraph(BaseGraph):
             - All styling and formatting is embedded for standalone rendering
         """
         return self.build_controls_graph()
+
+
+class RiskGraph(BaseGraph):
+    """
+    Generates Mermaid graph visualizations for risk-to-control-to-component relationships.
+
+    The RiskGraph class creates visual representations of how security risks map
+    to controls and subsequently to AI system components. It builds upon the ControlGraph
+    functionality to show the full risk mitigation chain.
+
+    Key Features:
+    - **Risk-to-Control Mapping**: Shows which controls mitigate specific risks
+    - **Control-to-Component Mapping**: Leverages existing ControlGraph logic
+    - **Three-Layer Visualization**: Risks -> Controls -> Components
+    - **Category Organization**: Groups risks, controls, and components by category
+
+    Graph Structure:
+    The generated graph consists of three main sections:
+    1. **Risk Subgraphs**: Grouped risks (future: by category)
+    2. **Control Subgraphs**: Grouped by control category
+    3. **Component Container**: Nested subgraphs for component categories
+
+    Attributes:
+        risks (dict[str, RiskNode]): Dictionary of risk ID to RiskNode mappings
+        controls (dict[str, ControlNode]): Dictionary of control ID to ControlNode mappings
+        components (dict[str, ComponentNode]): Dictionary of component ID to ComponentNode mappings
+    """
+
+    def __init__(
+        self,
+        risks: dict[str, RiskNode],
+        controls: dict[str, ControlNode],
+        components: dict[str, ComponentNode],
+        debug: bool = False,
+        config_loader = None,
+    ):
+        """
+        Initialize RiskGraph with risks, controls, and components data.
+
+        Args:
+            risks: Dictionary mapping risk IDs to RiskNode objects
+            controls: Dictionary mapping control IDs to ControlNode objects
+            components: Dictionary mapping component IDs to ComponentNode objects
+            debug: Whether to include debug information in generated output
+            config_loader: Configuration loader for styling and layout options
+        """
+        super().__init__(config_loader)
+        self.risks = risks
+        self.controls = controls
+        self.components = components
+        self.debug = debug
+
+        # Build risk-to-control mapping
+        self.risk_to_control_map = self._build_risk_control_mapping()
+
+        # Group risks by category (basic implementation for now)
+        self.risk_by_category = self._group_risks_by_category()
+
+        # Initialize control graph for control-to-component relationships
+        self.control_graph = ControlGraph(controls, components, debug, config_loader)
+
+    def _build_risk_control_mapping(self) -> dict[str, list[str]]:
+        """
+        Build mapping from risk IDs to control IDs based on control.risks data.
+
+        Returns:
+            Dictionary mapping risk IDs to lists of control IDs that mitigate them
+        """
+        risk_to_controls = {}
+
+        # Initialize with empty lists for all known risks
+        for risk_id in self.risks.keys():
+            risk_to_controls[risk_id] = []
+
+        # Build mapping from controls that reference risks
+        for control_id, control in self.controls.items():
+            for risk_id in control.risks:
+                if risk_id in risk_to_controls:
+                    risk_to_controls[risk_id].append(control_id)
+
+        return risk_to_controls
+
+    def _group_risks_by_category(self) -> dict[str, list[str]]:
+        """
+        Group risk IDs by their category.
+
+        For now, returns a single 'risks' category since risks.yaml doesn't have categories.
+        Future enhancement could parse risk categories from YAML structure.
+        """
+        # Basic implementation - single category for all risks
+        return {"risks": list(self.risks.keys())}
+
+    def to_mermaid(self) -> str:
+        """
+        Generate the complete Mermaid graph output for risk-to-control-to-component relationships.
+
+        Returns:
+            Complete Mermaid graph definition as a string
+        """
+        return self.build_risk_graph()
+
+    def build_risk_graph(self) -> str:
+        """
+        Build a Mermaid graph showing risk-to-control-to-component relationships.
+
+        Returns:
+            Complete Mermaid graph definition wrapped in code blocks
+        """
+        lines = ["```mermaid", "graph LR"]
+
+        if self.debug:
+            lines.append("    %% Risk-to-Control-to-Component Graph")
+            lines.append("    %% Generated by RiskGraph class")
+            lines.append("")
+
+        # 1. Define risk nodes in subgraphs
+        lines.extend(self._generate_risk_subgraphs())
+        lines.append("")
+
+        # 2. Define control subgraphs (reuse from ControlGraph)
+        lines.extend(self._generate_control_subgraphs())
+        lines.append("")
+
+        # 3. Define component subgraphs (reuse from ControlGraph)
+        lines.extend(self._generate_component_subgraphs())
+        lines.append("")
+
+        # 4. Generate risk-to-control edges
+        lines.extend(self._generate_risk_control_edges())
+        lines.append("")
+
+        # 5. Generate control-to-component edges (reuse from ControlGraph)
+        lines.extend(self._generate_control_component_edges())
+        lines.append("")
+
+        # 6. Add styling
+        lines.extend(self._generate_styling())
+
+        lines.append("```")
+        return "\n".join(lines)
+
+    def _generate_risk_subgraphs(self) -> list[str]:
+        """Generate risk subgraph definitions."""
+        lines = []
+
+        # For now, create a single risks subgraph
+        lines.append('    subgraph risks ["Risks"]')
+
+        for risk_id, risk in self.risks.items():
+            # Create safe node ID and readable label
+            safe_id = risk_id.replace("-", "_")
+            label = risk.title[:30] + "..." if len(risk.title) > 30 else risk.title
+            lines.append(f'        {safe_id}["{label}"]')
+
+        lines.append("    end")
+        return lines
+
+    def _generate_control_subgraphs(self) -> list[str]:
+        """Generate control subgraph definitions (reuse ControlGraph logic)."""
+        lines = []
+
+        for category, control_ids in self.control_graph.control_by_category.items():
+            if not control_ids:
+                continue
+
+            category_display = self._get_category_display_name(category)
+            lines.append(f'    subgraph {category} ["{category_display}"]')
+
+            for control_id in control_ids:
+                if control_id in self.controls:
+                    control = self.controls[control_id]
+                    safe_id = control_id.replace("-", "_")
+                    label = control.title[:25] + "..." if len(control.title) > 25 else control.title
+                    lines.append(f'        {safe_id}["{label}"]')
+
+            lines.append("    end")
+
+        return lines
+
+    def _generate_component_subgraphs(self) -> list[str]:
+        """Generate component subgraph definitions (reuse ControlGraph logic)."""
+        lines = []
+        lines.append('    subgraph components ["Components"]')
+
+        for category, comp_ids in self.control_graph.component_by_category.items():
+            if not comp_ids:
+                continue
+
+            category_display = self._get_category_display_name(category)
+            lines.append(f'        subgraph {category} ["{category_display}"]')
+
+            for comp_id in comp_ids:
+                if comp_id in self.components:
+                    component = self.components[comp_id]
+                    safe_id = comp_id.replace("-", "_")
+                    label = component.title[:25] + "..." if len(component.title) > 25 else component.title
+                    lines.append(f'            {safe_id}["{label}"]')
+
+            lines.append("        end")
+
+        lines.append("    end")
+        return lines
+
+    def _generate_risk_control_edges(self) -> list[str]:
+        """Generate edges from risks to controls."""
+        lines = []
+
+        if self.debug:
+            lines.append("    %% Risk-to-Control edges")
+
+        for risk_id, control_ids in self.risk_to_control_map.items():
+            if not control_ids:
+                continue
+
+            risk_safe_id = risk_id.replace("-", "_")
+
+            for control_id in control_ids:
+                if control_id in self.controls:
+                    control_safe_id = control_id.replace("-", "_")
+                    # Use red edges for risk-to-control relationships
+                    lines.append(f"    {risk_safe_id} --> {control_safe_id}")
+
+        return lines
+
+    def _generate_control_component_edges(self) -> list[str]:
+        """Generate edges from controls to components (reuse ControlGraph logic)."""
+        lines = []
+
+        if self.debug:
+            lines.append("    %% Control-to-Component edges")
+
+        for control_id, targets in self.control_graph.control_to_component_map.items():
+            if not targets:
+                continue
+
+            control_safe_id = control_id.replace("-", "_")
+
+            for target in targets:
+                # Use blue edges for control-to-component relationships
+                lines.append(f"    {control_safe_id} --> {target}")
+
+        return lines
+
+    def _generate_styling(self) -> list[str]:
+        """Generate basic styling for the graph."""
+        lines = []
+
+        # Basic styling for different edge types
+        lines.append("    %% Styling")
+        lines.append("    linkStyle default stroke:#666,stroke-width:2px")
+
+        return lines
