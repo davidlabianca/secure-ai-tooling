@@ -20,6 +20,157 @@ from .config import DEFAULT_MERMAID_CONFIG_FILE
 from .models import ComponentNode, ControlNode
 
 
+class BaseGraph:
+    """
+    Base class for Mermaid graph generation with shared utilities.
+
+    This class provides common functionality for both ComponentGraph and ControlGraph,
+    including category handling, display name generation, and configuration management.
+
+    Key Features:
+    - Dynamic category discovery from component/control data
+    - Category display name generation with YAML config loading
+    - Shared configuration patterns
+    - Consistent category handling across graph types
+    """
+
+    def __init__(self, config_loader=None):
+        """
+        Initialize BaseGraph with optional configuration loader.
+
+        Args:
+            config_loader (MermaidConfigLoader, optional): Configuration loader for
+                styling and layout options. Defaults to None, which creates a singleton
+                instance using default configuration paths.
+        """
+        self.config_loader = config_loader or MermaidConfigLoader.get_instance()
+        self._category_names_cache = None
+
+    def _load_category_names(self) -> dict[str, str]:
+        """
+        Load category names from YAML files.
+
+        Loads category display names from both controls.yaml and components.yaml
+        configuration files, providing human-readable names for category IDs.
+
+        Returns:
+            dict[str, str]: Dictionary mapping category IDs to display names.
+                           Returns empty dict if loading fails.
+        """
+        category_names = {}
+
+        # Load control categories
+        try:
+            controls_yaml_path = Path("risk-map/yaml/controls.yaml")
+            if controls_yaml_path.exists():
+                with open(controls_yaml_path, "r", encoding="utf-8") as f:
+                    controls_data = yaml.safe_load(f)
+
+                for category in controls_data.get("categories", []):
+                    if "id" in category and "title" in category:
+                        # Append "Controls" to control category titles
+                        category_names[category["id"]] = f"{category['title']} Controls"
+        except Exception:
+            pass  # Fallback to generated names if loading fails
+
+        # Load component categories
+        try:
+            components_yaml_path = Path("risk-map/yaml/components.yaml")
+            if components_yaml_path.exists():
+                with open(components_yaml_path, "r", encoding="utf-8") as f:
+                    components_data = yaml.safe_load(f)
+
+                for category in components_data.get("categories", []):
+                    if "id" in category and "title" in category:
+                        # Use the title as-is (already includes "Components")
+                        category_names[category["id"]] = category["title"].title()
+        except Exception:
+            pass  # Fallback to generated names if loading fails
+
+        return category_names
+
+    def _get_category_display_name(self, category: str) -> str:
+        """
+        Convert category ID to display name.
+
+        Generates human-readable display names for category IDs, with fallback
+        to auto-generated names when YAML configuration is not available.
+
+        Args:
+            category (str): Category ID to convert (e.g., "componentsData", "controlsInfrastructure")
+
+        Returns:
+            str: Human-readable display name (e.g., "Data Components", "Infrastructure Controls")
+        """
+        # Load category names if not already cached
+        if not hasattr(self, "_category_names_cache") or self._category_names_cache is None:
+            self._category_names_cache = self._load_category_names()
+
+        category_names = self._category_names_cache
+
+        # Handle dynamically generated category names
+        if category not in category_names:
+            # Remove "components" or "controls" prefix and capitalize
+            if category.startswith("components"):
+                display_name = category.replace("components", "").strip()
+                if display_name:
+                    # Add spacing before capital letters for better readability
+                    import re
+                    spaced_name = re.sub(r"([a-z])([A-Z])", r"\1 \2", display_name)
+                    return spaced_name.title()
+            elif category.startswith("controls"):
+                display_name = category.replace("controls", "").strip()
+                if display_name:
+                    # Add spacing before capital letters for better readability
+                    import re
+                    spaced_name = re.sub(r"([a-z])([A-Z])", r"\1 \2", display_name)
+                    return f"{spaced_name.title()} Controls"
+            else:
+                return category.title()
+
+        return category_names.get(category, category.title())
+
+    def _discover_categories_from_data(self, items: dict) -> list[str]:
+        """
+        Dynamically discover categories from component or control data.
+
+        Extracts unique category IDs from a dictionary of ComponentNode or ControlNode
+        objects, enabling dynamic category handling without hardcoded lists.
+
+        Args:
+            items (dict): Dictionary of component or control objects with .category attributes
+
+        Returns:
+            list[str]: Sorted list of unique category IDs found in the data
+        """
+        categories = set()
+        for item in items.values():
+            if hasattr(item, 'category') and item.category:
+                categories.add(item.category)
+        return sorted(categories)
+
+    def _build_category_mapping(self, categories: list[str]) -> dict[str, str]:
+        """
+        Build category mapping from category IDs to display names.
+
+        Creates a mapping dictionary for converting between category IDs and
+        their human-readable display names.
+
+        Args:
+            categories (list[str]): List of category IDs
+
+        Returns:
+            dict[str, str]: Dictionary mapping display names to category IDs
+        """
+        mapping = {}
+        for category in categories:
+            display_name = self._get_category_display_name(category)
+            # Remove "Components" or "Controls" suffix for cleaner display names
+            clean_display = display_name.replace(" Components", "").replace(" Controls", "")
+            mapping[clean_display] = category
+        return mapping
+
+
 class MermaidConfigLoader:
     """
     Loads and manages Mermaid styling configuration from YAML files with caching,
@@ -711,7 +862,7 @@ class MermaidConfigLoader:
         return (self._config is not None, self._load_error)
 
 
-class ComponentGraph:
+class ComponentGraph(BaseGraph):
     """
     Generates optimized Mermaid graph visualizations for AI system component relationships.
 
@@ -833,10 +984,10 @@ class ComponentGraph:
             >>> assert hasattr(graph, 'graph')
             >>> assert isinstance(graph.graph, str)
         """
+        super().__init__(config_loader)
         self.components = components
         self.forward_map = forward_map
         self.debug = debug
-        self.config_loader = config_loader or MermaidConfigLoader.get_instance()
         self.graph = self.build_graph(debug=debug)
 
     def build_graph(self, layout="horizontal", debug=False) -> str:
@@ -918,9 +1069,24 @@ class ComponentGraph:
         # Calculate topological ranks for proper component positioning
         node_ranks = self._calculate_node_ranks()
 
-        # Define category order for consistent visual layout
-        # Order reflects typical AI system data flow: Data -> Infrastructure -> Model -> Application
-        category_order = ["Data", "Infrastructure", "Model", "Application"]
+        # Discover categories dynamically from component data
+        discovered_categories = self._discover_categories_from_data(self.components)
+        category_mapping = self._build_category_mapping(discovered_categories)
+
+        # Create category order for consistent visual layout
+        # Prefer standard order when available, then alphabetical for new categories
+        standard_categories = ["Data", "Infrastructure", "Model", "Application"]
+        category_order = []
+
+        # Add standard categories if they exist in the data
+        for std_cat in standard_categories:
+            if std_cat in category_mapping:
+                category_order.append(std_cat)
+
+        # Add any additional categories alphabetically
+        for cat in sorted(category_mapping.keys()):
+            if cat not in category_order:
+                category_order.append(cat)
 
         # Initialize category containers for organized component grouping
         components_by_category = {}
@@ -1012,8 +1178,8 @@ class ComponentGraph:
         Normalize component category name for display purposes.
 
         Transforms internal category identifiers (e.g., "componentsData") into
-        human-readable display names (e.g., "Data") by removing the "components"
-        prefix and applying title case formatting.
+        human-readable display names (e.g., "Data") using the BaseGraph's
+        category handling methods for consistency across graph types.
 
         Args:
             component_id (str): Component identifier to look up category for
@@ -1024,7 +1190,15 @@ class ComponentGraph:
         """
         if component_id in self.components:
             category = self.components[component_id].category
-            return category.replace("components", "").strip().title()
+
+            # Use BaseGraph method to get display name, then clean it
+            display_name = self._get_category_display_name(category)
+
+            # Remove "Components" suffix if present for cleaner display
+            if display_name.endswith(" Components"):
+                return display_name.replace(" Components", "")
+
+            return display_name
         return "Unknown"
 
     def _get_first_component_in_category(self, components_by_category: dict, target_category: str) -> str | None:
@@ -1347,7 +1521,7 @@ class ComponentGraph:
         return self.graph
 
 
-class ControlGraph:
+class ControlGraph(BaseGraph):
     """
     Generates optimized Mermaid graph visualizations for control-to-component relationships.
 
@@ -1442,6 +1616,9 @@ class ControlGraph:
                 Each ComponentNode should have valid title, category, and edge relationships.
             debug (bool, optional): Whether to include debug information in generated output.
                 Defaults to False. When True, adds debug comments to Mermaid diagrams.
+            config_loader (MermaidConfigLoader, optional): Configuration loader for
+                styling and layout options. Defaults to None, which creates a singleton
+                instance using default configuration paths.
 
         Raises:
             TypeError: If controls or components are not dictionaries, or if they contain
@@ -1462,10 +1639,10 @@ class ControlGraph:
             >>> assert hasattr(graph, 'control_to_component_map')
             >>> assert hasattr(graph, 'subgroupings')
         """
+        super().__init__(config_loader)
         self.controls = controls
         self.components = components
         self.debug = debug
-        self.config_loader = config_loader or MermaidConfigLoader.get_instance()
 
         # Build mappings for graph generation
         self.component_by_category = self._group_components_by_category()
@@ -1853,60 +2030,6 @@ class ControlGraph:
 
         return groups
 
-    def _load_category_names(self) -> dict[str, str]:
-        """Load category names from YAML files."""
-        category_names = {}
-
-        # Load control categories
-        try:
-            controls_yaml_path = Path("risk-map/yaml/controls.yaml")
-            if controls_yaml_path.exists():
-                with open(controls_yaml_path, "r", encoding="utf-8") as f:
-                    controls_data = yaml.safe_load(f)
-
-                for category in controls_data.get("categories", []):
-                    if "id" in category and "title" in category:
-                        # Append "Controls" to control category titles
-                        category_names[category["id"]] = f"{category['title']} Controls"
-        except Exception:
-            pass  # Fallback to generated names if loading fails
-
-        # Load component categories
-        try:
-            components_yaml_path = Path("risk-map/yaml/components.yaml")
-            if components_yaml_path.exists():
-                with open(components_yaml_path, "r", encoding="utf-8") as f:
-                    components_data = yaml.safe_load(f)
-
-                for category in components_data.get("categories", []):
-                    if "id" in category and "title" in category:
-                        # Use the title as-is (already includes "Components")
-                        category_names[category["id"]] = category["title"].title()
-        except Exception:
-            pass  # Fallback to generated names if loading fails
-
-        return category_names
-
-    def _get_category_display_name(self, category: str) -> str:
-        """Convert category ID to display name."""
-        # Load category names if not already cached
-        if not hasattr(self, "_category_names_cache"):
-            self._category_names_cache = self._load_category_names()
-
-        category_names = self._category_names_cache
-
-        # Handle dynamically generated category names
-        if category not in category_names:
-            # Remove "components" prefix and capitalize
-            display_name = category.replace("components", "").strip()
-            if display_name:
-                # Add spacing before capital letters for better readability
-                import re
-
-                spaced_name = re.sub(r"([a-z])([A-Z])", r"\1 \2", display_name)
-                return spaced_name.title()
-
-        return category_names.get(category, category.title())
 
     def build_controls_graph(self) -> str:
         """

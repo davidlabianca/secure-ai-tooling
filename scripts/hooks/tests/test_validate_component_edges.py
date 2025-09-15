@@ -1510,8 +1510,8 @@ class TestControlGraph:
         graph = ControlGraph(sample_controls, sample_components)
 
         # Test category display name generation (when mock doesn't properly load, fallback behavior applies)
-        assert "Controls Data" in graph._get_category_display_name("controlsData")
-        assert "Controls Model" in graph._get_category_display_name("controlsModel")
+        assert "Data Controls" in graph._get_category_display_name("controlsData")
+        assert "Model Controls" in graph._get_category_display_name("controlsModel")
 
     def test_empty_controls_and_components(self):
         """Test handling of empty controls and components."""
