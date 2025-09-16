@@ -61,7 +61,15 @@ def get_staged_yaml_files(force_check: bool = False) -> list[Path]:
 
 
 def load_yaml_file(file_path: Path) -> dict | None:
-    """Load and parse YAML file."""
+    """
+    Load and parse YAML file with error handling.
+
+    Args:
+        file_path: Path to YAML file to load
+
+    Returns:
+        Parsed YAML data as dictionary, or None if loading fails
+    """
     try:
         with open(file_path, "r", encoding="utf-8") as f:
             return yaml.safe_load(f)
@@ -74,7 +82,15 @@ def load_yaml_file(file_path: Path) -> dict | None:
 
 
 def extract_controls_data(yaml_data: dict) -> dict[str, list[str]]:
-    """Extract control IDs and their risks from YAML data."""
+    """
+    Extract control IDs and their risk references from controls.yaml data.
+
+    Args:
+        yaml_data: Parsed controls.yaml content
+
+    Returns:
+        Dictionary mapping control_id -> list of risk_ids that control addresses
+    """
     controls = {}
 
     if not yaml_data or "controls" not in yaml_data:
@@ -85,14 +101,22 @@ def extract_controls_data(yaml_data: dict) -> dict[str, list[str]]:
         if not control_id:
             continue
 
-        risks: list[str] = control.get("risks", {})
+        risks: list[str] = control.get("risks", [])
         controls[control_id] = risks
 
     return controls
 
 
 def extract_risks_data(yaml_data: dict) -> dict[str, list[str]]:
-    """Extract risk IDs and their controls from YAML data."""
+    """
+    Extract control references from risks.yaml and build reverse mapping.
+
+    Args:
+        yaml_data: Parsed risks.yaml content
+
+    Returns:
+        Dictionary mapping control_id -> list of risk_ids that reference that control
+    """
     risks_by_control = {}
 
     if not yaml_data or "risks" not in yaml_data:
@@ -103,7 +127,7 @@ def extract_risks_data(yaml_data: dict) -> dict[str, list[str]]:
         if not risk_id:
             continue
 
-        controls: list[str] = risk.get("controls", {})
+        controls: list[str] = risk.get("controls", [])
         for control_id in controls:
             if risks_by_control.get(control_id) is None:
                 risks_by_control[control_id] = [risk_id]
@@ -119,18 +143,21 @@ def find_isolated_entries(
     """
     Find entries with no cross-references.
 
+    Args:
+        controls: Dictionary mapping control_id -> list of risk_ids (from controls.yaml)
+        risks: Dictionary mapping control_id -> list of risk_ids (from risks.yaml)
+
     Returns:
         tuple of (isolated_controls, isolated_risks)
+        isolated_controls: Controls with empty risk lists
+        isolated_risks: Currently not implemented - returns empty set
     """
     # Find controls that don't reference any risks
     isolated_controls = {control_id for control_id, risk_list in controls.items() if not risk_list}
 
-    # Find risks that aren't referenced by any controls
-    all_referenced_risks = set()
-    for risk_list in controls.values():
-        all_referenced_risks.update(risk_list)
-
-    isolated_risks = set()  # Would need actual risk IDs from risks.yaml to populate this
+    # TODO: Finding isolated risks requires parsing risks.yaml directly
+    # Currently this function only finds isolated controls
+    isolated_risks = set()
 
     return isolated_controls, isolated_risks
 
@@ -160,7 +187,7 @@ def compare_control_maps(controls: dict[str, list[str]], risks: dict[str, list[s
 
         # Skip if either lists "all" or "none" for the risks addressed
         # Skip if either list is empty - covered in isolated checks
-        if risks_per_control_yaml == ("all" or "none") or risks_per_control_yaml == []:
+        if risks_per_control_yaml in ["all", "none"] or risks_per_control_yaml == []:
             continue
 
         # Case 1: Control exists in controls.yaml but not referenced in risks.yaml
@@ -299,7 +326,7 @@ def main():
         print("   No YAML files modified - skipping control-to-risk reference validation")
         sys.exit(0)
 
-    print("   Found staged controls.yaml and/or risk.yaml file")
+    print("   Found staged controls.yaml and/or risks.yaml file")
 
     # Validate control to risk references
     if not validate_control_to_risk(yaml_files):
