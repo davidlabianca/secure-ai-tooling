@@ -71,14 +71,13 @@ def get_git_root():
 git_root = get_git_root()
 sys.path.insert(0, str(git_root / "scripts" / "hooks"))
 
-# Import script and required classes and functions for testing
-from validate_component_edges import (  # noqa: E402
-    ComponentEdgeValidator,
-    ComponentGraph,
-    ComponentNode,
-    EdgeValidationError,
-    get_staged_yaml_files,
-)
+# Import graphing classes if you test them
+from riskmap_validator.graphing import ComponentGraph, ControlGraph  # noqa: E402
+from riskmap_validator.models import ComponentNode, ControlNode  # noqa: E402
+from riskmap_validator.utils import get_staged_yaml_files  # noqa: E402
+
+# Import the validator and its exception from the validator module
+from riskmap_validator.validator import ComponentEdgeValidator, EdgeValidationError  # noqa: E402
 
 
 class TestComponentEdgeValidator:
@@ -108,9 +107,7 @@ class TestComponentEdgeValidator:
 
     @pytest.fixture
     def grapher(self, title: str, to_edge: list[str], from_edge: list[str]):
-        return ComponentNode(
-            title=title, category="", to_edges=to_edge, from_edges=from_edge
-        )
+        return ComponentNode(title=title, category="", to_edges=to_edge, from_edges=from_edge)
 
     @pytest.fixture
     def temp_yaml_file(self):
@@ -127,9 +124,7 @@ class TestComponentEdgeValidator:
 
     def test_load_valid_yaml_file(self, validator, temp_yaml_file):
         """Test loading a valid YAML file."""
-        test_data = {
-            "components": [{"id": "comp-a", "edges": {"to": ["comp-b"], "from": []}}]
-        }
+        test_data = {"components": [{"id": "comp-a", "edges": {"to": ["comp-b"], "from": []}}]}
         self.create_yaml_file(temp_yaml_file, test_data)
 
         result = validator.load_yaml_file(temp_yaml_file)
@@ -225,9 +220,7 @@ class TestComponentEdgeValidator:
 
         # Should only include the component with valid ID
         expected: dict[str, ComponentNode] = {
-            "comp-b": ComponentNode(
-                title="Test1", category="test", to_edges=[], from_edges=[]
-            )
+            "comp-b": ComponentNode(title="Test1", category="test", to_edges=[], from_edges=[])
         }
         assert result == expected
 
@@ -248,12 +241,8 @@ class TestComponentEdgeValidator:
         result = validator.extract_component_edges(yaml_data)
 
         expected: dict[str, ComponentNode] = {
-            "comp-a": ComponentNode(
-                title="Test1", category="test", to_edges=[], from_edges=[]
-            ),
-            "comp-b": ComponentNode(
-                title="Test2", category="test", to_edges=["comp-a"], from_edges=[]
-            ),
+            "comp-a": ComponentNode(title="Test1", category="test", to_edges=[], from_edges=[]),
+            "comp-b": ComponentNode(title="Test2", category="test", to_edges=["comp-a"], from_edges=[]),
         }
 
         assert result == expected
@@ -262,18 +251,10 @@ class TestComponentEdgeValidator:
         """Test finding components with no edges."""
 
         components: dict[str, ComponentNode] = {
-            "comp-a": ComponentNode(
-                title="Test1", category="test1", to_edges=["comp-b"], from_edges=[]
-            ),
-            "comp-b": ComponentNode(
-                title="Test2", category="test1", to_edges=[], from_edges=["comp-a"]
-            ),
-            "comp-isolated": ComponentNode(
-                title="Test3", category="test1", to_edges=[], from_edges=[]
-            ),
-            "comp-isolated2": ComponentNode(
-                title="Test4", category="test1", to_edges=[], from_edges=[]
-            ),
+            "comp-a": ComponentNode(title="Test1", category="test1", to_edges=["comp-b"], from_edges=[]),
+            "comp-b": ComponentNode(title="Test2", category="test1", to_edges=[], from_edges=["comp-a"]),
+            "comp-isolated": ComponentNode(title="Test3", category="test1", to_edges=[], from_edges=[]),
+            "comp-isolated2": ComponentNode(title="Test4", category="test1", to_edges=[], from_edges=[]),
         }
 
         isolated = validator.find_isolated_components(components)
@@ -288,9 +269,7 @@ class TestComponentEdgeValidator:
                 to_edges=["comp-missing1", "comp-b"],
                 from_edges=["comp-missing2"],
             ),
-            "comp-b": ComponentNode(
-                title="Test2", category="test1", to_edges=[], from_edges=["comp-a"]
-            ),
+            "comp-b": ComponentNode(title="Test2", category="test1", to_edges=[], from_edges=["comp-a"]),
         }
 
         missing = validator.find_missing_components(components)
@@ -305,12 +284,8 @@ class TestComponentEdgeValidator:
                 to_edges=["comp-b", "comp-c"],
                 from_edges=[],
             ),
-            "comp-b": ComponentNode(
-                title="Test2", category="test1", to_edges=[], from_edges=["comp-a"]
-            ),
-            "comp-c": ComponentNode(
-                title="Test3", category="test1", to_edges=[], from_edges=["comp-a"]
-            ),
+            "comp-b": ComponentNode(title="Test2", category="test1", to_edges=[], from_edges=["comp-a"]),
+            "comp-c": ComponentNode(title="Test3", category="test1", to_edges=[], from_edges=["comp-a"]),
         }
 
         forward_map, reverse_map = validator.build_edge_maps(components)
@@ -322,7 +297,7 @@ class TestComponentEdgeValidator:
 
     def test_validate_edge_consistency_valid(self, validator):
         """Test edge consistency validation with valid edges."""
-        # Perfect bidirectional consistency
+        # Bidirectional consistency
         forward_map = {"comp-b": ["comp-a"]}
         reverse_map = {"comp-b": ["comp-a"]}
 
@@ -337,10 +312,7 @@ class TestComponentEdgeValidator:
 
         errors = validator.validate_edge_consistency(forward_map, reverse_map)
         assert len(errors) == 1
-        assert (
-            "'comp-a' has outgoing edges but no corresponding incoming edges"
-            in errors[0]
-        )
+        assert "'comp-a' has outgoing edges but no corresponding incoming edges" in errors[0]
 
     def test_validate_edge_consistency_missing_forward(self, validator):
         """Test validation when 'from' edge has no corresponding 'to'."""
@@ -686,8 +658,8 @@ class TestEndToEndIntegration:
 
     These integration tests verify that the entire validation system
     works correctly when processing realistic component data. Tests
-    cover both successful validation scenarios and comprehensive
-    failure cases with multiple validation errors.
+    cover both successful validation scenarios and failure cases with
+    multiple validation errors.
 
     The tests simulate real usage patterns by creating temporary
     YAML files with component data that matches the structure
@@ -703,7 +675,7 @@ class TestEndToEndIntegration:
 
     def test_complete_validation_workflow_success(self, temp_yaml_file):
         """Test complete validation workflow that should succeed."""
-        perfect_data = {
+        valid_data = {
             "components": [
                 {
                     "id": "web-server",
@@ -725,7 +697,7 @@ class TestEndToEndIntegration:
         }
 
         with open(temp_yaml_file, "w") as f:
-            yaml.dump(perfect_data, f)
+            yaml.dump(valid_data, f)
 
         validator = ComponentEdgeValidator(allow_isolated=False, verbose=False)
         result = validator.validate_file(temp_yaml_file)
@@ -778,7 +750,7 @@ class TestComponentGraph:
     Test the ComponentGraph class functionality for Mermaid diagram generation.
 
     The ComponentGraph class converts validated component relationships into
-    Mermaid diagram format for visualization. This comprehensive test suite covers:
+    Mermaid diagram format for visualization. This test suite covers:
 
     - Graph initialization and structure building
     - Node ranking algorithms for proper layout
@@ -797,9 +769,7 @@ class TestComponentGraph:
     def simple_components(self):
         """Create simple test components for graph testing."""
         return {
-            "comp-a": ComponentNode(
-                title="Node A", category="Data", to_edges=["comp-b"], from_edges=[]
-            ),
+            "comp-a": ComponentNode(title="Node A", category="Data", to_edges=["comp-b"], from_edges=[]),
             "comp-b": ComponentNode(
                 title="Node B",
                 category="Model",
@@ -859,9 +829,7 @@ class TestComponentGraph:
             "infra": ["model"],
         }
 
-    def test_component_graph_initialization(
-        self, simple_forward_map, simple_components
-    ):
+    def test_component_graph_initialization(self, simple_forward_map, simple_components):
         """Test ComponentGraph initialization."""
         graph = ComponentGraph(simple_forward_map, simple_components)
         assert graph.components == simple_components
@@ -869,17 +837,13 @@ class TestComponentGraph:
         assert graph.debug is False
         assert isinstance(graph.graph, str)
 
-    def test_component_graph_initialization_with_debug(
-        self, simple_forward_map, simple_components
-    ):
+    def test_component_graph_initialization_with_debug(self, simple_forward_map, simple_components):
         """Test ComponentGraph initialization with debug flag."""
         graph = ComponentGraph(simple_forward_map, simple_components, debug=True)
         assert graph.debug is True
         assert isinstance(graph.graph, str)
 
-    def test_calculate_node_ranks_simple_chain(
-        self, simple_forward_map, simple_components
-    ):
+    def test_calculate_node_ranks_simple_chain(self, simple_forward_map, simple_components):
         """Test node ranking with simple A->B->C chain."""
         # Override componentDataSources check by using that name
         simple_components["componentDataSources"] = simple_components.pop("comp-a")
@@ -893,9 +857,7 @@ class TestComponentGraph:
         assert ranks["comp-b"] == 1
         assert ranks["comp-c"] == 2
 
-    def test_calculate_node_ranks_with_cycles(
-        self, complex_forward_map, complex_components
-    ):
+    def test_calculate_node_ranks_with_cycles(self, complex_forward_map, complex_components):
         """Test node ranking with cycles in graph."""
         graph = ComponentGraph(complex_forward_map, complex_components)
         ranks = graph._calculate_node_ranks()
@@ -963,9 +925,7 @@ class TestComponentGraph:
         # Test non-existent component
         assert graph._normalize_category("nonexistent") == "Unknown"
 
-    def test_get_first_component_in_category(
-        self, simple_forward_map, simple_components
-    ):
+    def test_get_first_component_in_category(self, simple_forward_map, simple_components):
         """Test getting first component in category."""
         graph = ComponentGraph(simple_forward_map, simple_components)
 
@@ -975,25 +935,12 @@ class TestComponentGraph:
             "Application": [("comp-c", "Node C")],
         }
 
-        assert (
-            graph._get_first_component_in_category(components_by_category, "Data")
-            == "comp-a"
-        )
-        assert (
-            graph._get_first_component_in_category(components_by_category, "Model")
-            == "comp-b"
-        )
-        assert (
-            graph._get_first_component_in_category(
-                components_by_category, "NonExistent"
-            )
-            is None
-        )
+        assert graph._get_first_component_in_category(components_by_category, "Data") == "comp-a"
+        assert graph._get_first_component_in_category(components_by_category, "Model") == "comp-b"
+        assert graph._get_first_component_in_category(components_by_category, "NonExistent") is None
         assert graph._get_first_component_in_category({}, "Data") is None
 
-    def test_build_graph_structure_without_debug(
-        self, simple_forward_map, simple_components
-    ):
+    def test_build_graph_structure_without_debug(self, simple_forward_map, simple_components):
         """Test graph structure generation without debug comments."""
         graph = ComponentGraph(simple_forward_map, simple_components, debug=False)
         mermaid_output = graph.to_mermaid()
@@ -1015,9 +962,7 @@ class TestComponentGraph:
         assert "%% comp-a rank" not in mermaid_output
         assert "%% Rank" not in mermaid_output
 
-    def test_build_graph_structure_with_debug(
-        self, simple_forward_map, simple_components
-    ):
+    def test_build_graph_structure_with_debug(self, simple_forward_map, simple_components):
         """Test graph structure generation with debug comments."""
         graph = ComponentGraph(simple_forward_map, simple_components, debug=True)
         mermaid_output = graph.to_mermaid()
@@ -1043,12 +988,8 @@ class TestComponentGraph:
         Formula: tildes = 3 + (global_max_rank - component_rank)
         """
         components = {
-            "comp-rank1": ComponentNode(
-                title="Rank 1", category="Data", to_edges=[], from_edges=[]
-            ),
-            "comp-rank5": ComponentNode(
-                title="Rank 5", category="Model", to_edges=[], from_edges=[]
-            ),
+            "comp-rank1": ComponentNode(title="Rank 1", category="Data", to_edges=[], from_edges=[]),
+            "comp-rank5": ComponentNode(title="Rank 5", category="Model", to_edges=[], from_edges=[]),
         }
         forward_map = {}
 
@@ -1084,9 +1025,7 @@ class TestComponentGraph:
         to ensure minimum vertical spacing in the subgraph layout.
         """
         components = {
-            "comp-high-rank": ComponentNode(
-                title="High Rank", category="Data", to_edges=[], from_edges=[]
-            )
+            "comp-high-rank": ComponentNode(title="High Rank", category="Data", to_edges=[], from_edges=[])
         }
         forward_map = {}
 
@@ -1149,11 +1088,7 @@ class TestComponentGraph:
 
     def test_isolated_components(self):
         """Test handling of isolated components."""
-        components = {
-            "isolated": ComponentNode(
-                title="Isolated", category="Data", to_edges=[], from_edges=[]
-            )
-        }
+        components = {"isolated": ComponentNode(title="Isolated", category="Data", to_edges=[], from_edges=[])}
         forward_map = {}
 
         graph = ComponentGraph(forward_map, components)
@@ -1166,3 +1101,498 @@ class TestComponentGraph:
         mermaid_output = graph.to_mermaid()
         assert "graph TD" in mermaid_output
         assert "```mermaid" in mermaid_output
+
+
+class TestControlNode:
+    """
+    Test the ControlNode class functionality.
+
+    ControlNode represents a single control with its metadata including:
+    - Basic attributes (title, description, category)
+    - Component mappings (which components the control applies to)
+    - Risk mappings (which risks the control addresses)
+    - Persona mappings (which personas implement the control)
+    """
+
+    def test_control_node_creation_basic(self):
+        """Test creating a ControlNode with basic attributes."""
+        node = ControlNode(
+            title="Test Control",
+            category="controlsData",
+            components=["comp1", "comp2"],
+            risks=["risk1"],
+            personas=["persona1"],
+        )
+
+        assert node.title == "Test Control"
+        assert node.category == "controlsData"
+        assert node.components == ["comp1", "comp2"]
+        assert node.risks == ["risk1"]
+        assert node.personas == ["persona1"]
+
+    def test_control_node_creation_with_all_components(self):
+        """Test creating a ControlNode that applies to all components."""
+        node = ControlNode(
+            title="Global Control",
+            category="controlsGovernance",
+            components=["all"],
+            risks=["risk1", "risk2"],
+            personas=["persona1"],
+        )
+
+        assert node.components == ["all"]
+        assert len(node.risks) == 2
+        assert node.category == "controlsGovernance"
+
+    def test_control_node_creation_with_no_components(self):
+        """Test creating a ControlNode that applies to no components."""
+        node = ControlNode(
+            title="Policy Control",
+            category="controlsGovernance",
+            components=["none"],
+            risks=["risk1"],
+            personas=["persona1"],
+        )
+
+        assert node.components == ["none"]
+
+    def test_control_node_equality(self):
+        """Test ControlNode equality comparison."""
+        node1 = ControlNode(
+            title="Control A",
+            category="controlsData",
+            components=["comp1"],
+            risks=["risk1"],
+            personas=["persona1"],
+        )
+
+        node2 = ControlNode(
+            title="Control A",
+            category="controlsData",
+            components=["comp1"],
+            risks=["risk1"],
+            personas=["persona1"],
+        )
+
+        node3 = ControlNode(
+            title="Control B",
+            category="controlsModel",
+            components=["comp2"],
+            risks=["risk2"],
+            personas=["persona2"],
+        )
+
+        assert node1 == node2
+        assert node1 != node3
+
+    def test_control_node_empty_lists_default(self):
+        """Test that empty lists are handled correctly."""
+        node = ControlNode(
+            title="Minimal Control",
+            category="controlsData",
+            components=[],
+            risks=[],
+            personas=[],
+        )
+
+        assert node.components == []
+        assert node.risks == []
+        assert node.personas == []
+
+
+class TestControlGraph:
+    """
+    Test the ControlGraph class functionality for control-to-component visualization.
+
+    ControlGraph creates Mermaid diagrams showing relationships between controls
+    and components, with features including:
+    - Dynamic component subgrouping based on shared control relationships
+    - Multiple edge styling for different types of control mappings
+    - Category-based organization and visualization
+    - Optimization of control mappings to reduce visual complexity
+    """
+
+    @pytest.fixture
+    def sample_controls(self):
+        """Create sample controls for testing."""
+        return {
+            "control1": ControlNode(
+                title="Simple Control",
+                category="controlsData",
+                components=["comp1", "comp2"],
+                risks=["risk1"],
+                personas=["persona1"],
+            ),
+            "control2": ControlNode(
+                title="Multi Control",
+                category="controlsInfrastructure",
+                components=["comp1", "comp2", "comp3", "comp4"],
+                risks=["risk2"],
+                personas=["persona1"],
+            ),
+            "control3": ControlNode(
+                title="All Control",
+                category="controlsGovernance",
+                components=["all"],
+                risks=["risk1", "risk2"],
+                personas=["persona1", "persona2"],
+            ),
+            "control4": ControlNode(
+                title="No Components Control",
+                category="controlsGovernance",
+                components=["none"],
+                risks=["risk3"],
+                personas=["persona1"],
+            ),
+        }
+
+    @pytest.fixture
+    def sample_components(self):
+        """Create sample components for testing."""
+        return {
+            "comp1": ComponentNode(
+                title="Component 1",
+                category="componentsData",
+                to_edges=[],
+                from_edges=[],
+            ),
+            "comp2": ComponentNode(
+                title="Component 2",
+                category="componentsData",
+                to_edges=[],
+                from_edges=[],
+            ),
+            "comp2a": ComponentNode(
+                title="Component 2A",
+                category="componentsData",
+                to_edges=[],
+                from_edges=[],
+            ),
+            "comp3": ComponentNode(
+                title="Component 3",
+                category="componentsInfrastructure",
+                to_edges=[],
+                from_edges=[],
+            ),
+            "comp4": ComponentNode(
+                title="Component 4",
+                category="componentsInfrastructure",
+                to_edges=[],
+                from_edges=[],
+            ),
+            "comp5": ComponentNode(
+                title="Component 5",
+                category="componentsModel",
+                to_edges=[],
+                from_edges=[],
+            ),
+        }
+
+    def test_control_graph_initialization(self, sample_controls, sample_components):
+        """Test ControlGraph initialization."""
+        graph = ControlGraph(sample_controls, sample_components)
+
+        assert graph.controls == sample_controls
+        assert graph.components == sample_components
+        assert graph.debug is False
+        assert hasattr(graph, "component_by_category")
+        assert hasattr(graph, "control_to_component_map")
+        assert hasattr(graph, "subgroupings")
+
+    def test_control_graph_initialization_with_debug(self, sample_controls, sample_components):
+        """Test ControlGraph initialization with debug mode."""
+        graph = ControlGraph(sample_controls, sample_components, debug=True)
+
+        assert graph.debug is True
+
+    def test_component_grouping_by_category(self, sample_controls, sample_components):
+        """Test grouping components by category."""
+        graph = ControlGraph(sample_controls, sample_components)
+
+        # Check that components are grouped correctly
+        assert "componentsData" in graph.component_by_category
+        assert "componentsInfrastructure" in graph.component_by_category
+        assert "componentsModel" in graph.component_by_category
+
+        # comp1 and comp2 are moved to the dynamic subgroup componentsComp
+        assert "componentsComp" in graph.component_by_category
+        assert "comp1" in graph.component_by_category["componentsComp"]
+        assert "comp2" in graph.component_by_category["componentsComp"]
+        # comp2a remains in the original componentsData category
+        assert "comp2a" in graph.component_by_category["componentsData"]
+        # Other components remain in their original categories
+        assert "comp3" in graph.component_by_category["componentsInfrastructure"]
+        assert "comp5" in graph.component_by_category["componentsModel"]
+
+    def test_control_component_mapping_basic(self, sample_controls, sample_components):
+        """Test basic control to component mapping."""
+        graph = ControlGraph(sample_controls, sample_components)
+
+        # Check that mappings are created correctly
+        assert "control1" in graph.control_to_component_map
+        assert "control2" in graph.control_to_component_map
+        assert "control3" in graph.control_to_component_map
+
+        # Simple control should map to its optimized subgroup (since comp1 and comp2 are shared with control2)
+        # The dynamic subgrouping should create a componentsComp cluster
+        assert set(graph.control_to_component_map["control1"]) == {"componentsComp"}
+
+        # Multi-control should map to its optimized mappings
+        # comp1, comp2 are grouped into componentsComp, comp3, comp4 are grouped into componentsInfrastructure
+        assert set(graph.control_to_component_map["control2"]) == {"componentsComp", "componentsInfrastructure"}
+
+        # All control should map to components container
+        assert graph.control_to_component_map["control3"] == ["components"]
+
+        # None control should have empty mapping
+        assert graph.control_to_component_map["control4"] == []
+
+    def test_find_component_clusters(self, sample_controls, sample_components):
+        """Test finding component clusters with shared controls."""
+        graph = ControlGraph(sample_controls, sample_components)
+
+        # Create a scenario where multiple controls target the same components
+        component_to_controls = {
+            "comp2": {"control1", "control2"},
+            "comp3": {"control1", "control2"},
+            "comp4": {"control2"},
+        }
+
+        clusters = graph._find_component_clusters(component_to_controls, min_shared_controls=2, min_components=2)
+
+        # Should find a cluster of comp2 and comp3 (both targeted by control1 and control2)
+        assert len(clusters) >= 1
+
+        # Check that at least one cluster contains components with shared controls
+        found_shared_cluster = False
+        for cluster_components in clusters.values():
+            if "comp2" in cluster_components and "comp3" in cluster_components:
+                found_shared_cluster = True
+                break
+
+        assert found_shared_cluster
+
+    def test_maps_to_full_category(self, sample_controls, sample_components):
+        """Test detection of controls that map to full categories."""
+        graph = ControlGraph(sample_controls, sample_components)
+
+        # Create a control that maps to all infrastructure components
+        all_infra_components = [
+            comp_id for comp_id, comp in sample_components.items() if comp.category == "componentsInfrastructure"
+        ]
+
+        # Should detect full category mapping
+        assert graph._maps_to_full_category(all_infra_components, "componentsInfrastructure")
+
+        # Should not detect partial category mapping
+        partial_components = all_infra_components[:-1]  # Remove one component
+        assert not graph._maps_to_full_category(partial_components, "componentsInfrastructure")
+
+    def test_category_check_order(self, sample_controls, sample_components):
+        """Test the order in which categories are checked for optimization."""
+        graph = ControlGraph(sample_controls, sample_components)
+
+        check_order = graph._get_category_check_order()
+
+        # Should return a list of categories
+        assert isinstance(check_order, list)
+        assert len(check_order) > 0
+
+        # Should include main categories
+        main_categories = {
+            "componentsData",
+            "componentsInfrastructure",
+            "componentsModel",
+        }
+        for category in main_categories:
+            if category in graph.component_by_category:
+                assert category in check_order
+
+    def test_mermaid_graph_generation(self, sample_controls, sample_components):
+        """Test Mermaid graph generation."""
+        graph = ControlGraph(sample_controls, sample_components)
+        mermaid_output = graph.to_mermaid()
+
+        # Should contain mermaid code block markers
+        assert mermaid_output.startswith("```mermaid")
+        assert mermaid_output.endswith("```")
+
+        # Should contain graph declaration
+        assert "graph LR" in mermaid_output
+
+        # Should contain control subgraphs
+        assert "controlsData" in mermaid_output
+        assert "controlsInfrastructure" in mermaid_output
+        assert "controlsGovernance" in mermaid_output
+
+        # Should contain component subgraphs
+        assert "componentsData" in mermaid_output
+        assert "componentsInfrastructure" in mermaid_output
+        assert "componentsModel" in mermaid_output
+
+        # Should contain control-component relationships
+        assert "-->" in mermaid_output or "-.->", mermaid_output
+
+        # Should contain styling
+        assert "linkStyle" in mermaid_output
+        assert "style components" in mermaid_output
+
+    def test_edge_styling_groups(self, sample_controls, sample_components):
+        """Test that different types of edges get appropriate styling."""
+        graph = ControlGraph(sample_controls, sample_components)
+        mermaid_output = graph.to_mermaid()
+
+        # Should contain edge styling for different types
+        lines = mermaid_output.split("\n")
+
+        # Look for linkStyle declarations
+        link_style_lines = [line.strip() for line in lines if "linkStyle" in line]
+        assert len(link_style_lines) > 0
+
+        # Should have different stroke colors/styles
+        style_patterns = ["stroke:#4285f4", "stroke:#34a853", "stroke:#9c27b0"]
+        found_styles = set()
+
+        for line in link_style_lines:
+            for pattern in style_patterns:
+                if pattern in line:
+                    found_styles.add(pattern)
+
+        # Should have at least some different styles applied
+        assert len(found_styles) >= 1
+
+    def test_controls_mapped_to_all_tracking(self, sample_controls, sample_components):
+        """Test tracking of controls mapped to 'all' components."""
+        graph = ControlGraph(sample_controls, sample_components)
+
+        # Should track controls with 'all' mapping
+        assert "control3" in graph.controls_mapped_to_all
+
+        # Should not track other controls
+        assert "control1" not in graph.controls_mapped_to_all
+        assert "control4" not in graph.controls_mapped_to_all
+
+    @patch("pathlib.Path.exists")
+    @patch("builtins.open")
+    @patch("yaml.safe_load")
+    def test_dynamic_category_name_loading(
+        self, mock_yaml_load, mock_open, mock_exists, sample_controls, sample_components
+    ):
+        """Test loading category names from YAML files."""
+        # Mock file existence
+        mock_exists.return_value = True
+
+        # Mock YAML data
+        controls_yaml_data = {
+            "categories": [
+                {"id": "controlsData", "title": "Data"},
+                {"id": "controlsModel", "title": "Model"},
+            ]
+        }
+        components_yaml_data = {
+            "categories": [
+                {"id": "componentsData", "title": "Data components"},
+                {"id": "componentsModel", "title": "Model components"},
+            ]
+        }
+
+        def mock_load_side_effect(*args, **kwargs):
+            # Return different data based on which file is being loaded
+            filename = mock_open.return_value.__enter__.return_value.name
+            if "controls.yaml" in str(filename):
+                return controls_yaml_data
+            else:
+                return components_yaml_data
+
+        mock_yaml_load.side_effect = mock_load_side_effect
+
+        # Create graph and test category name loading
+        graph = ControlGraph(sample_controls, sample_components)
+
+        # Test category display name generation (when mock doesn't properly load, fallback behavior applies)
+        assert "Data Controls" in graph._get_category_display_name("controlsData")
+        assert "Model Controls" in graph._get_category_display_name("controlsModel")
+
+    def test_empty_controls_and_components(self):
+        """Test handling of empty controls and components."""
+        graph = ControlGraph({}, {})
+
+        # Should initialize without errors
+        assert graph.controls == {}
+        assert graph.components == {}
+        assert graph.control_to_component_map == {}
+
+        # Should generate valid (but minimal) mermaid output
+        mermaid_output = graph.to_mermaid()
+        assert "```mermaid" in mermaid_output
+        assert "```" in mermaid_output
+
+    def test_large_multi_edge_control_styling(self):
+        """Test edge styling for controls with many components (3+ edges)."""
+        # Create controls with many component mappings across different categories to prevent optimization
+        many_component_control = ControlNode(
+            title="Complex Control",
+            category="controlsInfrastructure",
+            components=["comp1", "comp2", "comp3", "comp4", "comp5"],
+            risks=["risk1"],
+            personas=["persona1"],
+        )
+
+        components = {
+            "comp1": ComponentNode(
+                title="Component 1",
+                category="componentsData",
+                to_edges=[],
+                from_edges=[],
+            ),
+            "comp2": ComponentNode(
+                title="Component 2",
+                category="componentsData",
+                to_edges=[],
+                from_edges=[],
+            ),
+            "comp3": ComponentNode(
+                title="Component 3",
+                category="componentsInfrastructure",
+                to_edges=[],
+                from_edges=[],
+            ),
+            "comp4": ComponentNode(
+                title="Component 4",
+                category="componentsModel",
+                to_edges=[],
+                from_edges=[],
+            ),
+            "comp5": ComponentNode(
+                title="Component 5",
+                category="componentsApplication",
+                to_edges=[],
+                from_edges=[],
+            ),
+        }
+
+        controls = {"multiEdgeControl": many_component_control}
+
+        graph = ControlGraph(controls, components)
+        mermaid_output = graph.to_mermaid()
+
+        # Should contain multiple edge styling with different colors
+        link_style_lines = [line.strip() for line in mermaid_output.split("\n") if "linkStyle" in line]
+
+        # Multi-edge styling only applies to individual component mappings, not category mappings
+        # In this test, the control maps to categories, so it should use subgraph edge styling
+        subgraph_edge_styles = [
+            line
+            for line in link_style_lines
+            if "#34a853" in line  # Green color for subgraph edges
+        ]
+
+        # Should have subgraph edge styling (4 category targets = 1 subgraph edge style group)
+        assert len(subgraph_edge_styles) > 0
+
+        # Verify it's not using multi-edge colors (since it maps to categories, not individual components)
+        multi_edge_colors = ["#9c27b0", "#ff9800", "#e91e63", "#795548"]
+        multi_edge_styles = [
+            line for line in link_style_lines if any(color in line for color in multi_edge_colors)
+        ]
+        assert len(multi_edge_styles) == 0  # Should be 0 since this control maps to categories

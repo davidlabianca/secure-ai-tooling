@@ -147,7 +147,7 @@ components:
     category: componentsInfrastructure
     edges:
       to:
-        - componentTrainingTuning
+        - componentModelTrainingTuning
       from:
         - componentTrainingData
   - id: componentModelFrameworksAndCode
@@ -164,7 +164,7 @@ components:
     category: componentsInfrastructure
     edges:
       to:
-        - componentTrainingTuning
+        - componentModelTrainingTuning
   - id: componentModelEvaluation
     title: Model Evaluation
     description:
@@ -176,10 +176,10 @@ components:
     category: componentsInfrastructure
     edges:
       to:
-        - componentTrainingTuning
+        - componentModelTrainingTuning
       from:
         - componentTheModel
-  - id: componentTrainingTuning
+  - id: componentModelTrainingTuning
     title: Training and Tuning
     description:
       - >
@@ -244,7 +244,7 @@ components:
         - componentOutputHandling
         - componentModelEvaluation
       from:
-        - componentTrainingTuning
+        - componentModelTrainingTuning
         - componentModelServing
         - componentModelStorage
         - componentInputHandling
