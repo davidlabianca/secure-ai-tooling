@@ -1655,6 +1655,85 @@ class ControlGraph(BaseGraph):
         self.controls_mapped_to_all = self._track_controls_mapped_to_all()
         self.control_by_category = self._group_controls_by_category()
 
+    def _get_edge_style(self, style: str | dict) -> str:
+        """
+        Get formatted edge style string for a given style configuration.
+
+        Args:
+            style: Style key (e.g., 'allControlEdges', 'subgraphEdges') or direct style config dict
+
+        Returns:
+            Formatted style string for use in linkStyle commands
+        """
+        if isinstance(style, str):
+            edge_styles = self.config_loader.get_control_edge_styles()
+            style_config = edge_styles.get(style, {})
+        else:
+            style_config = style
+
+        stroke = style_config.get("stroke", "#666")
+        stroke_width = style_config.get("strokeWidth", "2px")
+        stroke_dasharray = style_config.get("strokeDasharray", "")
+
+        style_str = f"stroke:{stroke},stroke-width:{stroke_width}"
+        style_str += f",stroke-dasharray: {stroke_dasharray}" if stroke_dasharray else ""
+
+        return style_str
+
+    def _get_node_style(self, style_type: str, **kwargs) -> str:
+        """
+        Get formatted node style string for different node types.
+
+        Args:
+            style_type: Type of node styling ('componentsContainer', 'componentCategory', 'dynamicSubgroup')
+            **kwargs: Additional parameters specific to style type
+                     - For 'componentCategory': category_config dict
+                     - For 'dynamicSubgroup': parent_category string
+
+        Returns:
+            Formatted style string for use in style commands
+        """
+        if style_type == "componentsContainer":
+            components_container_style = self.config_loader.get_components_container_style()
+            fill = components_container_style.get("fill", "#f0f0f0")
+            stroke = components_container_style.get("stroke", "#666666")
+            stroke_width = components_container_style.get("strokeWidth", "3px")
+            stroke_dasharray = components_container_style.get("strokeDasharray", "10 5")
+            container_style = f"fill:{fill},stroke:{stroke},stroke-width:{stroke_width}"
+            return f"{container_style},stroke-dasharray: {stroke_dasharray}"
+
+        elif style_type == "componentCategory":
+            category_config = kwargs.get('category_config', {})
+            fill = category_config.get("fill", "#ffffff")
+            stroke = category_config.get("stroke", "#333333")
+            stroke_width = category_config.get("strokeWidth", "2px")
+            return f"fill:{fill},stroke:{stroke},stroke-width:{stroke_width}"
+
+        elif style_type == "dynamicSubgroup":
+            parent_category = kwargs.get('parent_category', '')
+            component_categories = self.config_loader.get_component_category_styles()
+            parent_config = component_categories.get(parent_category, {})
+            subgroup_fill = parent_config.get("subgroupFill")
+
+            # Fallback logic for subgroup colors if not in config
+            if not subgroup_fill:
+                if "Infrastructure" in parent_category:
+                    subgroup_fill = "#d4e6d4"
+                elif "Data" in parent_category:
+                    subgroup_fill = "#f5f0e6"
+                elif "Model" in parent_category:
+                    subgroup_fill = "#f0e6e6"
+                elif "Application" in parent_category:
+                    subgroup_fill = "#e0f0ff"
+                else:
+                    subgroup_fill = "#f8f8f8"  # Default light gray
+
+            return f"fill:{subgroup_fill},stroke:#333,stroke-width:1px"
+
+        else:
+            # Default fallback
+            return "fill:#ffffff,stroke:#333333,stroke-width:2px"
+
     def _maps_to_full_category(self, control_components: list[str], category: str) -> bool:
         """
         Check if a control's component list covers ALL components in a specific category.
@@ -2229,44 +2308,23 @@ class ControlGraph(BaseGraph):
 
         # Style edges from 'all' controls
         if all_control_edges:
-            all_control_style = edge_styles.get("allControlEdges", {})
-            stroke = all_control_style.get("stroke", "#4285f4")
-            stroke_width = all_control_style.get("strokeWidth", "3px")
-            stroke_dasharray = all_control_style.get("strokeDasharray", "8 4")
             edge_list = ",".join(map(str, all_control_edges))
-            style_str = f"stroke:{stroke},stroke-width:{stroke_width},stroke-dasharray: {stroke_dasharray}"
+            style_str = self._get_edge_style("allControlEdges")
             lines.append(f"    linkStyle {edge_list} {style_str}")
 
         # Style edges to subgraphs/categories
         if subgraph_edges:
-            subgraph_style = edge_styles.get("subgraphEdges", {})
-            stroke = subgraph_style.get("stroke", "#34a853")
-            stroke_width = subgraph_style.get("strokeWidth", "2px")
             edge_list = ",".join(map(str, subgraph_edges))
-            lines.append(f"    linkStyle {edge_list} stroke:{stroke},stroke-width:{stroke_width}")
+            style_str = self._get_edge_style("subgraphEdges")
+            lines.append(f"    linkStyle {edge_list} {style_str}")
 
         # Style edges from controls with 3+ individual component mappings
-        multi_edge_styles_config = edge_styles.get(
-            "multiEdgeStyles",
-            [
-                {"stroke": "#9c27b0", "strokeWidth": "2px"},
-                {"stroke": "#ff9800", "strokeWidth": "2px", "strokeDasharray": "5 5"},
-                {"stroke": "#e91e63", "strokeWidth": "2px", "strokeDasharray": "10 2"},
-                {"stroke": "#C95792", "strokeWidth": "2px", "strokeDasharray": "10 5"},
-            ],
-        )
+        multi_edge_styles_config = edge_styles.get("multiEdgeStyles", [])
 
         for i, style_group in enumerate(multi_edge_style_groups):
             if style_group and i < len(multi_edge_styles_config):
                 style_config = multi_edge_styles_config[i]
-                stroke = style_config.get("stroke", "#9c27b0")
-                stroke_width = style_config.get("strokeWidth", "2px")
-                dasharray = style_config.get("strokeDasharray", "")
-
-                style_string = f"stroke:{stroke},stroke-width:{stroke_width}"
-                if dasharray:
-                    style_string += f",stroke-dasharray: {dasharray}"
-
+                style_string = self._get_edge_style(style_config)
                 edge_list = ",".join(map(str, style_group))
                 lines.append(f"    linkStyle {edge_list} {style_string}")
 
@@ -2284,43 +2342,20 @@ class ControlGraph(BaseGraph):
 
         # Style components container
         if components_container_style:
-            fill = components_container_style.get("fill", "#f0f0f0")
-            stroke = components_container_style.get("stroke", "#666666")
-            stroke_width = components_container_style.get("strokeWidth", "3px")
-            stroke_dasharray = components_container_style.get("strokeDasharray", "10 5")
-            container_style = f"fill:{fill},stroke:{stroke},stroke-width:{stroke_width}"
-            style_str = f"{container_style},stroke-dasharray: {stroke_dasharray}"
+            style_str = self._get_node_style("componentsContainer")
             lines.append(f"    style components {style_str}")
 
         # Style component categories
         for category_key, category_config in component_categories.items():
             if category_config:
-                fill = category_config.get("fill", "#ffffff")
-                stroke = category_config.get("stroke", "#333333")
-                stroke_width = category_config.get("strokeWidth", "2px")
-                lines.append(f"    style {category_key} fill:{fill},stroke:{stroke},stroke-width:{stroke_width}")
+                style_str = self._get_node_style("componentCategory", category_config=category_config)
+                lines.append(f"    style {category_key} {style_str}")
 
         # Add dynamic styling for subgroups using configuration
         for parent_category, subgroups in self.subgroupings.items():
-            # Find the parent category configuration to get subgroup fill color
-            parent_config = component_categories.get(parent_category, {})
-            subgroup_fill = parent_config.get("subgroupFill")
-
-            # Fallback logic for subgroup colors if not in config
-            if not subgroup_fill:
-                if "Infrastructure" in parent_category:
-                    subgroup_fill = "#d4e6d4"
-                elif "Data" in parent_category:
-                    subgroup_fill = "#f5f0e6"
-                elif "Model" in parent_category:
-                    subgroup_fill = "#f0e6e6"
-                elif "Application" in parent_category:
-                    subgroup_fill = "#e0f0ff"
-                else:
-                    subgroup_fill = "#f8f8f8"  # Default light gray
-
+            style_str = self._get_node_style("dynamicSubgroup", parent_category=parent_category)
             for subgroup_name in subgroups.keys():
-                lines.append(f"    style {subgroup_name} fill:{subgroup_fill},stroke:#333,stroke-width:1px")
+                lines.append(f"    style {subgroup_name} {style_str}")
 
         lines.extend([])
 
