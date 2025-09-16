@@ -1,7 +1,8 @@
 #!/bin/bash
 # Simple git hook installer
 # Copies scripts/hooks/pre-commit to .git/hooks/pre-commit
-# Copies scripts/hooks/validate_component_edges.py to .git/hooks/validate_component_edges.py
+# Copies scripts/hooks/validate_riskmap.py to .git/hooks/validate_riskmap.py
+# Copies scripts/hooks/riskmap_validator/* to .git/hooks/riskmap_validator/*
 # Copies scripts/hooks/validate_control_risk_references.py to .git/hooks/validate_control_risk_references.py
 # Usage: ./install-precommit-hook.sh [--force]
 
@@ -10,7 +11,8 @@ set -e
 # Parse command line arguments
 FORCE=false
 PRECOMMIT_SRC="scripts/hooks/pre-commit"
-VALIDATOR_SRC="scripts/hooks/validate_component_edges.py"
+VALIDATOR_SRC="scripts/hooks/validate_riskmap.py"
+VALIDATOR_MODULE_SRC="scripts/hooks/riskmap_validator"
 REF_VALIDATOR_SRC="scripts/hooks/validate_control_risk_references.py"
 
 while [[ $# -gt 0 ]]; do
@@ -41,7 +43,8 @@ done
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(git rev-parse --show-toplevel)"
 TARGET_HOOK="$REPO_ROOT/.git/hooks/pre-commit"
-TARGET_VALIDATOR="$REPO_ROOT/.git/hooks/validate_component_edges.py"
+TARGET_VALIDATOR="$REPO_ROOT/.git/hooks/validate_riskmap.py"
+TARGET_VALIDATOR_MODULE="$REPO_ROOT/.git/hooks/riskmap_validator"
 TARGET_REF_VALIDATOR="$REPO_ROOT/.git/hooks/validate_control_risk_references.py"
 
 echo "Installing git hooks..."
@@ -71,6 +74,7 @@ if [[ -f "$TARGET_HOOK" ]]; then
     EXISTING_HOOK=true
 fi
 
+# Only tests for the main script -> assumes the module directory will exist if the script does...
 if [[ -f "$TARGET_VALIDATOR" ]]; then
     EXISTING_VALIDATOR=true
 fi
@@ -100,7 +104,9 @@ chmod +x "$TARGET_HOOK"
 
 # Install component edge validator
 echo "🔗 Installing component edge validator..."
-cp "$REPO_ROOT/${VALIDATOR_SRC}" "$TARGET_VALIDATOR"
+mkdir -p "${TARGET_VALIDATOR_MODULE}"
+cp "${REPO_ROOT}/${VALIDATOR_SRC}" "${TARGET_VALIDATOR}"
+cp ${REPO_ROOT}/${VALIDATOR_MODULE_SRC}/*.py "${TARGET_VALIDATOR_MODULE}/"
 chmod +x "$TARGET_VALIDATOR"
 
 # Install control-to-risk reference validator

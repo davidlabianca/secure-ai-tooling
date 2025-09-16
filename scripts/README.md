@@ -36,6 +36,7 @@ Validates all YAML files against their corresponding JSON schemas.
 - `yaml/personas.yaml` → `schemas/personas.schema.json`
 - `yaml/risks.yaml` → `schemas/risks.schema.json`
 - `yaml/self-assessment.yaml` → `schemas/self-assessment.schema.json`
+- `yaml/mermaid-styles.yaml` → `schemas/mermaid-styles.schema.json`
 
 #### 2. Prettier YAML Formatting
 Automatically formats YAML files in the `risk-map/yaml/` directory using Prettier to ensure consistent code style.
@@ -51,6 +52,7 @@ Automatically formats YAML files in the `risk-map/yaml/` directory using Prettie
 - `risk-map/yaml/personas.yaml`
 - `risk-map/yaml/risks.yaml`
 - `risk-map/yaml/self-assessment.yaml`
+- `risk-map/yaml/mermaid-styles.yaml`
 
 #### 3. Ruff Python Linting
 Runs ruff linting on Python files to enforce code quality and style standards.
@@ -70,12 +72,16 @@ Validates the consistency of component relationships in `components.yaml` and ge
 - **Bidirectional matching**: Verifies that all `to` edges have corresponding `from` edges and vice versa
 - **Isolated component detection**: Identifies components with no edges (neither `to` nor `from`)
 
-**Graph Generation Features:**
-- **Automatic generation**: When `components.yaml` is staged for commit, automatically generates `./risk-map/docs/risk-map-graph.md`
-- **Topological ranking**: Components are ranked with `componentDataSources` always at rank 1
-- **Category-based subgraphs**: Organizes components into Data, Infrastructure, Model, and Application subgraphs
-- **Mermaid format**: Generates Mermaid-compatible diagrams with color coding and dynamic spacing
-- **Auto-staging**: Generated graph is automatically added to staged files for inclusion in commit
+**Automatic Graph Generation Features:**
+- **Component Graph**: When `components.yaml` is staged for commit, automatically generates `./risk-map/docs/risk-map-graph.md`
+  - Topological ranking with `componentDataSources` always at rank 1
+  - Category-based subgraphs (Data, Infrastructure, Model, Application)
+  - Mermaid format with color coding and dynamic spacing
+- **Control Graph**: When `components.yaml` OR `controls.yaml` is staged for commit, automatically generates `./risk-map/docs/controls-graph.md`
+  - Shows control-to-component relationships with optimization
+  - Dynamic component clustering and category-level mappings
+  - Multi-edge styling with consistent color schemes
+- **Auto-staging**: Both generated graphs are automatically added to staged files for inclusion in commit
 
 **Example validation:**
 ```yaml
@@ -138,7 +144,7 @@ npm install prettier
 
 ### Files
 - `hooks/pre-commit` - The main git hook script that orchestrates all validations
-- `hooks/validate_component_edges.py` - Python script for component edge validation
+- `hooks/validate_riskmap.py` - Python script for component edge validation
 - `hooks/validate_control_risk_references.py` - Python script for control-risk cross-reference validation
 - `install-precommit-hook.sh` - Installs all hooks to your local `.git/hooks/`
 
@@ -149,11 +155,13 @@ When you commit changes, the hook will:
 2. **Prettier Formatting** - Format YAML files in `risk-map/yaml/` and re-stage them
 3. **Ruff Linting** - Lint Python files for code quality
 4. **Edge Validation** - Verify component relationship consistency
-5. **Graph Generation** - If `components.yaml` changed, generate and stage `./risk-map/docs/risk-map-graph.md`
+5. **Graph Generation** - Generate and stage graphs based on file changes:
+   - If `components.yaml` changed: generate `./risk-map/docs/risk-map-graph.md`
+   - If `components.yaml` or `controls.yaml` changed: generate `./risk-map/docs/controls-graph.md`
 6. **Control-Risk Validation** - Verify control-risk cross-reference consistency
 7. **Block commit** if any validation fails
 
-**Note**: Graph generation only occurs when `components.yaml` is staged for commit, not in `--force` mode.
+**Note**: Graph generation only occurs when relevant files are staged for commit, not in `--force` mode.
 
 #### Manual Validation of Unstaged Files
 The `pre-commit` hook and all individual validation scripts support the `--force` flag to validate all files regardless of their git staging status (useful during development).
@@ -166,30 +174,67 @@ The `pre-commit` hook and all individual validation scripts support the `--force
 .git/hooks/pre-commit --force
 
 # Run component edge validation-only
-.git/hooks/validate_component_edges.py --force
+.git/hooks/validate_riskmap.py --force
 
 # Run control-to-risk reference validation-only
 .git/hooks/validate_control_risk_references.py --force
 
 ```
 
+### GitHub Actions Validation
+
+In addition to local pre-commit validation, the repository includes GitHub Actions that run the same validations on pull requests:
+
+**Automated PR Validation includes:**
+- **YAML Schema Validation**: Validates all YAML files against their JSON schemas
+- **YAML Format Validation**: Checks prettier formatting compliance
+- **Python Linting**: Runs ruff linting on all Python files
+- **Component Edge Validation**: Verifies component relationship consistency
+- **Control-Risk Reference Validation**: Checks control-risk cross-reference integrity
+- **Graph Validation**: Generates and compares both graph types against committed versions
+  - Component graph (`./risk-map/docs/risk-map-graph.md`)
+  - Control graph (`./risk-map/docs/controls-graph.md`)
+
+**Graph Validation Process:**
+- GitHub Actions generates fresh graphs using the validation script
+- Compares generated graphs with the committed versions in the PR
+- Fails the build if graphs don't match, indicating they need to be regenerated
+- Provides diff output showing exactly what differences were found
+
+**When Graph Validation Fails:**
+```bash
+# The most common cause is missing graph regeneration
+# Fix by running locally and committing the updated graphs:
+
+# For component graph issues:
+python3 .git/hooks/validate_riskmap.py --to-graph ./risk-map/docs/risk-map-graph.md --force
+
+# For control graph issues:
+python3 .git/hooks/validate_riskmap.py --to-controls-graph ./risk-map/docs/controls-graph.md --force
+
+# Then commit the updated graphs:
+git add risk-map/docs/risk-map-graph.md risk-map/docs/controls-graph.md
+git commit -m "Update generated graphs"
+```
+
 #### Manual Graph Generation
-Generate component graphs manually using the validation script:
+Generate component graphs and control-to-component graphs manually using the validation script:
 
 ```bash
-# Generate clean graph without debug comments
-.git/hooks/validate_component_edges.py --to-graph ./docs/component-map.md --force
+# Validate edges and generate clean component graph without debug comments
+.git/hooks/validate_riskmap.py --to-graph ./docs/component-map.md --force
 
-# Generate graph with rank debugging information
-.git/hooks/validate_component_edges.py --to-graph ./docs/debug-graph.md --debug --force
+# Generate component graph with rank debugging information
+.git/hooks/validate_riskmap.py --to-graph ./docs/debug-graph.md --debug --force
 
-# Validate edges and generate graph in one command
-.git/hooks/validate_component_edges.py --to-graph ./risk-map/docs/risk-map-graph.md --force
+# Generate control-to-component graph visualization
+.git/hooks/validate_riskmap.py --to-controls-graph ./docs/controls-graph.md --force
 ```
 
 **Graph Generation Options:**
-- `--to-graph PATH` - Output Mermaid graph to specified file
-- `--debug` - Include rank comments for debugging
+- `--to-graph PATH` - Output component relationship Mermaid graph to specified file
+- `--to-controls-graph PATH` - Output control-to-component relationship graph to specified file
+- `--debug` - Include rank comments for debugging (component graphs only)
 - `--quiet` - Minimize output (only show errors)
 - `--allow-isolated` - Allow components with no edges
 
@@ -262,12 +307,12 @@ git commit --no-verify -m "emergency commit"
 #### Debugging validation manually
 Run the component edge validator manually:
 ```bash
-python3 .git/hooks/validate_component_edges.py
+python3 .git/hooks/validate_riskmap.py
 ```
 
 Run the component edge validator even if files aren't staged:
 ```bash
-python3 .git/hooks/validate_component_edges.py --force
+python3 .git/hooks/validate_riskmap.py --force
 ```
 
 Run the control-risk validator manually:
@@ -304,23 +349,153 @@ ruff check --fix .
 #### Debugging graph generation
 Test graph generation without affecting git staging:
 ```bash
-# Generate graph to test output
-python3 .git/hooks/validate_component_edges.py --to-graph ./test-graph.md --force
+# Generate component graph to test output
+python3 .git/hooks/validate_riskmap.py --to-graph ./test-graph.md --force
 
-# Generate graph with debug information to understand ranking
-python3 .git/hooks/validate_component_edges.py --to-graph ./debug-graph.md --debug --force
+# Generate component graph with debug information to understand ranking
+python3 .git/hooks/validate_riskmap.py --to-graph ./debug-graph.md --debug --force
+
+# Generate control-to-component graph to test relationships
+python3 .git/hooks/validate_riskmap.py --to-controls-graph ./controls-test.md --force
 
 # View help for all graph options
-python3 .git/hooks/validate_component_edges.py --help
+python3 .git/hooks/validate_riskmap.py --help
 ```
 
 **Common graph generation issues:**
 ```
 ❌ Graph generation failed
 ```
-**Fix**: Check that the component YAML file is valid and accessible, ensure write permissions for output directory
+**Fix**: Check that the component and control YAML files are valid and accessible, ensure write permissions for output directory
 
 ```
 ⚠️ Warning: Could not stage generated graph
 ```
 **Fix**: This occurs during pre-commit when git staging fails - check file permissions and git repository status
+
+**Control graph specific issues:**
+```
+❌ Control-to-component graph generation failed
+```
+**Fix**: Verify that both `controls.yaml` and `components.yaml` are accessible and properly formatted. Check that control component references are valid.
+
+## Mermaid Graph Styling Configuration
+
+The validation system includes a configuration system for customizing Mermaid graph styling through `risk-map/yaml/mermaid-styles.yaml`. This configuration file controls all visual aspects of both component graphs and control graphs generated by the validation scripts.
+
+### Configuration File Structure
+
+The `mermaid-styles.yaml` file is organized into four main sections:
+
+#### 1. Foundation Design Tokens
+```yaml
+foundation:
+  colors:
+    primary: "#4285f4"      # Google Blue - primary actions
+    success: "#34a853"      # Google Green - success states
+    accent: "#9c27b0"       # Purple - accent elements
+    # ... additional semantic colors
+  strokeWidths:
+    thin: "1px"             # Subgroup borders
+    medium: "2px"           # Standard borders
+    thick: "3px"            # Emphasis elements
+  strokePatterns:
+    solid: ""               # Solid lines
+    dashed: "5 5"          # Dashed pattern
+    # ... additional patterns
+```
+
+#### 2. Shared Elements
+```yaml
+sharedElements:
+  cssClasses:
+    hidden: "display: none;"
+    allControl: "stroke:#4285f4,stroke-width:2px,stroke-dasharray: 5 5"
+  componentCategories:
+    componentsInfrastructure:
+      fill: "#e6f3e6"       # Light green
+      stroke: "#333333"     # Dark border
+      strokeWidth: "2px"
+      subgroupFill: "#d4e6d4"  # Darker green for subgroups
+```
+
+#### 3. Graph-Specific Configuration
+```yaml
+graphTypes:
+  component:
+    direction: "TD"         # Top-down layout
+    flowchartConfig:
+      nodeSpacing: 25       # Space between nodes
+      rankSpacing: 30       # Space between levels
+  control:
+    direction: "LR"         # Left-right layout
+    specialStyling:
+      edgeStyles:
+        multiEdgeStyles:    # 4-color cycling for complex controls
+          - stroke: "#9c27b0"
+            strokeWidth: "2px"
+```
+
+### Customizing Graph Appearance
+
+To customize graph styling:
+
+1. **Edit Configuration**: Modify `risk-map/yaml/mermaid-styles.yaml`
+2. **Validate Changes**: The pre-commit hooks automatically validate syntax and schema
+3. **Test Changes**: Use `--force` mode to test with unstaged changes:
+   ```bash
+   python3 scripts/hooks/validate_riskmap.py --to-graph test.md --force
+   ```
+
+### Common Customizations
+
+#### Change Component Category Colors
+```yaml
+sharedElements:
+  componentCategories:
+    componentsData:
+      fill: "#your-color"        # Background color
+      stroke: "#border-color"    # Border color
+      subgroupFill: "#sub-color" # Subgroup background
+```
+
+#### Modify Graph Layout
+```yaml
+graphTypes:
+  component:
+    direction: "LR"          # Change to left-right layout
+  control:
+    flowchartConfig:
+      nodeSpacing: 40        # Increase node spacing
+      wrappingWidth: 300     # Wider text wrapping
+```
+
+#### Update Multi-Edge Control Colors
+```yaml
+graphTypes:
+  control:
+    specialStyling:
+      edgeStyles:
+        multiEdgeStyles:
+          - stroke: "#ff0000"  # Red
+            strokeWidth: "3px" # Thicker lines
+          - stroke: "#00ff00"  # Green
+            strokeDasharray: "10 5"  # Custom dash pattern
+```
+
+### Validation and Schema
+
+The configuration file is automatically validated against `risk-map/schemas/mermaid-styles.schema.json` which enforces:
+- **Color format validation**: All colors must be valid hex values (#RRGGBB)
+- **Required properties**: All essential configuration elements must be present
+- **Value constraints**: Spacing values, direction options, and stroke patterns are validated
+- **Structure validation**: Proper nesting and organization is enforced
+
+### Error Handling
+
+The system includes a set of fallback mechanisms:
+- **Missing file**: Uses hardcoded emergency defaults matching original styling
+- **Invalid configuration**: Falls back to emergency defaults while reporting errors
+- **Partial configuration**: Missing elements use sensible defaults from emergency configuration
+
+This ensures graph generation never fails due to configuration issues, maintaining system reliability while providing customization flexibility.

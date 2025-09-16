@@ -1,6 +1,8 @@
 ```mermaid
 graph TD
+   %%{init: {'flowchart': {'nodeSpacing': 20, 'rankSpacing': 20, 'padding': 5, 'wrappingWidth': 250}}}%%
     classDef hidden display: none;
+    classDef allControl stroke:#4285f4,stroke-width:2px,stroke-dasharray: 5 5
 
     root:::hidden
     
@@ -16,7 +18,7 @@ subgraph Infrastructure
     componentDataStorage[Data Storage Infrastructure]
     componentModelFrameworksAndCode[Model Frameworks and Code]
     componentModelEvaluation[Model Evaluation]
-    componentTrainingTuning[Training and Tuning]
+    componentModelTrainingTuning[Training and Tuning]
     componentModelStorage[Model Storage]
     componentModelServing[Model Serving Infrastructure]
     componentModelEvaluation ~~~~~~~~ InfrastructureEnd:::hidden
@@ -42,10 +44,10 @@ end
     componentDataSources[Data Sources] --> componentDataFilteringAndProcessing[Data Filtering and Processing]
     componentDataFilteringAndProcessing[Data Filtering and Processing] --> componentTrainingData[Training Data]
     componentTrainingData[Training Data] --> componentDataStorage[Data Storage Infrastructure]
-    componentDataStorage[Data Storage Infrastructure] --> componentTrainingTuning[Training and Tuning]
-    componentModelFrameworksAndCode[Model Frameworks and Code] --> componentTrainingTuning[Training and Tuning]
-    componentModelEvaluation[Model Evaluation] --> componentTrainingTuning[Training and Tuning]
-    componentTrainingTuning[Training and Tuning] --> componentTheModel[The Model]
+    componentDataStorage[Data Storage Infrastructure] --> componentModelTrainingTuning[Training and Tuning]
+    componentModelFrameworksAndCode[Model Frameworks and Code] --> componentModelTrainingTuning[Training and Tuning]
+    componentModelEvaluation[Model Evaluation] --> componentModelTrainingTuning[Training and Tuning]
+    componentModelTrainingTuning[Training and Tuning] --> componentTheModel[The Model]
     componentModelStorage[Model Storage] --> componentTheModel[The Model]
     componentModelServing[Model Serving Infrastructure] --> componentTheModel[The Model]
     componentTheModel[The Model] --> componentOutputHandling[Output Handling]
@@ -60,8 +62,8 @@ end
     componentAgentPlugin[Agent/Plugin] --> componentApplication[Application]
 
 %% Style definitions
-    style Infrastructure fill:#e6f3e6,stroke:#333,stroke-width:2px
-    style Data fill:#fff5e6,stroke:#333,stroke-width:2px
-    style Application fill:#e6f0ff,stroke:#333,stroke-width:2px
-    style Model fill:#ffe6e6,stroke:#333,stroke-width:2px
+    style Infrastructure fill:#e6f3e6,stroke:#333333,stroke-width:2px
+    style Data fill:#fff5e6,stroke:#333333,stroke-width:2px
+    style Application fill:#e6f0ff,stroke:#333333,stroke-width:2px
+    style Model fill:#ffe6e6,stroke:#333333,stroke-width:2px
 ```

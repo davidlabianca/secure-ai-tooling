@@ -46,7 +46,7 @@ controls:
       - personaModelCreator
     components:
       - componentOutputHandling
-      - componentTrainingTuning
+      - componentModelTrainingTuning
       - componentModelEvaluation
     risks:
       - SDD
@@ -63,7 +63,7 @@ controls:
     components:
       - componentDataSources
       - componentTrainingData
-      - componentTrainingTuning
+      - componentModelTrainingTuning
       - componentModelEvaluation
     risks:
       - ISD
@@ -111,7 +111,7 @@ controls:
     components:
       - componentModelServing
       - componentModelEvaluation
-      - componentTrainingTuning
+      - componentModelTrainingTuning
       - componentModelStorage
     risks:
       - DP
@@ -130,7 +130,7 @@ controls:
     components:
       - componentModelServing
       - componentModelEvaluation
-      - componentTrainingTuning
+      - componentModelTrainingTuning
       - componentModelStorage
     risks:
       - DP
@@ -154,7 +154,7 @@ controls:
     components:
       - componentModelServing
       - componentModelEvaluation
-      - componentTrainingTuning
+      - componentModelTrainingTuning
       - componentModelStorage
     risks:
       - DP
@@ -180,7 +180,7 @@ controls:
       - personaModelConsumer
     components:
       - componentModelServing
-      - componentTrainingTuning
+      - componentModelTrainingTuning
       - componentModelEvaluation
       - componentModelStorage
     risks:
@@ -410,7 +410,7 @@ controls:
       - personaModelConsumer
     components:
       - componentModelServing
-      - componentTrainingTuning
+      - componentModelTrainingTuning
     risks:
       - ASC
   - id: controlRetrievalAndVectorStorePoisoningDefense
@@ -461,7 +461,7 @@ controls:
     personas:
       - personaModelCreator
     components:
-      - componentTrainingTuning
+      - componentModelTrainingTuning
       - componentModelEvaluation
     risks:
       - FLP
@@ -529,6 +529,6 @@ controls:
       - personaModelCreator
     components:
       - componentModelEvaluation
-      - componentTrainingTuning
+      - componentModelTrainingTuning
     risks:
       - EBM

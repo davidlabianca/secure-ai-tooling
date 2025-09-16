@@ -13,92 +13,125 @@ on:
       - 'pyproject.toml'
 
 jobs:
-  ci-tools-validation:  
+  # Setup job to install dependencies and prepare validation scripts
+  setup:
     runs-on: ubuntu-latest
-    name: CI-CD Tool Validation  
-
+    name: Setup Environment
+    outputs:
+      cache-key: ${{ steps.cache-key.outputs.key }}
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
 
-    - name: Setup Python
+    - name: Set up Python
       uses: actions/setup-python@v5
       with:
         python-version: '3.11'
         cache: 'pip'
 
     - name: Install dependencies
+      run: pip install -r requirements-dev.txt
+
+    - name: Generate cache key
+      id: cache-key
       run: |
-        pip install -r requirements-dev.txt
-    
+        echo "key=deps-${{ hashFiles('requirements-dev.txt') }}" >> $GITHUB_OUTPUT
+
+  # Individual validation jobs that can fail independently
+  python-linting:
+    runs-on: ubuntu-latest
+    name: Python Linting
+    needs: setup
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+        cache: 'pip'
+
+    - name: Install dependencies
+      run: pip install -r requirements-dev.txt
+
     - name: Lint with Ruff
       run: |
         echo "🔍 Running Python linting with Ruff..."
-        
-        lint_failed=false
-        
-        if ! ruff check --output-format=github; then
-          echo "   ❌ Python linting failed - check output above"
-          lint_failed=true
+
+        if ruff check --output-format=github; then
+          echo "✅ Python linting completed successfully"
         else
-          echo "   ✅ All python files successfully passed linting"
-        fi
-        
-        # Store linting result for final summary
-        echo "LINT_VALIDATION_FAILED=$lint_failed" >> $GITHUB_ENV
-        
-        if [ "$lint_failed" = true ]; then
+          echo "❌ Python linting failed"
           echo "::error::Python linting validation failed"
+          exit 1
         fi
-    
+
+  python-testing:
+    runs-on: ubuntu-latest
+    name: Python Testing
+    needs: setup
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+        cache: 'pip'
+
+    - name: Install dependencies
+      run: pip install -r requirements-dev.txt
+
     - name: Test Python
       run: |
         echo "🧪 Running Python tests..."
-        
-        test_failed=false
-        
-        if ! pytest --junitxml=junit/test-results.xml; then
-          echo "   ❌ Python tests failed - check output above"
-          test_failed=true
+
+        if pytest --junitxml=junit/test-results.xml; then
+          echo "✅ Python tests completed successfully"
         else
-          echo "   ✅ All Python tests passed successfully"
-        fi
-        
-        # Store test result for final summary
-        echo "TEST_VALIDATION_FAILED=$test_failed" >> $GITHUB_ENV
-        
-        if [ "$test_failed" = true ]; then
+          echo "❌ Python tests failed"
           echo "::error::Python test validation failed"
+          exit 1
         fi
 
-    - name: Validation Summary
-      if: always()
+  # Summary job that requires all other jobs but doesn't fail
+  validation-summary:
+    runs-on: ubuntu-latest
+    name: Validation Summary
+    needs: [python-linting, python-testing]
+    if: always()
+    steps:
+    - name: Generate Summary
       run: |
         echo "📋 Python Validation Summary:"
-        
-        overall_failed=false
-        
-        # Check each validation result
-        if [ "$LINT_VALIDATION_FAILED" = "true" ]; then
-          echo "  ❌ Python linting validation"
-          overall_failed=true
-        else
-          echo "  ✅ Python linting validation"
-        fi
-        
-        if [ "$TEST_VALIDATION_FAILED" = "true" ]; then
-          echo "  ❌ Python test validation"
-          overall_failed=true
-        else
-          echo "  ✅ Python test validation"
-        fi
-        
         echo ""
-        if [ "$overall_failed" = "true" ]; then
-          echo "💥 One or more Python validations failed. Please review the errors above."
-          echo "::error::Python validation failed - see summary above"
-          exit 1
+
+        # Check individual job results
+        lint_result="${{ needs.python-linting.result }}"
+        test_result="${{ needs.python-testing.result }}"
+
+        overall_success=true
+
+        if [ "$lint_result" = "success" ]; then
+          echo "  ✅ Python linting validation"
         else
-          echo "🎉 All secure-ai-tooling python validations completed successfully!"
-          echo "The secure-ai-tooling repository maintains full integrity and consistency."
+          echo "  ❌ Python linting validation ($lint_result)"
+          overall_success=false
+        fi
+
+        if [ "$test_result" = "success" ]; then
+          echo "  ✅ Python test validation"
+        else
+          echo "  ❌ Python test validation ($test_result)"
+          overall_success=false
+        fi
+
+        echo ""
+        if [ "$overall_success" = "true" ]; then
+          echo "🎉 All Python validations passed!"
+        else
+          echo "💥 Some Python validations failed. Check individual job details above."
+          exit 1
         fi
