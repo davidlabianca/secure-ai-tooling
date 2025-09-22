@@ -778,7 +778,7 @@ class TestComponentGraph:
 
         # Should start and end with mermaid code block markers
         assert mermaid_output.startswith("```mermaid")
-        assert mermaid_output.endswith("```")
+        assert mermaid_output.endswith("```\n")
 
         # Should have proper line structure
         lines = mermaid_output.split("\n")
@@ -794,7 +794,7 @@ class TestComponentGraph:
     def test_to_mermaid_method(self, simple_forward_map, simple_components):
         """Test the to_mermaid method returns the built graph."""
         graph = ComponentGraph(simple_forward_map, simple_components)
-        assert graph.to_mermaid('mermaid') == graph.graph
+        assert graph.to_mermaid('mermaid') == graph.graph + "\n"
 
     def test_empty_components(self):
         """Test handling of empty components."""
@@ -1119,7 +1119,7 @@ class TestControlGraph:
 
         # Should contain mermaid code block markers
         assert mermaid_output.startswith("```mermaid")
-        assert mermaid_output.endswith("```")
+        assert mermaid_output.endswith("```\n")
 
         # Should contain graph declaration
         assert "graph LR" in mermaid_output

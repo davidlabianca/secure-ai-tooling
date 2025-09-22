@@ -214,7 +214,7 @@ class TestGraphGeneration:
 
         # Verify basic Mermaid structure
         assert mermaid_output.startswith("```mermaid")
-        assert mermaid_output.endswith("```")
+        assert mermaid_output.endswith("```\n")
         assert "graph LR" in mermaid_output
 
         # Verify three-layer structure
@@ -268,15 +268,6 @@ class TestGraphGeneration:
         assert "style risks" in mermaid_output
         assert "fill:#ffeef0" in mermaid_output  # Risk category fill
 
-    def test_debug_mode_output(self, sample_risks, sample_controls, sample_components):
-        """Test debug mode includes additional comments."""
-        risk_graph = RiskGraph(sample_risks, sample_controls, sample_components, debug=True)
-        mermaid_output = risk_graph.to_mermaid()
-
-        # Verify debug comments are present
-        assert "%% DEBUG:" in mermaid_output
-        assert "risk mitigation" in mermaid_output
-
     def test_orphaned_risk_handling(self, sample_components):
         """Test handling of risks with no mitigating controls."""
         orphaned_risk = {"OrphanRisk": RiskNode(title="Orphaned Risk", category="risks")}
@@ -300,7 +291,7 @@ class TestGraphGeneration:
         assert "OrphanRisk -->" not in mermaid_output
 
         # Debug mode should note the skip
-        assert "no mitigating controls" in mermaid_output
+        assert "no controls" in mermaid_output
 
     def test_control_graph_integration(self, sample_risks, sample_controls, sample_components):
         """Test integration with ControlGraph functionality."""

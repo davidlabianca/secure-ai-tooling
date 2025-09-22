@@ -22,19 +22,18 @@ class EdgeValidationError(Exception):
 
 class ComponentEdgeValidator:
     """
-    Main validator class for component edge consistency.
+    Validates component edge consistency.
 
-    This class encapsulates all validation logic and can be easily extended
-    with additional validation rules or integrated into other systems.
+    Encapsulates validation logic and can be extended with additional rules.
     """
 
     def __init__(self, allow_isolated: bool = False, verbose: bool = True):
         """
-        Initialize the validator.
+        Initialize validator.
 
         Args:
-            allow_isolated: If True, isolated components won't trigger validation failure
-            verbose: If True, print detailed validation progress
+            allow_isolated: If True, isolated components don't cause failure
+            verbose: If True, print detailed progress
         """
         self.allow_isolated = allow_isolated
         self.verbose = verbose
@@ -42,7 +41,7 @@ class ComponentEdgeValidator:
         self.forward_map: dict[str, list[str]] = {}
 
     def log(self, message: str, level: str = "info") -> None:
-        """Log messages based on verbosity setting."""
+        """Log messages if verbose enabled."""
         if self.verbose:
             icons = {"info": "ℹ️", "success": "✅", "warning": "⚠️", "error": "❌"}
             print(f"   {icons.get(level, 'ℹ️')} {message}")
@@ -51,25 +50,23 @@ class ComponentEdgeValidator:
         self, components: dict[str, ComponentNode]
     ) -> tuple[dict[str, list[str]], dict[str, list[str]]]:
         """
-        Build forward and reverse edge mappings for validation.
+        Build forward and reverse edge mappings.
 
         Args:
             components: Component edge definitions
 
         Returns:
-            Tuple of (forward_map, reverse_map)
-            - forward_map: component -> list of components it points to
-            - reverse_map: component -> list of components that point to it
+            Tuple of (forward_map, reverse_map) for edge validation
         """
         forward_map = {}
         reverse_map = {}
 
         for component_id, node in components.items():
-            # Forward edges (this component -> other components)
+            # Forward edges: this component → other components
             if node.to_edges:
                 forward_map[component_id] = node.to_edges[:]  # Create copy
 
-            # Build reverse mapping from 'from' edges
+            # Build reverse mapping from from_edges
             for from_node in node.from_edges:
                 if from_node not in reverse_map:
                     reverse_map[from_node] = []
@@ -81,10 +78,7 @@ class ComponentEdgeValidator:
 
     def find_isolated_components(self, components: dict[str, ComponentNode]) -> set[str]:
         """
-        Identify components with no edges (neither to nor from).
-
-        Args:
-            components: Component edge definitions
+        Find components with no edges.
 
         Returns:
             Set of isolated component IDs
@@ -99,10 +93,7 @@ class ComponentEdgeValidator:
 
     def find_missing_components(self, components: dict[str, ComponentNode]) -> set[str]:
         """
-        Find components that are referenced in edges but don't exist in the components list.
-
-        Args:
-            components: Component edge definitions
+        Find referenced components that don't exist.
 
         Returns:
             Set of missing component IDs
@@ -110,7 +101,7 @@ class ComponentEdgeValidator:
         existing_components = set(components.keys())
         referenced_components = set()
 
-        # Collect all referenced component IDs
+        # Collect all referenced components
         for node in components.values():
             referenced_components.update(node.to_edges)
             referenced_components.update(node.from_edges)
@@ -121,18 +112,18 @@ class ComponentEdgeValidator:
         self, forward_map: dict[str, list[str]], reverse_map: dict[str, list[str]]
     ) -> list[str]:
         """
-        Compare forward and reverse edge maps to find inconsistencies.
+        Compare edge maps to find inconsistencies.
 
         Args:
-            forward_map: Component -> list of outgoing connections
-            reverse_map: Component -> list of incoming connections
+            forward_map: Component → outgoing connections
+            reverse_map: Component → incoming connections
 
         Returns:
-            List of error messages describing inconsistencies
+            List of error messages
         """
         errors = []
 
-        # Check forward -> reverse consistency
+        # Check forward → reverse consistency
         for component, targets in forward_map.items():
             if component not in reverse_map:
                 errors.append(f"Component '{component}' has outgoing edges but no corresponding incoming edges")
@@ -152,7 +143,7 @@ class ComponentEdgeValidator:
                         f"Component '{component}' → unexpected incoming edges from: {', '.join(sorted(extra))}"
                     )
 
-        # Check reverse -> forward consistency
+        # Check reverse → forward consistency
         for component in reverse_map.keys():
             if component not in forward_map:
                 errors.append(f"Component '{component}' has incoming edges but no corresponding outgoing edges")
@@ -161,10 +152,10 @@ class ComponentEdgeValidator:
 
     def validate_file(self, file_path: Path) -> bool:
         """
-        Validate component edge consistency in a single YAML file.
+        Validate component edge consistency in YAML file.
 
         Args:
-            file_path: Path to YAML file to validate
+            file_path: Path to YAML file
 
         Returns:
             True if validation passes, False otherwise
@@ -178,10 +169,10 @@ class ComponentEdgeValidator:
                 self.log("No components found - skipping validation", "info")
                 return True
 
-            # Run all validation checks
+            # Run validation checks
             success = True
 
-            # Check for missing component references
+            # Check for missing components
             missing_components = self.find_missing_components(self.components)
             if missing_components:
                 self.log(

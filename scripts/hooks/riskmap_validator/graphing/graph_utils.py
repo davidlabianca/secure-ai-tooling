@@ -8,51 +8,21 @@ from ..config import DEFAULT_MERMAID_CONFIG_FILE
 
 class MermaidConfigLoader:
     """
-    Loads and manages Mermaid styling configuration from YAML files with caching,
-    validation, and a set of fallback mechanisms.
+    Loads Mermaid styling configuration from YAML files with caching and fallbacks.
 
-    This class provides a centralized interface for accessing Mermaid graph styling
-    configuration used by both ComponentGraph and ControlGraph classes. It implements
-    caching, error handling, and fallback to hardcoded defaults
-    to ensure graph generation never fails due to configuration issues.
+    Uses singleton pattern per file path. Provides emergency defaults if config fails to load.
+    Thread-safe for read operations after initial loading.
 
-    Key Features:
-    - **Singleton Pattern**: Ensures single config instance per file path
-    - **Lazy Loading**: Configuration loaded only when first accessed
-    - **Caching**: Avoids repeated file I/O operations
-    - **Fallback System**: Multiple layers of fallbacks prevent generation failures
-    - **Validation**: Schema-aware validation with descriptive error messages
-    - **Hot Reload**: Supports configuration updates during development
-
-    Fallback Hierarchy:
-    1. **Primary**: Load from specified YAML configuration file
-    2. **Emergency**: Use hardcoded defaults matching current implementation
-    3. **Minimal**: Basic functional configuration if all else fails
-
-    Example:
-        >>> loader = MermaidConfigLoader()
-        >>> component_colors = loader.get_component_category_styles()
-        >>> control_config = loader.get_graph_config("control")
-        >>> edge_styles = loader.get_control_edge_styles()
-
-    Thread Safety:
-        This class is thread-safe for read operations after initial loading.
-        Write operations (cache clearing) should be synchronized externally.
+    Fallback hierarchy: YAML config → emergency defaults → minimal defaults
     """
 
     _instances = {}  # Class-level cache for singleton pattern
 
     def __init__(self, config_file: Path = None) -> None:
         """
-        Initialize MermaidConfigLoader with optional custom configuration file.
+        Initialize with optional custom configuration file.
 
-        Args:
-            config_file (Path, optional): Path to YAML configuration file.
-                                        Defaults to risk-map/yaml/mermaid-styles.yaml
-
-        Note:
-            This implements a singleton pattern per file path to prevent
-            duplicate loading and ensure configuration consistency.
+        Implements singleton pattern per file path to prevent duplicate loading.
         """
         self.config_file = config_file or DEFAULT_MERMAID_CONFIG_FILE
         self._config = None
@@ -62,13 +32,7 @@ class MermaidConfigLoader:
     @classmethod
     def get_instance(cls, config_file: Path = None) -> "MermaidConfigLoader":
         """
-        Get singleton instance of MermaidConfigLoader for specified config file.
-
-        Args:
-            config_file (Path, optional): Path to configuration file
-
-        Returns:
-            MermaidConfigLoader: Singleton instance for the config file
+        Get singleton instance for specified config file.
         """
         file_key = str(config_file or DEFAULT_MERMAID_CONFIG_FILE)
         if file_key not in cls._instances:
@@ -80,12 +44,7 @@ class MermaidConfigLoader:
         Load configuration from YAML file with error handling.
 
         Returns:
-            bool: True if configuration loaded successfully, False otherwise
-
-        Side Effects:
-            - Sets self._config with loaded configuration
-            - Sets self._loaded to True
-            - Sets self._load_error if loading fails
+            True if loaded successfully, False otherwise
         """
         if self._loaded:
             return self._config is not None
@@ -105,7 +64,7 @@ class MermaidConfigLoader:
                 self._config = None
                 return False
 
-            # Basic validation - check required top-level keys
+            # Validate required top-level keys
             required_keys: list[str] = ["version", "foundation", "sharedElements", "graphTypes"]
             missing_keys: list[str] = [key for key in required_keys if key not in self._config]
             if missing_keys:
@@ -126,13 +85,9 @@ class MermaidConfigLoader:
 
     def _get_emergency_defaults(self) -> dict:
         """
-        Get hardcoded emergency defaults matching current implementation.
+        Get hardcoded emergency defaults for graph generation.
 
-        These defaults ensure graph generation continues working even if
-        configuration file is missing, corrupt, or incompatible.
-
-        Returns:
-            dict: Emergency default configuration structure
+        Ensures graphs work even if config file is missing or corrupt.
         """
         return {
             "version": "1.0.0",
@@ -255,58 +210,49 @@ class MermaidConfigLoader:
 
     def _get_safe_value(self, *path, default=None):
         """
-        Retrieves a nested value from the primary configuration or a set of emergency defaults.
+        Get nested value from config with fallback to emergency defaults.
 
-        This method attempts to access a value from the `_config` dictionary using a sequence of keys.
-        If the path is invalid or the primary configuration is not a dictionary, it falls back to
-        a set of emergency defaults. If the value is not found in either source, it returns the
-        user-provided `default` value.
-
-        The function handles several edge cases, including:
-        - Initializing with emergency defaults if the primary configuration fails to load.
-        - Directly returning the default value if the emergency defaults are not a dictionary.
+        Traverses config using key path. Falls back to emergency defaults, then final default.
 
         Args:
-            *path: A sequence of keys to traverse (e.g., 'sharedElements', 'cssClasses').
-            default: The final fallback value to return if no value is found. Defaults to `None`.
+            *path: Sequence of keys to traverse (e.g., 'sharedElements', 'cssClasses')
+            default: Final fallback value if not found
 
         Returns:
-            The value found at the specified path, or the `default` value if no value is found.
+            Value at path, or default if not found
         """
         use_defaults = False
         use_emergency_defaults = False
 
-        # Get emergency_defaults once to avoid multiple calls.
+        # Get emergency defaults once to avoid multiple calls
         emergency_defaults: dict[Any, Any] = self._get_emergency_defaults()
 
-        # Try to load config if not already loaded
+        # Load config if not already loaded
         if not self._load_config():
             if not isinstance(emergency_defaults, dict):
-                use_defaults = True  # Emergency defaults are not valid, so go straight to the final default.
+                use_defaults = True  # Emergency defaults invalid - use final default
             config: dict[Any, Any] = emergency_defaults
         else:
             if not isinstance(self._config, dict):
                 config = {}
-                use_emergency_defaults = (
-                    True  # Primary config is not a dict, so we must rely on emergency defaults.
-                )
+                use_emergency_defaults = True  # Primary config invalid - use emergency defaults
             else:
                 config = self._config
 
-        # Short-circuit the process if we know the final default is the only option.
+        # Short-circuit if only final default is available
         if use_emergency_defaults and use_defaults:
             return default
 
-        # Navigate the configuration path using the "Easier to Ask for Forgiveness than Permission" principle.
+        # Navigate config path using EAFP (try/except)
         try:
             current: dict[Any, Any] = config
             for key in path:
                 current = current[key]
             return current
         except (KeyError, TypeError):
-            # The path was not found in the primary config, so fall back to emergency defaults.
+            # Path not found in primary config - try emergency defaults
             if use_defaults:
-                return default  # Skip emergency defaults if we've already determined they're not valid.
+                return default  # Skip emergency defaults if already determined invalid
             else:
                 try:
                     emergency_current: dict[Any, Any] = emergency_defaults
@@ -314,65 +260,20 @@ class MermaidConfigLoader:
                         emergency_current = emergency_current[emergency_key]
                     return emergency_current
                 except (KeyError, TypeError):
-                    # The path wasn't in emergency defaults either, so return the final default.
+                    # Path not in emergency defaults either - use final default
                     return default
 
     def _create_flowchart_preamble(self, graph_config: dict) -> list[str] | None:
         """
-        Generate Mermaid flowchart preamble with configuration-driven initialization.
+        Generate Mermaid flowchart preamble from configuration.
 
-        Creates the opening section of a Mermaid graph including the graph declaration,
-        initialization configuration, and essential CSS class definitions. This method
-        transforms abstract configuration into concrete Mermaid syntax ready for rendering.
-
-        Preamble Components:
-        1. **Graph Declaration**: Specifies graph type and direction (e.g., "graph TD")
-        2. **Initialization Config**: Flowchart spacing and layout parameters
-        3. **CSS Class Definitions**: Hidden elements and control styling classes
-        4. **Code Block Wrapper**: Proper Mermaid markdown formatting
-
-        The generated preamble includes:
-        - Mermaid code block opening (```mermaid)
-        - Graph direction from configuration (TD, LR, etc.)
-        - Flowchart initialization with spacing parameters
-        - classDef declarations for hidden and allControl elements
-        - Blank line for content separation
+        Creates graph declaration, initialization config, and CSS class definitions.
 
         Args:
-            graph_config (dict): Graph-specific configuration dictionary containing:
-                - direction (str): Graph layout direction ('TD', 'LR', 'BT', 'RL')
-                - flowchartConfig (dict): Spacing and layout parameters:
-                  - nodeSpacing (int): Space between nodes in pixels
-                  - rankSpacing (int): Space between ranks/levels in pixels
-                  - padding (int): Internal node padding in pixels
-                  - wrappingWidth (int): Text wrapping width in pixels
+            graph_config: Config dict with direction and flowchartConfig
 
         Returns:
-            list[str] | None: List of Mermaid syntax lines forming the preamble,
-                             or None if graph_config is invalid/empty.
-                             Lines are ready for direct concatenation into graph output.
-
-        Example Output:
-            [
-                "```mermaid",
-                "graph TD",
-                "   %%{init: {'flowchart': {'nodeSpacing': 20, 'rankSpacing': 20, 'padding': 5, ...}%%",
-                "    classDef hidden display: none;",
-                "    classDef allControl stroke:#4285f4,stroke-width:2px,stroke-dasharray: 5 5",
-                ""
-            ]
-
-        Example Usage:
-            >>> loader = MermaidConfigLoader()
-            >>> config = {'direction': 'TD', 'flowchartConfig': {'nodeSpacing': 25}}
-            >>> preamble = loader._create_flowchart_preamble(config)
-            >>> print('\n'.join(preamble))
-
-        Note:
-            - Returns None for invalid input to signal preamble generation failure
-            - Uses configuration defaults for missing flowchart parameters
-            - CSS class definitions are loaded from shared configuration elements
-            - The initialization string follows Mermaid's specific JSON-like syntax
+            List of Mermaid syntax lines, or None if config invalid
         """
         if not isinstance(graph_config, dict) or not graph_config:
             return None
@@ -391,14 +292,14 @@ class MermaidConfigLoader:
         flowchart_init = flowchart_params
         mermaid_config = f"%%{{init: {{'flowchart': {{{flowchart_init}}}}}}}%%"
 
-        # Extract CSS class definitions from shared configuration elements
+        # Get CSS class definitions with fallbacks
         hidden_class_def = css_classes.get("hidden", "display: none;")
         all_control_default = "stroke:#4285f4,stroke-width:2px,stroke-dasharray: 5 5"
         all_control_class_def = css_classes.get("allControl", all_control_default)
 
         lines: list[str] = []
 
-        if frontmatter_config := graph_config.get("metadata"):
+        if frontmatter_config := graph_config.get("metadata"):  # Optional frontmatter config
             layout = frontmatter_config.get("layout")
             merge_edges = frontmatter_config.get("mergeEdges")
             node_strategy = frontmatter_config.get("nodePlacementStrategy")
@@ -429,156 +330,48 @@ class MermaidConfigLoader:
 
     def get_component_category_styles(self) -> dict:
         """
-        Retrieve component category styling configuration for visual differentiation.
+        Get component category styling configuration.
 
-        Returns styling properties for all component categories including fill colors,
-        stroke colors, stroke widths, and subgroup fills. These styles are used by
-        both ComponentGraph and ControlGraph classes to create visually distinct
-        category subgraphs with consistent color coding.
-
-        Category Structure:
-        The returned dictionary maps category IDs to styling dictionaries:
-        - componentsData: Light orange styling for data-related components
-        - componentsInfrastructure: Light green styling for infrastructure components
-        - componentsModel: Light red styling for model-related components
-        - componentsApplication: Light blue styling for application components
-
-        Style Properties:
-        Each category styling dictionary contains:
-        - fill (str): Background color for category subgraph (hex format)
-        - stroke (str): Border color for category subgraph (hex format)
-        - strokeWidth (str): Border width specification (e.g., "2px")
-        - subgroupFill (str): Background color for nested subgroups within category
+        Returns styling for each category: fill, stroke, strokeWidth, subgroupFill.
+        Used by ComponentGraph and ControlGraph for visual differentiation.
 
         Returns:
-            dict: Component category styling configuration mapping category IDs to
-                 style dictionaries. Always returns a valid dictionary, empty if
-                 no configuration is found.
-
-        Example:
-            >>> loader = MermaidConfigLoader()
-            >>> styles = loader.get_component_category_styles()
-            >>> data_style = styles.get('componentsData', {})
-            >>> print(data_style.get('fill'))  # '#fff5e6'
-            >>> print(data_style.get('stroke'))  # '#333333'
-
-        Note:
-            - Uses the fallback system via _get_safe_value for reliability
-            - Returns empty dict if configuration section is missing
-            - Type validation ensures only dict values are returned
-            - Styling is shared between component and control graph visualizations
+            Dict mapping category IDs to style properties, empty if not found
         """
         result = self._get_safe_value("sharedElements", "componentCategories", default={})
         return result if isinstance(result, dict) else {}
 
     def get_css_classes(self) -> dict:
         """
-        Retrieve CSS class definitions for Mermaid graph styling and layout.
+        Get CSS class definitions for graph styling.
 
-        Returns predefined CSS class definitions used throughout graph generation
-        for consistent styling of special elements. These classes handle visibility,
-        control styling, and other graph-wide visual properties.
-
-        Standard CSS Classes:
-        - **hidden**: Makes elements invisible for layout anchoring ("display: none;")
-        - **allControl**: Special styling for controls that apply to all components
-          (typically blue dashed stroke: "stroke:#4285f4,stroke-width:2px,stroke-dasharray: 5 5")
-
-        Usage Context:
-        - **ComponentGraph**: Uses 'hidden' for anchor and end elements
-        - **ControlGraph**: Uses both 'hidden' and 'allControl' for special styling
-        - **Preamble Generation**: Classes are included in graph initialization
+        Returns predefined CSS classes: 'hidden' (display: none) and 'allControl' (blue dashed).
+        Used in graph preambles and special element styling.
 
         Returns:
-            dict: CSS class definitions mapping class names to Mermaid style strings.
-                 Always returns a valid dictionary, empty if no configuration found.
-
-        Example:
-            >>> loader = MermaidConfigLoader()
-            >>> classes = loader.get_css_classes()
-            >>> print(classes.get('hidden'))  # 'display: none;'
-            >>> print(classes.get('allControl'))  # 'stroke:#4285f4,stroke-width:2px,stroke-dasharray: 5 5'
-            >>>
-            >>> # Used in graph generation
-            >>> preamble.append(f"classDef hidden {classes['hidden']}")
-
-        Note:
-            - CSS classes are applied via classDef declarations in Mermaid
-            - Uses the fallback system for configuration reliability
-            - Type validation ensures only dict values are returned
-            - Classes are shared across all graph types for consistency
+            Dict mapping class names to Mermaid style strings
         """
         result = self._get_safe_value("sharedElements", "cssClasses", default={})
         return result if isinstance(result, dict) else {}
 
     def get_graph_config(self, graph_type: str) -> tuple[dict, list]:
         """
-        Retrieve complete graph configuration and generated preamble for specified graph type.
+        Get graph configuration and generated preamble for specified graph type.
 
-        This method serves as the primary interface for accessing graph-specific configuration
-        while simultaneously generating the Mermaid preamble needed for graph rendering. It
-        combines configuration retrieval with preamble generation to provide everything needed
-        to start building a graph.
-
-        The method handles both standard graph types (component, control) and
-        manages missing or invalid configurations through the fallback system. It ensures
-        that both configuration and preamble are always returned, even if using defaults.
-
-        Graph Types:
-        - **'component'**: Configuration for component relationship graphs (typically TD layout)
-        - **'control'**: Configuration for control-to-component graphs (typically LR layout)
-        - **Custom types**: Any graph type defined in the configuration file
-
-        Configuration Structure:
-        The returned configuration dictionary typically contains:
-        - direction (str): Graph layout direction ('TD', 'LR', 'BT', 'RL')
-        - flowchartConfig (dict): Spacing and layout parameters
-        - specialStyling (dict): Type-specific styling options (for control graphs)
+        Combines config retrieval with preamble generation. Handles fallbacks for missing configs.
 
         Args:
-            graph_type (str): The type of graph configuration to retrieve.
-                             Must match a key in the configuration's 'graphTypes' section.
-                             Common values: 'component', 'control'
+            graph_type: Type of graph ('component', 'control', etc.)
 
         Returns:
-            tuple[dict, list]: A two-element tuple containing:
-                - dict: Graph configuration with direction, flowchartConfig, and other settings.
-                       Always returns a valid dictionary (empty dict {} if no config found).
-                - list: Generated Mermaid preamble lines ready for graph construction.
-                       Always returns a valid list (empty list [] if preamble generation fails).
-
-        Example:
-            >>> loader = MermaidConfigLoader()
-            >>> config, preamble = loader.get_graph_config('component')
-            >>> print(config['direction'])  # 'TD'
-            >>> print(len(preamble))  # 6 (typical preamble length)
-            >>>
-            >>> # Using the results to build a graph
-            >>> graph_lines = preamble.copy()
-            >>> graph_lines.extend(['    nodeA --> nodeB', '```'])
-
-        Fallback Behavior:
-            - Invalid graph_type: Returns empty config dict and empty preamble list
-            - Missing configuration: Uses emergency defaults via _get_safe_value
-            - Preamble generation failure: Returns empty list while preserving config
-
-        Performance Notes:
-            - Configuration is retrieved through the caching _get_safe_value system
-            - Preamble generation is performed fresh each call (no caching)
-            - Both operations are typically fast (< 1ms) for normal configurations
-
-        Note:
-            - This method is the recommended way to get graph configuration
-            - The tuple return ensures both config and preamble are always available
-            - Preamble generation depends on the configuration's validity
-            - Empty returns indicate configuration issues but won't break graph generation
+            Tuple of (config dict, preamble lines list). Always returns valid containers.
         """
-        # Retrieve graph-specific configuration with fallback to empty dict
+        # Get graph config with fallback to empty dict
         result = self._get_safe_value("graphTypes", graph_type, default={})
         if result is None:
             result = {}  # Ensure we always have a valid dictionary
 
-        # Generate Mermaid preamble based on the configuration
+        # Generate preamble from config
         preamble = self._create_flowchart_preamble(result)
         if preamble is None:
             preamble = []  # Ensure we always have a valid list
@@ -587,168 +380,62 @@ class MermaidConfigLoader:
 
     def get_control_edge_styles(self) -> dict:
         """
-        Retrieve edge styling configuration specifically for control graph relationships.
+        Get edge styling for control graphs.
 
-        Returns edge styling definitions used by ControlGraph to create
-        visually distinct relationship types through color, width, and dash patterns.
-        This configuration enables visual differentiation of control
-        mappings based on their scope and complexity.
-
-        Edge Style Categories:
-        - **allControlEdges**: Styling for controls mapped to all components (dotted blue)
-        - **subgraphEdges**: Styling for category-level mappings (solid green)
-        - **multiEdgeStyles**: Array of 4 cycling styles for controls with 3+ edges
-
-        Multi-Edge Styling:
-        The multiEdgeStyles array provides 4 distinct visual treatments that cycle
-        for controls with multiple individual component mappings:
-        1. Purple solid (stroke: #9c27b0)
-        2. Orange dashed (stroke: #ff9800, dasharray: 5 5)
-        3. Pink long-dash (stroke: #e91e63, dasharray: 10 2)
-        4. Brown spaced-dash (stroke: #C95792, dasharray: 10 5)
+        Returns styling for allControlEdges, subgraphEdges, and multiEdgeStyles (4 cycling colors).
+        Used by ControlGraph for visual differentiation of relationship types.
 
         Returns:
-            dict: Edge styling configuration with nested style definitions.
-                 Always returns a valid dictionary, empty if no configuration found.
-
-        Example:
-            >>> loader = MermaidConfigLoader()
-            >>> edge_styles = loader.get_control_edge_styles()
-            >>> all_control = edge_styles.get('allControlEdges', {})
-            >>> print(all_control.get('stroke'))  # '#4285f4'
-            >>> multi_styles = edge_styles.get('multiEdgeStyles', [])
-            >>> print(len(multi_styles))  # 4
-
-        Note:
-            - Only used by ControlGraph class for relationship visualization
-            - Multi-edge cycling reduces visual complexity for busy controls
-            - Uses nested configuration path: graphTypes.control.specialStyling.edgeStyles
-            - Fallback system ensures styling always available
+            Dict with edge styling definitions, empty if not found
         """
         result = self._get_safe_value("graphTypes", "control", "specialStyling", "edgeStyles", default={})
         return result if isinstance(result, dict) else {}
 
     def get_components_container_style(self) -> dict:
         """
-        Retrieve styling configuration for the main components container in control graphs.
+        Get styling for main components container in control graphs.
 
-        Returns styling properties for the top-level "components" subgraph that contains
-        all component categories in ControlGraph visualizations. This container provides
-        visual grouping and hierarchy for all AI system components.
-
-        Container Purpose:
-        The components container serves as the root subgraph in control graphs,
-        organizing all component categories (Data, Infrastructure, Model, Application)
-        and their nested subgroups into a cohesive visual unit that controls
-        can map to.
-
-        Style Properties:
-        - **fill**: Background color for the container (typically light gray)
-        - **stroke**: Border color for visual separation (typically darker gray)
-        - **strokeWidth**: Border thickness specification (e.g., "3px")
-        - **strokeDasharray**: Dash pattern for distinctive container borders (e.g., "10 5")
+        Returns styling for top-level "components" subgraph: fill, stroke, strokeWidth, strokeDasharray.
+        Provides visual hierarchy in ControlGraph visualizations.
 
         Returns:
-            dict: Container styling configuration with CSS-like properties.
-                 Always returns a valid dictionary, empty if no configuration found.
-
-        Example:
-            >>> loader = MermaidConfigLoader()
-            >>> container_style = loader.get_components_container_style()
-            >>> print(container_style.get('fill'))  # '#f0f0f0'
-            >>> print(container_style.get('strokeDasharray'))  # '10 5'
-            >>>
-            >>> # Applied in control graph generation
-            >>> style_str = f"fill:{container_style['fill']},stroke:{container_style['stroke']}"
-
-        Note:
-            - Only used by ControlGraph class for top-level container styling
-            - Provides visual hierarchy and organization in complex control graphs
-            - Uses nested configuration path: graphTypes.control.specialStyling.componentsContainer
-            - Dashed borders help distinguish container from category subgraphs
+            Dict with container styling properties, empty if not found
         """
         result = self._get_safe_value("graphTypes", "control", "specialStyling", "componentsContainer", default={})
         return result if isinstance(result, dict) else {}
 
     def get_risk_category_styles(self) -> dict:
         """
-        Retrieve risk category styling configuration for visual differentiation.
+        Get risk category styling configuration.
 
-        Returns styling properties for risk categories including fill colors,
-        stroke colors, stroke widths, and subgroup fills. These styles are used by
-        RiskGraph to create visually distinct risk category subgraphs.
+        Returns styling for risk categories: fill, stroke, strokeWidth, subgroupFill.
+        Used by RiskGraph for visual differentiation.
 
         Returns:
-            dict: Risk category styling configuration mapping category IDs to
-                 style dictionaries. Always returns a valid dictionary, empty if
-                 no configuration is found.
-
-        Example:
-            >>> loader = MermaidConfigLoader()
-            >>> styles = loader.get_risk_category_styles()
-            >>> risk_style = styles.get('risks', {})
-            >>> print(risk_style.get('fill'))  # '#ffeef0'
+            Dict mapping risk category IDs to style properties
         """
         result = self._get_safe_value("graphTypes", "risk", "specialStyling", "riskCategories", default={})
         return result if isinstance(result, dict) else {}
 
     def get_risk_edge_styles(self) -> dict:
         """
-        Retrieve edge styling configuration specifically for risk graph relationships.
+        Get edge styling for risk graphs.
 
-        Returns edge styling definitions used by RiskGraph to create
-        visually distinct relationship types through color, width, and dash patterns.
-        This includes risk-to-control edges as well as inherited control-component edges.
-
-        Edge Style Categories:
-        - **riskControlEdges**: Styling for risk-to-control relationships (pink dashed)
-        - **allControlEdges**: Styling for controls mapped to all components (dotted blue)
-        - **subgraphEdges**: Styling for category-level mappings (solid green)
-        - **multiEdgeStyles**: Array of 4 cycling styles for controls with 3+ edges
+        Returns styling for riskControlEdges, allControlEdges, subgraphEdges, and multiEdgeStyles.
+        Used by RiskGraph for risk-to-control and control-to-component relationships.
 
         Returns:
-            dict: Edge styling configuration with nested style definitions.
-                 Always returns a valid dictionary, empty if no configuration found.
-
-        Example:
-            >>> loader = MermaidConfigLoader()
-            >>> edge_styles = loader.get_risk_edge_styles()
-            >>> risk_control = edge_styles.get('riskControlEdges', {})
-            >>> print(risk_control.get('stroke'))  # '#e91e63'
+            Dict with edge styling definitions
         """
         result = self._get_safe_value("graphTypes", "risk", "specialStyling", "edgeStyles", default={})
         return result if isinstance(result, dict) else {}
 
     def clear_cache(self):
         """
-        Clear cached configuration data to force fresh reload on next access.
+        Clear cached config to force reload on next access.
 
-        Resets all internal caching state including loaded configuration, loading status,
-        and error tracking. This method is useful during development when configuration
-        files are being modified, or when switching between different configuration sources.
-
-        Cleared State:
-        - _config: Loaded configuration dictionary set to None
-        - _loaded: Loading status flag reset to False
-        - _load_error: Error message tracking cleared to None
-
-        After calling this method, the next configuration access will:
-        1. Attempt to reload the configuration file from disk
-        2. Re-validate the configuration structure
-        3. Update all internal state based on the fresh load
-
-        Example:
-            >>> loader = MermaidConfigLoader()
-            >>> config = loader.get_css_classes()  # Loads config
-            >>> # ... modify config file ...
-            >>> loader.clear_cache()  # Force reload
-            >>> new_config = loader.get_css_classes()  # Reloads from file
-
-        Note:
-            - Does not affect the singleton pattern - same instance is retained
-            - Subsequent configuration accesses will trigger fresh file loading
-            - Useful for development workflows with configuration iteration
-            - Thread-safe for individual instance usage
+        Resets _config, _loaded, and _load_error. Next access will reload from file.
+        Useful during development when config files are modified.
         """
         self._config = None
         self._loaded = False
@@ -756,49 +443,12 @@ class MermaidConfigLoader:
 
     def get_load_status(self) -> tuple:
         """
-        Retrieve detailed configuration loading status for debugging and validation.
+        Get configuration loading status for debugging.
 
-        Provides insight into the configuration loading process including success/failure
-        status and detailed error messages. This method triggers configuration loading
-        if not already attempted, making it safe to call at any time.
-
-        Status Information:
-        - **Success Status**: Boolean indicating whether configuration loaded without errors
-        - **Error Details**: Descriptive error message if loading failed, None if successful
-
-        Error Types:
-        - File not found errors with specific file path
-        - YAML parsing errors with syntax details
-        - Structure validation errors for missing required keys
-        - Unexpected errors with exception details
+        Triggers loading if not already attempted. Safe to call multiple times.
 
         Returns:
-            tuple: Two-element tuple containing:
-                - bool: True if configuration loaded successfully, False otherwise
-                - str | None: Detailed error message if loading failed, None if successful
-
-        Example:
-            >>> loader = MermaidConfigLoader()
-            >>> success, error = loader.get_load_status()
-            >>> if success:
-            ...     print("Configuration loaded successfully")
-            ... else:
-            ...     print(f"Configuration error: {error}")
-            >>>
-            >>> # Example error output:
-            >>> # Configuration error: Configuration file not found: /path/to/config.yaml
-
-        Use Cases:
-            - Development debugging of configuration issues
-            - Validation of configuration file accessibility
-            - Error reporting in deployment environments
-            - Health checks for configuration system
-
-        Note:
-            - Triggers lazy loading if configuration hasn't been accessed yet
-            - Safe to call multiple times - loading only attempted once
-            - Error messages are detailed and actionable for troubleshooting
-            - Success=True indicates configuration is available and valid
+            Tuple of (success bool, error message or None)
         """
         if not self._loaded:
             self._load_config()
@@ -808,20 +458,16 @@ class MermaidConfigLoader:
 class UnionFind:
     def __init__(self, elements):
         """
-        Initialize Union-Find data structure for a collection of elements.
+        Initialize Union-Find data structure.
 
-        Creates two key data structures:
-        - parent: Maps each element to its parent in the tree structure
-        - rank: Tracks tree depth for optimization (union by rank)
-
-        Initially, each element is its own parent (separate set).
+        Creates parent and rank mappings. Each element starts as its own parent.
         """
         self.parent = {elem: elem for elem in elements}  # Each element starts as its own parent
         self.rank = {elem: 0 for elem in elements}  # All trees start with rank 0
 
     def find(self, x):
         """
-        Find the root representative of the set containing element x.
+        Find root representative with path compression.
         """
         if self.parent[x] != x:
             # Path compression: make x point directly to the root
@@ -830,9 +476,7 @@ class UnionFind:
 
     def union(self, x, y):
         """
-        Merge the sets containing elements x and y.
-
-        Uses UNION BY RANK optimization
+        Merge sets containing x and y using union by rank.
         """
         root_x = self.find(x)  # Find root of x's set
         root_y = self.find(y)  # Find root of y's set
@@ -852,21 +496,17 @@ class UnionFind:
 
     def get_clusters(self):
         """
-        Extract all disjoint sets as a list of clusters.
+        Extract all disjoint sets as clusters.
 
-        Process:
-        1. For each element, find its root representative
-        2. Group all elements with the same root into a cluster
-        3. Return list of clusters (sets)
+        Groups elements by their root representative.
+        Applies path compression for true roots.
 
-        Note: We call find() to ensure path compression is applied
-        and we get the true root after all union operations.
-
-        Returns: List of sets, where each set is a cluster of related elements
+        Returns:
+            List of sets, each set is a cluster of related elements
         """
         clusters = {}
         for elem in self.parent:
-            root = self.find(elem)  # Get root (with path compression)
+            root = self.find(elem)  # Get root with path compression
             if root not in clusters:
                 clusters[root] = set()
             clusters[root].add(elem)
