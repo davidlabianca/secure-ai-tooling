@@ -39,7 +39,7 @@ def parse_components_yaml(file_path: Path = None) -> dict[str, ComponentNode]:
             if not isinstance(component_id, str):
                 continue
 
-            # Extract title
+            # Get component title
             component_title: str | None = component.get("title")
             if not component_title:
                 continue
@@ -47,7 +47,7 @@ def parse_components_yaml(file_path: Path = None) -> dict[str, ComponentNode]:
             if not isinstance(component_title, str):
                 continue
 
-            # Extract category
+            # Get component category
             category: str | None = component.get("category")
             if not category:
                 continue
@@ -57,12 +57,12 @@ def parse_components_yaml(file_path: Path = None) -> dict[str, ComponentNode]:
 
             subcategory: str | None = component.get("subcategory")
 
-            # Extract edges with default empty lists
+            # Get edges with default empty lists
             edges = component.get("edges", {})
             if not isinstance(edges, dict):
                 edges = {}
 
-            # Ensure edge lists are actually lists
+            # Ensure edges are lists
             to_edges = edges.get("to", [])
             from_edges = edges.get("from", [])
 
@@ -72,7 +72,7 @@ def parse_components_yaml(file_path: Path = None) -> dict[str, ComponentNode]:
             if not isinstance(from_edges, list):
                 from_edges = []
 
-            # Create the ComponentNode instance, which handles internal validation
+            # Create ComponentNode with validation
             components[component_id] = ComponentNode(
                     title=component_title,
                     category=category,
@@ -121,7 +121,7 @@ def parse_controls_yaml(file_path: Path = None) -> dict[str, ControlNode]:
             title = control_data["title"]
             category = control_data["category"]
 
-            # Handle components field - can be list, "all", or "none"
+            # Handle components: list, "all", or "none"
             components_raw = control_data.get("components", [])
             if isinstance(components_raw, str):
                 components = [components_raw]  # Convert "all" or "none" to list
@@ -130,11 +130,11 @@ def parse_controls_yaml(file_path: Path = None) -> dict[str, ControlNode]:
             else:
                 components = []
 
-            # Handle risks and personas fields
+            # Handle risks and personas
             risks = control_data.get("risks", [])
             personas = control_data.get("personas", [])
 
-            # Ensure all fields are lists of strings
+            # Ensure fields are string lists
             if not isinstance(risks, list):
                 risks = []
             if not isinstance(personas, list):
@@ -183,17 +183,16 @@ def parse_risks_yaml(file_path: Path = None) -> dict[str, RiskNode]:
             risk_id = risk_data["id"]
             title = risk_data["title"]
 
-            # For now, risks don't have explicit categories in the YAML
-            # Set a default category that can be enhanced later
+            # Risks don't have explicit categories yet - use default
             category = risk_data.get("category", "risks")
 
-            # Handle controls field - list of control IDs that mitigate this risk
+            # Handle controls that mitigate this risk
             controls = risk_data.get("controls", [])
 
-            # Handle personas field
+            # Handle personas
             personas = risk_data.get("personas", [])
 
-            # Ensure all fields are lists of strings
+            # Ensure fields are string lists
             if not isinstance(controls, list):
                 controls = []
             if not isinstance(personas, list):
@@ -226,7 +225,7 @@ def get_staged_yaml_files(target_file: Path | None = None, force_check: bool = F
     if target_file is None:
         target_file = DEFAULT_COMPONENTS_FILE
 
-    # Force check mode - return file if it exists
+    # Force check mode - return target file if exists
     if force_check:
         if target_file.exists():
             return [target_file]
@@ -235,7 +234,7 @@ def get_staged_yaml_files(target_file: Path | None = None, force_check: bool = F
             return []
 
     try:
-        # Get all staged files from git
+        # Get staged files from git
         result = subprocess.run(
             ["git", "diff", "--cached", "--name-only"],
             capture_output=True,
@@ -245,7 +244,7 @@ def get_staged_yaml_files(target_file: Path | None = None, force_check: bool = F
 
         staged_files = result.stdout.strip().split("\n") if result.stdout.strip() else []
 
-        # Filter for our target file
+        # Check if target file is staged
         if str(target_file) in staged_files and target_file.exists():
             return [target_file]
         else:
