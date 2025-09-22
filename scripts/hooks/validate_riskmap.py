@@ -36,6 +36,9 @@ USAGE:
     Generate control-to-component graph visualization:
         python validate_riskmap.py --to-controls-graph controls.md
 
+    Generate risk-to-control-to-component graph visualization:
+        python validate_riskmap.py --to-risk-graph risk.md
+
     Generate graph with debug annotations:
         python validate_riskmap.py --to-graph output.md --debug
 
@@ -52,6 +55,7 @@ COMMAND LINE OPTIONS:
     --quiet, -q           Minimize output (only show errors)
     --to-graph PATH       Output component graph visualization to specified file
     --to-controls-graph PATH  Output control-to-component graph visualization to specified file
+    --to-risk-graph PATH  Output risk-to-control-to-component graph visualization to specified file
     --debug               Include rank comments in graph output
 
 EXIT CODES:
@@ -107,8 +111,8 @@ from pathlib import Path
 
 # Configuration Constants
 from riskmap_validator.config import DEFAULT_COMPONENTS_FILE
-from riskmap_validator.graphing import ComponentGraph, ControlGraph
-from riskmap_validator.utils import get_staged_yaml_files, parse_controls_yaml
+from riskmap_validator.graphing import ComponentGraph, ControlGraph, RiskGraph
+from riskmap_validator.utils import get_staged_yaml_files, parse_controls_yaml, parse_risks_yaml
 from riskmap_validator.validator import ComponentEdgeValidator
 
 
@@ -130,6 +134,7 @@ Examples:
   %(prog)s --allow-isolated                   # Allow components with no edges
   %(prog)s --to-graph graph.md                # Output component graph as .md code block
   %(prog)s --to-controls-graph controls.md    # Output control-to-component graph
+  %(prog)s --to-risk-graph risk.md            # Output risk-to-control-to-component graph
   %(prog)s --quiet                            # Minimal output
   %(prog)s --help                             # Show this help
 
@@ -172,6 +177,12 @@ Exit Codes:
         "--to-controls-graph",
         type=Path,
         help="Output control-to-component graph visualization to specified file",
+    )
+
+    parser.add_argument(
+        "--to-risk-graph",
+        type=Path,
+        help="Output risk-to-control-to-component graph visualization to specified file",
     )
 
     parser.add_argument("--debug", action="store_true", help="Include rank comments in graph output")
@@ -255,6 +266,23 @@ def main() -> None:
                 print(f"   Controls graph visualization saved to {args.to_controls_graph}")
             except Exception as e:
                 print(f"⚠️  Failed to generate controls graph: {e}")
+
+        if args.to_risk_graph:
+            try:
+                # Parse risks and controls, then generate risk graph
+                risks = parse_risks_yaml()
+                controls = parse_controls_yaml()
+                risk_graph = RiskGraph(risks, controls, validator.components, debug=args.debug)
+
+                risk_graph_output = risk_graph.to_mermaid()
+
+                # Write risk graph to file
+                with open(args.to_risk_graph, "w", encoding="utf-8") as f:
+                    f.write(risk_graph_output)
+
+                print(f"   Risk graph visualization saved to {args.to_risk_graph}")
+            except Exception as e:
+                print(f"⚠️  Failed to generate risk graph: {e}")
 
         sys.exit(0)
 

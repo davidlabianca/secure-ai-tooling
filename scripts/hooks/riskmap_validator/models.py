@@ -12,7 +12,9 @@ class ComponentNode:
     to and from other components. It includes validation to ensure data integrity.
     """
 
-    def __init__(self, title: str, category: str, to_edges: list[str], from_edges: list[str]) -> None:
+    def __init__(
+        self, title: str, category: str, to_edges: list[str], from_edges: list[str], subcategory: str | None = None
+    ) -> None:
         """
         Initializes a Component object with validation.
 
@@ -34,6 +36,11 @@ class ComponentNode:
         if not isinstance(category, str) or not category.strip():
             raise TypeError("The 'category' must be a string consisting of at least one printing character.")
         self.category: str = category
+
+        # Validate and set the subcategory if it exists
+        self.subcategory: str | None = None
+        if isinstance(subcategory, str):
+            self.subcategory = subcategory
 
         # Validate and set 'to_edges'
         if not isinstance(to_edges, list) or not all(isinstance(edge, str) for edge in to_edges):

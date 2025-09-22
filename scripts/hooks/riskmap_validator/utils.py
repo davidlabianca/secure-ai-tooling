@@ -15,7 +15,78 @@ from pathlib import Path
 import yaml
 
 from .config import DEFAULT_COMPONENTS_FILE
-from .models import ControlNode
+from .models import ComponentNode, ControlNode, RiskNode
+
+
+def parse_components_yaml(file_path: Path = None) -> dict[str, ComponentNode]:
+    if file_path is None:
+        file_path = Path("risk-map/yaml/components.yaml")
+
+    if not file_path.exists():
+        raise FileNotFoundError(f"Controls file not found: {file_path}")
+
+    try:
+        with open(file_path, "r", encoding="utf-8") as f:
+            data = yaml.safe_load(f)
+
+        components = {}
+
+        for i, component in enumerate(data["components"]):
+            component_id: str | None = component.get("id")
+            if not component_id:
+                continue
+
+            if not isinstance(component_id, str):
+                continue
+
+            # Extract title
+            component_title: str | None = component.get("title")
+            if not component_title:
+                continue
+
+            if not isinstance(component_title, str):
+                continue
+
+            # Extract category
+            category: str | None = component.get("category")
+            if not category:
+                continue
+
+            if not isinstance(category, str):
+                continue
+
+            subcategory: str | None = component.get("subcategory")
+
+            # Extract edges with default empty lists
+            edges = component.get("edges", {})
+            if not isinstance(edges, dict):
+                edges = {}
+
+            # Ensure edge lists are actually lists
+            to_edges = edges.get("to", [])
+            from_edges = edges.get("from", [])
+
+            if not isinstance(to_edges, list):
+                to_edges = []
+
+            if not isinstance(from_edges, list):
+                from_edges = []
+
+            # Create the ComponentNode instance, which handles internal validation
+            components[component_id] = ComponentNode(
+                    title=component_title,
+                    category=category,
+                    subcategory=subcategory,
+                    to_edges=[str(edge) for edge in to_edges if edge],
+                    from_edges=[str(edge) for edge in from_edges if edge],
+                )
+
+        return components
+
+    except yaml.YAMLError as e:
+        raise yaml.YAMLError(f"Error parsing components YAML: {e}")
+    except KeyError as e:
+        raise KeyError(f"Missing required field in components.yaml: {e}")
 
 
 def parse_controls_yaml(file_path: Path = None) -> dict[str, ControlNode]:
@@ -79,6 +150,66 @@ def parse_controls_yaml(file_path: Path = None) -> dict[str, ControlNode]:
         raise yaml.YAMLError(f"Error parsing controls YAML: {e}")
     except KeyError as e:
         raise KeyError(f"Missing required field in controls.yaml: {e}")
+
+
+def parse_risks_yaml(file_path: Path = None) -> dict[str, RiskNode]:
+    """
+    Parse risks.yaml file and return dictionary of RiskNode objects.
+
+    Args:
+        file_path: Path to risks.yaml file. Defaults to risk-map/yaml/risks.yaml
+
+    Returns:
+        Dictionary mapping risk IDs to RiskNode objects
+
+    Raises:
+        FileNotFoundError: If risks.yaml file doesn't exist
+        yaml.YAMLError: If YAML parsing fails
+        KeyError: If required fields are missing
+    """
+    if file_path is None:
+        file_path = Path("risk-map/yaml/risks.yaml")
+
+    if not file_path.exists():
+        raise FileNotFoundError(f"Risks file not found: {file_path}")
+
+    try:
+        with open(file_path, "r", encoding="utf-8") as f:
+            data = yaml.safe_load(f)
+
+        risks = {}
+
+        for risk_data in data.get("risks", []):
+            risk_id = risk_data["id"]
+            title = risk_data["title"]
+
+            # For now, risks don't have explicit categories in the YAML
+            # Set a default category that can be enhanced later
+            category = risk_data.get("category", "risks")
+
+            # Handle controls field - list of control IDs that mitigate this risk
+            controls = risk_data.get("controls", [])
+
+            # Handle personas field
+            personas = risk_data.get("personas", [])
+
+            # Ensure all fields are lists of strings
+            if not isinstance(controls, list):
+                controls = []
+            if not isinstance(personas, list):
+                personas = []
+
+            risks[risk_id] = RiskNode(
+                title=title,
+                category=category
+            )
+
+        return risks
+
+    except yaml.YAMLError as e:
+        raise yaml.YAMLError(f"Error parsing risks YAML: {e}")
+    except KeyError as e:
+        raise KeyError(f"Missing required field in risks.yaml: {e}")
 
 
 def get_staged_yaml_files(target_file: Path | None = None, force_check: bool = False) -> list[Path]:

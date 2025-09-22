@@ -1,30 +1,26 @@
 ```mermaid
 graph TD
-   %%{init: {'flowchart': {'nodeSpacing': 20, 'rankSpacing': 20, 'padding': 5, 'wrappingWidth': 250}}}%%
+   %%{init: {'flowchart': {'nodeSpacing': 25, 'rankSpacing': 30, 'padding': 5, 'wrappingWidth': 250}}}%%
     classDef hidden display: none;
     classDef allControl stroke:#4285f4,stroke-width:2px,stroke-dasharray: 5 5
 
     root:::hidden
     
-subgraph Data
-    DataAnchor:::hidden ~~~ componentDataSources
+subgraph Infrastructure
+    InfrastructureAnchor:::hidden ~~~ componentDataSources
     componentDataSources[Data Sources]
     componentDataFilteringAndProcessing[Data Filtering and Processing]
     componentTrainingData[Training Data]
-    componentTrainingData ~~~~~~~~~~~~ DataEnd:::hidden
-end
-subgraph Infrastructure
-    InfrastructureAnchor:::hidden ~~~~~~ componentDataStorage
     componentDataStorage[Data Storage Infrastructure]
+    componentModelStorage[Model Storage]
+    componentModelServing[Model Serving Infrastructure]
+    componentModelStorage ~~~~~~~~~~ InfrastructureEnd:::hidden
+end
+subgraph Model
+    ModelAnchor:::hidden ~~~~~~ componentModelFrameworksAndCode
     componentModelFrameworksAndCode[Model Frameworks and Code]
     componentModelEvaluation[Model Evaluation]
     componentModelTrainingTuning[Training and Tuning]
-    componentModelStorage[Model Storage]
-    componentModelServing[Model Serving Infrastructure]
-    componentModelEvaluation ~~~~~~~~ InfrastructureEnd:::hidden
-end
-subgraph Model
-    ModelAnchor:::hidden ~~~~~~~~ componentTheModel
     componentTheModel[The Model]
     componentInputHandling[Input Handling]
     componentOutputHandling[Output Handling]
@@ -36,7 +32,6 @@ subgraph Application
     componentAgentPlugin[Agent/Plugin]
     componentAgentPlugin ~~~~~~ ApplicationEnd:::hidden
 end
-    root ~~~ DataAnchor:::hidden
     root ~~~ InfrastructureAnchor:::hidden
     root ~~~ ModelAnchor:::hidden
     root ~~~ ApplicationAnchor:::hidden
@@ -63,7 +58,6 @@ end
 
 %% Style definitions
     style Infrastructure fill:#e6f3e6,stroke:#333333,stroke-width:2px
-    style Data fill:#fff5e6,stroke:#333333,stroke-width:2px
     style Application fill:#e6f0ff,stroke:#333333,stroke-width:2px
     style Model fill:#ffe6e6,stroke:#333333,stroke-width:2px
 ```

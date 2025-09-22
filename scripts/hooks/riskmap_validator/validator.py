@@ -11,9 +11,8 @@ Dependencies:
 
 from pathlib import Path
 
-import yaml
-
 from .models import ComponentNode
+from .utils import parse_components_yaml
 
 
 class EdgeValidationError(Exception):
@@ -47,148 +46,6 @@ class ComponentEdgeValidator:
         if self.verbose:
             icons = {"info": "ℹ️", "success": "✅", "warning": "⚠️", "error": "❌"}
             print(f"   {icons.get(level, 'ℹ️')} {message}")
-
-    def load_yaml_file(self, file_path: Path) -> dict | None:
-        """
-        Load and parse YAML file with error handling.
-
-        Args:
-            file_path: Path to the YAML file
-
-        Returns:
-            Parsed YAML data as dictionary, None if loading fails
-
-        Raises:
-            EdgeValidationError: If file cannot be loaded or parsed
-        """
-        try:
-            if not file_path.exists():
-                raise EdgeValidationError(f"File not found: {file_path}")
-
-            with open(file_path, "r", encoding="utf-8") as f:
-                data = yaml.safe_load(f)
-
-            if data is None:
-                self.log(
-                    f"Warning: {file_path} is empty or contains only comments",
-                    "warning",
-                )
-                return {}
-
-            return data
-
-        except yaml.YAMLError as e:
-            raise EdgeValidationError(f"YAML parsing error in {file_path}: {e}")
-        except (IOError, OSError) as e:
-            raise EdgeValidationError(f"File access error for {file_path}: {e}")
-
-    def extract_component_edges(self, yaml_data: dict) -> dict[str, ComponentNode]:
-        """
-        Extract component IDs and their edge relationships from YAML data.
-
-        Args:
-            yaml_data: Parsed YAML data
-
-        Returns:
-            Dictionary mapping component IDs to their edge definitions
-            Format: {component_id: {'to': [targets], 'from': [sources]}}
-        """
-        components = {}
-
-        if not yaml_data or "components" not in yaml_data:
-            self.log("No 'components' section found in YAML data", "warning")
-            return components
-
-        for i, component in enumerate(yaml_data["components"]):
-            if not isinstance(component, dict):
-                self.log(
-                    f"Skipping invalid component at index {i}: not a dictionary",
-                    "warning",
-                )
-                continue
-
-            component_id: str | None = component.get("id")
-            if not component_id:
-                self.log(f"Skipping component at index {i}: missing 'id' field", "warning")
-                continue
-
-            if not isinstance(component_id, str):
-                self.log(f"Skipping component at index {i}: 'id' must be a string", "warning")
-                continue
-
-            # Extract title
-            component_title: str | None = component.get("title")
-            if not component_title:
-                self.log(f"Skipping component at index {i}: missing 'title' field", "warning")
-                continue
-
-            if not isinstance(component_title, str):
-                self.log(
-                    f"Skipping component at index {i}: 'title' must be a string",
-                    "warning",
-                )
-                continue
-
-            # Extract category
-            category: str | None = component.get("category")
-            if not category:
-                self.log(
-                    f"Skipping component '{component_id}': missing 'category' field",
-                    "warning",
-                )
-                continue
-
-            if not isinstance(category, str):
-                self.log(
-                    f"Skipping component '{component_id}': 'category' must be a string",
-                    "warning",
-                )
-                continue
-
-            # Extract edges with default empty lists
-            edges = component.get("edges", {})
-            if not isinstance(edges, dict):
-                self.log(
-                    f"Component '{component_id}': 'edges' must be a dictionary, using empty edges",
-                    "warning",
-                )
-                edges = {}
-
-            # Ensure edge lists are actually lists
-            to_edges = edges.get("to", [])
-            from_edges = edges.get("from", [])
-
-            if not isinstance(to_edges, list):
-                self.log(
-                    f"Component '{component_id}': 'to' edges must be a list, using empty list",
-                    "warning",
-                )
-                to_edges = []
-
-            if not isinstance(from_edges, list):
-                self.log(
-                    f"Component '{component_id}': 'from' edges must be a list, using empty list",
-                    "warning",
-                )
-                from_edges = []
-
-            # Create the ComponentNode instance, which handles internal validation
-            try:
-                components[component_id] = ComponentNode(
-                    title=component_title,
-                    category=category,
-                    to_edges=[str(edge) for edge in to_edges if edge],
-                    from_edges=[str(edge) for edge in from_edges if edge],
-                )
-            except (TypeError, ValueError) as e:
-                self.log(
-                    f"Skipping component '{component_id}' due to invalid data: {e}",
-                    "error",
-                )
-                continue
-
-        self.log(f"Extracted {len(components)} components from YAML data")
-        return components
 
     def build_edge_maps(
         self, components: dict[str, ComponentNode]
@@ -315,14 +172,7 @@ class ComponentEdgeValidator:
         self.log(f"Validating component edges in: {file_path}")
 
         try:
-            # Load and parse YAML
-            yaml_data = self.load_yaml_file(file_path)
-            if not yaml_data:
-                self.log("No data to validate - skipping", "warning")
-                return True
-
-            # Extract component edges
-            self.components = self.extract_component_edges(yaml_data)
+            self.components = parse_components_yaml(file_path)
 
             if not self.components:
                 self.log("No components found - skipping validation", "info")
