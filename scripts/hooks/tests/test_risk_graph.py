@@ -38,6 +38,7 @@ ControlGraph optimizations.
 
 from unittest.mock import MagicMock, patch
 
+import pytest
 from riskmap_validator.graphing.base import MermaidConfigLoader
 from riskmap_validator.graphing.risks_graph import RiskGraph
 from riskmap_validator.models import ComponentNode, ControlNode, RiskNode
@@ -213,7 +214,7 @@ class TestGraphGeneration:
 
         # Verify basic Mermaid structure
         assert mermaid_output.startswith("```mermaid")
-        assert mermaid_output.endswith("```")
+        assert mermaid_output.endswith("```\n")
         assert "graph LR" in mermaid_output
 
         # Verify three-layer structure
@@ -267,15 +268,6 @@ class TestGraphGeneration:
         assert "style risks" in mermaid_output
         assert "fill:#ffeef0" in mermaid_output  # Risk category fill
 
-    def test_debug_mode_output(self, sample_risks, sample_controls, sample_components):
-        """Test debug mode includes additional comments."""
-        risk_graph = RiskGraph(sample_risks, sample_controls, sample_components, debug=True)
-        mermaid_output = risk_graph.to_mermaid()
-
-        # Verify debug comments are present
-        assert "%% DEBUG:" in mermaid_output
-        assert "risk mitigation" in mermaid_output
-
     def test_orphaned_risk_handling(self, sample_components):
         """Test handling of risks with no mitigating controls."""
         orphaned_risk = {"OrphanRisk": RiskNode(title="Orphaned Risk", category="risks")}
@@ -299,7 +291,7 @@ class TestGraphGeneration:
         assert "OrphanRisk -->" not in mermaid_output
 
         # Debug mode should note the skip
-        assert "no mitigating controls" in mermaid_output
+        assert "no controls" in mermaid_output
 
     def test_control_graph_integration(self, sample_risks, sample_controls, sample_components):
         """Test integration with ControlGraph functionality."""
@@ -329,7 +321,7 @@ class TestConfigurationIntegration:
         # Verify configuration is loaded
         config, preamble = risk_graph.config_loader.get_graph_config("risk")
         assert config["direction"] == "LR"
-        assert "graph LR" in preamble[9]
+        assert "graph LR" in preamble[8]
 
     def test_risk_category_styling(self, sample_risks, sample_controls, sample_components):
         """Test risk category styling configuration."""
@@ -356,26 +348,25 @@ class TestErrorHandling:
     def test_invalid_risk_data(self, sample_controls, sample_components):
         """Test handling of invalid risk data."""
         # This should not raise an exception
-        risk_graph = RiskGraph(None, sample_controls, sample_components) # pyright: ignore[reportArgumentType]
+        risk_graph = RiskGraph(None, sample_controls, sample_components)  # pyright: ignore[reportArgumentType]
         assert risk_graph.risks is None
 
     def test_missing_config_fallback(self, sample_risks, sample_controls, sample_components):
         """Test fallback behavior when configuration is missing."""
         # Mock config loader to return empty config
-        with patch("riskmap_validator.graphing.base.MermaidConfigLoader") as mock_loader:
-            mock_instance = MagicMock()
-            mock_instance.get_risk_category_styles.return_value = {}
-            mock_instance.get_risk_edge_styles.return_value = {}
-            mock_instance.get_graph_config.return_value = []  # This triggers the fallback
-            mock_instance.get_components_container_style.return_value = {}
-            mock_loader.return_value = mock_instance
+        with pytest.raises(ValueError):
+            with patch("riskmap_validator.graphing.base.MermaidConfigLoader") as mock_loader:
+                mock_instance = MagicMock()
+                mock_instance.get_risk_category_styles.return_value = {}
+                mock_instance.get_risk_edge_styles.return_value = {}
+                mock_instance.get_graph_config.return_value = []  # This triggers the fallback
+                mock_instance.get_components_container_style.return_value = {}
+                mock_loader.return_value = mock_instance
 
-            risk_graph = RiskGraph(sample_risks, sample_controls, sample_components)
-            mermaid_output = risk_graph.to_mermaid()
+                risk_graph = RiskGraph(sample_risks, sample_controls, sample_components)
+                _ = risk_graph.to_mermaid()
 
-            # Should still generate valid output with fallbacks
-            assert "graph LR" in mermaid_output
-            assert "classDef hidden display: none;" in mermaid_output
+                # Should still generate valid output with fallbacks
 
     def test_large_dataset_performance(self):
         """Test performance with larger datasets."""

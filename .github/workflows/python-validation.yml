@@ -1,5 +1,4 @@
 name: Python Validation
-
 on:
   push:
     paths:
@@ -11,7 +10,6 @@ on:
       - '**.py'
       - 'requirements*.txt'
       - 'pyproject.toml'
-
 jobs:
   # Setup job to install dependencies and prepare validation scripts
   setup:
@@ -22,80 +20,76 @@ jobs:
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
-
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
         python-version: '3.11'
         cache: 'pip'
-
     - name: Install dependencies
       run: pip install -r requirements-dev.txt
-
     - name: Generate cache key
       id: cache-key
       run: |
         echo "key=deps-${{ hashFiles('requirements-dev.txt') }}" >> $GITHUB_OUTPUT
-
   # Individual validation jobs that can fail independently
   python-linting:
     runs-on: ubuntu-latest
     name: Python Linting
     needs: setup
+    outputs:
+      lint_status: ${{ steps.lint.outputs.status }}
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
-
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
         python-version: '3.11'
         cache: 'pip'
-
     - name: Install dependencies
       run: pip install -r requirements-dev.txt
-
     - name: Lint with Ruff
+      id: lint
       run: |
         echo "🔍 Running Python linting with Ruff..."
-
         if ruff check --output-format=github; then
           echo "✅ Python linting completed successfully"
+          echo "status=success" >> $GITHUB_OUTPUT
         else
           echo "❌ Python linting failed"
           echo "::error::Python linting validation failed"
+          echo "status=failed" >> $GITHUB_OUTPUT
           exit 1
         fi
-
   python-testing:
     runs-on: ubuntu-latest
     name: Python Testing
     needs: setup
+    outputs:
+      test_status: ${{ steps.test.outputs.status }}
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
-
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
         python-version: '3.11'
         cache: 'pip'
-
     - name: Install dependencies
       run: pip install -r requirements-dev.txt
-
     - name: Test Python
+      id: test
       run: |
         echo "🧪 Running Python tests..."
-
         if PYTHONPATH=./scripts/hooks pytest --junitxml=junit/test-results.xml; then
           echo "✅ Python tests completed successfully"
+          echo "status=success" >> $GITHUB_OUTPUT
         else
           echo "❌ Python tests failed"
           echo "::error::Python test validation failed"
+          echo "status=failed" >> $GITHUB_OUTPUT
           exit 1
         fi
-
   # Summary job that requires all other jobs but doesn't fail
   validation-summary:
     runs-on: ubuntu-latest
@@ -105,33 +99,43 @@ jobs:
     steps:
     - name: Generate Summary
       run: |
-        echo "📋 Python Validation Summary:"
-        echo ""
-
+        echo "# 📋 Python Validation Summary" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        
         # Check individual job results
         lint_result="${{ needs.python-linting.result }}"
         test_result="${{ needs.python-testing.result }}"
-
+        lint_status="${{ needs.python-linting.outputs.lint_status }}"
+        test_status="${{ needs.python-testing.outputs.test_status }}"
         overall_success=true
-
+        
+        echo "## Individual Job Results:" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        
         if [ "$lint_result" = "success" ]; then
-          echo "  ✅ Python linting validation"
+          echo "- ✅ **Python linting validation**: Passed" >> $GITHUB_STEP_SUMMARY
         else
-          echo "  ❌ Python linting validation ($lint_result)"
+          echo "- ❌ **Python linting validation**: $lint_result" >> $GITHUB_STEP_SUMMARY
           overall_success=false
         fi
-
+        
         if [ "$test_result" = "success" ]; then
-          echo "  ✅ Python test validation"
+          echo "- ✅ **Python test validation**: Passed" >> $GITHUB_STEP_SUMMARY
         else
-          echo "  ❌ Python test validation ($test_result)"
+          echo "- ❌ **Python test validation**: $test_result" >> $GITHUB_STEP_SUMMARY
           overall_success=false
         fi
-
-        echo ""
+        
+        echo "" >> $GITHUB_STEP_SUMMARY
+        
         if [ "$overall_success" = "true" ]; then
-          echo "🎉 All Python validations passed!"
+          echo "## ✅ Overall Status: Success" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "🎉 All Python validations passed!" >> $GITHUB_STEP_SUMMARY
         else
-          echo "💥 Some Python validations failed. Check individual job details above."
+          echo "## ❌ Overall Status: Failed" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "💥 Some Python validations failed. Check individual job details above." >> $GITHUB_STEP_SUMMARY
+          echo "::error::Some Python validations failed"
           exit 1
         fi

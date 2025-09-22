@@ -8,24 +8,22 @@ entities in the CoSAI Risk Map framework with validation and comparison logic.
 
 class ComponentNode:
     """
-    This class encapsulates a component's title and its connections (edges)
-    to and from other components. It includes validation to ensure data integrity.
+    Represents a component with title, category, and edge connections.
+    Includes validation for data integrity.
     """
 
     def __init__(
         self, title: str, category: str, to_edges: list[str], from_edges: list[str], subcategory: str | None = None
     ) -> None:
         """
-        Initializes a Component object with validation.
+        Initialize component with validation.
 
         Args:
-            title: The name of the component.
-            to_edges: A list of component titles it connects to.
-            from_edges: A list of component titles that connect to it.
-
-        Raises:
-            TypeError: If arguments are not of the expected type.
-            ValueError: If the title is an empty string.
+            title: Component name
+            category: Component category
+            to_edges: List of component IDs this connects to
+            from_edges: List of component IDs that connect to this
+            subcategory: Optional subcategory
         """
         # Validate and set the title
         if not isinstance(title, str) or not title.strip():
@@ -54,8 +52,7 @@ class ComponentNode:
 
     def __repr__(self) -> str:
         """
-        Provides an unambiguous, official string representation of the object.
-        Useful for debugging.
+        Official string representation for debugging.
         """
         return (
             f"ComponentNode(title='{self.title}', "
@@ -66,7 +63,7 @@ class ComponentNode:
 
     def __str__(self) -> str:
         """
-        Provides a user-friendly, readable string representation of the object.
+        User-friendly string representation.
         """
         return (
             f"ComponentNode '{self.title}':\n"
@@ -77,8 +74,7 @@ class ComponentNode:
 
     def __eq__(self, other) -> bool:
         """
-        Defines equality between two ComponentNode objects.
-        They are equal if their title, category, to_edges, and from_edges are identical.
+        Define equality based on title, category, and edges.
         """
         if not isinstance(other, ComponentNode):
             return NotImplemented
@@ -92,45 +88,12 @@ class ComponentNode:
 
 class ControlNode:
     """
-    Encapsulates a control's metadata and its relationships to components and risks.
+    Represents a security control with metadata and relationships.
 
-    A ControlNode represents a security or compliance control that can be applied
-    to mitigate specific risks across AI system components. Controls are organized
-    into categories (Data, Infrastructure, Model, Application, Assurance, Governance)
-    and define which components they protect and which risks they address.
+    Controls mitigate risks across AI components and are organized by category.
+    Contains title, category, components, risks, and responsible personas.
 
-    This class is used for:
-    - Storing control metadata (title, category, components, risks, personas)
-    - Validating control data integrity
-    - Generating control-to-component relationship graphs
-    - Supporting control optimization and clustering algorithms
-
-    Attributes:
-        title (str): Human-readable name of the control
-        category (str): Control category ID (e.g., 'controlsData', 'controlsModel')
-        components (List[str]): List of component IDs this control applies to
-        risks (List[str]): List of risk IDs this control mitigates
-        personas (List[str]): List of persona IDs responsible for implementing this control
-
-    Example:
-        >>> control = ControlNode(
-        ...     title="Input Validation and Sanitization",
-        ...     category="controlsModel",
-        ...     components=["componentInputHandling"],
-        ...     risks=["PIJ"],
-        ...     personas=["personaModelCreator"]
-        ... )
-        >>> print(control.title)
-        Input Validation and Sanitization
-        >>> print(len(control.components))
-        1
-
-    Note:
-        - All attributes are validated for type and non-empty content during initialization
-        - Component IDs should reference valid components in the system
-        - Risk IDs should reference valid risks in the risk framework
-        - Persona IDs should reference valid personas (Model Creator, Model Consumer)
-        - Special component values "all" and "none" have specific semantic meanings
+    Special component values: "all" (applies to all components), "none" (no components)
     """
 
     def __init__(
@@ -142,17 +105,14 @@ class ControlNode:
         personas: list[str],
     ) -> None:
         """
-        Initializes a ControlNode with validation.
+        Initialize control with validation.
 
         Args:
-            title: The control's title
-            category: The control category (controlsData, controlsInfrastructure, etc.)
-            components: List of component IDs this control applies to
-            risks: List of risk IDs this control mitigates
-            personas: List of persona IDs responsible for this control
-
-        Raises:
-            TypeError: If arguments are not of the expected type.
+            title: Control title
+            category: Control category (controlsData, controlsModel, etc.)
+            components: Component IDs this control applies to
+            risks: Risk IDs this control mitigates
+            personas: Persona IDs responsible for this control
         """
         if not isinstance(title, str) or not title.strip():
             raise TypeError("Control 'title' must be a non-empty string.")
@@ -191,38 +151,10 @@ class ControlNode:
 
     def __eq__(self, other) -> bool:
         """
-        Defines equality between two ControlNode objects.
+        Define equality based on all attributes.
 
-        Two ControlNode instances are considered equal if and only if all their
-        attributes (title, category, components, risks, personas) are identical.
-        This enables proper comparison, deduplication, and use in collections
-        like sets and dictionaries.
-
-        Args:
-            other: Object to compare with this ControlNode. Can be any type,
-                  but equality will only return True for ControlNode instances.
-
-        Returns:
-            bool: True if other is a ControlNode with identical attributes,
-                 False otherwise. Returns NotImplemented for non-ControlNode types
-                 to allow Python's rich comparison protocol to handle the comparison.
-
-        Example:
-            >>> control1 = ControlNode("Test", "controlsData", ["comp1"], ["risk1"], ["persona1"])
-            >>> control2 = ControlNode("Test", "controlsData", ["comp1"], ["risk1"], ["persona1"])
-            >>> control3 = ControlNode("Different", "controlsData", ["comp1"], ["risk1"], ["persona1"])
-            >>> print(control1 == control2)
-            True
-            >>> print(control1 == control3)
-            False
-            >>> print(control1 == "not a control")
-            False
-
-        Note:
-            - List order matters: ["comp1", "comp2"] != ["comp2", "comp1"]
-            - All attributes must match exactly (case-sensitive)
-            - Empty lists are considered equal to other empty lists
-            - This method enables ControlNode objects to be used in sets and as dictionary keys
+        Two controls are equal if all attributes match exactly (order matters for lists).
+        Enables use in sets and as dictionary keys.
         """
         if not isinstance(other, ControlNode):
             return NotImplemented
@@ -237,17 +169,16 @@ class ControlNode:
 
 class RiskNode:
     """
-    Encapsulates a risk's metadata for graph generation.
-    Used for risk-to-control visualization.
+    Represents a risk with title and category for graph generation.
     """
 
     def __init__(self, title: str, category: str = "") -> None:
         """
-        Initializes a RiskNode with validation.
+        Initialize risk with validation.
 
         Args:
-            title: The risk's title
-            category: The risk category (optional for now)
+            title: Risk title
+            category: Risk category (optional)
         """
         if not isinstance(title, str) or not title.strip():
             raise TypeError("Risk 'title' must be a non-empty string.")
