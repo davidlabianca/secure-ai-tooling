@@ -85,7 +85,7 @@ class ComponentGraph(BaseGraph):
             style_str = self._get_node_style("componentCategory", category_config=category_config)
             graph_content.append(f"    style {category_key} {style_str}")
 
-        graph_content.append("```")
+
         return "\n".join(graph_content)
 
     def _build_subgraph_structure(
@@ -120,12 +120,3 @@ class ComponentGraph(BaseGraph):
             )
 
         return subgraph_lines or []
-
-    def to_mermaid(self) -> str:
-        """
-        Return the generated Mermaid graph content.
-
-        Returns:
-            str: Complete Mermaid graph with category subgraphs and styling
-        """
-        return self.graph

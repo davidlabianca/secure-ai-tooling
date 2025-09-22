@@ -68,6 +68,7 @@ class BaseGraph:
         self.component_by_subcategory: dict[str, dict[str, list[str]]] = dict()
         self.control_by_category: dict[str, list[str]] = dict()
         self.components_by_control: dict[str, list[str]] = dict()
+        self.graph: str = ""
 
         if not isinstance(components, dict) or not all(
             isinstance(node, ComponentNode) for node in components.values()
@@ -80,6 +81,13 @@ class BaseGraph:
 
         if isinstance(risks, dict) and all(isinstance(node, RiskNode) for node in risks.values()):
             self.risks = risks
+
+    def to_mermaid(self, output_format: str = 'markdown'):
+        lines = self.graph
+        if output_format == 'markdown':
+            lines = "```mermaid\n" + lines + "\n```"
+
+        return lines + "\n"
 
     def _component_to_control_mapping(self):
         self._nodetype_a_to_b_mapping("component-by-control")

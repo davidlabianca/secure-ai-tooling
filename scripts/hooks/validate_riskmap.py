@@ -42,6 +42,9 @@ USAGE:
     Generate graph with debug annotations:
         python validate_riskmap.py --to-graph output.md --debug
 
+    Generate graph with additional .mermaid format:
+        python validate_riskmap.py --to-graph output.md --mermaid-format
+
     Allow isolated components:
         python validate_riskmap.py --allow-isolated
 
@@ -57,6 +60,7 @@ COMMAND LINE OPTIONS:
     --to-controls-graph PATH  Output control-to-component graph visualization to specified file
     --to-risk-graph PATH  Output risk-to-control-to-component graph visualization to specified file
     --debug               Include rank comments in graph output
+    --mermaid-format      Save graphs in '.mermaid' format in addition to markdown code block
 
 EXIT CODES:
     0 - All validations passed
@@ -135,6 +139,7 @@ Examples:
   %(prog)s --to-graph graph.md                # Output component graph as .md code block
   %(prog)s --to-controls-graph controls.md    # Output control-to-component graph
   %(prog)s --to-risk-graph risk.md            # Output risk-to-control-to-component graph
+  %(prog)s --to-graph graph.md --mermaid-format  # Output both .md and .mermaid formats
   %(prog)s --quiet                            # Minimal output
   %(prog)s --help                             # Show this help
 
@@ -186,6 +191,12 @@ Exit Codes:
     )
 
     parser.add_argument("--debug", action="store_true", help="Include rank comments in graph output")
+
+    parser.add_argument(
+        "--mermaid-format",
+        action="store_true",
+        help="Save graphs in '.mermaid' format in addition to markdown code block",
+    )
 
     return parser.parse_args()
 
@@ -248,6 +259,14 @@ def main() -> None:
                     f.write(graph_output)
 
                 print(f"   Graph visualization saved to {args.to_graph}")
+
+                # Save .mermaid format if requested
+                if args.mermaid_format:
+                    mermaid_file = args.to_graph.with_suffix('.mermaid')
+                    mermaid_output = graph.to_mermaid(output_format='mermaid')
+                    with open(mermaid_file, "w", encoding="utf-8") as f:
+                        f.write(mermaid_output)
+                    print(f"   Mermaid format saved to {mermaid_file}")
             except Exception as e:
                 print(f"⚠️  Failed to generate graph: {e}")
 
@@ -264,6 +283,14 @@ def main() -> None:
                     f.write(controls_graph_output)
 
                 print(f"   Controls graph visualization saved to {args.to_controls_graph}")
+
+                # Save .mermaid format if requested
+                if args.mermaid_format:
+                    mermaid_file = args.to_controls_graph.with_suffix('.mermaid')
+                    mermaid_output = control_graph.to_mermaid(output_format='mermaid')
+                    with open(mermaid_file, "w", encoding="utf-8") as f:
+                        f.write(mermaid_output)
+                    print(f"   Mermaid format saved to {mermaid_file}")
             except Exception as e:
                 print(f"⚠️  Failed to generate controls graph: {e}")
 
@@ -281,6 +308,14 @@ def main() -> None:
                     f.write(risk_graph_output)
 
                 print(f"   Risk graph visualization saved to {args.to_risk_graph}")
+
+                # Save .mermaid format if requested
+                if args.mermaid_format:
+                    mermaid_file = args.to_risk_graph.with_suffix('.mermaid')
+                    mermaid_output = risk_graph.to_mermaid(output_format='mermaid')
+                    with open(mermaid_file, "w", encoding="utf-8") as f:
+                        f.write(mermaid_output)
+                    print(f"   Mermaid format saved to {mermaid_file}")
             except Exception as e:
                 print(f"⚠️  Failed to generate risk graph: {e}")
 

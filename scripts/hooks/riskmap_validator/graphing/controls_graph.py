@@ -176,6 +176,7 @@ class ControlGraph(BaseGraph):
 
         self.control_to_component_map = self._build_control_component_mapping()
         self.controls_mapped_to_all = self._track_controls_mapped_to_all()
+        self.graph = self.build_controls_graph()
 
     def _debug_subgroupings(self) -> None:
         """Print debug information about discovered subgroupings."""
@@ -656,43 +657,4 @@ class ControlGraph(BaseGraph):
 
         lines.extend([])
 
-        lines.append("```")
         return "\n".join(lines)
-
-    def to_mermaid(self) -> str:
-        """
-        Generate the complete Mermaid graph output for control-to-component relationships.
-
-        This is the primary public interface for accessing the generated Mermaid graph.
-        It delegates to build_controls_graph() to create a visualization
-        of how security controls map to AI system components with full optimization
-        and styling applied.
-
-        The output is ready for rendering in any Mermaid-compatible environment,
-        including documentation platforms, web interfaces, and diagram tools.
-
-        Returns:
-            str: Complete Mermaid graph definition as a string, including:
-                - ```mermaid code block markers for proper rendering
-                - Optimized control-to-component relationships
-                - Consistent styling and color coding
-                - Hierarchical subgraph structure
-                - Multi-style edge formatting
-
-        Example:
-            >>> controls = {"ctrl1": ControlNode("Test", "controlsData", ["comp1"], [], [])}
-            >>> components = {"comp1": ComponentNode("Test", "componentsData", [], [])}
-            >>> graph = ControlGraph(controls, components)
-            >>> mermaid_code = graph.to_mermaid()
-            >>> print(mermaid_code.startswith("```mermaid"))
-            True
-            >>> print(mermaid_code.endswith("```"))
-            True
-
-        Note:
-            - This method is stateless and can be called multiple times safely
-            - The output includes all optimizations applied during initialization
-            - Graph complexity depends on the number of controls and components provided
-            - All styling and formatting is embedded for standalone rendering
-        """
-        return self.build_controls_graph()

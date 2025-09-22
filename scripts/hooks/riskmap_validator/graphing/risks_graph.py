@@ -147,6 +147,8 @@ class RiskGraph(BaseGraph):
         # Build risk-specific mappings
         self.risk_to_control_map = self._build_risk_control_mapping()
         self.risk_by_category = self._group_risks_by_category()
+        self.graph = self.build_risk_control_component_graph()
+
 
     def _build_risk_control_mapping(self) -> dict[str, list[str]]:
         """
@@ -445,43 +447,4 @@ class RiskGraph(BaseGraph):
                 style_str = self._get_node_style("componentCategory", category_config=category_config)
                 lines.append(f"    style {category_key} {style_str}")
 
-        lines.append("```")
         return "\n".join(lines)
-
-    def to_mermaid(self) -> str:
-        """
-        Generate the complete Mermaid graph output for risk-to-control-to-component relationships.
-
-        This is the primary public interface for accessing the generated Mermaid graph.
-        It delegates to build_risk_control_component_graph() to create a three-layer
-        visualization of the complete risk mitigation chain.
-
-        The output is ready for rendering in any Mermaid-compatible environment,
-        including documentation platforms, web interfaces, and diagram tools.
-
-        Returns:
-            str: Complete Mermaid graph definition as a string, including:
-                - ```mermaid code block markers for proper rendering
-                - Three-layer risk-to-control-to-component relationships
-                - Consistent styling and color coding across all layers
-                - Hierarchical subgraph structure
-                - Optimized control-component mappings from ControlGraph
-
-        Example:
-            >>> risks = {"DP": RiskNode("Data Poisoning", "risks")}
-            >>> controls = {"ctrl1": ControlNode("Input Validation", "controlsData", ["comp1"], ["DP"], [])}
-            >>> components = {"comp1": ComponentNode("Data Sources", "componentsData", [], [])}
-            >>> graph = RiskGraph(risks, controls, components)
-            >>> mermaid_code = graph.to_mermaid()
-            >>> print(mermaid_code.startswith("```mermaid"))
-            True
-            >>> print(mermaid_code.endswith("```"))
-            True
-
-        Note:
-            - This method is stateless and can be called multiple times safely
-            - The output includes all ControlGraph optimizations automatically through composition
-            - Graph complexity depends on the number of risks, controls, and components provided
-            - All styling and formatting is embedded for standalone rendering
-        """
-        return self.build_risk_control_component_graph()

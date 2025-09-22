@@ -396,7 +396,7 @@ class MermaidConfigLoader:
         all_control_default = "stroke:#4285f4,stroke-width:2px,stroke-dasharray: 5 5"
         all_control_class_def = css_classes.get("allControl", all_control_default)
 
-        lines: list[str] = ["```mermaid"]
+        lines: list[str] = []
 
         if frontmatter_config := graph_config.get("metadata"):
             layout = frontmatter_config.get("layout")

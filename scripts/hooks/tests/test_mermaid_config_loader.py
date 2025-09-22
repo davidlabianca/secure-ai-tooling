@@ -174,7 +174,6 @@ class TestMermaidConfigLoader:
         assert config["direction"] == "TD"
         assert isinstance(preamble, list)
         assert len(preamble) > 0
-        assert "```mermaid" in preamble
 
         # Test control graph config
         config, preamble = loader.get_graph_config("control")
@@ -191,7 +190,6 @@ class TestMermaidConfigLoader:
         preamble = loader._create_flowchart_preamble(graph_config)
 
         assert isinstance(preamble, list)
-        assert "```mermaid" in preamble
         assert "graph TD" in preamble
         assert any("classDef hidden" in line for line in preamble)
         assert any("classDef allControl" in line for line in preamble)
