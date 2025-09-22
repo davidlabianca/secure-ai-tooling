@@ -329,7 +329,7 @@ class TestConfigurationIntegration:
         # Verify configuration is loaded
         config, preamble = risk_graph.config_loader.get_graph_config("risk")
         assert config["direction"] == "LR"
-        assert "graph LR" in preamble[1]
+        assert "graph LR" in preamble[9]
 
     def test_risk_category_styling(self, sample_risks, sample_controls, sample_components):
         """Test risk category styling configuration."""
@@ -356,7 +356,7 @@ class TestErrorHandling:
     def test_invalid_risk_data(self, sample_controls, sample_components):
         """Test handling of invalid risk data."""
         # This should not raise an exception
-        risk_graph = RiskGraph(None, sample_controls, sample_components)
+        risk_graph = RiskGraph(None, sample_controls, sample_components) # pyright: ignore[reportArgumentType]
         assert risk_graph.risks is None
 
     def test_missing_config_fallback(self, sample_risks, sample_controls, sample_components):

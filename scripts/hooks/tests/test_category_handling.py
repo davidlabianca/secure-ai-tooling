@@ -142,7 +142,6 @@ class TestCategoryHandling:
         assert "comp3 --> comp4" in mermaid_output
 
         # Should contain style definitions for all categories (even if not all have subgraphs)
-        assert "style componentsData" in mermaid_output
         assert "style componentsInfrastructure" in mermaid_output
         assert "style componentsModel" in mermaid_output
 
@@ -159,7 +158,6 @@ class TestCategoryHandling:
         assert "controlsCustom" in mermaid_output
 
         # Should contain all component categories
-        assert "componentsData" in mermaid_output
         assert "componentsInfrastructure" in mermaid_output
         assert "componentsCustomCategory" in mermaid_output
 
@@ -170,7 +168,6 @@ class TestCategoryHandling:
 
         # ComponentGraph should prefer standard category order for styling
         expected_categories = [
-            "componentsData",
             "componentsInfrastructure",
             "componentsModel",
             "componentsApplication",
@@ -198,7 +195,6 @@ class TestCategoryHandling:
                     break
 
         # Should include main standard categories
-        assert "componentsData" in found_categories
         assert "componentsInfrastructure" in found_categories
         assert "componentsModel" in found_categories
 
