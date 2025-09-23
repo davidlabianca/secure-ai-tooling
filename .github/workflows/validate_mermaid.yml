@@ -81,6 +81,8 @@ jobs:
         else
           echo "📦 Cache miss - installing Mermaid CLI..."
         fi
+        # Add npm global bin to PATH
+        echo "$(npm config get prefix)/bin" >> $GITHUB_PATH
         npm install -g @mermaid-js/mermaid-cli@latest
         echo "Mermaid CLI version: $(npx mmdc --version)"
 
