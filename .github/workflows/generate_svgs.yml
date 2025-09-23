@@ -107,7 +107,7 @@ jobs:
           echo "📦 Cache miss - installing Mermaid CLI..."
         fi
         npm install -g @mermaid-js/mermaid-cli@latest
-        echo "Mermaid CLI version: $(mmdc --version)"
+        echo "Mermaid CLI version: $(npx mmdc --version)"
 
     - name: Setup Chrome for Puppeteer
       uses: browser-actions/setup-chrome@latest
@@ -189,7 +189,7 @@ jobs:
           if [ "$should_regenerate" = true ]; then
             echo "🔄 Converting $(basename "$file")"
             
-            if mmdc -i "$file" -o "$output_file" \
+            if npx mmdc -i "$file" -o "$output_file" \
               -t "${MERMAID_THEME}" \
               -b "${MERMAID_BACKGROUND}" \
               --puppeteerConfig "${puppeteer_config}" 2>/dev/null; then
@@ -384,7 +384,7 @@ jobs:
             echo "3. Test locally with:" >> $GITHUB_STEP_SUMMARY
             echo "\`\`\`bash" >> $GITHUB_STEP_SUMMARY
             echo "npm install -g @mermaid-js/mermaid-cli" >> $GITHUB_STEP_SUMMARY
-            echo "mmdc -i your-file.mmd -o test.svg" >> $GITHUB_STEP_SUMMARY
+            echo "npx mmdc -i your-file.mmd -o test.svg" >> $GITHUB_STEP_SUMMARY
             echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
             echo "::error::SVG generation failed"
             ;;
