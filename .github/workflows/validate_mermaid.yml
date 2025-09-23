@@ -148,9 +148,7 @@ jobs:
           preview_output="${PREVIEW_PATH}/$(basename "$file" | sed 's/\.[^.]*$/.svg/')"
           
           if mmdc -i "$file" -o "$preview_output" \
-            -t "${MERMAID_THEME}" \
-            -b "${MERMAID_BACKGROUND}" \
-            --puppeteerConfig "${puppeteer_config}" 2>/dev/null; then
+            --puppeteerConfig "${puppeteer_config}" ; then
             echo "✅ Valid: $(basename "$file")"
             valid_files+=("$file")
           else
