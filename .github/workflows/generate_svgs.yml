@@ -65,40 +65,24 @@ jobs:
           echo "📦 No package.json found - will use global install with tool cache"
         fi
 
-    - name: Setup Node.js with npm cache
-      if: steps.check-package.outputs.has-package == 'true'
-      uses: actions/setup-node@v5
-      with:
-        node-version: '22.x'
-        cache: 'npm'
-
     - name: Setup Node.js without npm cache
-      if: steps.check-package.outputs.has-package == 'false'
       uses: actions/setup-node@v5
       with:
         node-version: '22.x'
 
     - name: Cache global npm packages
-      if: steps.check-package.outputs.has-package == 'false'
       uses: actions/cache@v4
       id: npm-cache
       with:
         path: |
           ~/.npm
           ~/.cache/puppeteer
-        key: ${{ runner.os }}-npm-mermaid-cli-v10-${{ hashFiles('.github/workflows/generate-mermaid-svgs.yml') }}
+        key: ${{ runner.os }}-npm-mermaid-cli-v11-${{ hashFiles('.github/workflows/generate-mermaid-svgs.yml') }}
         restore-keys: |
-          ${{ runner.os }}-npm-mermaid-cli-v10-
+          ${{ runner.os }}-npm-mermaid-cli-v11-
           ${{ runner.os }}-npm-mermaid-cli-
 
-    - name: Install dependencies from package.json
-      if: steps.check-package.outputs.has-package == 'true'
-      run: |
-        npm ci --prefer-offline --no-audit
-        echo "Mermaid CLI version: $(npx mmdc --version)"
-
     - name: Install Mermaid CLI globally
-      if: steps.check-package.outputs.has-package == 'false'
       run: |
         # Check if we have a cache hit
         if [ "${{ steps.npm-cache.outputs.cache-hit }}" == "true" ]; then
@@ -111,6 +95,9 @@ jobs:
 
     - name: Setup Chrome for Puppeteer
       uses: browser-actions/setup-chrome@latest
+      with:
+        chrome-version: stable
+        install-dependencies: true
 
     - name: Validate directory structure
       run: |
@@ -156,7 +143,8 @@ jobs:
         failed_files=0
 
         # Puppeteer config for better stability
-        puppeteer_config='{"args": ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"]}'
+        PUPPETEER_CONFIG_FILE="/tmp/puppeteer.json.config"
+        echo '{"args": ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"]}' > ${PUPPETEER_CONFIG_FILE}
 
         # Get list of changed files in this commit
         changed_files=$(git diff --name-only HEAD HEAD~1 2>/dev/null || true)
@@ -192,7 +180,7 @@ jobs:
             if npx mmdc -i "$file" -o "$output_file" \
               -t "${MERMAID_THEME}" \
               -b "${MERMAID_BACKGROUND}" \
-              --puppeteerConfig "${puppeteer_config}" 2>/dev/null; then
+              -p "${PUPPETEER_CONFIG_FILE}" 2>/dev/null; then
               echo "✅ Successfully converted $(basename "$file")"
               conversion_count=$((conversion_count + 1))
               updated_files=$((updated_files + 1))
@@ -245,7 +233,7 @@ jobs:
         fi
 
     - name: Configure Git for bot commits
-      if: env.no_changes != 'true' && env.updated_files != '0'
+      if: env.no_changes != 'true' && env.updated_files != '0' &&  env.ACT_TESTING != 'true'
       run: |
         # Use bot identity for commits
         if [ -n "${{ steps.generate_token.outputs.token }}" ]; then
@@ -259,7 +247,7 @@ jobs:
         fi
 
     - name: Commit and push generated SVGs
-      if: env.no_changes != 'true' && env.updated_files != '0'
+      if: env.no_changes != 'true' && env.updated_files != '0' && env.ACT_TESTING != 'true'
       run: |
         set -euo pipefail
         
