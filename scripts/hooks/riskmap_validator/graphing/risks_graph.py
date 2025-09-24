@@ -212,13 +212,28 @@ class RiskGraph(BaseGraph):
         lines.append("")
         lines.append("    %% Edge styling")
 
-        # Style risk→control edges (pink)
+        # Style risk→control edges with cycling styles
         if risk_control_edge_indices:
-            edge_list = ",".join(map(str, risk_control_edge_indices))
-            risk_edge_styles = self.config_loader.get_risk_edge_styles()
-            style_config = risk_edge_styles.get("riskControlEdges", {})
-            style_str = self._get_edge_style(style_config)
-            lines.append(f"    linkStyle {edge_list} {style_str}")
+            # Pre-calculate the 4 possible style strings to avoid redundant calls
+            style_strings = []
+            for style_index in range(4):
+                style_config = self.config_loader.get_risk_control_edge_style(style_index)
+                style_str = self._get_edge_style(style_config)
+                style_strings.append(style_str)
+
+            # Group edges by their style (index % 4) for efficient styling
+            style_groups = {}
+            for i, edge_idx in enumerate(risk_control_edge_indices):
+                style_str = style_strings[i % 4]
+
+                if style_str not in style_groups:
+                    style_groups[style_str] = []
+                style_groups[style_str].append(edge_idx)
+
+            # Apply styles to grouped edges
+            for style_str, edge_indices in style_groups.items():
+                edge_list = ",".join(map(str, edge_indices))
+                lines.append(f"    linkStyle {edge_list} {style_str}")
 
         # Note: ControlGraph edge styling not applied here (would need adjusted indices)
 

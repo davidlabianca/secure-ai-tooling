@@ -227,9 +227,12 @@ class BaseGraph:
                     subgroup_name = f"{node_category_prefix}{common_prefix.title()}"
                     if subgroup_name in self.component_by_category:
                         # Avoid conflict by adding parent category context
-                        subgroup_name += self.components[cluster_list[0]].category.replace(
-                            node_category_prefix, ""
-                        )
+                        parent_title = self.components[cluster_list[0]].category.replace(node_category_prefix,"")
+
+                        if common_prefix.title() == parent_title:
+                            subgroup_name += "Subgroup"
+                        else:
+                            subgroup_name += parent_title
                 else:
                     subgroup_name = f"{node_category_prefix}Subgroup{i + 1}"
 

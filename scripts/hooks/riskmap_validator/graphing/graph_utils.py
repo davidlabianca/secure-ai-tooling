@@ -185,11 +185,12 @@ class MermaidConfigLoader:
                             }
                         },
                         "edgeStyles": {
-                            "riskControlEdges": {
-                                "stroke": "#e91e63",
-                                "strokeWidth": "2px",
-                                "strokeDasharray": "5 3",
-                            },
+                            "riskControlEdges": [
+                                {"stroke": "#e91e63", "strokeWidth": "2px", "strokeDasharray": "5 3"},
+                                {"stroke": "#d81b60", "strokeWidth": "2px", "strokeDasharray": "8 4"},
+                                {"stroke": "#c2185b", "strokeWidth": "2px", "strokeDasharray": "10 2"},
+                                {"stroke": "#ad1457", "strokeWidth": "2px", "strokeDasharray": "12 5"},
+                            ],
                             "allControlEdges": {
                                 "stroke": "#4285f4",
                                 "strokeWidth": "3px",
@@ -429,6 +430,39 @@ class MermaidConfigLoader:
         """
         result = self._get_safe_value("graphTypes", "risk", "specialStyling", "edgeStyles", default={})
         return result if isinstance(result, dict) else {}
+
+    def get_risk_control_edge_style(self, index: int = 0) -> dict:
+        """
+        Get risk-to-control edge style for specified index.
+
+        Supports both single style object and array of 4 styles.
+        When array is configured, cycles through styles using index % 4.
+
+        Args:
+            index: Edge index for array-based cycling (default: 0)
+
+        Returns:
+            Dict with stroke, strokeWidth, and strokeDasharray properties
+        """
+        edge_styles = self.get_risk_edge_styles()
+        risk_control_edges = edge_styles.get("riskControlEdges", {})
+
+        # Handle array format (new)
+        if isinstance(risk_control_edges, list):
+            if len(risk_control_edges) >= 4:
+                return risk_control_edges[index % 4]
+            elif len(risk_control_edges) > 0:
+                return risk_control_edges[index % len(risk_control_edges)]
+            else:
+                # Empty array - fallback to emergency default
+                return {"stroke": "#e91e63", "strokeWidth": "2px", "strokeDasharray": "5 3"}
+
+        # Handle single object format (backward compatibility)
+        elif isinstance(risk_control_edges, dict):
+            return risk_control_edges
+
+        # No configuration found - use emergency default
+        return {"stroke": "#e91e63", "strokeWidth": "2px", "strokeDasharray": "5 3"}
 
     def clear_cache(self):
         """

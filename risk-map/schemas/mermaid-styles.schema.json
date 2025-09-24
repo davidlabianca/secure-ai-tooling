@@ -376,7 +376,20 @@
               "additionalProperties": false,
               "properties": {
                 "riskControlEdges": {
-                  "$ref": "#/definitions/edgeStyleWithDash"
+                  "oneOf": [
+                    {
+                      "$ref": "#/definitions/edgeStyleWithDash"
+                    },
+                    {
+                      "type": "array",
+                      "description": "Array of 4 edge styles for risk-control edges cycling",
+                      "minItems": 4,
+                      "maxItems": 4,
+                      "items": {
+                        "$ref": "#/definitions/edgeStyleWithDash"
+                      }
+                    }
+                  ]
                 },
                 "allControlEdges": {
                   "$ref": "#/definitions/edgeStyleWithDash"

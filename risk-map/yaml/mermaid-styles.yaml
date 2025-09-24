@@ -149,10 +149,20 @@ graphTypes:
       # Edge styling system for risk graph relationships
       edgeStyles:
         # Risk-to-control edges - primary relationship in risk graphs
+        # Array of 4 different styles that cycle based on index%4
         riskControlEdges:
-          stroke: '#e91e63' # Pink to match risk theme
-          strokeWidth: '2px' # Standard width
-          strokeDasharray: '5 3' # Distinctive dashed pattern for risk mitigation
+          - stroke: '#e6cbce' # Pink - solid
+            strokeWidth: '2px'
+            strokeDasharray: '5 3'
+          - stroke: '#b66871' # Darker pink - dashed
+            strokeWidth: '2px'
+            strokeDasharray: '8 4'
+          - stroke: '#b66871' # Even darker pink - long dash
+            strokeWidth: '2px'
+            strokeDasharray: '10 2'
+          - stroke: '#1c0d0f' # Darkest pink - long dash with spacing
+            strokeWidth: '2px'
+            strokeDasharray: '12 5'
 
         # Inherited control-to-component edge styles from control graph
         allControlEdges:
