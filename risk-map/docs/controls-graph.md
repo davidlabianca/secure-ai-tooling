@@ -71,7 +71,7 @@ graph LR
         componentModelFrameworksAndCode[Model Frameworks and Code]
         componentOutputHandling[Output Handling]
         componentTheModel[The Model]
-        subgraph componentsModelModel ["Model Model"]
+        subgraph componentsModelSubgroup ["Model Subgroup"]
             componentModelEvaluation[Model Evaluation]
             componentModelTrainingTuning[Training and Tuning]
         end
@@ -86,19 +86,19 @@ graph LR
 
     %% Control to Component relationships
     controlPrivacyEnhancingTechnologies --> componentOutputHandling
-    controlPrivacyEnhancingTechnologies --> componentsModelModel
+    controlPrivacyEnhancingTechnologies --> componentsModelSubgroup
     controlTrainingDataManagement --> componentDataSources
     controlTrainingDataManagement --> componentTrainingData
-    controlTrainingDataManagement --> componentsModelModel
+    controlTrainingDataManagement --> componentsModelSubgroup
     controlTrainingDataSanitization --> componentDataFilteringAndProcessing
     controlUserDataManagement --> componentDataStorage
-    controlModelAndDataInventoryManagement --> componentsModelModel
+    controlModelAndDataInventoryManagement --> componentsModelSubgroup
     controlModelAndDataInventoryManagement --> componentsModels
-    controlModelAndDataAccessControls --> componentsModelModel
+    controlModelAndDataAccessControls --> componentsModelSubgroup
     controlModelAndDataAccessControls --> componentsModels
-    controlModelAndDataIntegrityManagement --> componentsModelModel
+    controlModelAndDataIntegrityManagement --> componentsModelSubgroup
     controlModelAndDataIntegrityManagement --> componentsModels
-    controlSecureByDefaultMLTooling --> componentsModelModel
+    controlSecureByDefaultMLTooling --> componentsModelSubgroup
     controlSecureByDefaultMLTooling --> componentsModels
     controlInputValidationAndSanitization --> componentInputHandling
     controlOutputValidationAndSanitization --> componentOutputHandling
@@ -130,5 +130,5 @@ graph LR
     style componentsApplication fill:#e6f0ff,stroke:#333333,stroke-width:2px
     style componentsModel fill:#ffe6e6,stroke:#333333,stroke-width:2px
     style componentsModels fill:#d4e6d4,stroke:#333,stroke-width:1px
-    style componentsModelModel fill:#f0e6e6,stroke:#333,stroke-width:1px
+    style componentsModelSubgroup fill:#f0e6e6,stroke:#333,stroke-width:1px
 ```

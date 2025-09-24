@@ -89,7 +89,7 @@ graph LR
         componentModelFrameworksAndCode[Model Frameworks and Code]
         componentOutputHandling[Output Handling]
         componentTheModel[The Model]
-        subgraph componentsModelModel ["Model Model"]
+        subgraph componentsModelSubgroup ["Model Subgroup"]
             componentModelEvaluation[Model Evaluation]
             componentModelTrainingTuning[Training and Tuning]
         end
@@ -145,19 +145,19 @@ graph LR
 
     %% Control to Component relationships (reused from ControlGraph)
     controlPrivacyEnhancingTechnologies --> componentOutputHandling
-    controlPrivacyEnhancingTechnologies --> componentsModelModel
+    controlPrivacyEnhancingTechnologies --> componentsModelSubgroup
     controlTrainingDataManagement --> componentDataSources
     controlTrainingDataManagement --> componentTrainingData
-    controlTrainingDataManagement --> componentsModelModel
+    controlTrainingDataManagement --> componentsModelSubgroup
     controlTrainingDataSanitization --> componentDataFilteringAndProcessing
     controlUserDataManagement --> componentDataStorage
-    controlModelAndDataInventoryManagement --> componentsModelModel
+    controlModelAndDataInventoryManagement --> componentsModelSubgroup
     controlModelAndDataInventoryManagement --> componentsModels
-    controlModelAndDataAccessControls --> componentsModelModel
+    controlModelAndDataAccessControls --> componentsModelSubgroup
     controlModelAndDataAccessControls --> componentsModels
-    controlModelAndDataIntegrityManagement --> componentsModelModel
+    controlModelAndDataIntegrityManagement --> componentsModelSubgroup
     controlModelAndDataIntegrityManagement --> componentsModels
-    controlSecureByDefaultMLTooling --> componentsModelModel
+    controlSecureByDefaultMLTooling --> componentsModelSubgroup
     controlSecureByDefaultMLTooling --> componentsModels
     controlInputValidationAndSanitization --> componentInputHandling
     controlOutputValidationAndSanitization --> componentOutputHandling
@@ -172,7 +172,10 @@ graph LR
     controlIncidentResponseManagement -.-> components
 
     %% Edge styling
-    linkStyle 0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38 stroke:#e91e63,stroke-width:2px,stroke-dasharray: 5 3
+    linkStyle 0,4,8,12,16,20,24,28,32,36 stroke:#e6cbce,stroke-width:2px,stroke-dasharray: 5 3
+    linkStyle 1,5,9,13,17,21,25,29,33,37 stroke:#b66871,stroke-width:2px,stroke-dasharray: 8 4
+    linkStyle 2,6,10,14,18,22,26,30,34,38 stroke:#b66871,stroke-width:2px,stroke-dasharray: 10 2
+    linkStyle 3,7,11,15,19,23,27,31,35 stroke:#1c0d0f,stroke-width:2px,stroke-dasharray: 12 5
 
 %% Node style definitions
     style risks fill:#ffeef0,stroke:#e91e63,stroke-width:2px
