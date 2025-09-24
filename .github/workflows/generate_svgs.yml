@@ -32,6 +32,11 @@ jobs:
       !contains(github.event.head_commit.message, 'Auto-generate')
     permissions:
       contents: write  # Need write permission only for this job
+    outputs:
+      updated_files: ${{ steps.convert.outputs.updated_files }}
+      failed_files: ${{ steps.convert.outputs.failed_files }}
+      no_changes: ${{ steps.convert.outputs.no_changes }}
+      no_commit_needed: ${{ steps.commit.outputs.no_commit_needed }}
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
@@ -88,6 +93,7 @@ jobs:
         echo "✅ Directory ${MERMAID_PATH} exists"
 
     - name: Find and convert Mermaid files
+      id: convert
       run: |
         set -euo pipefail
         
@@ -106,7 +112,7 @@ jobs:
 
         if [ ${#mermaid_files[@]} -eq 0 ]; then
           echo "⚠️  No Mermaid files found in ${MERMAID_PATH}"
-          echo "no_changes=true" >> $GITHUB_ENV
+          echo "no_changes=true" >> $GITHUB_OUTPUT
           exit 0
         fi
 
@@ -204,9 +210,9 @@ jobs:
         echo "  - Failed: $failed_files files"
         echo "  - Orphaned SVGs removed: $orphaned_count"
         
-        # Set output for next step
-        echo "updated_files=$updated_files" >> $GITHUB_ENV
-        echo "failed_files=$failed_files" >> $GITHUB_ENV
+        # Set outputs for next steps and dependent jobs
+        echo "updated_files=$updated_files" >> $GITHUB_OUTPUT
+        echo "failed_files=$failed_files" >> $GITHUB_OUTPUT
 
         if [ $failed_files -gt 0 ]; then
           echo "::error::Failed to convert $failed_files file(s)"
@@ -214,14 +220,15 @@ jobs:
         fi
 
     - name: Configure Git for bot commits
-      if: env.no_changes != 'true' && env.updated_files != '0'
+      if: steps.convert.outputs.no_changes != 'true' && steps.convert.outputs.updated_files != '0'
       run: |
         # Use GitHub Actions bot identity
         git config --local user.email "41898282+github-actions[bot]@users.noreply.github.com"
         git config --local user.name "github-actions[bot]"
 
     - name: Commit and push generated SVGs
-      if: env.no_changes != 'true' && env.updated_files != '0'
+      id: commit
+      if: steps.convert.outputs.no_changes != 'true' && steps.convert.outputs.updated_files != '0'
       run: |
         set -euo pipefail
         
@@ -233,7 +240,7 @@ jobs:
         # Check if there are actually changes to commit
         if git diff --staged --quiet; then
           echo "ℹ️  No changes detected in SVG files"
-          echo "no_commit_needed=true" >> $GITHUB_ENV
+          echo "no_commit_needed=true" >> $GITHUB_OUTPUT
         else
           echo "📝 Committing generated SVG files..."
           
@@ -298,7 +305,7 @@ jobs:
         fi
 
     - name: No updates needed
-      if: env.no_changes == 'true' || env.updated_files == '0' || env.no_commit_needed == 'true'
+      if: steps.convert.outputs.no_changes == 'true' || steps.convert.outputs.updated_files == '0' || steps.commit.outputs.no_commit_needed == 'true'
       run: |
         echo "ℹ️  No SVG updates needed"
         echo "All SVG files are already up to date."
