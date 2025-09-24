@@ -13,7 +13,7 @@ on:
 # Environment variables for configuration
 env:
   MERMAID_PATH: ./risk-map/docs/
-  SVGS_PATH: ./risk-map/docs/svgs
+  SVGS_PATH: ./risk-map/svg
   MERMAID_THEME: neutral
   MERMAID_BACKGROUND: white
   COMMIT_MESSAGE_PREFIX: "🎨 Auto-generate"
