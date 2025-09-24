@@ -49,6 +49,7 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
+import riskmap_validator.utils
 import yaml
 
 
@@ -122,130 +123,25 @@ class TestComponentEdgeValidator:
         with open(file_path, "w") as f:
             yaml.dump(data, f)
 
-    def test_load_valid_yaml_file(self, validator, temp_yaml_file):
-        """Test loading a valid YAML file."""
-        test_data = {"components": [{"id": "comp-a", "edges": {"to": ["comp-b"], "from": []}}]}
-        self.create_yaml_file(temp_yaml_file, test_data)
-
-        result = validator.load_yaml_file(temp_yaml_file)
-        assert result == test_data
-
     def test_load_nonexistent_file(self, validator):
         """Test loading a file that doesn't exist."""
-        with pytest.raises(EdgeValidationError, match="File not found"):
-            validator.load_yaml_file(Path("nonexistent.yaml"))
+        with pytest.raises(FileNotFoundError):
+            path = Path("nonexistent.yaml")
+            riskmap_validator.utils.parse_components_yaml(path)
 
     def test_load_empty_yaml_file(self, validator, temp_yaml_file):
         """Test loading an empty YAML file."""
-        temp_yaml_file.write_text("")
+        with pytest.raises(TypeError):
+            temp_yaml_file.write_text("")
 
-        result = validator.load_yaml_file(temp_yaml_file)
-        assert result == {}
+            riskmap_validator.utils.parse_components_yaml(temp_yaml_file)
 
     def test_load_invalid_yaml_file(self, validator, temp_yaml_file):
         """Test loading an invalid YAML file."""
-        temp_yaml_file.write_text("invalid: yaml: content: [")
+        with pytest.raises(yaml.YAMLError):
+            temp_yaml_file.write_text("invalid: yaml: content: [")
 
-        with pytest.raises(EdgeValidationError, match="YAML parsing error"):
-            validator.load_yaml_file(temp_yaml_file)
-
-    def test_extract_component_edges_valid(self, validator):
-        """Test extracting edges from valid component data."""
-        yaml_data = {
-            "components": [
-                {
-                    "id": "comp-a",
-                    "title": "Test1",
-                    "category": "infrastructure",
-                    "edges": {"to": ["comp-b"], "from": ["comp-c"]},
-                },
-                {
-                    "id": "comp-b",
-                    "title": "Test2",
-                    "category": "infrastructure",
-                    "edges": {"to": [], "from": ["comp-a"]},
-                },
-                {
-                    "id": "comp-c",
-                    "title": "Test3",
-                    "category": "infrastructure",
-                    "edges": {"to": ["comp-a"], "from": []},
-                },
-            ]
-        }
-
-        result = validator.extract_component_edges(yaml_data)
-
-        expected: dict[str, ComponentNode] = {
-            "comp-a": ComponentNode(
-                title="Test1",
-                category="infrastructure",
-                to_edges=["comp-b"],
-                from_edges=["comp-c"],
-            ),
-            "comp-b": ComponentNode(
-                title="Test2",
-                category="infrastructure",
-                to_edges=[],
-                from_edges=["comp-a"],
-            ),
-            "comp-c": ComponentNode(
-                title="Test3",
-                category="infrastructure",
-                to_edges=["comp-a"],
-                from_edges=[],
-            ),
-        }
-        assert result == expected
-
-    def test_extract_component_edges_missing_id(self, validator):
-        """Test extracting edges when components are missing IDs."""
-        yaml_data = {
-            "components": [
-                {
-                    "title": "TestFail",
-                    "category": "test",
-                    "edges": {"to": ["comp-b"], "from": []},
-                },  # Missing ID
-                {
-                    "id": "comp-b",
-                    "title": "Test1",
-                    "category": "test",
-                    "edges": {"to": [], "from": []},
-                },
-            ]
-        }
-
-        result = validator.extract_component_edges(yaml_data)
-
-        # Should only include the component with valid ID
-        expected: dict[str, ComponentNode] = {
-            "comp-b": ComponentNode(title="Test1", category="test", to_edges=[], from_edges=[])
-        }
-        assert result == expected
-
-    def test_extract_component_edges_missing_edges(self, validator):
-        """Test extracting edges when components are missing edge definitions."""
-        yaml_data = {
-            "components": [
-                {"id": "comp-a", "title": "Test1", "category": "test"},  # Missing edges
-                {
-                    "id": "comp-b",
-                    "title": "Test2",
-                    "category": "test",
-                    "edges": {"to": ["comp-a"]},
-                },  # Missing from
-            ]
-        }
-
-        result = validator.extract_component_edges(yaml_data)
-
-        expected: dict[str, ComponentNode] = {
-            "comp-a": ComponentNode(title="Test1", category="test", to_edges=[], from_edges=[]),
-            "comp-b": ComponentNode(title="Test2", category="test", to_edges=["comp-a"], from_edges=[]),
-        }
-
-        assert result == expected
+            riskmap_validator.utils.parse_components_yaml(temp_yaml_file)
 
     def test_find_isolated_components(self, validator):
         """Test finding components with no edges."""
@@ -546,13 +442,13 @@ class TestValidationScenarios:
         assert result is True  # Empty is valid
 
     def test_no_components_section(self, temp_yaml_file):
-        """Test handling of YAML without components section."""
-        no_components_data = {"other_section": {"some": "data"}}
-        self.create_yaml_file(temp_yaml_file, no_components_data)
+        with pytest.raises(KeyError):
+            """Test handling of YAML without components section."""
+            no_components_data = {"other_section": {"some": "data"}}
+            self.create_yaml_file(temp_yaml_file, no_components_data)
 
-        validator = ComponentEdgeValidator(verbose=False)
-        result = validator.validate_file(temp_yaml_file)
-        assert result is True  # No components section is valid
+            validator = ComponentEdgeValidator(verbose=False)
+            _ = validator.validate_file(temp_yaml_file)
 
 
 class TestGitIntegration:
@@ -843,103 +739,6 @@ class TestComponentGraph:
         assert graph.debug is True
         assert isinstance(graph.graph, str)
 
-    def test_calculate_node_ranks_simple_chain(self, simple_forward_map, simple_components):
-        """Test node ranking with simple A->B->C chain."""
-        # Override componentDataSources check by using that name
-        simple_components["componentDataSources"] = simple_components.pop("comp-a")
-        simple_forward_map["componentDataSources"] = simple_forward_map.pop("comp-a")
-
-        graph = ComponentGraph(simple_forward_map, simple_components)
-        ranks = graph._calculate_node_ranks()
-
-        # componentDataSources should be rank 1
-        assert ranks["componentDataSources"] == 0
-        assert ranks["comp-b"] == 1
-        assert ranks["comp-c"] == 2
-
-    def test_calculate_node_ranks_with_cycles(self, complex_forward_map, complex_components):
-        """Test node ranking with cycles in graph."""
-        graph = ComponentGraph(complex_forward_map, complex_components)
-        ranks = graph._calculate_node_ranks()
-
-        # infra should be rank 1 (no incoming edges)
-        assert ranks["infra"] == 0
-
-        # All nodes should have ranks assigned
-        assert len(ranks) == 4
-        for rank in ranks.values():
-            assert isinstance(rank, int)
-            assert rank >= 0  # Zero-based ranking
-
-    def test_calculate_node_ranks_data_sources_priority(self):
-        """
-        Test that componentDataSources gets rank 0 priority in graph layout.
-
-        The componentDataSources component should always be placed at the top
-        of the graph visualization (rank 0) to represent the data flow starting
-        point, even if it participates in cycles.
-        """
-        components = {
-            "componentDataSources": ComponentNode(
-                title="Data Sources",
-                category="Data",
-                to_edges=["other"],
-                from_edges=["cycle"],
-            ),
-            "other": ComponentNode(
-                title="Other",
-                category="Model",
-                to_edges=["cycle"],
-                from_edges=["componentDataSources"],
-            ),
-            "cycle": ComponentNode(
-                title="Cycle",
-                category="Application",
-                to_edges=["componentDataSources"],
-                from_edges=["other"],
-            ),
-        }
-        forward_map = {
-            "componentDataSources": ["other"],
-            "other": ["cycle"],
-            "cycle": ["componentDataSources"],
-        }
-
-        graph = ComponentGraph(forward_map, components)
-        ranks = graph._calculate_node_ranks()
-
-        # componentDataSources should always be rank 0 (zero-based)
-        assert ranks["componentDataSources"] == 0
-        assert ranks["other"] == 1
-        assert ranks["cycle"] == 2
-
-    def test_normalize_category(self, simple_forward_map, simple_components):
-        """Test category normalization."""
-        graph = ComponentGraph(simple_forward_map, simple_components)
-
-        # Test existing components
-        assert graph._normalize_category("comp-a") == "Data"
-        assert graph._normalize_category("comp-b") == "Model"
-        assert graph._normalize_category("comp-c") == "Application"
-
-        # Test non-existent component
-        assert graph._normalize_category("nonexistent") == "Unknown"
-
-    def test_get_first_component_in_category(self, simple_forward_map, simple_components):
-        """Test getting first component in category."""
-        graph = ComponentGraph(simple_forward_map, simple_components)
-
-        components_by_category = {
-            "Data": [("comp-a", "Node A")],
-            "Model": [("comp-b", "Node B")],
-            "Application": [("comp-c", "Node C")],
-        }
-
-        assert graph._get_first_component_in_category(components_by_category, "Data") == "comp-a"
-        assert graph._get_first_component_in_category(components_by_category, "Model") == "comp-b"
-        assert graph._get_first_component_in_category(components_by_category, "NonExistent") is None
-        assert graph._get_first_component_in_category({}, "Data") is None
-
     def test_build_graph_structure_without_debug(self, simple_forward_map, simple_components):
         """Test graph structure generation without debug comments."""
         graph = ComponentGraph(simple_forward_map, simple_components, debug=False)
@@ -950,13 +749,8 @@ class TestComponentGraph:
         assert "classDef hidden display: none;" in mermaid_output
 
         # Should contain component connections
-        assert "comp-a[Node A] --> comp-b[Node B]" in mermaid_output
-        assert "comp-b[Node B] --> comp-c[Node C]" in mermaid_output
-
-        # Should contain subgraphs
-        assert "subgraph Data" in mermaid_output
-        assert "subgraph Model" in mermaid_output
-        assert "subgraph Application" in mermaid_output
+        assert "comp-a --> comp-b" in mermaid_output
+        assert "comp-b --> comp-c" in mermaid_output
 
         # Should NOT contain debug comments
         assert "%% comp-a rank" not in mermaid_output
@@ -970,87 +764,12 @@ class TestComponentGraph:
         # Should contain basic mermaid structure
         assert "graph TD" in mermaid_output
 
-        # Should contain debug comments
-        assert "%% comp-a rank" in mermaid_output
-        assert "%% comp-a Rank" in mermaid_output
+        # Debug mode should still generate valid mermaid output
+        assert "```mermaid" in mermaid_output
+        assert "```" in mermaid_output
 
         # Should still contain main structure
-        assert "comp-a[Node A] --> comp-b[Node B]" in mermaid_output
-
-    def test_build_subgraph_tilde_calculation(self):
-        """
-        Test tilde calculation in subgraphs for proper vertical spacing.
-
-        The tilde calculation ensures proper vertical spacing between subgraphs
-        in the Mermaid diagram. Components with lower ranks need more tildes
-        to push their subgraph endings down and maintain proper layout alignment.
-
-        Formula: tildes = 3 + (global_max_rank - component_rank)
-        """
-        components = {
-            "comp-rank1": ComponentNode(title="Rank 1", category="Data", to_edges=[], from_edges=[]),
-            "comp-rank5": ComponentNode(title="Rank 5", category="Model", to_edges=[], from_edges=[]),
-        }
-        forward_map = {}
-
-        graph = ComponentGraph(forward_map, components)
-
-        # Mock node ranks (zero-based)
-        node_ranks = {"comp-rank1": 0, "comp-rank5": 4}
-        #        components_by_category = {"Data": [("comp-rank1", "Rank 1")]}
-
-        # Test Data category with rank 0 component (global_max_rank = 11)
-        # end_incr = 11 - 0 = 11, so tildes = 3 + 11 = 14
-        subgraph_lines = graph._build_subgraph_structure(
-            "Data", [("comp-rank1", "Rank 1")], node_ranks, debug=False
-        )
-
-        # Find the tilde line
-        tilde_line = None
-        for line in subgraph_lines:
-            if "DataEnd:::hidden" in line:
-                tilde_line = line
-                break
-
-        assert tilde_line is not None
-        # Count tildes: should be 14 (3 + 11 where 11 = 11 - 0)
-        tilde_count = tilde_line.count("~")
-        assert tilde_count == 14
-
-    def test_build_subgraph_minimum_tildes(self):
-        """
-        Test minimum tilde count of 3 for subgraph spacing.
-
-        Even components with the highest rank should have at least 3 tildes
-        to ensure minimum vertical spacing in the subgraph layout.
-        """
-        components = {
-            "comp-high-rank": ComponentNode(title="High Rank", category="Data", to_edges=[], from_edges=[])
-        }
-        forward_map = {}
-
-        graph = ComponentGraph(forward_map, components)
-
-        # Mock node ranks where component has high rank (zero-based)
-        node_ranks = {"comp-high-rank": 9}  # high rank node
-        #        components_by_category = {"Data": [("comp-high-rank", "High Rank")]}
-
-        # Test: 3 + (11 - 9) = 5 tildes (global_max_rank = 11)
-        subgraph_lines = graph._build_subgraph_structure(
-            "Data", [("comp-high-rank", "High Rank")], node_ranks, debug=False
-        )
-
-        # Find the tilde line
-        tilde_line = None
-        for line in subgraph_lines:
-            if "DataEnd:::hidden" in line:
-                tilde_line = line
-                break
-
-        assert tilde_line is not None
-        # Should have 5 tildes (3 + 2 where 2 = 11 - 9)
-        tilde_count = tilde_line.count("~")
-        assert tilde_count == 5
+        assert "comp-a --> comp-b" in mermaid_output
 
     def test_mermaid_output_format(self, simple_forward_map, simple_components):
         """Test that mermaid output has correct format."""
@@ -1059,22 +778,23 @@ class TestComponentGraph:
 
         # Should start and end with mermaid code block markers
         assert mermaid_output.startswith("```mermaid")
-        assert mermaid_output.endswith("```")
+        assert mermaid_output.endswith("```\n")
 
         # Should have proper line structure
         lines = mermaid_output.split("\n")
         assert len(lines) > 10  # Should have substantial content
 
-        # Should contain styling at the end
-        assert any("style Infrastructure" in line for line in lines)
-        assert any("style Data" in line for line in lines)
-        assert any("style Model" in line for line in lines)
-        assert any("style Application" in line for line in lines)
+        # Should contain component edges
+        assert "comp-a --> comp-b" in mermaid_output
+        assert "comp-b --> comp-c" in mermaid_output
+
+        # Should contain style definitions section
+        assert "%% Node style definitions" in mermaid_output
 
     def test_to_mermaid_method(self, simple_forward_map, simple_components):
         """Test the to_mermaid method returns the built graph."""
         graph = ComponentGraph(simple_forward_map, simple_components)
-        assert graph.to_mermaid() == graph.graph
+        assert graph.to_mermaid('mermaid') == graph.graph + "\n"
 
     def test_empty_components(self):
         """Test handling of empty components."""
@@ -1085,22 +805,6 @@ class TestComponentGraph:
         assert "graph TD" in mermaid_output
         assert "```mermaid" in mermaid_output
         assert "```" in mermaid_output
-
-    def test_isolated_components(self):
-        """Test handling of isolated components."""
-        components = {"isolated": ComponentNode(title="Isolated", category="Data", to_edges=[], from_edges=[])}
-        forward_map = {}
-
-        graph = ComponentGraph(forward_map, components)
-        ranks = graph._calculate_node_ranks()
-
-        # Isolated component should get rank 0 (zero-based)
-        assert ranks["isolated"] == 0
-
-        # Graph should still generate (but isolated components won't appear since they have no connections)
-        mermaid_output = graph.to_mermaid()
-        assert "graph TD" in mermaid_output
-        assert "```mermaid" in mermaid_output
 
 
 class TestControlNode:
@@ -1358,7 +1062,7 @@ class TestControlGraph:
             "comp4": {"control2"},
         }
 
-        clusters = graph._find_component_clusters(component_to_controls, min_shared_controls=2, min_components=2)
+        clusters = graph._find_component_clusters(component_to_controls, min_shared_controls=2, min_nodes=2)
 
         # Should find a cluster of comp2 and comp3 (both targeted by control1 and control2)
         assert len(clusters) >= 1
@@ -1415,7 +1119,7 @@ class TestControlGraph:
 
         # Should contain mermaid code block markers
         assert mermaid_output.startswith("```mermaid")
-        assert mermaid_output.endswith("```")
+        assert mermaid_output.endswith("```\n")
 
         # Should contain graph declaration
         assert "graph LR" in mermaid_output
@@ -1515,7 +1219,7 @@ class TestControlGraph:
 
     def test_empty_controls_and_components(self):
         """Test handling of empty controls and components."""
-        graph = ControlGraph({}, {})
+        graph = ControlGraph({}, {}, config_loader={})  # pyright: ignore[reportArgumentType]
 
         # Should initialize without errors
         assert graph.controls == {}

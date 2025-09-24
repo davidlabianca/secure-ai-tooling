@@ -374,7 +374,7 @@ if [[ $FORCE_VALIDATE -eq 0 ]] && git diff --cached --name-only | grep -q "risk-
     mkdir -p risk-map/docs
     
     # Generate the graph using the validator script
-    if python3 "$EDGE_VALIDATOR" --to-graph "./risk-map/docs/risk-map-graph.md" --quiet; then
+    if python3 "$EDGE_VALIDATOR" --to-graph "./risk-map/docs/risk-map-graph.md" -m --quiet; then
         echo "   ✅ Graph generated at ./risk-map/docs/risk-map-graph.md"
         
         # Add the generated graph to staging area
@@ -426,7 +426,7 @@ if [[ $FORCE_VALIDATE -eq 0 ]] && git diff --cached --name-only | grep -q "risk-
     mkdir -p risk-map/docs
 
     # Generate the control graph using the validator script
-    if python3 "$EDGE_VALIDATOR" --to-controls-graph "./risk-map/docs/controls-graph.md" --quiet; then
+    if python3 "$EDGE_VALIDATOR" --to-controls-graph "./risk-map/docs/controls-graph.md" -m --quiet; then
         echo "   ✅ Control graph generated at ./risk-map/docs/controls-graph.md"
 
         # Add the generated graph to staging area
@@ -437,6 +437,36 @@ if [[ $FORCE_VALIDATE -eq 0 ]] && git diff --cached --name-only | grep -q "risk-
         fi
     else
         echo "   ❌ Control Graph generation failed"
+        VALIDATION_FAILED=1
+    fi
+fi
+
+echo  # Add blank line for readability
+
+# =============================================================================
+# Risk Graph Generation 
+# =============================================================================
+
+# Only generate risk graph in normal mode (not --force) when components.yaml, controls.yaml or risks.yaml is staged
+# Risk graph depends on all files, so regenerate if they change
+if [[ $FORCE_VALIDATE -eq 0 ]] && git diff --cached --name-only | grep -q "risk-map/yaml/\(components\|controls\|risks\)\.yaml$"; then
+    echo "📊 Components, controls, or risks changed - generating control-to-risk graph..."
+
+    # Ensure docs directory exists
+    mkdir -p risk-map/docs
+
+    # Generate the control graph using the validator script
+    if python3 "$EDGE_VALIDATOR" --to-risk-graph "./risk-map/docs/controls-to-risk-graph.md" -m --quiet; then
+        echo "   ✅ Risk-to-Control graph generated at ./risk-map/docs/controls-to-risk-graph.md"
+
+        # Add the generated graph to staging area
+        if git add "./risk-map/docs/controls-to-risk-graph.md"; then
+            echo "   ✅ Risk-to-Control Graph added to staged files"
+        else
+            echo "   ⚠️  Warning: Could not stage generated control graph"
+        fi
+    else
+        echo "   ❌ Risk-to-Controls Graph generation failed"
         VALIDATION_FAILED=1
     fi
 fi
@@ -465,6 +495,11 @@ fi
 
 # Check if control graph was generated and add to summary
 if [[ $FORCE_VALIDATE -eq 0 ]] && git diff --cached --name-only | grep -q "risk-map/yaml/\(components\|controls\)\.yaml$"; then
+    echo "   📊 Control Graph generated and staged"
+fi
+
+# Check if control graph was generated and add to summary
+if [[ $FORCE_VALIDATE -eq 0 ]] && git diff --cached --name-only | grep -q "risk-map/yaml/\(components\|controls\|risks\)\.yaml$"; then
     echo "   📊 Control Graph generated and staged"
 fi
 

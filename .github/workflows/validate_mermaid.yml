@@ -1,0 +1,352 @@
+name: Validate Mermaid Files
+
+on:
+  pull_request:
+    branches: [ main, develop ]
+    paths:
+      - '**/*.mmd'
+      - '**/*.mermaid'
+      - '!**/*.svg'  # Explicitly exclude SVG files
+
+# Environment variables for configuration
+env:
+  MERMAID_PATH: ./risk-map/docs/
+  PREVIEW_PATH: ./preview-svgs
+  MAX_SVG_EMBED_SIZE: 5000  # Max characters to embed in PR comment
+  MAX_COMMENT_SIZE: 60000    # GitHub's limit is 65536, leave buffer
+
+permissions:
+  contents: read
+  pull-requests: write  # For adding comments only
+
+jobs:
+  validate-mermaid:
+    runs-on: ubuntu-latest
+    name: Validate Mermaid Files
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        token: ${{ github.token }}  # Use default GITHUB_TOKEN with limited permissions
+
+    - name: Setup Node.js without npm cache
+      uses: actions/setup-node@v5
+      with:
+        node-version: '22.x'
+
+    - name: Cache global npm packages
+      uses: actions/cache@v4
+      id: npm-cache
+      with:
+        path: |
+          ~/.npm
+          ~/.cache/puppeteer
+        key: ${{ runner.os }}-npm-mermaid-cli-v11-${{ hashFiles('.github/workflows/validate-mermaid.yml') }}
+        restore-keys: |
+          ${{ runner.os }}-npm-mermaid-cli-v11-
+          ${{ runner.os }}-npm-mermaid-cli-
+
+    - name: Install Mermaid CLI globally
+      run: |
+        # Check if we have a cache hit
+        if [ "${{ steps.npm-cache.outputs.cache-hit }}" == "true" ]; then
+          echo "📦 Cache hit - verifying Mermaid CLI installation..."
+        else
+          echo "📦 Cache miss - installing Mermaid CLI..."
+        fi
+        # Add npm global bin to PATH
+        echo "$(npm config get prefix)/bin" >> $GITHUB_PATH
+        npm install -g @mermaid-js/mermaid-cli@latest
+        echo "Mermaid CLI version: $(npx mmdc --version)"
+
+    - name: Setup Chrome for Puppeteer
+      uses: browser-actions/setup-chrome@latest
+      with:
+        chrome-version: stable
+        install-dependencies: true
+
+    - name: Validate directory structure
+      run: |
+        set -euo pipefail
+        
+        echo "🔍 Checking directory structure..."
+        
+        if [ ! -d "${MERMAID_PATH}" ]; then
+          echo "::warning::Directory ${MERMAID_PATH} does not exist"
+          echo "ℹ️  No Mermaid directory found. This is expected if the directory hasn't been created yet."
+          echo "validation_skipped=true" >> $GITHUB_ENV
+          exit 0
+        fi
+        
+        echo "✅ Directory ${MERMAID_PATH} exists"
+        echo "validation_skipped=false" >> $GITHUB_ENV
+
+    - name: Validate and generate preview SVGs
+      if: env.validation_skipped != 'true'
+      run: |
+        set -euo pipefail
+        
+        echo "🔍 Validating Mermaid files and generating previews..."
+        
+        # Create preview directory
+        mkdir -p ${PREVIEW_PATH}
+        
+        # Find all .mmd and .mermaid files (excluding node_modules and hidden directories)
+        mapfile -t mermaid_files < <(find ${MERMAID_PATH} \
+          -type f \
+          \( -name "*.mmd" -o -name "*.mermaid" \) \
+          -not -path "*/node_modules/*" \
+          -not -path "*/.*/*" \
+          2>/dev/null || true)
+
+        if [ ${#mermaid_files[@]} -eq 0 ]; then
+          echo "ℹ️  No Mermaid files found in ${MERMAID_PATH}"
+          echo "This is normal if no Mermaid files were added or modified in this PR."
+          echo "no_files=true" >> $GITHUB_ENV
+          exit 0
+        fi
+
+        echo "📊 Found ${#mermaid_files[@]} Mermaid file(s) to validate and preview"
+        echo "no_files=false" >> $GITHUB_ENV
+
+        validation_errors=0
+        valid_files=()
+        failed_files=()
+
+        # Puppeteer config for better stability
+        PUPPETEER_CONFIG_FILE="/tmp/puppeteer.json.config"
+        echo '{"args": ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"]}' > ${PUPPETEER_CONFIG_FILE}
+
+        # Validate each file and generate preview SVGs
+        for file in "${mermaid_files[@]}"; do
+          echo "🔍 Validating $(basename "$file")"
+          
+          # Generate SVG for preview
+          preview_output="${PREVIEW_PATH}/$(basename "$file" | sed 's/\.[^.]*$/.svg/')"
+          
+          if npx mmdc -i "$file" -o "$preview_output" -p "${PUPPETEER_CONFIG_FILE}" ; then
+            echo "✅ Valid: $(basename "$file")"
+            valid_files+=("$file")
+          else
+            echo "❌ Invalid: $(basename "$file")"
+            echo "::error file=$file::Mermaid syntax error in $file"
+            failed_files+=("$file")
+            validation_errors=$((validation_errors + 1))
+          fi
+        done
+
+        # Save results for later steps
+        printf '%s\n' "${valid_files[@]}" > valid_files.txt || true
+        printf '%s\n' "${failed_files[@]}" > failed_files.txt || true
+        echo "validation_errors=$validation_errors" >> $GITHUB_ENV
+
+        if [ $validation_errors -gt 0 ]; then
+          echo "::error::Found $validation_errors Mermaid file(s) with syntax errors"
+          echo "💥 Validation failed! Please fix the syntax errors above."
+          exit 1
+        else
+          echo "✅ All Mermaid files are valid!"
+          echo "🎉 Validation completed successfully!"
+        fi
+
+    - name: Upload SVG previews as artifacts
+      if: success() && env.no_files != 'true'
+      uses: actions/upload-artifact@v4
+      with:
+        name: mermaid-svg-previews
+        path: preview-svgs/
+        retention-days: 7  # Reduced from 30 to save storage
+        if-no-files-found: ignore
+
+    - name: Comment on PR with results
+      if: always() && env.validation_skipped != 'true'
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const fs = require('fs');
+          const path = require('path');
+          
+          const MAX_SVG_SIZE = parseInt(process.env.MAX_SVG_EMBED_SIZE);
+          const MAX_COMMENT_SIZE = parseInt(process.env.MAX_COMMENT_SIZE);
+          
+          // Check if validation was skipped due to no files
+          if (process.env.no_files === 'true') {
+            console.log('No Mermaid files to validate');
+            return;
+          }
+          
+          // Read validation results
+          let validFiles = [];
+          let failedFiles = [];
+          let validationErrors = parseInt(process.env.validation_errors || '0');
+          
+          try {
+            const validFilesContent = fs.readFileSync('valid_files.txt', 'utf8');
+            validFiles = validFilesContent.trim().split('\n').filter(f => f);
+          } catch (error) {
+            console.log('No valid files found');
+          }
+          
+          try {
+            const failedFilesContent = fs.readFileSync('failed_files.txt', 'utf8');
+            failedFiles = failedFilesContent.trim().split('\n').filter(f => f);
+          } catch (error) {
+            console.log('No failed files found');
+          }
+          
+          // Generate appropriate comment based on results
+          let commentBody = '';
+          
+          if (validationErrors > 0) {
+            // Validation failed
+            commentBody = `## ❌ Mermaid Validation Failed\n\n`;
+            commentBody += `Found ${validationErrors} Mermaid file(s) with syntax errors:\n\n`;
+            
+            for (const file of failedFiles) {
+              const relativePath = file.replace('./risk-map/docs/', '');
+              commentBody += `- ❌ \`${relativePath}\`\n`;
+            }
+            
+            commentBody += `\n### How to fix:\n\n`;
+            commentBody += `1. Check the workflow logs for detailed error messages\n`;
+            commentBody += `2. Test locally:\n`;
+            commentBody += `\`\`\`bash\n`;
+            commentBody += `npm install -g @mermaid-js/mermaid-cli\n`;
+            commentBody += `npx mmdc -i your-file.mmd -o test.svg\n`;
+            commentBody += `\`\`\`\n`;
+            commentBody += `3. Fix the syntax errors and push your changes\n`;
+            
+          } else if (validFiles.length > 0) {
+            // Validation succeeded
+            commentBody = `## ✅ Mermaid Validation Successful\n\n`;
+            commentBody += `All ${validFiles.length} Mermaid file(s) passed validation.\n\n`;
+            
+            // Add previews if they fit
+            let previewsAdded = 0;
+            let currentSize = commentBody.length;
+            
+            for (const filePath of validFiles) {
+              const fileName = path.basename(filePath);
+              const svgFileName = fileName.replace(/\.(mmd|mermaid)$/, '.svg');
+              const relativePath = filePath.replace('./risk-map/docs/', '');
+              
+              try {
+                const svgContent = fs.readFileSync(`preview-svgs/${svgFileName}`, 'utf8');
+                const svgSize = svgContent.length;
+                
+                // Check if adding this SVG would exceed limits
+                const sectionSize = relativePath.length + svgSize + 200; // Buffer for markup
+                if (currentSize + sectionSize > MAX_COMMENT_SIZE) {
+                  if (previewsAdded === 0) {
+                    commentBody += `⚠️ SVG previews are too large to embed in comment.\n`;
+                    commentBody += `Please check the workflow artifacts for the generated SVG files.\n\n`;
+                  } else {
+                    commentBody += `\n⚠️ Additional previews omitted due to size limits.\n`;
+                    commentBody += `Check the workflow artifacts for all generated SVG files.\n`;
+                  }
+                  break;
+                }
+                
+                commentBody += `<details>\n`;
+                commentBody += `<summary><strong>📄 ${relativePath}</strong></summary>\n\n`;
+                
+                if (svgSize > MAX_SVG_SIZE) {
+                  commentBody += `⚠️ SVG is too large to embed (${svgSize} characters).\n`;
+                  commentBody += `Please check the workflow artifacts.\n`;
+                } else {
+                  commentBody += `**Preview:**\n\n`;
+                  commentBody += `${svgContent}\n`;
+                }
+                
+                commentBody += `\n</details>\n\n`;
+                
+                currentSize += sectionSize;
+                previewsAdded++;
+                
+              } catch (error) {
+                console.log(`Could not read SVG for ${relativePath}: ${error.message}`);
+              }
+            }
+            
+            commentBody += `---\n`;
+            commentBody += `📁 **Download full SVGs:** Check the [workflow artifacts](${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}) for downloadable SVG files.\n`;
+          }
+          
+          if (!commentBody) {
+            console.log('No comment needed');
+            return;
+          }
+          
+          // Find existing comment to update or create new one
+          const { data: comments } = await github.rest.issues.listComments({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            issue_number: context.issue.number,
+          });
+
+          const botComments = comments.filter(comment => 
+            comment.user.login === 'github-actions[bot]' && 
+            (comment.body.includes('Mermaid Validation') || comment.body.includes('Mermaid SVG Preview'))
+          );
+
+          if (botComments.length > 0) {
+            // Update the most recent bot comment
+            await github.rest.issues.updateComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              comment_id: botComments[botComments.length - 1].id,
+              body: commentBody
+            });
+            console.log('Updated existing comment');
+          } else {
+            // Create new comment
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: commentBody
+            });
+            console.log('Created new comment');
+          }
+
+  validation-summary:
+    runs-on: ubuntu-latest
+    name: Validation Summary
+    needs: [validate-mermaid]
+    if: always()
+    steps:
+    - name: Generate Summary
+      run: |
+        set -euo pipefail
+        
+        echo "# 📋 Mermaid Validation Summary" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+
+        validation_result="${{ needs.validate-mermaid.result }}"
+
+        case "$validation_result" in
+          "success")
+            echo "## ✅ Status: Success" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "All Mermaid files are valid and ready for merge!" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "### Next Steps:" >> $GITHUB_STEP_SUMMARY
+            echo "- Review the generated SVG previews in the PR comments" >> $GITHUB_STEP_SUMMARY
+            echo "- Download full-resolution SVGs from the workflow artifacts if needed" >> $GITHUB_STEP_SUMMARY
+            ;;
+          "skipped")
+            echo "## ⏭️ Status: Skipped" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "No Mermaid files were found or modified in this PR." >> $GITHUB_STEP_SUMMARY
+            ;;
+          *)
+            echo "## ❌ Status: Failed" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "Mermaid validation failed. Please check:" >> $GITHUB_STEP_SUMMARY
+            echo "1. The workflow logs for specific error messages" >> $GITHUB_STEP_SUMMARY
+            echo "2. The PR comments for a list of files with errors" >> $GITHUB_STEP_SUMMARY
+            echo "3. Fix the syntax errors and push your changes" >> $GITHUB_STEP_SUMMARY
+            echo "::error::Mermaid validation failed"
+            exit 1
+            ;;
+        esac
