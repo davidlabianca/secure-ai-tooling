@@ -40,7 +40,7 @@ jobs:
         # Copy the scripts from the repo to make them executable in CI
         cp scripts/hooks/validate_riskmap.py .
         mkdir -p riskmap_validator
-        cp -r scripts/hooks/riskmap_validator/* ./riskmap_validator/
+        cp scripts/hooks/riskmap_validator/*.py ./riskmap_validator/
         cp scripts/hooks/validate_control_risk_references.py .
 
     - name: Install dependencies
@@ -162,7 +162,7 @@ jobs:
       run: |
         cp scripts/hooks/validate_riskmap.py .
         mkdir -p riskmap_validator
-        cp -r scripts/hooks/riskmap_validator/* ./riskmap_validator/
+        cp scripts/hooks/riskmap_validator/*.py ./riskmap_validator/
 
     - name: Install dependencies
       run: pip install -r requirements.txt
@@ -229,7 +229,7 @@ jobs:
       run: |
         cp scripts/hooks/validate_riskmap.py .
         mkdir -p riskmap_validator
-        cp -r scripts/hooks/riskmap_validator/* ./riskmap_validator/
+        cp scripts/hooks/riskmap_validator/*.py ./riskmap_validator/
 
     - name: Install dependencies
       run: pip install -r requirements.txt

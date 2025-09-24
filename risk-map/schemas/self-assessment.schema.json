@@ -1,8 +1,6 @@
 {
   "$id": "self-assessment.schema.json",
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "CoSAI-RM Self-Assessment Schema",
-  "description": "Schema for validating YAML-based self-assessment definition",
   "type": "object",
   "properties": {
     "selfAssessment": {"$ref": "#/definitions/selfAssessment"}

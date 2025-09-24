@@ -106,7 +106,7 @@ chmod +x "$TARGET_HOOK"
 echo "🔗 Installing component edge validator..."
 mkdir -p "${TARGET_VALIDATOR_MODULE}"
 cp "${REPO_ROOT}/${VALIDATOR_SRC}" "${TARGET_VALIDATOR}"
-cp -r ${REPO_ROOT}/${VALIDATOR_MODULE_SRC}/* "${TARGET_VALIDATOR_MODULE}/"
+cp ${REPO_ROOT}/${VALIDATOR_MODULE_SRC}/*.py "${TARGET_VALIDATOR_MODULE}/"
 chmod +x "$TARGET_VALIDATOR"
 
 # Install control-to-risk reference validator

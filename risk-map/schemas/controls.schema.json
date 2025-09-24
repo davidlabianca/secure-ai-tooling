@@ -1,8 +1,6 @@
 {
   "$id": "controls.schema.json",
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "CoSAI-RM Controls Schema",
-  "description": "Schema for validating YAML-based controls definition",
   "type": "object",
   "properties": {
     "title": {"type": "string"},

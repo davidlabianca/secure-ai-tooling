@@ -43,6 +43,11 @@ sharedElements:
       stroke: '#333333' # Dark gray border
       strokeWidth: '2px' # Medium border width
       subgroupFill: '#d4e6d4' # Darker green for infrastructure subgroups
+    componentsData:
+      fill: '#fff5e6' # Light orange for data components
+      stroke: '#333333' # Dark gray border
+      strokeWidth: '2px' # Medium border width
+      subgroupFill: '#f5f0e6' # Darker orange for data subgroups
     componentsApplication:
       fill: '#e6f0ff' # Light blue for application components
       stroke: '#333333' # Dark gray border
@@ -59,11 +64,9 @@ graphTypes:
   # ComponentGraph configuration
   component:
     direction: 'TD' # Top-down layout for component relationships
-    metadata:
-      layout: 'elk'
-      mergeEdges: False
-      nodePlacementStrategy: 'BRANDES_KOEPF'
     flowchartConfig:
+      nodeSpacing: 20 # Space between nodes
+      rankSpacing: 20 # Space between ranks/levels
       padding: 5 # Internal node padding
       wrappingWidth: 250 # Text wrapping width
     specialStyling: {} # No special styling for component graphs
@@ -71,11 +74,6 @@ graphTypes:
   # ControlGraph configuration
   control:
     direction: 'LR' # Left-right layout optimized for control-to-component flow
-    metadata:
-      layout: 'elk'
-      mergeEdges: True
-      # Both NETWORK_SIMPLEX and BRANDES_KOEPF work well
-      nodePlacementStrategy: 'NETWORK_SIMPLEX'
     flowchartConfig:
       nodeSpacing: 25 # Space between nodes
       rankSpacing: 150 # Space between ranks/levels
@@ -104,67 +102,6 @@ graphTypes:
 
         # Multi-edge styling for controls with 3+ individual component mappings
         # Uses 4-color cycling system with different patterns for visual distinction
-        multiEdgeStyles:
-          - stroke: '#9c27b0' # Purple - solid
-            strokeWidth: '2px'
-          - stroke: '#ff9800' # Orange - dashed
-            strokeWidth: '2px'
-            strokeDasharray: '5 5'
-          - stroke: '#e91e63' # Pink - long dash
-            strokeWidth: '2px'
-            strokeDasharray: '10 2'
-          - stroke: '#C95792' # Magenta - long dash with spacing
-            strokeWidth: '2px'
-            strokeDasharray: '10 5'
-
-  # RiskGraph configuration - extends control graph with risk-specific elements
-  risk:
-    direction: 'LR' # Left-to-right layout for three-layer hierarchy (risks → controls → components)
-    metadata:
-      layout: 'elk'
-      mergeEdges: True
-      # Both NETWORK_SIMPLEX and BRANDES_KOEPF work well
-      nodePlacementStrategy: 'NETWORK_SIMPLEX'
-    flowchartConfig:
-      nodeSpacing: 30 # Increased spacing for three-layer complexity
-      rankSpacing: 40 # Increased spacing between layers
-      padding: 5 # Internal node padding
-      wrappingWidth: 250 # Text wrapping width
-    specialStyling:
-      # Risk category styling - distinctive visual identity for security risks
-      riskCategories:
-        risks:
-          fill: '#ffeef0' # Light pink background for risk category
-          stroke: '#e91e63' # Pink border for risk emphasis
-          strokeWidth: '2px' # Standard border width
-          subgroupFill: '#ffe0e6' # Darker pink for risk subgroups (future use)
-
-      # Components container styling - reused from control graph
-      componentsContainer:
-        fill: '#f0f0f0' # Light gray background
-        stroke: '#666666' # Medium gray border
-        strokeWidth: '3px' # Thick border for emphasis
-        strokeDasharray: '10 5' # Long dashed border pattern
-
-      # Edge styling system for risk graph relationships
-      edgeStyles:
-        # Risk-to-control edges - primary relationship in risk graphs
-        riskControlEdges:
-          stroke: '#e91e63' # Pink to match risk theme
-          strokeWidth: '2px' # Standard width
-          strokeDasharray: '5 3' # Distinctive dashed pattern for risk mitigation
-
-        # Inherited control-to-component edge styles from control graph
-        allControlEdges:
-          stroke: '#4285f4' # Google Blue
-          strokeWidth: '3px' # Thick for emphasis
-          strokeDasharray: '8 4' # Dotted pattern
-
-        subgraphEdges:
-          stroke: '#34a853' # Google Green
-          strokeWidth: '2px' # Standard width
-
-        # Multi-edge styling - reused from control graph for consistency
         multiEdgeStyles:
           - stroke: '#9c27b0' # Purple - solid
             strokeWidth: '2px'

@@ -1,12 +1,4 @@
 ```mermaid
----
-config:
-  layout: elk
-  elk:
-    mergeEdges: True
-    nodePlacementStrategy: NETWORK_SIMPLEX
----
-
 graph LR
    %%{init: {'flowchart': {'nodeSpacing': 25, 'rankSpacing': 150, 'padding': 5, 'wrappingWidth': 250}}}%%
     classDef hidden display: none;
@@ -55,26 +47,27 @@ graph LR
     end
 
     subgraph components
-    subgraph componentsInfrastructure ["Infrastructure Components"]
+    subgraph componentsData ["Data Components"]
         componentDataFilteringAndProcessing[Data Filtering and Processing]
         componentDataSources[Data Sources]
-        componentDataStorage[Data Storage Infrastructure]
         componentTrainingData[Training Data]
-        subgraph componentsModels ["Models"]
+    end
+
+    subgraph componentsInfrastructure ["Infrastructure Components"]
+        componentDataStorage[Data Storage Infrastructure]
+        componentModelFrameworksAndCode[Model Frameworks and Code]
+        subgraph componentsModelInfrastructure ["Model Infrastructure"]
+            componentModelEvaluation[Model Evaluation]
             componentModelServing[Model Serving Infrastructure]
             componentModelStorage[Model Storage]
+            componentModelTrainingTuning[Training and Tuning]
         end
     end
 
     subgraph componentsModel ["Model Components"]
         componentInputHandling[Input Handling]
-        componentModelFrameworksAndCode[Model Frameworks and Code]
         componentOutputHandling[Output Handling]
         componentTheModel[The Model]
-        subgraph componentsModelModel ["Model Model"]
-            componentModelEvaluation[Model Evaluation]
-            componentModelTrainingTuning[Training and Tuning]
-        end
     end
 
     subgraph componentsApplication ["Application Components"]
@@ -85,21 +78,19 @@ graph LR
     end
 
     %% Control to Component relationships
+    controlPrivacyEnhancingTechnologies --> componentModelEvaluation
+    controlPrivacyEnhancingTechnologies --> componentModelTrainingTuning
     controlPrivacyEnhancingTechnologies --> componentOutputHandling
-    controlPrivacyEnhancingTechnologies --> componentsModelModel
     controlTrainingDataManagement --> componentDataSources
+    controlTrainingDataManagement --> componentModelEvaluation
+    controlTrainingDataManagement --> componentModelTrainingTuning
     controlTrainingDataManagement --> componentTrainingData
-    controlTrainingDataManagement --> componentsModelModel
     controlTrainingDataSanitization --> componentDataFilteringAndProcessing
     controlUserDataManagement --> componentDataStorage
-    controlModelAndDataInventoryManagement --> componentsModelModel
-    controlModelAndDataInventoryManagement --> componentsModels
-    controlModelAndDataAccessControls --> componentsModelModel
-    controlModelAndDataAccessControls --> componentsModels
-    controlModelAndDataIntegrityManagement --> componentsModelModel
-    controlModelAndDataIntegrityManagement --> componentsModels
-    controlSecureByDefaultMLTooling --> componentsModelModel
-    controlSecureByDefaultMLTooling --> componentsModels
+    controlModelAndDataInventoryManagement --> componentsModelInfrastructure
+    controlModelAndDataAccessControls --> componentsModelInfrastructure
+    controlModelAndDataIntegrityManagement --> componentsModelInfrastructure
+    controlSecureByDefaultMLTooling --> componentsModelInfrastructure
     controlInputValidationAndSanitization --> componentInputHandling
     controlOutputValidationAndSanitization --> componentOutputHandling
     controlAdversarialTrainingAndTesting --> componentTheModel
@@ -119,16 +110,18 @@ graph LR
     controlVulnerabilityManagement:::allControl
 
     %% Edge styling
-    linkStyle 22,23,24,25 stroke:#4285f4,stroke-width:3px,stroke-dasharray: 8 4
-    linkStyle 1,4,7,8,9,10,11,12,13,14 stroke:#34a853,stroke-width:2px
-    linkStyle 2 stroke:#9c27b0,stroke-width:2px
-    linkStyle 3 stroke:#ff9800,stroke-width:2px,stroke-dasharray: 5 5
+    linkStyle 20,21,22,23 stroke:#4285f4,stroke-width:3px,stroke-dasharray: 8 4
+    linkStyle 9,10,11,12 stroke:#34a853,stroke-width:2px
+    linkStyle 0,3 stroke:#9c27b0,stroke-width:2px
+    linkStyle 1,4 stroke:#ff9800,stroke-width:2px,stroke-dasharray: 5 5
+    linkStyle 2,5 stroke:#e91e63,stroke-width:2px,stroke-dasharray: 10 2
+    linkStyle 6 stroke:#C95792,stroke-width:2px,stroke-dasharray: 10 5
 
 %% Node style definitions
     style components fill:#f0f0f0,stroke:#666666,stroke-width:3px,stroke-dasharray: 10 5
     style componentsInfrastructure fill:#e6f3e6,stroke:#333333,stroke-width:2px
+    style componentsData fill:#fff5e6,stroke:#333333,stroke-width:2px
     style componentsApplication fill:#e6f0ff,stroke:#333333,stroke-width:2px
     style componentsModel fill:#ffe6e6,stroke:#333333,stroke-width:2px
-    style componentsModels fill:#d4e6d4,stroke:#333,stroke-width:1px
-    style componentsModelModel fill:#f0e6e6,stroke:#333,stroke-width:1px
+    style componentsModelInfrastructure fill:#d4e6d4,stroke:#333,stroke-width:1px
 ```

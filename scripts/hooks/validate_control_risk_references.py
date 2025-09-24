@@ -21,7 +21,7 @@ import yaml
 
 
 def get_staged_yaml_files(force_check: bool = False) -> list[Path]:
-    """Get controls.yaml and risks.yaml if either is staged or if forced."""
+    """Get the specific controls.yaml and risks.yaml files if either is staged for commit or if forced."""
     target_files: list[Path] = [
         Path("risk-map/yaml/controls.yaml"),
         Path("risk-map/yaml/risks.yaml"),
@@ -64,8 +64,11 @@ def load_yaml_file(file_path: Path) -> dict | None:
     """
     Load and parse YAML file with error handling.
 
+    Args:
+        file_path: Path to YAML file to load
+
     Returns:
-        Parsed YAML data as dict, or None if loading fails
+        Parsed YAML data as dictionary, or None if loading fails
     """
     try:
         with open(file_path, "r", encoding="utf-8") as f:
@@ -80,10 +83,13 @@ def load_yaml_file(file_path: Path) -> dict | None:
 
 def extract_controls_data(yaml_data: dict) -> dict[str, list[str]]:
     """
-    Extract control IDs and risk references from controls.yaml.
+    Extract control IDs and their risk references from controls.yaml data.
+
+    Args:
+        yaml_data: Parsed controls.yaml content
 
     Returns:
-        Dict mapping control_id -> list of risk_ids
+        Dictionary mapping control_id -> list of risk_ids that control addresses
     """
     controls = {}
 
@@ -105,8 +111,11 @@ def extract_risks_data(yaml_data: dict) -> dict[str, list[str]]:
     """
     Extract control references from risks.yaml and build reverse mapping.
 
+    Args:
+        yaml_data: Parsed risks.yaml content
+
     Returns:
-        Dict mapping control_id -> list of risk_ids that reference that control
+        Dictionary mapping control_id -> list of risk_ids that reference that control
     """
     risks_by_control = {}
 
@@ -176,11 +185,12 @@ def compare_control_maps(controls: dict[str, list[str]], risks: dict[str, list[s
         risks_per_control_yaml = controls.get(control_id, [])  # What controls.yaml says
         risks_per_risks_yaml = risks.get(control_id, [])  # What we derive from risks.yaml
 
-        # Skip "all"/"none" and empty lists (covered in isolated checks)
+        # Skip if either lists "all" or "none" for the risks addressed
+        # Skip if either list is empty - covered in isolated checks
         if risks_per_control_yaml in ["all", "none"] or risks_per_control_yaml == []:
             continue
 
-        # Case 1: Control in controls.yaml but not referenced in risks.yaml
+        # Case 1: Control exists in controls.yaml but not referenced in risks.yaml
         if control_id in controls and control_id not in risks:
             errors.append(
                 f"[ISSUE: risks.yaml] "
@@ -189,7 +199,7 @@ def compare_control_maps(controls: dict[str, list[str]], risks: dict[str, list[s
             )
             continue
 
-        # Case 2: Control referenced in risks.yaml but missing from controls.yaml
+        # Case 2: Control is referenced in risks.yaml but doesn't exist in controls.yaml
         if control_id not in controls and control_id in risks:
             errors.append(
                 f"[ISSUE: controls.yaml] "
@@ -198,7 +208,7 @@ def compare_control_maps(controls: dict[str, list[str]], risks: dict[str, list[s
             )
             continue
 
-        # Case 3: Control exists in both but risk lists don't match
+        # Case 3: Control exists in both but the risk lists don't match
         if sorted(risks_per_control_yaml) != sorted(risks_per_risks_yaml):
             missing_from_risks_yaml = set(risks_per_control_yaml) - set(risks_per_risks_yaml)
             extra_in_risks_yaml = set(risks_per_risks_yaml) - set(risks_per_control_yaml)
@@ -225,7 +235,7 @@ def validate_control_to_risk(file_paths: list[Path]) -> bool:
     """Validate control-to-risk reference consistency."""
     print(f"   Validating control-to-risk references in: {', '.join(map(str, file_paths))}")
 
-    # Load YAML files
+    # Load and parse YAML
     controls_yaml_data = load_yaml_file(file_paths[0])  # controls.yaml
     risks_yaml_data = load_yaml_file(file_paths[1])  # risks.yaml
 
@@ -234,10 +244,10 @@ def validate_control_to_risk(file_paths: list[Path]) -> bool:
         return False
 
     # Extract mappings
-    # controls: control_id → risks it addresses (from controls.yaml)
+    # controls: control_id -> list of risks it addresses (from controls.yaml)
     controls = extract_controls_data(controls_yaml_data)
 
-    # risks: control_id → risks that reference it (derived from risks.yaml)
+    # risks: control_id -> list of risks that reference it (derived from risks.yaml)
     risks = extract_risks_data(risks_yaml_data)
 
     if not controls:
@@ -247,7 +257,7 @@ def validate_control_to_risk(file_paths: list[Path]) -> bool:
         print(f"  ℹ️  No risks found in {file_paths[1]} - skipping validation")
         return True
 
-    # Find isolated entries with no cross-references
+    # Find isolated entries (controls/risks with no cross-references)
     isolated_controls, isolated_risks = find_isolated_entries(controls, risks)
 
     # Validate cross-reference consistency
@@ -309,7 +319,7 @@ def main():
     else:
         print("🔍 Checking for YAML file changes...")
 
-    # Get staged YAML files or force check
+    # Get staged YAML files (or force check)
     yaml_files = get_staged_yaml_files(args.force)
 
     if not yaml_files:

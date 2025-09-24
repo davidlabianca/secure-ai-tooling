@@ -28,6 +28,24 @@ description:
     risks of AI development. The controls suggested to address the risks across this
     framing all align with the six core elements of Google's SAIF.
 categories:
+  - id: componentsData
+    title: Data components
+    description:
+      - >
+        Traditional software development follows predictable instructions: the user
+        inputs trigger static code, which determines the logic driving outcomes of the
+        program. In AI development, data takes on aspects of the role previously played
+        by code—which transforms the security and privacy risks.
+      - >
+        AI models are dynamic systems. They rely not only on their static code and user
+        inputs, but also on learned patterns encoded in their internal parameters, referred
+        to as 'model weights.' These weights are derived from the model's training
+        data and training processes.
+      - >
+        Compromising these model weights can have a significant impact on the model's
+        behavior and outputs. This makes attacks on model weights as potentially damaging
+        as attacks targeting the code in traditional software development.
+      - 'There are three main data components in the CoSAI Risk Map:'
   - id: componentsInfrastructure
     title: Infrastructure components
     description:
@@ -48,24 +66,8 @@ categories:
         Authentication and authorization for any access to the physical environments
         is essential. Software supply chain integrity for all traditional software
         dependencies should be considered.
-    subcategory:
-      - id: componentsData
-        title: Data components
-        description:
-          - >
-            Traditional software development follows predictable instructions: the user
-            inputs trigger static code, which determines the logic driving outcomes of the
-            program. In AI development, data takes on aspects of the role previously played
-            by code—which transforms the security and privacy risks.
-          - >
-            AI models are dynamic systems. They rely not only on their static code and user
-            inputs, but also on learned patterns encoded in their internal parameters, referred
-            to as 'model weights.' These weights are derived from the model's training
-            data and training processes.
-          - >
-            Compromising these model weights can have a significant impact on the model's
-            behavior and outputs. This makes attacks on model weights as potentially damaging
-            as attacks targeting the code in traditional software development.
+      - 'Looking at the supplemental risks that are introduced by AI, infrastructure
+        components in the CoSAI Risk Map are:'
   - id: componentsModel
     title: Model components
     description:
@@ -74,13 +76,7 @@ categories:
         a model is to apply the  statistical patterns extracted from training data
         and use these to generate new text, images, videos, or other output data (also
         known as inferences) from input data provided to it.
-    subcategory:
-      - id: componentsModelTraining
-        title: Model training components
-        description:
-          - >
-            Primary processes and artifacts leveraged in the training of models from source data
-            and algorithms.
+      - 'Model components in the CoSAI Risk Map consist of:'
   - id: componentsApplication
     title: Application components
     description:
@@ -99,6 +95,7 @@ categories:
         opens up exciting possibilities of more complex behaviors, each connection
         also increases the potential impact of a successful attack on the AI model
         or network.
+      - 'Application components in the CoSAI Risk Map are:'
 components:
   - id: componentDataSources
     title: Data Sources
@@ -108,8 +105,7 @@ components:
         use in training an AI model. These can include databases, APIs, web scraping,
         or even sensor data. The quality and diversity of data sources significantly
         impact the model's capabilities.
-    category: componentsInfrastructure
-    subcategory: componentsData
+    category: componentsData
     edges:
       to:
         - componentDataFilteringAndProcessing
@@ -123,8 +119,7 @@ components:
         sources to make it suitable for training. This may include labeling data, removing
         duplicates or errors, and even generating new synthetic data to enhance the
         model's learning.
-    category: componentsInfrastructure
-    subcategory: componentsData
+    category: componentsData
     edges:
       to:
         - componentTrainingData
@@ -137,8 +132,7 @@ components:
         The final, curated subset of data that is fed into the AI model during the training
         process. This data is used to adjust the model's internal parameters, enabling
         it to learn patterns and make predictions or inferences.
-    category: componentsInfrastructure
-    subcategory: componentsData
+    category: componentsData
     edges:
       to:
         - componentDataStorage
@@ -167,8 +161,7 @@ components:
         required to run inferences (i.e., make predictions) when the model is in use.
         Usually framework code is shipped separately from the model itself and needs
         to be installed to use the model.
-    category: componentsModel
-    subcategory: componentsModelTraining
+    category: componentsInfrastructure
     edges:
       to:
         - componentModelTrainingTuning
@@ -180,8 +173,7 @@ components:
         Evaluation happens in two stages: during the training
         process, when each checkpointed update to the model is evaluated, and after
         the model is trained, to assess how well it performs at its intended purpose.
-    category: componentsModel
-    subcategory: componentsModelTraining
+    category: componentsInfrastructure
     edges:
       to:
         - componentModelTrainingTuning
@@ -197,8 +189,7 @@ components:
         Given the enormous cost of training, many model creators take a preexisting
         model and tune it to their needs, by focusing only on the training related
         to a specific type of task.
-    category: componentsModel
-    subcategory: componentsModelTraining
+    category: componentsInfrastructure
     edges:
       to:
         - componentTheModel
