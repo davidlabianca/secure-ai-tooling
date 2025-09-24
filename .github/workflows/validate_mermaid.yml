@@ -114,7 +114,8 @@ jobs:
         failed_files=()
 
         # Puppeteer config for better stability
-        puppeteer_config='{"args": ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"]}'
+        PUPPETEER_CONFIG_FILE="/tmp/puppeteer.json.config"
+        echo '{"args": ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"]}' > ${PUPPETEER_CONFIG_FILE}
 
         # Validate each file and generate preview SVGs
         for file in "${mermaid_files[@]}"; do
@@ -123,7 +124,7 @@ jobs:
           # Generate SVG for preview
           preview_output="${PREVIEW_PATH}/$(basename "$file" | sed 's/\.[^.]*$/.svg/')"
           
-          if npx mmdc -i "$file" -o "$preview_output" -p "${puppeteer_config}" ; then
+          if npx mmdc -i "$file" -o "$preview_output" -p "${PUPPETEER_CONFIG_FILE}" ; then
             echo "✅ Valid: $(basename "$file")"
             valid_files+=("$file")
           else
