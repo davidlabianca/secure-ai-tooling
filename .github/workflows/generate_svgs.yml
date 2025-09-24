@@ -17,7 +17,7 @@ env:
   MERMAID_THEME: neutral
   MERMAID_BACKGROUND: white
   COMMIT_MESSAGE_PREFIX: "🎨 Auto-generate"
-  MAX_PARALLEL_CONVERSIONS: 5
+  MAX_PARALLEL_CONVERSIONS: 5  # Reserved for future implementation
 
 # Use minimal permissions by default
 permissions:
@@ -27,45 +27,20 @@ jobs:
   generate-svgs:
     runs-on: ubuntu-latest
     name: Generate SVG Files
-    # Only run if not triggered by a bot commit (extra safety against loops)
+    # GITHUB_TOKEN commits won't trigger workflows by default
     if: |
       !contains(github.event.head_commit.message, '[skip ci]') &&
-      !contains(github.event.head_commit.message, 'Auto-generate') &&
-      github.actor != 'github-actions[bot]' &&
-      github.actor != 'dependabot[bot]'
+      !contains(github.event.head_commit.message, 'Auto-generate')
     permissions:
       contents: write  # Need write permission only for this job
     steps:
-    - name: Generate token for checkout
-      id: generate_token
-      uses: actions/create-github-app-token@v1
-      with:
-        # Use a GitHub App for better security and rate limits
-        # You need to create a GitHub App and add these secrets
-        app-id: ${{ secrets.MERMAID_BOT_APP_ID }}
-        private-key: ${{ secrets.MERMAID_BOT_PRIVATE_KEY }}
-      continue-on-error: true
-
     - name: Checkout repository
       uses: actions/checkout@v4
       with:
-        # Use bot token if available, otherwise fall back to GITHUB_TOKEN
-        token: ${{ steps.generate_token.outputs.token || github.token }}
-        # Fetch full history for accurate change detection
-        fetch-depth: 0
+        token: ${{ github.token }}  # Use default GITHUB_TOKEN
+        fetch-depth: 0  # Fetch full history for accurate change detection
 
-    - name: Check for package.json
-      id: check-package
-      run: |
-        if [ -f "package.json" ] && [ -f "package-lock.json" ]; then
-          echo "has-package=true" >> $GITHUB_OUTPUT
-          echo "✅ Found package.json and package-lock.json - will use npm cache"
-        else
-          echo "has-package=false" >> $GITHUB_OUTPUT
-          echo "📦 No package.json found - will use global install with tool cache"
-        fi
-
-    - name: Setup Node.js without npm cache
+    - name: Setup Node.js
       uses: actions/setup-node@v5
       with:
         node-version: '22.x'
@@ -89,8 +64,8 @@ jobs:
           echo "📦 Cache hit - verifying Mermaid CLI installation..."
         else
           echo "📦 Cache miss - installing Mermaid CLI..."
+          npm install -g @mermaid-js/mermaid-cli@latest
         fi
-        npm install -g @mermaid-js/mermaid-cli@latest
         echo "Mermaid CLI version: $(npx mmdc --version)"
 
     - name: Setup Chrome for Puppeteer
@@ -143,7 +118,7 @@ jobs:
         failed_files=0
 
         # Puppeteer config for better stability
-        PUPPETEER_CONFIG_FILE="/tmp/puppeteer.json.config"
+        PUPPETEER_CONFIG_FILE="/tmp/puppeteer.json"
         echo '{"args": ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"]}' > ${PUPPETEER_CONFIG_FILE}
 
         # Get list of changed files in this commit
@@ -180,7 +155,7 @@ jobs:
             if npx mmdc -i "$file" -o "$output_file" \
               -t "${MERMAID_THEME}" \
               -b "${MERMAID_BACKGROUND}" \
-              -p "${PUPPETEER_CONFIG_FILE}" 2>/dev/null; then
+              -p "${PUPPETEER_CONFIG_FILE}"; then
               echo "✅ Successfully converted $(basename "$file")"
               conversion_count=$((conversion_count + 1))
               updated_files=$((updated_files + 1))
@@ -233,21 +208,14 @@ jobs:
         fi
 
     - name: Configure Git for bot commits
-      if: env.no_changes != 'true' && env.updated_files != '0' &&  env.ACT_TESTING != 'true'
+      if: env.no_changes != 'true' && env.updated_files != '0'
       run: |
-        # Use bot identity for commits
-        if [ -n "${{ steps.generate_token.outputs.token }}" ]; then
-          # If using GitHub App
-          git config --local user.email "${{ secrets.MERMAID_BOT_APP_ID }}+mermaid-bot[bot]@users.noreply.github.com"
-          git config --local user.name "mermaid-bot[bot]"
-        else
-          # Fallback to GitHub Actions bot
-          git config --local user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git config --local user.name "github-actions[bot]"
-        fi
+        # Use GitHub Actions bot identity
+        git config --local user.email "41898282+github-actions[bot]@users.noreply.github.com"
+        git config --local user.name "github-actions[bot]"
 
     - name: Commit and push generated SVGs
-      if: env.no_changes != 'true' && env.updated_files != '0' && env.ACT_TESTING != 'true'
+      if: env.no_changes != 'true' && env.updated_files != '0'
       run: |
         set -euo pipefail
         
@@ -280,16 +248,21 @@ jobs:
           file_count=0
           for file in "${changed_svg_files[@]}"; do
             if [ $file_count -lt 20 ]; then
-              commit_message="$commit_message - $(basename "$file")"
+              commit_message="$commit_message
+              - $(basename "$file")"
               file_count=$((file_count + 1))
             fi
           done
           
           if [ $changed_count -gt 20 ]; then
-            commit_message="$commit_message ... and $((changed_count - 20)) more files"
+            commit_message="$commit_message
+            ... and $((changed_count - 20)) more files"
           fi
           
-          commit_message="$commit_message [skip ci]"
+          # Add skip ci flag to prevent loops (though not strictly necessary with GITHUB_TOKEN)
+          commit_message="$commit_message
+
+          [skip ci]"
           
           git commit -m "$commit_message"
 
@@ -361,7 +334,7 @@ jobs:
             echo "Possible reasons:" >> $GITHUB_STEP_SUMMARY
             echo "- No Mermaid files were modified" >> $GITHUB_STEP_SUMMARY
             echo "- Commit contained [skip ci] flag" >> $GITHUB_STEP_SUMMARY
-            echo "- Triggered by a bot commit" >> $GITHUB_STEP_SUMMARY
+            echo "- Triggered by an auto-generated commit" >> $GITHUB_STEP_SUMMARY
             ;;
           *)
             echo "❌ **SVG generation failed**" >> $GITHUB_STEP_SUMMARY
