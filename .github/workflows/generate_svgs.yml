@@ -15,9 +15,8 @@ env:
   MERMAID_PATH: ./risk-map/docs/
   SVGS_PATH: ./risk-map/svg
   MERMAID_THEME: neutral
-  MERMAID_BACKGROUND: white
+  MERMAID_BACKGROUND: transparent
   COMMIT_MESSAGE_PREFIX: "🎨 Auto-generate"
-  MAX_PARALLEL_CONVERSIONS: 5  # Reserved for future implementation
 
 # Use minimal permissions by default
 permissions:
@@ -82,8 +81,8 @@ jobs:
         
         if [ ! -d "${MERMAID_PATH}" ]; then
           echo "::warning::Directory ${MERMAID_PATH} does not exist"
-          echo "ℹ️  No Mermaid directory found. Creating it..."
-          mkdir -p "${MERMAID_PATH}"
+          echo "❌ Directory ${MERMAID_PATH} does not exist - failing"
+          exit 1
         fi
         
         echo "✅ Directory ${MERMAID_PATH} exists"
@@ -118,7 +117,7 @@ jobs:
         failed_files=0
 
         # Puppeteer config for better stability
-        PUPPETEER_CONFIG_FILE="/tmp/puppeteer.json"
+        PUPPETEER_CONFIG_FILE=$(mktemp)
         echo '{"args": ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"]}' > ${PUPPETEER_CONFIG_FILE}
 
         # Get list of changed files in this commit
@@ -170,13 +169,20 @@ jobs:
           fi
         done
 
-        # Clean up orphaned SVGs (SVGs without corresponding source files)
+        # Clean up orphaned SVGs (SVGs without corresponding source files) except map.svg
         echo ""
         echo "🧹 Checking for orphaned SVG files..."
         orphaned_count=0
+
         for svg in ${SVGS_PATH}/*.svg; do
           if [ -f "$svg" ]; then
             base=$(basename "$svg" .svg)
+
+            # Skip map.svg
+            if [ "$base" = "map" ]; then
+              continue
+            fi
+
             # Check if corresponding source exists
             if ! find ${MERMAID_PATH} \
               \( -name "${base}.mmd" -o -name "${base}.mermaid" \) \
