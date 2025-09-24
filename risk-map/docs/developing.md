@@ -53,7 +53,7 @@ python scripts/hooks/validate_riskmap.py --force
 # Generate component graph visualization
 python scripts/hooks/validate_riskmap.py --to-graph ./my-graph.md --force
 
-# Generate component graph with debug ranking information
+# Generate component graph with debug annotations
 python scripts/hooks/validate_riskmap.py --to-graph ./debug-graph.md --debug --force
 
 # Generate control-to-component relationship graph
@@ -67,12 +67,15 @@ The validation script checks for:
 
 **Automatic Graph Generation**: The pre-commit hook automatically generates graphs when relevant files are staged:
 - **Component Graph**: When `components.yaml` is staged, generates `./risk-map/docs/risk-map-graph.md`
-  - Uses topological ranking with `componentDataSources` always at rank 1
-  - Organizes components into category-based subgraphs with color coding
+  - Uses Elk layout engine for automatic positioning and ranking
+  - Organizes components into category-based subgraphs with configurable styling
 - **Control Graph**: When `components.yaml` OR `controls.yaml` is staged, generates `./risk-map/docs/controls-graph.md`
   - Shows control-to-component relationships with optimization
   - Dynamic component clustering and multi-edge styling
-- Both generated graphs are automatically staged for inclusion in your commit
+- **Risk Graph**: When `components.yaml`, `controls.yaml` OR `risks.yaml` is staged, generates `./risk-map/docs/controls-to-risk-graph.md`
+  - Maps controls to risks they mitigate with component context
+  - Visualizes risk-control relationships across the AI lifecycle
+- All generated graphs are automatically staged for inclusion in your commit
 
 *See [scripts documentation](../../scripts/README.md) for more information on the git hooks and validation.*
 
@@ -87,8 +90,11 @@ python scripts/hooks/validate_riskmap.py --to-graph ./components.md --force
 # Generate control-to-component graph
 python scripts/hooks/validate_riskmap.py --to-controls-graph ./controls-graph.md --force
 
-# Generate both component and control graphs
-python scripts/hooks/validate_riskmap.py --to-graph ./components.md --to-controls-graph ./controls.md --force
+# Generate control-to-risk relationship graph
+python scripts/hooks/validate_riskmap.py --to-risk-graph ./risk-graph.md --force
+
+# Generate all three graph types
+python scripts/hooks/validate_riskmap.py --to-graph ./components.md --to-controls-graph ./controls.md --to-risk-graph ./risk.md --force
 ```
 
 **Control Graph Features:**
@@ -331,7 +337,7 @@ foundation:
    python3 scripts/hooks/validate_riskmap.py --to-controls-graph test-control.md --force
    ```
 
-4. **View the results** by opening the generated Markdown files in any Mermaid-compatible viewer.
+4. **View the results** by opening the generated Markdown files in a compatible viewer (see Visualizing Graphs below).
 
 ### Configuration Validation
 
@@ -353,6 +359,32 @@ The system includes robust fallback mechanisms:
 - **Partial configuration**: Missing elements use sensible defaults from the emergency configuration
 
 This ensures that graph generation never fails due to configuration issues, allowing you to iterate on styling without breaking functionality.
+
+### Visualizing Graphs During Development
+
+The generated Mermaid graphs use the **Elk layout engine** for automatic positioning. To properly view these graphs during development:
+
+#### Compatible Viewers:
+- **Mermaid.ink**: Online service that supports Elk layout
+  - Copy the `.mermaid` file content to https://mermaid.ink/
+  - Provides accurate rendering of complex layouts
+- **VS Code with Mermaid extensions** that support Elk (check extension documentation)
+- **GitHub**: Native Mermaid rendering does not support Elk layout and the maps will appear as poorly organized or unwieldy to review
+
+#### Generate Both Formats:
+```bash
+# Generate both .md and .mermaid formats for easier viewing
+python scripts/hooks/validate_riskmap.py --to-graph ./test.md --mermaid-format --force
+
+# This creates:
+# - test.md (markdown with code block)
+# - test.mermaid (raw mermaid content for online viewers)
+```
+
+#### Troubleshooting Visualization:
+- **Layout appears broken**: Ensure your viewer supports Elk layout engine
+- **Components overlap**: Try mermaid.ink which handles Elk positioning correctly
+- **Styling not applied**: Some viewers may not support all Mermaid styling features
 
 ### Advanced Customization Tips
 
@@ -405,6 +437,23 @@ git push
 ```
 
 The CI validation ensures that all contributions maintain consistency and that generated documentation stays synchronized with the underlying data.
+
+### Automated SVG Generation
+
+The repository includes automated SVG generation from Mermaid diagrams:
+
+- **Automatic SVG Creation**: When Mermaid files (`.mmd`, `.mermaid`) are pushed to main/develop, GitHub Actions generates corresponding SVG files
+- **Smart Regeneration**: Only regenerates SVGs when source Mermaid files change
+- **Orphan Cleanup**: Removes SVG files when their source Mermaid files are deleted
+- **Generated Location**: SVGs are created in `./risk-map/svg/` directory
+
+### Mermaid File Validation
+
+Pull requests automatically validate Mermaid syntax:
+
+- **Syntax Validation**: Ensures all Mermaid files compile successfully
+- **Preview Generation**: Creates SVG previews attached as PR comments
+- **Error Reporting**: Provides detailed error messages for syntax issues
 
 ## General Content Contribution Workflow
 
@@ -917,8 +966,8 @@ If you encounter issues with the automatic graph generation:
    ```
    **Fix**: Check file permissions and git repository status. Ensure `./risk-map/docs/` directory is writable.
 
-4. **Component ranking seems wrong**:
-   **Fix**: Use debug mode to see rank calculations:
+4. **Component layout seems suboptimal**:
+   **Fix**: Use debug mode to inspect graph structure:
    ```bash
    python scripts/hooks/validate_riskmap.py --to-graph ./debug-graph.md --debug --force
    ```
@@ -983,7 +1032,7 @@ However, your changes will still be validated during the PR review process.
 
 10. **Leverage automatic graph generation** - when you commit changes to `components.yaml`, the updated graph is automatically generated and staged
 
-11. **Use debug mode for troubleshooting** component ranking issues:
+11. **Use debug mode for troubleshooting** graph generation issues:
     ```bash
     python scripts/hooks/validate_riskmap.py --to-graph ./debug-graph.md --debug --force
     ```
