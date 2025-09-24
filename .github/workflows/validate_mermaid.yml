@@ -29,51 +29,24 @@ jobs:
       with:
         token: ${{ github.token }}  # Use default GITHUB_TOKEN with limited permissions
 
-    - name: Check for package.json
-      id: check-package
-      run: |
-        if [ -f "package.json" ] && [ -f "package-lock.json" ]; then
-          echo "has-package=true" >> $GITHUB_OUTPUT
-          echo "✅ Found package.json and package-lock.json - will use npm cache"
-        else
-          echo "has-package=false" >> $GITHUB_OUTPUT
-          echo "📦 No package.json found - will use global install with tool cache"
-        fi
-
-    - name: Setup Node.js with npm cache
-      if: steps.check-package.outputs.has-package == 'true'
-      uses: actions/setup-node@v5
-      with:
-        node-version: '22.x'
-        cache: 'npm'
-
     - name: Setup Node.js without npm cache
-      if: steps.check-package.outputs.has-package == 'false'
       uses: actions/setup-node@v5
       with:
         node-version: '22.x'
 
     - name: Cache global npm packages
-      if: steps.check-package.outputs.has-package == 'false'
       uses: actions/cache@v4
       id: npm-cache
       with:
         path: |
           ~/.npm
           ~/.cache/puppeteer
-        key: ${{ runner.os }}-npm-mermaid-cli-v10-${{ hashFiles('.github/workflows/validate-mermaid.yml') }}
+        key: ${{ runner.os }}-npm-mermaid-cli-v11-${{ hashFiles('.github/workflows/validate-mermaid.yml') }}
         restore-keys: |
-          ${{ runner.os }}-npm-mermaid-cli-v10-
+          ${{ runner.os }}-npm-mermaid-cli-v11-
           ${{ runner.os }}-npm-mermaid-cli-
 
-    - name: Install dependencies from package.json
-      if: steps.check-package.outputs.has-package == 'true'
-      run: |
-        npm ci --prefer-offline --no-audit
-        echo "Mermaid CLI version: $(npx mmdc --version)"
-
     - name: Install Mermaid CLI globally
-      if: steps.check-package.outputs.has-package == 'false'
       run: |
         # Check if we have a cache hit
         if [ "${{ steps.npm-cache.outputs.cache-hit }}" == "true" ]; then
@@ -88,6 +61,9 @@ jobs:
 
     - name: Setup Chrome for Puppeteer
       uses: browser-actions/setup-chrome@latest
+      with:
+        chrome-version: stable
+        install-dependencies: true
 
     - name: Validate directory structure
       run: |
@@ -147,8 +123,7 @@ jobs:
           # Generate SVG for preview
           preview_output="${PREVIEW_PATH}/$(basename "$file" | sed 's/\.[^.]*$/.svg/')"
           
-          if npx mmdc -i "$file" -o "$preview_output" \
-            --puppeteerConfig "${puppeteer_config}" ; then
+          if npx mmdc -i "$file" -o "$preview_output" -p "${puppeteer_config}" ; then
             echo "✅ Valid: $(basename "$file")"
             valid_files+=("$file")
           else
