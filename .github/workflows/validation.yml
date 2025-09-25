@@ -268,20 +268,22 @@ jobs:
         # Setup temporary files and paths
         RISK_MAP_TEMP_FILE=$(mktemp)
         CONTROLS_TEMP_FILE=$(mktemp)
+        RISK_CONTROLS_TEMP_FILE=$(mktemp)
         RISKMAP_PATH="./risk-map/docs/risk-map-graph.md"
         CONTROL_GRAPH_PATH="./risk-map/docs/controls-graph.md"
+        RISK_CONTROLS_PATH="./risk-map/docs/controls-to-risk-graph.md"
         VALIDATE_CMD="validate_riskmap.py"
 
         # Define graph configurations as arrays
-        GRAPH_NAMES=("Component Graph" "Control Graph")
-        TEMP_FILES=("${RISK_MAP_TEMP_FILE}" "${CONTROLS_TEMP_FILE}")
-        TARGET_PATHS=("${RISKMAP_PATH}" "${CONTROL_GRAPH_PATH}")
-        GENERATE_ARGS=("--to-graph" "--to-controls-graph")
+        GRAPH_NAMES=("Component Graph" "Control Graph" "Controls-to-Risk Graph")
+        TEMP_FILES=("${RISK_MAP_TEMP_FILE}" "${CONTROLS_TEMP_FILE}" "${RISK_CONTROLS_TEMP_FILE}")
+        TARGET_PATHS=("${RISKMAP_PATH}" "${CONTROL_GRAPH_PATH}" "${RISK_CONTROLS_PATH}")
+        GENERATE_ARGS=("--to-graph" "--to-controls-graph" "--to-risk-graph")
 
         graph_compare_failed=false
         graphs_validated=0
 
-        # Loop through both graph types
+        # Loop through all graph types
         for i in "${!GRAPH_NAMES[@]}"; do
             graph_name="${GRAPH_NAMES[$i]}"
             temp_file="${TEMP_FILES[$i]}"
@@ -309,6 +311,7 @@ jobs:
         # Cleanup temp files
         rm -f ${RISK_MAP_TEMP_FILE}
         rm -f ${CONTROLS_TEMP_FILE}
+        rm -f ${RISK_CONTROLS_TEMP_FILE}
 
         echo "graphs_validated=$graphs_validated" >> $GITHUB_OUTPUT
 

@@ -12,11 +12,12 @@ Before contributing to the Risk Map, ensure you have the necessary validation to
 
 ### Setting Up Pre-commit Hooks
 
-The repository includes automated schema validation, prettier YAML formatting, ruff Python linting, component edge consistency checks, control-to-risk reference validation, and automatic graph generation via git pre-commit hooks.
+The repository includes automated schema validation, prettier YAML formatting, ruff Python linting, component edge consistency checks, control-to-risk reference validation, automatic graph generation, and Mermaid SVG generation via git pre-commit hooks.
 
 **Prerequisites:**
 - Python 3.10 or higher
-- Node.js and npm
+- Node.js 18+ and npm
+- Chrome/Chromium browser (for SVG generation from Mermaid diagrams)
 
 1. **Install dependencies and pre-commit hook (one-time setup)**:
    ```bash
@@ -24,7 +25,7 @@ The repository includes automated schema validation, prettier YAML formatting, r
    # Install required Python packages
    pip install -r requirements.txt
    
-   # Install Node.js dependencies (prettier, etc.)
+   # Install Node.js dependencies (prettier, mermaid-cli, etc.)
    npm install
    
    # Install the pre-commit hook
@@ -406,7 +407,7 @@ When you create a pull request, GitHub Actions automatically runs:
 - **Python Code Quality**: Runs ruff linting on modified Python files
 - **Component Edge Consistency**: Verifies bidirectional component relationships
 - **Control-Risk Reference Integrity**: Validates control-risk cross-references
-- **Graph Validation**: Generates and compares both graph types
+- **Graph Validation**: Generates and compares all three graph types
 
 ### Graph Validation in CI
 
@@ -420,6 +421,7 @@ The GitHub Actions workflow performs comprehensive graph validation:
 **Graphs Validated:**
 - Component relationship graph (`./risk-map/docs/risk-map-graph.md`)
 - Control-to-component graph (`./risk-map/docs/controls-graph.md`)
+- Controls-to-risk graph (`./risk-map/docs/controls-to-risk-graph.md`)
 
 ### Handling CI Validation Failures
 
@@ -429,31 +431,42 @@ If GitHub Actions reports graph validation failures:
 # Most common fix: regenerate graphs locally
 python scripts/hooks/validate_riskmap.py --to-graph ./risk-map/docs/risk-map-graph.md --force
 python scripts/hooks/validate_riskmap.py --to-controls-graph ./risk-map/docs/controls-graph.md --force
+python scripts/hooks/validate_riskmap.py --to-risk-graph ./risk-map/docs/controls-to-risk-graph.md --force
 
 # Commit the updated graphs
-git add risk-map/docs/risk-map-graph.md risk-map/docs/controls-graph.md
+git add risk-map/docs/risk-map-graph.md risk-map/docs/controls-graph.md risk-map/docs/controls-to-risk-graph.md
 git commit -m "Update generated graphs to reflect YAML changes"
 git push
 ```
 
 The CI validation ensures that all contributions maintain consistency and that generated documentation stays synchronized with the underlying data.
 
-### Automated SVG Generation
+### SVG Generation from Mermaid Diagrams
 
-The repository includes automated SVG generation from Mermaid diagrams:
+The repository handles Mermaid diagrams with different approaches for local development versus GitHub Actions:
 
-- **Automatic SVG Creation**: When Mermaid files (`.mmd`, `.mermaid`) are pushed to main/develop, GitHub Actions generates corresponding SVG files
-- **Smart Regeneration**: Only regenerates SVGs when source Mermaid files change
-- **Orphan Cleanup**: Removes SVG files when their source Mermaid files are deleted
-- **Generated Location**: SVGs are created in `./risk-map/svg/` directory
+#### Pre-commit Hooks (Local Development)
+- **Automatic SVG Creation**: When Mermaid files (`.mmd`, `.mermaid`) are staged for commit, pre-commit hooks generate corresponding SVG files
+- **Auto-staging**: Generated SVG files are automatically added to the commit
+- **Location**: SVGs are created in `./risk-map/svg/` directory
+- **Prerequisites**: Requires Chrome/Chromium browser and mermaid-cli
 
-### Mermaid File Validation
-
-Pull requests automatically validate Mermaid syntax:
-
+#### GitHub Actions (Pull Request Validation)
 - **Syntax Validation**: Ensures all Mermaid files compile successfully
 - **Preview Generation**: Creates SVG previews attached as PR comments
 - **Error Reporting**: Provides detailed error messages for syntax issues
+- **Does NOT generate**: GitHub Actions do not create SVG files for commit
+
+#### Platform Considerations
+- **Mac/Windows/Linux x64**: Chrome automatically handled by puppeteer
+- **Linux ARM64**: Requires manual Chromium setup:
+  ```bash
+  # Use the --install-playwright flag during setup
+  ./scripts/install-precommit-hook.sh --install-playwright
+
+  # Or install manually
+  npx playwright install chromium --with-deps
+  ```
 
 ## General Content Contribution Workflow
 
@@ -590,6 +603,9 @@ python scripts/hooks/validate_riskmap.py --to-graph ./preview-graph.md --force
 # Optional: Generate control-to-component graph to visualize control relationships
 python scripts/hooks/validate_riskmap.py --to-controls-graph ./preview-controls.md --force
 
+# Optional: Generate controls-to-risk graph to visualize risk relationships
+python scripts/hooks/validate_riskmap.py --to-risk-graph ./preview-risks.md --force
+
 # Format YAML files (auto-runs in pre-commit but useful for preview)
 npx prettier --write risk-map/yaml/components.yaml
 
@@ -604,7 +620,7 @@ The validation will check:
 - ✅ No components are isolated (unless intentionally designed)
 - ✅ All referenced components exist in the YAML file
 
-**Note**: When you commit changes to `components.yaml`, the pre-commit hook will automatically generate updated graphs at `./risk-map/docs/risk-map-graph.md` and `./risk-map/docs/controls-graph.md` and include them in your commit.
+**Note**: When you commit changes to `components.yaml`, the pre-commit hook will automatically generate updated graphs at `./risk-map/docs/risk-map-graph.md`, `./risk-map/docs/controls-graph.md`, and `./risk-map/docs/controls-to-risk-graph.md` and include them in your commit.
 
 ### 6. Create a Pull Request
 
@@ -716,7 +732,7 @@ The validation will check:
 - ✅ All risks that reference controls in `risks.yaml` have those controls listing them in `controls.yaml`
 - ✅ No isolated entries (controls with empty risk lists, risks with empty control lists)
 
-**Note**: When you commit changes to `controls.yaml`, the pre-commit hook will automatically generate an updated control graph at `./risk-map/docs/controls-graph.md` and include it in your commit.
+**Note**: When you commit changes to `controls.yaml`, the pre-commit hook will automatically generate updated control and risk graphs at `./risk-map/docs/controls-graph.md` and `./risk-map/docs/controls-to-risk-graph.md` and include them in your commit.
 
 **Example of consistent cross-references:**
 ```yaml
@@ -1013,6 +1029,9 @@ However, your changes will still be validated during the PR review process.
 
    # Generate control-to-component relationship graph
    python scripts/hooks/validate_riskmap.py --to-controls-graph ./preview-controls.md --force
+
+   # Generate controls-to-risk relationship graph
+   python scripts/hooks/validate_riskmap.py --to-risk-graph ./preview-risks.md --force
    ```
 
 4. **Format files before committing** (though pre-commit handles this automatically):
@@ -1041,6 +1060,9 @@ However, your changes will still be validated during the PR review process.
     ```bash
     # Generate control graph to verify your control mappings are logical
     python scripts/hooks/validate_riskmap.py --to-controls-graph ./verify-controls.md --force
+
+    # Generate risk graph to verify control-risk relationships
+    python scripts/hooks/validate_riskmap.py --to-risk-graph ./verify-risks.md --force
     ```
 
 13. **Run all validations locally** before pushing:

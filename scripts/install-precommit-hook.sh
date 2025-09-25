@@ -8,8 +8,178 @@
 
 set -e
 
+# =============================================================================
+# Platform Detection and Chrome Configuration
+# =============================================================================
+
+# Detect platform for Chrome/Chromium configuration
+detect_platform() {
+    local os=$(uname -s)
+    local arch=$(uname -m)
+
+    case "$os" in
+        Darwin*) PLATFORM="mac" ;;
+        MINGW*|CYGWIN*|MSYS*) PLATFORM="windows" ;;
+        Linux*)
+            case "$arch" in
+                aarch64|arm64) PLATFORM="linux-arm64" ;;
+                *) PLATFORM="linux-x64" ;;
+            esac ;;
+        *) PLATFORM="unknown" ;;
+    esac
+
+    echo "🔍 Detected platform: $PLATFORM"
+}
+
+# Configure Chrome/Chromium path based on platform and user preference
+configure_chromium_path() {
+    local chromium_path=""
+
+    case "$PLATFORM" in
+        "mac"|"windows"|"linux-x64")
+            echo ""
+            echo "🌐 Chrome Configuration"
+            echo "For most users, mermaid-cli can use its bundled Chrome automatically."
+            echo ""
+            echo "Options:"
+            echo "  1) Use automatic Chrome detection (recommended)"
+            echo "  2) Specify custom Chrome/Chromium path"
+            echo ""
+            read -p "Choose option (1-2) [1]: " chrome_choice
+            chrome_choice=${chrome_choice:-1}
+
+            case "$chrome_choice" in
+                1)
+                    echo "✅ Using automatic Chrome detection"
+                    chromium_path=""
+                    ;;
+                2)
+                    echo ""
+                    read -p "Enter full path to Chrome/Chromium executable: " custom_path
+                    if [[ -x "$custom_path" ]]; then
+                        chromium_path="$custom_path"
+                        echo "✅ Using custom Chrome at: $custom_path"
+                    else
+                        echo "⚠️  Warning: Path '$custom_path' not found or not executable"
+                        echo "   Falling back to automatic detection"
+                        chromium_path=""
+                    fi
+                    ;;
+                *)
+                    echo "Invalid choice. Using automatic detection."
+                    chromium_path=""
+                    ;;
+            esac
+            ;;
+
+        "linux-arm64")
+            echo ""
+            echo "🚨 ARM64 Linux Detected"
+            echo "Chrome/Chrome-for-testing are not available for ARM64 Linux from Google."
+            echo "You need to provide an alternative Chromium installation."
+            echo ""
+            echo "Options:"
+            echo "  1) Use Playwright's Chromium (recommended)"
+            echo "  2) Use system-installed Chromium"
+            echo "  3) Specify custom Chromium path"
+            echo ""
+            read -p "Choose option (1-3) [1]: " arm_choice
+            arm_choice=${arm_choice:-1}
+
+            case "$arm_choice" in
+                1)
+                    echo "📦 Checking for Playwright Chromium..."
+                    if ! npx  --version &>/dev/null; then
+                        echo "❌ npx not found. Please install Node.js first."
+                        exit 1
+                    fi
+
+                    if ! npx playwright -V &> /dev/null and [[ "$INSTALL_PLAYWRIGHT" == "true" ]]; then
+                        echo "   Playwright Chromium not found. Installing..."
+                        if ! $(npx playwright install chromium --with-deps); then
+                            echo "❌ Failed to install Playwright Chromium"
+                            echo "   Exiting..."
+                            exit 1
+                        fi
+                        echo "✅ Playwright Chromium installed ..."
+                    fi
+
+                    # Check if playwright chromium is already installed
+                    local BROWSER_PATHS="${PLAYWRIGHT_BROWSERS_PATH:-$HOME/.cache/ms-playwright}"
+
+                    local CHROME_EXEC=$(find "$BROWSER_PATHS" -name "headless_shell" -type f 2>/dev/null | head -1)
+
+                    if [ -z "$CHROME_EXEC" ]; then
+                      CHROME_EXEC=$(find "$BROWSER_PATHS" -name "chrome" -type f 2>/dev/null | head -1)
+                    fi
+
+                    local playwright_path=$CHROME_EXEC
+
+                    if [[ -n "$playwright_path" && -x "$playwright_path" ]]; then
+                        chromium_path="$playwright_path"
+                        echo "✅ Found existing Playwright Chromium at: $playwright_path"
+                    else
+                        echo "   Playwright Chromium not found."
+                        echo "   Please install Playwright manually or run:"
+                        echo "   $0 --install-playwright"
+                        chromium_path=""
+                    fi
+                    ;;
+                2)
+                    # Try common system chromium locations
+                    local system_paths=(
+                        "/usr/bin/chromium"
+                        "/usr/bin/chromium-browser"
+                        "/snap/bin/chromium"
+                        "/usr/bin/google-chrome"
+                    )
+
+                    for path in "${system_paths[@]}"; do
+                        if [[ -x "$path" ]]; then
+                            chromium_path="$path"
+                            echo "✅ Found system Chromium at: $path"
+                            break
+                        fi
+                    done
+
+                    if [[ -z "$chromium_path" ]]; then
+                        echo "⚠️  No system Chromium found in standard locations"
+                        echo "   You may need to install chromium: sudo apt install chromium-browser"
+                        chromium_path=""
+                    fi
+                    ;;
+                3)
+                    echo ""
+                    read -p "Enter full path to Chromium executable: " custom_path
+                    if [[ -x "$custom_path" ]]; then
+                        chromium_path="$custom_path"
+                        echo "✅ Using custom Chromium at: $custom_path"
+                    else
+                        echo "❌ Error: Path '$custom_path' not found or not executable"
+                        echo "   SVG generation will likely fail without a valid Chromium path"
+                        chromium_path="$custom_path"  # Keep it anyway, user might fix later
+                    fi
+                    ;;
+                *)
+                    echo "Invalid choice. Using Playwright Chromium option."
+                    chromium_path=""
+                    ;;
+            esac
+            ;;
+
+        "unknown")
+            echo "⚠️  Unknown platform. Chrome configuration may not work correctly."
+            echo "   You may need to manually configure CHROMIUM_PATH in the pre-commit hook."
+            chromium_path=""
+            ;;
+    esac
+
+    CHROMIUM_PATH="$chromium_path"
+}
+
 # Parse command line arguments
 FORCE=false
+INSTALL_PLAYWRIGHT=false
 PRECOMMIT_SRC="scripts/hooks/pre-commit"
 VALIDATOR_SRC="scripts/hooks/validate_riskmap.py"
 VALIDATOR_MODULE_SRC="scripts/hooks/riskmap_validator"
@@ -21,15 +191,24 @@ while [[ $# -gt 0 ]]; do
             FORCE=true
             shift
             ;;
+        --install-playwright)
+            INSTALL_PLAYWRIGHT=true
+            shift
+            ;;
         --help|-h)
-            echo "Usage: $0 [--force]"
-            echo "  --force, -f    Overwrite existing hooks"
-            echo "  --help, -h     Show this help message"
+            echo "Usage: $0 [--force] [--install-playwright]"
+            echo "  --force, -f              Overwrite existing hooks"
+            echo "  --install-playwright     Automatically install Playwright Chromium for ARM64 Linux"
+            echo "  --help, -h               Show this help message"
             echo ""
             echo "This script installs:"
-            echo "  - Pre-commit hook (YAML schema validation)"
+            echo "  - Pre-commit hook (YAML schema validation, SVG generation)"
             echo "  - Component edge validator (edge consistency validation)"
             echo "  - Control-to-risk reference validator (reference consistency validation)"
+            echo ""
+            echo "Chrome/Chromium configuration:"
+            echo "  - On most platforms: automatic Chrome detection (recommended)"
+            echo "  - On ARM64 Linux: requires manual Chromium installation or --install-playwright"
             exit 0
             ;;
         *)
@@ -48,6 +227,18 @@ TARGET_VALIDATOR_MODULE="$REPO_ROOT/.git/hooks/riskmap_validator"
 TARGET_REF_VALIDATOR="$REPO_ROOT/.git/hooks/validate_control_risk_references.py"
 
 echo "Installing git hooks..."
+
+# Detect platform and configure Chromium path
+detect_platform
+configure_chromium_path
+
+echo ""
+echo "🔧 Chrome/Chromium configuration:"
+if [[ -n "$CHROMIUM_PATH" ]]; then
+    echo "   Path: $CHROMIUM_PATH"
+else
+    echo "   Using automatic detection"
+fi
 
 # Check if source files exist
 if [[ ! -f "$REPO_ROOT/${PRECOMMIT_SRC}" ]]; then
@@ -100,6 +291,21 @@ mkdir -p "$REPO_ROOT/.git/hooks"
 # Install pre-commit hook
 echo "📋 Installing pre-commit hook..."
 cp "$REPO_ROOT/${PRECOMMIT_SRC}" "$TARGET_HOOK"
+
+# Configure CHROMIUM_PATH in the pre-commit hook
+if [[ -n "$CHROMIUM_PATH" ]]; then
+    # Replace CHROMIUM_PATH=MUST_BE_SET with the actual path
+    sed -i.bak "s|^CHROMIUM_PATH=.*|CHROMIUM_PATH=\"$CHROMIUM_PATH\"|" "$TARGET_HOOK"
+    echo "   ✅ Set CHROMIUM_PATH to: $CHROMIUM_PATH"
+else
+    # Set empty path for automatic detection
+    sed -i.bak "s|^CHROMIUM_PATH=.*|CHROMIUM_PATH=\"\"|" "$TARGET_HOOK"
+    echo "   ✅ Configured for automatic Chrome detection"
+fi
+
+# Remove backup file created by sed
+rm -f "${TARGET_HOOK}.bak"
+
 chmod +x "$TARGET_HOOK"
 
 # Install component edge validator
@@ -133,5 +339,6 @@ echo "🔍 These hooks will now run automatically before each commit to validate
 echo "   ✅ YAML schema compliance"
 echo "   ✅ Component edge consistency"
 echo "   ✅ Control-to-risk reference consistency"
+echo "   ✅ Generate SVG files from Mermaid diagrams"
 echo ""
 echo "💡 To bypass hooks temporarily: git commit --no-verify"
