@@ -14,10 +14,12 @@ env:
   PREVIEW_PATH: ./preview-svgs
   MAX_SVG_EMBED_SIZE: 5000  # Max characters to embed in PR comment
   MAX_COMMENT_SIZE: 60000    # GitHub's limit is 65536, leave buffer
+  PRIVILEGED: false
+
 
 permissions:
   contents: read
-  pull-requests: write  # For adding comments only
+#  pull-requests: write  # For adding comments only
 
 jobs:
   validate-mermaid:
@@ -165,7 +167,7 @@ jobs:
         if-no-files-found: ignore
 
     - name: Comment on PR with results
-      if: always() && steps.validate-structure.outputs.validation_skipped != 'true'
+      if: always() && steps.validate-structure.outputs.validation_skipped != 'true' && env.PRIVILEGED == 'true'
       uses: actions/github-script@v7
       with:
         script: |
@@ -343,7 +345,9 @@ jobs:
               echo "All Mermaid files are valid and ready for merge!" >> $GITHUB_STEP_SUMMARY
               echo "" >> $GITHUB_STEP_SUMMARY
               echo "### Next Steps:" >> $GITHUB_STEP_SUMMARY
-              echo "- Review the generated SVG previews in the PR comments" >> $GITHUB_STEP_SUMMARY
+              if [ "${PRIVILEGED:-false}" == "true" ]; then
+                echo "- Review the generated SVG previews in the PR comments" >> $GITHUB_STEP_SUMMARY
+              fi
               echo "- Download full-resolution SVGs from the workflow artifacts if needed" >> $GITHUB_STEP_SUMMARY
             fi
             ;;
