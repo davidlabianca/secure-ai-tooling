@@ -15,7 +15,78 @@ from pathlib import Path
 import yaml
 
 from .config import DEFAULT_COMPONENTS_FILE
-from .models import ControlNode
+from .models import ComponentNode, ControlNode, RiskNode
+
+
+def parse_components_yaml(file_path: Path = None) -> dict[str, ComponentNode]:
+    if file_path is None:
+        file_path = Path("risk-map/yaml/components.yaml")
+
+    if not file_path.exists():
+        raise FileNotFoundError(f"Controls file not found: {file_path}")
+
+    try:
+        with open(file_path, "r", encoding="utf-8") as f:
+            data = yaml.safe_load(f)
+
+        components = {}
+
+        for i, component in enumerate(data["components"]):
+            component_id: str | None = component.get("id")
+            if not component_id:
+                continue
+
+            if not isinstance(component_id, str):
+                continue
+
+            # Get component title
+            component_title: str | None = component.get("title")
+            if not component_title:
+                continue
+
+            if not isinstance(component_title, str):
+                continue
+
+            # Get component category
+            category: str | None = component.get("category")
+            if not category:
+                continue
+
+            if not isinstance(category, str):
+                continue
+
+            subcategory: str | None = component.get("subcategory")
+
+            # Get edges with default empty lists
+            edges = component.get("edges", {})
+            if not isinstance(edges, dict):
+                edges = {}
+
+            # Ensure edges are lists
+            to_edges = edges.get("to", [])
+            from_edges = edges.get("from", [])
+
+            if not isinstance(to_edges, list):
+                to_edges = []
+
+            if not isinstance(from_edges, list):
+                from_edges = []
+
+            # Create ComponentNode with validation
+            components[component_id] = ComponentNode(
+                    title=component_title,
+                    category=category,
+                    subcategory=subcategory,
+                    to_edges=[str(edge) for edge in to_edges if edge],
+                    from_edges=[str(edge) for edge in from_edges if edge],
+                )
+
+        return components
+
+    except yaml.YAMLError as e:
+        raise yaml.YAMLError(f"Error parsing components YAML: {e}")
+    except KeyError as e:
+        raise KeyError(f"Missing required field in components.yaml: {e}")
 
 
 def parse_controls_yaml(file_path: Path = None) -> dict[str, ControlNode]:
@@ -50,7 +121,7 @@ def parse_controls_yaml(file_path: Path = None) -> dict[str, ControlNode]:
             title = control_data["title"]
             category = control_data["category"]
 
-            # Handle components field - can be list, "all", or "none"
+            # Handle components: list, "all", or "none"
             components_raw = control_data.get("components", [])
             if isinstance(components_raw, str):
                 components = [components_raw]  # Convert "all" or "none" to list
@@ -59,11 +130,11 @@ def parse_controls_yaml(file_path: Path = None) -> dict[str, ControlNode]:
             else:
                 components = []
 
-            # Handle risks and personas fields
+            # Handle risks and personas
             risks = control_data.get("risks", [])
             personas = control_data.get("personas", [])
 
-            # Ensure all fields are lists of strings
+            # Ensure fields are string lists
             if not isinstance(risks, list):
                 risks = []
             if not isinstance(personas, list):
@@ -81,6 +152,65 @@ def parse_controls_yaml(file_path: Path = None) -> dict[str, ControlNode]:
         raise KeyError(f"Missing required field in controls.yaml: {e}")
 
 
+def parse_risks_yaml(file_path: Path = None) -> dict[str, RiskNode]:
+    """
+    Parse risks.yaml file and return dictionary of RiskNode objects.
+
+    Args:
+        file_path: Path to risks.yaml file. Defaults to risk-map/yaml/risks.yaml
+
+    Returns:
+        Dictionary mapping risk IDs to RiskNode objects
+
+    Raises:
+        FileNotFoundError: If risks.yaml file doesn't exist
+        yaml.YAMLError: If YAML parsing fails
+        KeyError: If required fields are missing
+    """
+    if file_path is None:
+        file_path = Path("risk-map/yaml/risks.yaml")
+
+    if not file_path.exists():
+        raise FileNotFoundError(f"Risks file not found: {file_path}")
+
+    try:
+        with open(file_path, "r", encoding="utf-8") as f:
+            data = yaml.safe_load(f)
+
+        risks = {}
+
+        for risk_data in data.get("risks", []):
+            risk_id = risk_data["id"]
+            title = risk_data["title"]
+
+            # Risks don't have explicit categories yet - use default
+            category = risk_data.get("category", "risks")
+
+            # Handle controls that mitigate this risk
+            controls = risk_data.get("controls", [])
+
+            # Handle personas
+            personas = risk_data.get("personas", [])
+
+            # Ensure fields are string lists
+            if not isinstance(controls, list):
+                controls = []
+            if not isinstance(personas, list):
+                personas = []
+
+            risks[risk_id] = RiskNode(
+                title=title,
+                category=category
+            )
+
+        return risks
+
+    except yaml.YAMLError as e:
+        raise yaml.YAMLError(f"Error parsing risks YAML: {e}")
+    except KeyError as e:
+        raise KeyError(f"Missing required field in risks.yaml: {e}")
+
+
 def get_staged_yaml_files(target_file: Path | None = None, force_check: bool = False) -> list[Path]:
     """
     Get YAML files that are staged for commit or force check specific file.
@@ -95,7 +225,7 @@ def get_staged_yaml_files(target_file: Path | None = None, force_check: bool = F
     if target_file is None:
         target_file = DEFAULT_COMPONENTS_FILE
 
-    # Force check mode - return file if it exists
+    # Force check mode - return target file if exists
     if force_check:
         if target_file.exists():
             return [target_file]
@@ -104,7 +234,7 @@ def get_staged_yaml_files(target_file: Path | None = None, force_check: bool = F
             return []
 
     try:
-        # Get all staged files from git
+        # Get staged files from git
         result = subprocess.run(
             ["git", "diff", "--cached", "--name-only"],
             capture_output=True,
@@ -114,7 +244,7 @@ def get_staged_yaml_files(target_file: Path | None = None, force_check: bool = F
 
         staged_files = result.stdout.strip().split("\n") if result.stdout.strip() else []
 
-        # Filter for our target file
+        # Check if target file is staged
         if str(target_file) in staged_files and target_file.exists():
             return [target_file]
         else:

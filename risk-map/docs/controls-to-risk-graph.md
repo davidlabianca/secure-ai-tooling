@@ -8,9 +8,27 @@ config:
 ---
 
 graph LR
-   %%{init: {'flowchart': {'nodeSpacing': 25, 'rankSpacing': 150, 'padding': 5, 'wrappingWidth': 250}}}%%
+   %%{init: {'flowchart': {'nodeSpacing': 30, 'rankSpacing': 40, 'padding': 5, 'wrappingWidth': 250}}}%%
     classDef hidden display: none;
     classDef allControl stroke:#4285f4,stroke-width:2px,stroke-dasharray: 5 5
+
+    subgraph risks ["Risks"]
+        DMS[Denial of ML Service]
+        DP[Data Poisoning]
+        EDH[Excessive Data Handling]
+        IIC[Insecure Integrated Component]
+        IMO[Insecure Model Output]
+        ISD[Inferred Sensitive Data]
+        MDT[Model Deployment Tampering]
+        MEV[Model Evasion]
+        MRE[Model Reverse Engineering]
+        MST[Model Source Tampering]
+        MXF[Model Exfiltration]
+        PIJ[Prompt Injection]
+        RA[Rogue Actions]
+        SDD[Sensitive Data Disclosure]
+        UTD[Unauthorized Training Data]
+    end
 
     subgraph controlsData ["Data Controls"]
         controlPrivacyEnhancingTechnologies[Privacy Enhancing Technologies]
@@ -84,7 +102,48 @@ graph LR
 
     end
 
-    %% Control to Component relationships
+    %% Risk to Control relationships
+    DP --> controlModelAndDataAccessControls
+    DP --> controlModelAndDataIntegrityManagement
+    DP --> controlModelAndDataInventoryManagement
+    DP --> controlSecureByDefaultMLTooling
+    DP --> controlTrainingDataSanitization
+    UTD --> controlTrainingDataManagement
+    UTD --> controlTrainingDataSanitization
+    MST --> controlModelAndDataAccessControls
+    MST --> controlModelAndDataIntegrityManagement
+    MST --> controlModelAndDataInventoryManagement
+    MST --> controlSecureByDefaultMLTooling
+    EDH --> controlUserDataManagement
+    EDH --> controlUserTransparencyAndControls
+    MXF --> controlModelAndDataAccessControls
+    MXF --> controlModelAndDataInventoryManagement
+    MXF --> controlSecureByDefaultMLTooling
+    MDT --> controlSecureByDefaultMLTooling
+    DMS --> controlApplicationAccessManagement
+    MRE --> controlApplicationAccessManagement
+    IIC --> controlAgentPluginPermissions
+    IIC --> controlUserPoliciesAndEducation
+    PIJ --> controlAdversarialTrainingAndTesting
+    PIJ --> controlInputValidationAndSanitization
+    PIJ --> controlOutputValidationAndSanitization
+    MEV --> controlAdversarialTrainingAndTesting
+    SDD --> controlAdversarialTrainingAndTesting
+    SDD --> controlOutputValidationAndSanitization
+    SDD --> controlPrivacyEnhancingTechnologies
+    SDD --> controlUserDataManagement
+    SDD --> controlUserPoliciesAndEducation
+    SDD --> controlUserTransparencyAndControls
+    ISD --> controlAdversarialTrainingAndTesting
+    ISD --> controlOutputValidationAndSanitization
+    ISD --> controlTrainingDataManagement
+    IMO --> controlAdversarialTrainingAndTesting
+    IMO --> controlOutputValidationAndSanitization
+    RA --> controlAgentPluginPermissions
+    RA --> controlAgentPluginUserControl
+    RA --> controlOutputValidationAndSanitization
+
+    %% Control to Component relationships (reused from ControlGraph)
     controlPrivacyEnhancingTechnologies --> componentOutputHandling
     controlPrivacyEnhancingTechnologies --> componentsModelSubgroup
     controlTrainingDataManagement --> componentDataSources
@@ -112,23 +171,16 @@ graph LR
     controlThreatDetection -.-> components
     controlIncidentResponseManagement -.-> components
 
-    %% Apply styling to controls mapped to 'all'
-    controlIncidentResponseManagement:::allControl
-    controlRedTeaming:::allControl
-    controlThreatDetection:::allControl
-    controlVulnerabilityManagement:::allControl
-
     %% Edge styling
-    linkStyle 22,23,24,25 stroke:#4285f4,stroke-width:3px,stroke-dasharray: 8 4
-    linkStyle 1,4,7,8,9,10,11,12,13,14 stroke:#34a853,stroke-width:2px
-    linkStyle 2 stroke:#9c27b0,stroke-width:2px
-    linkStyle 3 stroke:#ff9800,stroke-width:2px,stroke-dasharray: 5 5
+    linkStyle 0,4,8,12,16,20,24,28,32,36 stroke:#e6cbce,stroke-width:2px,stroke-dasharray: 5 3
+    linkStyle 1,5,9,13,17,21,25,29,33,37 stroke:#b66871,stroke-width:2px,stroke-dasharray: 8 4
+    linkStyle 2,6,10,14,18,22,26,30,34,38 stroke:#b66871,stroke-width:2px,stroke-dasharray: 10 2
+    linkStyle 3,7,11,15,19,23,27,31,35 stroke:#1c0d0f,stroke-width:2px,stroke-dasharray: 12 5
 
 %% Node style definitions
+    style risks fill:#ffeef0,stroke:#e91e63,stroke-width:2px
     style components fill:#f0f0f0,stroke:#666666,stroke-width:3px,stroke-dasharray: 10 5
     style componentsInfrastructure fill:#e6f3e6,stroke:#333333,stroke-width:2px
     style componentsApplication fill:#e6f0ff,stroke:#333333,stroke-width:2px
     style componentsModel fill:#ffe6e6,stroke:#333333,stroke-width:2px
-    style componentsModels fill:#d4e6d4,stroke:#333,stroke-width:1px
-    style componentsModelSubgroup fill:#f0e6e6,stroke:#333,stroke-width:1px
 ```
