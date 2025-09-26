@@ -23,17 +23,17 @@ description:
     every stage of the AI development process.
 categories:
   - id: controlsData
-    title: Data
+    title: Data Controls
   - id: controlsInfrastructure
-    title: Infrastructure
+    title: Infrastructure Controls
   - id: controlsModel
-    title: Model
+    title: Model Controls
   - id: controlsApplication
-    title: Application
+    title: Application Controls
   - id: controlsAssurance
-    title: Assurance
+    title: Assurance Controls
   - id: controlsGovernance
-    title: Governance
+    title: Governance Controls
 controls:
   - id: controlPrivacyEnhancingTechnologies
     title: Privacy Enhancing Technologies

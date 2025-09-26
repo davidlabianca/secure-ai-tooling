@@ -7,14 +7,15 @@ Development tools and utilities for this project.
 
 **Prerequisites:**
 - Python 3.10 or higher
-- Node.js and npm
+- Node.js 18+ and npm
+- Chrome/Chromium browser (for SVG generation from Mermaid diagrams)
 
 Install dependencies and pre-commit hook (one-time setup):
 ```bash
 # Install required Python packages
 pip install -r requirements.txt
 
-# Install Node.js dependencies (prettier, etc.)
+# Install Node.js dependencies (prettier, mermaid-cli, etc.)
 npm install
 
 # Install ruff (Python linter)
@@ -24,8 +25,22 @@ pip install ruff
 ./install-precommit-hook.sh
 ```
 
+**Platform-specific Chrome/Chromium setup:**
+- **Mac/Windows/Linux x64**: Chrome automatically handled by puppeteer (bundled with mermaid-cli dependencies)
+- **Linux ARM64**: Requires manual Chromium setup since Google Chrome is not available for ARM64:
+  ```bash
+  # Option 1: Use Playwright Chromium (recommended)
+  ./install-precommit-hook.sh --install-playwright
+
+  # Option 2: Install system Chromium
+  sudo apt install chromium-browser  # Ubuntu/Debian
+
+  # Option 3: Specify custom Chromium path during installation
+  ./install-precommit-hook.sh
+  ```
+
 ### What it does
-The pre-commit hook runs five validations before allowing commits:
+The pre-commit hook runs six validations before allowing commits:
 
 #### 1. YAML Schema Validation
 Validates all YAML files against their corresponding JSON schemas.
@@ -121,6 +136,42 @@ risks:
     - CTRL-001  # ✅ Bidirectional consistency maintained
 ```
 
+#### 6. Mermaid SVG Generation
+Automatically generates SVG files from Mermaid diagrams when `.mmd` or `.mermaid` files are staged for commit:
+
+**Features:**
+- **Automatic conversion**: Converts staged Mermaid files in `risk-map/docs/` to SVG format
+- **Output location**: SVG files are saved to `risk-map/svg/` with matching filenames
+- **Auto-staging**: Generated SVG files are automatically added to staged files for commit
+- **Prerequisites check**: Validates that required tools (npx, mermaid-cli, Chrome/Chromium) are available
+- **Platform-aware**: Handles Chrome/Chromium detection across different platforms
+
+**Dependencies:**
+- **Node.js 18+**: Required for npx and mermaid-cli execution
+- **@mermaid-js/mermaid-cli**: Installed via `npm install` (converts .mmd to .svg)
+- **Chrome/Chromium**: Used by mermaid-cli via puppeteer for rendering SVGs
+  - **Mac/Windows/Linux x64**: Automatic Chrome detection (puppeteer bundled with dependencies handles Chrome)
+  - **Linux ARM64**: Manual Chromium setup required since Google Chrome is not available for ARM64
+
+**Example workflow:**
+```bash
+# Stage a mermaid file for commit
+git add risk-map/docs/component-flow.mmd
+
+# Pre-commit hook automatically:
+# 1. Detects the staged .mmd file
+# 2. Converts it to risk-map/svg/component-flow.svg
+# 3. Stages the generated SVG for commit
+
+git commit -m "Add component flow diagram"
+# Both the .mmd source and generated .svg are committed
+```
+
+**Behavior:**
+- **Normal mode**: Only processes staged `.mmd/.mermaid` files in `risk-map/docs/`
+- **Force mode**: Skips SVG generation (generation only runs for actual commits)
+- **Error handling**: Gracefully handles missing Chrome/Chromium with clear error messages
+
 ### Requirements
 Install all required Python packages:
 ```bash
@@ -135,11 +186,17 @@ pip install -r requirements.txt
 
 **Additional dependencies** (from `package.json`):
 - `prettier` - Code formatting for YAML files
+- `@mermaid-js/mermaid-cli` - Converts Mermaid diagrams to SVG files
+- `playwright` - Provides Chromium browser for ARM64 Linux (optional)
+- `puppeteer-core` - Browser automation library used by mermaid-cli
 
 **Individual installation** (if needed):
 ```bash
 pip install PyYAML check-jsonschema pytest ruff
-npm install prettier
+npm install prettier @mermaid-js/mermaid-cli playwright puppeteer-core
+
+# For ARM64 Linux specifically, install Playwright Chromium:
+npx playwright install chromium --with-deps
 ```
 
 ### Files
@@ -158,10 +215,13 @@ When you commit changes, the hook will:
 5. **Graph Generation** - Generate and stage graphs based on file changes:
    - If `components.yaml` changed: generate `./risk-map/docs/risk-map-graph.md`
    - If `components.yaml` or `controls.yaml` changed: generate `./risk-map/docs/controls-graph.md`
-6. **Control-Risk Validation** - Verify control-risk cross-reference consistency
-7. **Block commit** if any validation fails
+   - If `components.yaml`, `controls.yaml` or `risks.yaml` changed: generate `./risk-map/docs/controls-to-risk-graph.md`
+6. **SVG Generation** - Convert staged Mermaid files to SVG format:
+   - If `.mmd/.mermaid` files changed: generate corresponding SVG files in `./risk-map/svg/`
+7. **Control-Risk Validation** - Verify control-risk cross-reference consistency
+8. **Block commit** if any validation fails
 
-**Note**: Graph generation only occurs when relevant files are staged for commit, not in `--force` mode.
+**Note**: Graph generation and SVG generation only occur when relevant files are staged for commit, not in `--force` mode.
 
 #### Manual Validation of Unstaged Files
 The `pre-commit` hook and all individual validation scripts support the `--force` flag to validate all files regardless of their git staging status (useful during development).
@@ -183,7 +243,7 @@ The `pre-commit` hook and all individual validation scripts support the `--force
 
 ### GitHub Actions Validation
 
-In addition to local pre-commit validation, the repository includes GitHub Actions that run the same validations on pull requests:
+In addition to local pre-commit validation, the repository includes GitHub Actions that run validation on pull requests:
 
 **Automated PR Validation includes:**
 - **YAML Schema Validation**: Validates all YAML files against their JSON schemas
@@ -191,9 +251,15 @@ In addition to local pre-commit validation, the repository includes GitHub Actio
 - **Python Linting**: Runs ruff linting on all Python files
 - **Component Edge Validation**: Verifies component relationship consistency
 - **Control-Risk Reference Validation**: Checks control-risk cross-reference integrity
-- **Graph Validation**: Generates and compares both graph types against committed versions
+- **Graph Validation**: Generates and compares graphs against committed versions
   - Component graph (`./risk-map/docs/risk-map-graph.md`)
   - Control graph (`./risk-map/docs/controls-graph.md`)
+  - Controls-to-risk graph (`./risk-map/docs/controls-to-risk-graph.md`)
+- **Mermaid SVG Validation**: Validates Mermaid diagram syntax and generates SVG previews
+
+**Different Roles:**
+- **Pre-commit hooks**: Generate SVG files from Mermaid diagrams and stage them
+- **GitHub Actions**: Validate Mermaid syntax and provide SVG previews in PR comments (does not generate files for commit)
 
 **Graph Validation Process:**
 - GitHub Actions generates fresh graphs using the validation script
@@ -212,13 +278,16 @@ python3 .git/hooks/validate_riskmap.py --to-graph ./risk-map/docs/risk-map-graph
 # For control graph issues:
 python3 .git/hooks/validate_riskmap.py --to-controls-graph ./risk-map/docs/controls-graph.md --force
 
+# For controls-to-risk graph issues:
+python3 .git/hooks/validate_riskmap.py --to-risk-graph ./risk-map/docs/controls-to-risk-graph.md --force
+
 # Then commit the updated graphs:
-git add risk-map/docs/risk-map-graph.md risk-map/docs/controls-graph.md
+git add risk-map/docs/risk-map-graph.md risk-map/docs/controls-graph.md risk-map/docs/controls-to-risk-graph.md
 git commit -m "Update generated graphs"
 ```
 
 #### Manual Graph Generation
-Generate component graphs and control-to-component graphs manually using the validation script:
+Generate all three graph types manually using the validation script:
 
 ```bash
 # Validate edges and generate clean component graph without debug comments
@@ -229,11 +298,15 @@ Generate component graphs and control-to-component graphs manually using the val
 
 # Generate control-to-component graph visualization
 .git/hooks/validate_riskmap.py --to-controls-graph ./docs/controls-graph.md --force
+
+# Generate controls-to-risk graph visualization
+.git/hooks/validate_riskmap.py --to-risk-graph ./docs/controls-risk-graph.md --force
 ```
 
 **Graph Generation Options:**
 - `--to-graph PATH` - Output component relationship Mermaid graph to specified file
 - `--to-controls-graph PATH` - Output control-to-component relationship graph to specified file
+- `--to-risk-graph PATH` - Output controls-to-risk relationship graph to specified file
 - `--debug` - Include rank comments for debugging (component graphs only)
 - `--quiet` - Minimize output (only show errors)
 - `--allow-isolated` - Allow components with no edges
@@ -244,6 +317,17 @@ Generate component graphs and control-to-component graphs manually using the val
 If you already have git hooks and want to replace them:
 ```bash
 ./install-precommit-hook.sh --force
+```
+
+#### Installing with Playwright Chromium (ARM64 Linux)
+For ARM64 Linux systems that need Playwright Chromium:
+```bash
+# Automatically install Playwright Chromium during setup
+./install-precommit-hook.sh --install-playwright
+
+# Or install manually then run setup
+npx playwright install chromium
+./install-precommit-hook.sh
 ```
 
 #### Bypassing validation (emergencies only)
@@ -304,6 +388,82 @@ git commit --no-verify -m "emergency commit"
 ```
 **Fix**: Check that ruff is installed (`pip install ruff`) and review the specific linting errors in the output
 
+#### Common SVG generation errors
+
+```
+⚠️ Directory ./risk-map/svg does not exist - skipping SVG generation
+```
+**Fix**: Create the directory: `mkdir -p risk-map/svg`
+
+```
+⚠️ npx command not found - skipping SVG generation
+```
+**Fix**: Install Node.js 18+ and npm, then verify with `npx --version`
+
+```
+⚠️ Mermaid CLI not available - skipping SVG generation
+```
+**Fix**: Install mermaid-cli: `npm install -g @mermaid-js/mermaid-cli` or `npm install`
+
+```
+❌ Failed to convert diagram.mmd
+```
+**Fix**: Check Mermaid syntax in the file, and verify Chrome/Chromium is available. Test manually:
+```bash
+npx mmdc -i diagram.mmd -o test.svg
+```
+
+#### Chrome/Chromium issues (ARM64 Linux)
+
+```
+Error: Could not find browser revision
+```
+**Fix**: Install Playwright Chromium or system Chromium:
+```bash
+# Option 1: Playwright Chromium (recommended)
+npx playwright install chromium --with-deps
+
+# Option 2: System Chromium
+sudo apt install chromium-browser
+
+# Option 3: Re-run install with automatic Playwright setup
+./install-precommit-hook.sh --install-playwright --force
+```
+
+```
+✅ Found existing Playwright Chromium at: /path/to/chromium
+# But SVG generation still fails
+```
+**Fix**: Verify the Chromium path is executable and has required dependencies:
+```bash
+# Test Chromium directly
+/path/to/chromium --version
+
+# Install system dependencies if needed (Ubuntu/Debian)
+sudo apt install -y ca-certificates fonts-liberation libappindicator3-1 \
+  libasound2 libatk-bridge2.0-0 libdrm2 libgtk-3-0 libnspr4 libnss3 \
+  libxcomposite1 libxdamage1 libxrandr2 libgbm1 libxss1 libu2f-udev
+
+# Re-configure pre-commit hook
+./install-precommit-hook.sh --force
+```
+
+```
+⚠️ Using automatic Chrome detection
+# But no Chrome found on ARM64
+```
+**Fix**: ARM64 Linux requires manual Chromium setup since Google Chrome isn't available:
+```bash
+# Check your platform
+uname -m  # Should show aarch64 or arm64
+
+# Install Playwright Chromium
+npx playwright install chromium --with-deps
+
+# Re-run installation to detect Chromium
+./install-precommit-hook.sh --force
+```
+
 #### Debugging validation manually
 Run the component edge validator manually:
 ```bash
@@ -346,6 +506,22 @@ ruff check tools/ scripts/
 ruff check --fix .
 ```
 
+Run SVG generation manually:
+```bash
+# Test SVG generation for a specific file
+npx mmdc -i risk-map/docs/diagram.mmd -o test.svg
+
+# Test with custom Chrome/Chromium path
+npx mmdc -i risk-map/docs/diagram.mmd -o test.svg \
+  -p '{"executablePath": "/path/to/chromium"}'
+
+# Check available browsers (Playwright)
+npx playwright show-path chromium
+
+# Verify mermaid-cli installation
+npx mmdc --version
+```
+
 #### Debugging graph generation
 Test graph generation without affecting git staging:
 ```bash
@@ -357,6 +533,9 @@ python3 .git/hooks/validate_riskmap.py --to-graph ./debug-graph.md --debug --for
 
 # Generate control-to-component graph to test relationships
 python3 .git/hooks/validate_riskmap.py --to-controls-graph ./controls-test.md --force
+
+# Generate controls-to-risk graph to test risk relationships
+python3 .git/hooks/validate_riskmap.py --to-risk-graph ./risk-test.md --force
 
 # View help for all graph options
 python3 .git/hooks/validate_riskmap.py --help

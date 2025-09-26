@@ -11,9 +11,8 @@ Dependencies:
 
 from pathlib import Path
 
-import yaml
-
 from .models import ComponentNode
+from .utils import parse_components_yaml
 
 
 class EdgeValidationError(Exception):
@@ -23,19 +22,18 @@ class EdgeValidationError(Exception):
 
 class ComponentEdgeValidator:
     """
-    Main validator class for component edge consistency.
+    Validates component edge consistency.
 
-    This class encapsulates all validation logic and can be easily extended
-    with additional validation rules or integrated into other systems.
+    Encapsulates validation logic and can be extended with additional rules.
     """
 
     def __init__(self, allow_isolated: bool = False, verbose: bool = True):
         """
-        Initialize the validator.
+        Initialize validator.
 
         Args:
-            allow_isolated: If True, isolated components won't trigger validation failure
-            verbose: If True, print detailed validation progress
+            allow_isolated: If True, isolated components don't cause failure
+            verbose: If True, print detailed progress
         """
         self.allow_isolated = allow_isolated
         self.verbose = verbose
@@ -43,176 +41,32 @@ class ComponentEdgeValidator:
         self.forward_map: dict[str, list[str]] = {}
 
     def log(self, message: str, level: str = "info") -> None:
-        """Log messages based on verbosity setting."""
+        """Log messages if verbose enabled."""
         if self.verbose:
             icons = {"info": "ℹ️", "success": "✅", "warning": "⚠️", "error": "❌"}
             print(f"   {icons.get(level, 'ℹ️')} {message}")
-
-    def load_yaml_file(self, file_path: Path) -> dict | None:
-        """
-        Load and parse YAML file with error handling.
-
-        Args:
-            file_path: Path to the YAML file
-
-        Returns:
-            Parsed YAML data as dictionary, None if loading fails
-
-        Raises:
-            EdgeValidationError: If file cannot be loaded or parsed
-        """
-        try:
-            if not file_path.exists():
-                raise EdgeValidationError(f"File not found: {file_path}")
-
-            with open(file_path, "r", encoding="utf-8") as f:
-                data = yaml.safe_load(f)
-
-            if data is None:
-                self.log(
-                    f"Warning: {file_path} is empty or contains only comments",
-                    "warning",
-                )
-                return {}
-
-            return data
-
-        except yaml.YAMLError as e:
-            raise EdgeValidationError(f"YAML parsing error in {file_path}: {e}")
-        except (IOError, OSError) as e:
-            raise EdgeValidationError(f"File access error for {file_path}: {e}")
-
-    def extract_component_edges(self, yaml_data: dict) -> dict[str, ComponentNode]:
-        """
-        Extract component IDs and their edge relationships from YAML data.
-
-        Args:
-            yaml_data: Parsed YAML data
-
-        Returns:
-            Dictionary mapping component IDs to their edge definitions
-            Format: {component_id: {'to': [targets], 'from': [sources]}}
-        """
-        components = {}
-
-        if not yaml_data or "components" not in yaml_data:
-            self.log("No 'components' section found in YAML data", "warning")
-            return components
-
-        for i, component in enumerate(yaml_data["components"]):
-            if not isinstance(component, dict):
-                self.log(
-                    f"Skipping invalid component at index {i}: not a dictionary",
-                    "warning",
-                )
-                continue
-
-            component_id: str | None = component.get("id")
-            if not component_id:
-                self.log(f"Skipping component at index {i}: missing 'id' field", "warning")
-                continue
-
-            if not isinstance(component_id, str):
-                self.log(f"Skipping component at index {i}: 'id' must be a string", "warning")
-                continue
-
-            # Extract title
-            component_title: str | None = component.get("title")
-            if not component_title:
-                self.log(f"Skipping component at index {i}: missing 'title' field", "warning")
-                continue
-
-            if not isinstance(component_title, str):
-                self.log(
-                    f"Skipping component at index {i}: 'title' must be a string",
-                    "warning",
-                )
-                continue
-
-            # Extract category
-            category: str | None = component.get("category")
-            if not category:
-                self.log(
-                    f"Skipping component '{component_id}': missing 'category' field",
-                    "warning",
-                )
-                continue
-
-            if not isinstance(category, str):
-                self.log(
-                    f"Skipping component '{component_id}': 'category' must be a string",
-                    "warning",
-                )
-                continue
-
-            # Extract edges with default empty lists
-            edges = component.get("edges", {})
-            if not isinstance(edges, dict):
-                self.log(
-                    f"Component '{component_id}': 'edges' must be a dictionary, using empty edges",
-                    "warning",
-                )
-                edges = {}
-
-            # Ensure edge lists are actually lists
-            to_edges = edges.get("to", [])
-            from_edges = edges.get("from", [])
-
-            if not isinstance(to_edges, list):
-                self.log(
-                    f"Component '{component_id}': 'to' edges must be a list, using empty list",
-                    "warning",
-                )
-                to_edges = []
-
-            if not isinstance(from_edges, list):
-                self.log(
-                    f"Component '{component_id}': 'from' edges must be a list, using empty list",
-                    "warning",
-                )
-                from_edges = []
-
-            # Create the ComponentNode instance, which handles internal validation
-            try:
-                components[component_id] = ComponentNode(
-                    title=component_title,
-                    category=category,
-                    to_edges=[str(edge) for edge in to_edges if edge],
-                    from_edges=[str(edge) for edge in from_edges if edge],
-                )
-            except (TypeError, ValueError) as e:
-                self.log(
-                    f"Skipping component '{component_id}' due to invalid data: {e}",
-                    "error",
-                )
-                continue
-
-        self.log(f"Extracted {len(components)} components from YAML data")
-        return components
 
     def build_edge_maps(
         self, components: dict[str, ComponentNode]
     ) -> tuple[dict[str, list[str]], dict[str, list[str]]]:
         """
-        Build forward and reverse edge mappings for validation.
+        Build forward and reverse edge mappings.
 
         Args:
             components: Component edge definitions
 
         Returns:
-            Tuple of (forward_map, reverse_map)
-            - forward_map: component -> list of components it points to
-            - reverse_map: component -> list of components that point to it
+            Tuple of (forward_map, reverse_map) for edge validation
         """
         forward_map = {}
         reverse_map = {}
 
         for component_id, node in components.items():
-            # Forward edges (this component -> other components)
+            # Forward edges: this component → other components
             if node.to_edges:
                 forward_map[component_id] = node.to_edges[:]  # Create copy
 
-            # Build reverse mapping from 'from' edges
+            # Build reverse mapping from from_edges
             for from_node in node.from_edges:
                 if from_node not in reverse_map:
                     reverse_map[from_node] = []
@@ -224,10 +78,7 @@ class ComponentEdgeValidator:
 
     def find_isolated_components(self, components: dict[str, ComponentNode]) -> set[str]:
         """
-        Identify components with no edges (neither to nor from).
-
-        Args:
-            components: Component edge definitions
+        Find components with no edges.
 
         Returns:
             Set of isolated component IDs
@@ -242,10 +93,7 @@ class ComponentEdgeValidator:
 
     def find_missing_components(self, components: dict[str, ComponentNode]) -> set[str]:
         """
-        Find components that are referenced in edges but don't exist in the components list.
-
-        Args:
-            components: Component edge definitions
+        Find referenced components that don't exist.
 
         Returns:
             Set of missing component IDs
@@ -253,7 +101,7 @@ class ComponentEdgeValidator:
         existing_components = set(components.keys())
         referenced_components = set()
 
-        # Collect all referenced component IDs
+        # Collect all referenced components
         for node in components.values():
             referenced_components.update(node.to_edges)
             referenced_components.update(node.from_edges)
@@ -264,18 +112,18 @@ class ComponentEdgeValidator:
         self, forward_map: dict[str, list[str]], reverse_map: dict[str, list[str]]
     ) -> list[str]:
         """
-        Compare forward and reverse edge maps to find inconsistencies.
+        Compare edge maps to find inconsistencies.
 
         Args:
-            forward_map: Component -> list of outgoing connections
-            reverse_map: Component -> list of incoming connections
+            forward_map: Component → outgoing connections
+            reverse_map: Component → incoming connections
 
         Returns:
-            List of error messages describing inconsistencies
+            List of error messages
         """
         errors = []
 
-        # Check forward -> reverse consistency
+        # Check forward → reverse consistency
         for component, targets in forward_map.items():
             if component not in reverse_map:
                 errors.append(f"Component '{component}' has outgoing edges but no corresponding incoming edges")
@@ -295,7 +143,7 @@ class ComponentEdgeValidator:
                         f"Component '{component}' → unexpected incoming edges from: {', '.join(sorted(extra))}"
                     )
 
-        # Check reverse -> forward consistency
+        # Check reverse → forward consistency
         for component in reverse_map.keys():
             if component not in forward_map:
                 errors.append(f"Component '{component}' has incoming edges but no corresponding outgoing edges")
@@ -304,10 +152,10 @@ class ComponentEdgeValidator:
 
     def validate_file(self, file_path: Path) -> bool:
         """
-        Validate component edge consistency in a single YAML file.
+        Validate component edge consistency in YAML file.
 
         Args:
-            file_path: Path to YAML file to validate
+            file_path: Path to YAML file
 
         Returns:
             True if validation passes, False otherwise
@@ -315,23 +163,16 @@ class ComponentEdgeValidator:
         self.log(f"Validating component edges in: {file_path}")
 
         try:
-            # Load and parse YAML
-            yaml_data = self.load_yaml_file(file_path)
-            if not yaml_data:
-                self.log("No data to validate - skipping", "warning")
-                return True
-
-            # Extract component edges
-            self.components = self.extract_component_edges(yaml_data)
+            self.components = parse_components_yaml(file_path)
 
             if not self.components:
                 self.log("No components found - skipping validation", "info")
                 return True
 
-            # Run all validation checks
+            # Run validation checks
             success = True
 
-            # Check for missing component references
+            # Check for missing components
             missing_components = self.find_missing_components(self.components)
             if missing_components:
                 self.log(

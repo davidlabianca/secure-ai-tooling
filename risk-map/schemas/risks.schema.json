@@ -1,6 +1,8 @@
 {
   "$id": "risks.schema.json",
   "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "CoSAI-RM Risks Schema",
+  "description": "Schema for validating YAML-based risks definition",
   "type": "object",
   "properties": {
     "title": {"type": "string"},

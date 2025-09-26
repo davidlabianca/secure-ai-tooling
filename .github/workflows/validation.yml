@@ -40,7 +40,7 @@ jobs:
         # Copy the scripts from the repo to make them executable in CI
         cp scripts/hooks/validate_riskmap.py .
         mkdir -p riskmap_validator
-        cp scripts/hooks/riskmap_validator/*.py ./riskmap_validator/
+        cp -r scripts/hooks/riskmap_validator/* ./riskmap_validator/
         cp scripts/hooks/validate_control_risk_references.py .
 
     - name: Install dependencies
@@ -58,6 +58,9 @@ jobs:
     runs-on: ubuntu-latest
     name: YAML Schema Validation
     needs: setup
+    outputs:
+      validation_status: ${{ steps.validate-schema.outputs.status }}
+      validation_count: ${{ steps.validate-schema.outputs.count }}
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
@@ -80,6 +83,7 @@ jobs:
         npm ci
 
     - name: Run YAML Schema Validation
+      id: validate-schema
       run: |
         echo "🔍 Running YAML schema validation..."
 
@@ -89,6 +93,7 @@ jobs:
         SOURCE_FILES=("controls" "components" "personas" "risks" "self-assessment" "mermaid-styles")
 
         validation_failed=false
+        validation_count=0
 
         for target in "${SOURCE_FILES[@]}"; do
           schema_file="${SCHEMA_BASE_DIR}/${target}.schema.json"
@@ -96,6 +101,7 @@ jobs:
 
           if [[ -f "$yaml_file" && -f "$schema_file" ]]; then
             echo "📄 Validating ${yaml_file} against ${schema_file}..."
+            validation_count=$((validation_count + 1))
 
             if check-jsonschema --base-uri "$BASE_URI" --schemafile "$schema_file" "$yaml_file"; then
               echo "✅ ${yaml_file} is valid"
@@ -108,17 +114,23 @@ jobs:
           fi
         done
 
+        echo "count=$validation_count" >> $GITHUB_OUTPUT
+
         if [ "$validation_failed" = true ]; then
           echo "::error::YAML schema validation failed"
+          echo "status=failed" >> $GITHUB_OUTPUT
           exit 1
         fi
 
         echo "✅ All YAML schema validations passed"
+        echo "status=success" >> $GITHUB_OUTPUT
 
   format-validation:
     runs-on: ubuntu-latest
     name: YAML Format Validation
     needs: setup
+    outputs:
+      format_status: ${{ steps.validate-format.outputs.status }}
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
@@ -133,14 +145,17 @@ jobs:
       run: npm ci
 
     - name: Run YAML Format Validation
+      id: validate-format
       run: |
         echo "🎨 Running YAML format validation..."
 
         if npx prettier --check risk-map/yaml/*.yaml; then
           echo "✅ YAML format validation completed successfully"
+          echo "status=success" >> $GITHUB_OUTPUT
         else
           echo "❌ YAML format validation failed"
           echo "::error::YAML files are not properly formatted. Run 'npx prettier --write risk-map/yaml/*.yaml' locally."
+          echo "status=failed" >> $GITHUB_OUTPUT
           exit 1
         fi
 
@@ -148,6 +163,8 @@ jobs:
     runs-on: ubuntu-latest
     name: Component Edge Validation
     needs: setup
+    outputs:
+      edge_status: ${{ steps.validate-edges.outputs.status }}
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
@@ -162,20 +179,23 @@ jobs:
       run: |
         cp scripts/hooks/validate_riskmap.py .
         mkdir -p riskmap_validator
-        cp scripts/hooks/riskmap_validator/*.py ./riskmap_validator/
+        cp -r scripts/hooks/riskmap_validator/* ./riskmap_validator/
 
     - name: Install dependencies
       run: pip install -r requirements.txt
 
     - name: Run Component Edge Validation
+      id: validate-edges
       run: |
         echo "🔗 Running component edge validation..."
 
         if python3 validate_riskmap.py --force; then
           echo "✅ Component edge validation completed successfully"
+          echo "status=success" >> $GITHUB_OUTPUT
         else
           echo "❌ Component edge validation failed"
           echo "::error::Component edge validation failed"
+          echo "status=failed" >> $GITHUB_OUTPUT
           exit 1
         fi
 
@@ -183,6 +203,8 @@ jobs:
     runs-on: ubuntu-latest
     name: Control-Risk Reference Validation
     needs: setup
+    outputs:
+      control_status: ${{ steps.validate-controls.outputs.status }}
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
@@ -200,14 +222,17 @@ jobs:
       run: pip install -r requirements.txt
 
     - name: Run Control-Risk Reference Validation
+      id: validate-controls
       run: |
         echo "🔒 Running control-to-risk reference validation..."
 
         if python3 validate_control_risk_references.py --force; then
           echo "✅ Control-to-risk reference validation completed successfully"
+          echo "status=success" >> $GITHUB_OUTPUT
         else
           echo "❌ Control-to-risk reference validation failed"
           echo "::error::Control-to-risk reference validation failed"
+          echo "status=failed" >> $GITHUB_OUTPUT
           exit 1
         fi
 
@@ -215,6 +240,9 @@ jobs:
     runs-on: ubuntu-latest
     name: Graph Validation
     needs: setup
+    outputs:
+      graph_status: ${{ steps.validate-graphs.outputs.status }}
+      graphs_validated: ${{ steps.validate-graphs.outputs.graphs_validated }}
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
@@ -229,29 +257,33 @@ jobs:
       run: |
         cp scripts/hooks/validate_riskmap.py .
         mkdir -p riskmap_validator
-        cp scripts/hooks/riskmap_validator/*.py ./riskmap_validator/
+        cp -r scripts/hooks/riskmap_validator/* ./riskmap_validator/
 
     - name: Install dependencies
       run: pip install -r requirements.txt
 
     - name: Validate graphs
+      id: validate-graphs
       run: |
         # Setup temporary files and paths
         RISK_MAP_TEMP_FILE=$(mktemp)
         CONTROLS_TEMP_FILE=$(mktemp)
+        RISK_CONTROLS_TEMP_FILE=$(mktemp)
         RISKMAP_PATH="./risk-map/docs/risk-map-graph.md"
         CONTROL_GRAPH_PATH="./risk-map/docs/controls-graph.md"
+        RISK_CONTROLS_PATH="./risk-map/docs/controls-to-risk-graph.md"
         VALIDATE_CMD="validate_riskmap.py"
 
         # Define graph configurations as arrays
-        GRAPH_NAMES=("Component Graph" "Control Graph")
-        TEMP_FILES=("${RISK_MAP_TEMP_FILE}" "${CONTROLS_TEMP_FILE}")
-        TARGET_PATHS=("${RISKMAP_PATH}" "${CONTROL_GRAPH_PATH}")
-        GENERATE_ARGS=("--to-graph" "--to-controls-graph")
+        GRAPH_NAMES=("Component Graph" "Control Graph" "Controls-to-Risk Graph")
+        TEMP_FILES=("${RISK_MAP_TEMP_FILE}" "${CONTROLS_TEMP_FILE}" "${RISK_CONTROLS_TEMP_FILE}")
+        TARGET_PATHS=("${RISKMAP_PATH}" "${CONTROL_GRAPH_PATH}" "${RISK_CONTROLS_PATH}")
+        GENERATE_ARGS=("--to-graph" "--to-controls-graph" "--to-risk-graph")
 
         graph_compare_failed=false
+        graphs_validated=0
 
-        # Loop through both graph types
+        # Loop through all graph types
         for i in "${!GRAPH_NAMES[@]}"; do
             graph_name="${GRAPH_NAMES[$i]}"
             temp_file="${TEMP_FILES[$i]}"
@@ -259,6 +291,7 @@ jobs:
             gen_args="${GENERATE_ARGS[$i]}"
 
             echo "🔍 Validating ${graph_name}..."
+            graphs_validated=$((graphs_validated + 1))
 
             if ! python3 ${VALIDATE_CMD} --force ${gen_args} "${temp_file}"; then
                 echo "❌ ${graph_name} generation via ${VALIDATE_CMD} failed..."
@@ -278,13 +311,18 @@ jobs:
         # Cleanup temp files
         rm -f ${RISK_MAP_TEMP_FILE}
         rm -f ${CONTROLS_TEMP_FILE}
+        rm -f ${RISK_CONTROLS_TEMP_FILE}
+
+        echo "graphs_validated=$graphs_validated" >> $GITHUB_OUTPUT
 
         if [ "$graph_compare_failed" = true ]; then
           echo "::error::Graph validation failed"
+          echo "status=failed" >> $GITHUB_OUTPUT
           exit 1
         fi
 
         echo "✅ All graph validations passed"
+        echo "status=success" >> $GITHUB_OUTPUT
 
   # Summary job that requires all other jobs but doesn't fail
   validation-summary:
@@ -295,8 +333,8 @@ jobs:
     steps:
     - name: Generate Summary
       run: |
-        echo "📋 CoSAI Risk Map Validation Summary:"
-        echo ""
+        echo "# 📋 CoSAI Risk Map Validation Summary" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
 
         # Check individual job results
         schema_result="${{ needs.schema-validation.result }}"
@@ -305,47 +343,60 @@ jobs:
         control_result="${{ needs.control-risk-validation.result }}"
         graph_result="${{ needs.graph-validation.result }}"
 
+        # Get output details
+        validation_count="${{ needs.schema-validation.outputs.validation_count }}"
+        graphs_validated="${{ needs.graph-validation.outputs.graphs_validated }}"
+
         overall_success=true
 
+        echo "## Individual Job Results:" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+
         if [ "$schema_result" = "success" ]; then
-          echo "  ✅ YAML schema validation"
+          echo "- ✅ **YAML schema validation**: Passed ($validation_count schemas)" >> $GITHUB_STEP_SUMMARY
         else
-          echo "  ❌ YAML schema validation ($schema_result)"
+          echo "- ❌ **YAML schema validation**: $schema_result" >> $GITHUB_STEP_SUMMARY
           overall_success=false
         fi
 
         if [ "$format_result" = "success" ]; then
-          echo "  ✅ YAML format validation"
+          echo "- ✅ **YAML format validation**: Passed" >> $GITHUB_STEP_SUMMARY
         else
-          echo "  ❌ YAML format validation ($format_result)"
+          echo "- ❌ **YAML format validation**: $format_result" >> $GITHUB_STEP_SUMMARY
           overall_success=false
         fi
 
         if [ "$edge_result" = "success" ]; then
-          echo "  ✅ Component edge validation"
+          echo "- ✅ **Component edge validation**: Passed" >> $GITHUB_STEP_SUMMARY
         else
-          echo "  ❌ Component edge validation ($edge_result)"
+          echo "- ❌ **Component edge validation**: $edge_result" >> $GITHUB_STEP_SUMMARY
           overall_success=false
         fi
 
         if [ "$control_result" = "success" ]; then
-          echo "  ✅ Control-to-risk reference validation"
+          echo "- ✅ **Control-to-risk reference validation**: Passed" >> $GITHUB_STEP_SUMMARY
         else
-          echo "  ❌ Control-to-risk reference validation ($control_result)"
+          echo "- ❌ **Control-to-risk reference validation**: $control_result" >> $GITHUB_STEP_SUMMARY
           overall_success=false
         fi
 
         if [ "$graph_result" = "success" ]; then
-          echo "  ✅ Graph validation (component & control graphs)"
+          echo "- ✅ **Graph validation**: Passed ($graphs_validated graphs)" >> $GITHUB_STEP_SUMMARY
         else
-          echo "  ❌ Graph validation ($graph_result)"
+          echo "- ❌ **Graph validation**: $graph_result" >> $GITHUB_STEP_SUMMARY
           overall_success=false
         fi
 
-        echo ""
+        echo "" >> $GITHUB_STEP_SUMMARY
+
         if [ "$overall_success" = "true" ]; then
-          echo "🎉 All validations passed!"
+          echo "## ✅ Overall Status: Success" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "🎉 All validations passed!" >> $GITHUB_STEP_SUMMARY
         else
-          echo "💥 Some validations failed. Check individual job details above."
+          echo "## ❌ Overall Status: Failed" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "💥 Some validations failed. Check individual job details above." >> $GITHUB_STEP_SUMMARY
+          echo "::error::Some CoSAI Risk Map validations failed"
           exit 1
         fi
