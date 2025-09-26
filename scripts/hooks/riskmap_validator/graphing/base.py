@@ -318,13 +318,15 @@ class BaseGraph:
 
             if category not in groups:
                 groups[category] = [node_id]
-                if process_subcategories:
-                    subcat_groups[category] = dict()
-                    subcat_groups[category][subcat] = [node_id]
-                continue
+            else:
+                groups[category].append(node_id)
 
-            groups[category].append(node_id)
             if process_subcategories:
+                if category not in subcat_groups:
+                    subcat_groups[category] = dict()
+                if subcat not in subcat_groups[category]:
+                    subcat_groups[category][subcat] = []
+
                 subcat_groups[category][subcat].append(node_id)
 
         return (groups, subcat_groups)
