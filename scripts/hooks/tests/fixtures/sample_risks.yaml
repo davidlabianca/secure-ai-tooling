@@ -1,0 +1,51 @@
+title: Sample Risks for Testing
+description: Sample risk data for unit testing the risk validation system
+risks:
+  - id: DP
+    title: Data Poisoning
+    shortDescription:
+      - Sample data poisoning risk for testing
+    personas:
+      - personaModelCreator
+    controls:
+      - controlInputValidation
+      - controlDataValidation
+
+  - id: PIJ
+    title: Prompt Injection
+    shortDescription:
+      - Sample prompt injection risk for testing
+    personas:
+      - personaModelCreator
+      - personaModelConsumer
+    controls:
+      - controlInputValidation
+      - controlOutputValidation
+
+  - id: MST
+    title: Model Source Tampering
+    shortDescription:
+      - Sample model tampering risk for testing
+    personas:
+      - personaModelCreator
+    controls:
+      - controlModelIntegrity
+      - controlAccessControls
+
+  - id: MDT
+    title: Model Deployment Tampering
+    shortDescription:
+      - Sample deployment tampering risk for testing
+    personas:
+      - personaModelConsumer
+    controls:
+      - controlModelIntegrity
+      - controlDeploymentSecurity
+
+  - id: OrphanRisk
+    title: Orphaned Risk
+    shortDescription:
+      - Risk with no mitigating controls for testing edge cases
+    personas:
+      - personaModelCreator
+    controls: []

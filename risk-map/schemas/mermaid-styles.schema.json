@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "file://risk-map/schemas/mermaid-styles.schema.json",
   "title": "Mermaid Styles Configuration Schema",
-  "description": "Schema for validating YAML-based Mermaid graph styling configuration used by ComponentGraph and ControlGraph classes",
+  "description": "Schema for validating YAML-based Mermaid graph styling configuration used by ComponentGraph, ControlGraph, and RiskGraph classes",
   "type": "object",
   "required": ["version", "foundation", "sharedElements", "graphTypes"],
   "additionalProperties": false,
@@ -149,7 +149,7 @@
         "componentCategories": {
           "type": "object",
           "description": "Styling for component categories shared between graph types",
-          "required": ["componentsInfrastructure", "componentsData", "componentsApplication", "componentsModel"],
+          "required": ["componentsInfrastructure", "componentsApplication", "componentsModel"],
           "additionalProperties": false,
           "properties": {
             "componentsInfrastructure": {
@@ -171,7 +171,7 @@
     "graphTypes": {
       "type": "object",
       "description": "Graph-type-specific configurations",
-      "required": ["component", "control"],
+      "required": ["component", "control", "risk"],
       "additionalProperties": false,
       "properties": {
         "component": {
@@ -179,6 +179,9 @@
         },
         "control": {
           "$ref": "#/definitions/controlGraphType"
+        },
+        "risk": {
+          "$ref": "#/definitions/riskGraphType"
         }
       }
     }
@@ -223,6 +226,9 @@
           "enum": ["TD", "TB", "BT", "LR", "RL"],
           "description": "Mermaid graph direction"
         },
+        "metadata": {
+          "$ref": "#/definitions/metadata"
+        },
         "flowchartConfig": {
           "$ref": "#/definitions/flowchartConfig"
         },
@@ -243,6 +249,9 @@
           "type": "string",
           "enum": ["TD", "TB", "BT", "LR", "RL"],
           "description": "Mermaid graph direction"
+        },
+        "metadata": {
+          "$ref": "#/definitions/metadata"
         },
         "flowchartConfig": {
           "$ref": "#/definitions/flowchartConfig"
@@ -303,10 +312,110 @@
         }
       }
     },
+    "riskGraphType": {
+      "type": "object",
+      "description": "Configuration for RiskGraph with risk-specific styling",
+      "required": ["direction", "flowchartConfig", "specialStyling"],
+      "additionalProperties": false,
+      "properties": {
+        "direction": {
+          "type": "string",
+          "enum": ["TD", "TB", "BT", "LR", "RL"],
+          "description": "Mermaid graph direction"
+        },
+        "metadata": {
+          "$ref": "#/definitions/metadata"
+        },
+        "flowchartConfig": {
+          "$ref": "#/definitions/flowchartConfig"
+        },
+        "specialStyling": {
+          "type": "object",
+          "required": ["riskCategories", "componentsContainer", "edgeStyles"],
+          "additionalProperties": false,
+          "properties": {
+            "riskCategories": {
+              "type": "object",
+              "description": "Styling configuration for risk categories",
+              "required": ["risks"],
+              "additionalProperties": false,
+              "properties": {
+                "risks": {
+                  "$ref": "#/definitions/componentCategory"
+                }
+              }
+            },
+            "componentsContainer": {
+              "type": "object",
+              "description": "Styling for the main components container",
+              "required": ["fill", "stroke", "strokeWidth", "strokeDasharray"],
+              "additionalProperties": false,
+              "properties": {
+                "fill": {
+                  "type": "string",
+                  "pattern": "^#[0-9A-Fa-f]{6}$"
+                },
+                "stroke": {
+                  "type": "string",
+                  "pattern": "^#[0-9A-Fa-f]{6}$"
+                },
+                "strokeWidth": {
+                  "type": "string",
+                  "pattern": "^\\d+px$"
+                },
+                "strokeDasharray": {
+                  "type": "string",
+                  "pattern": "^\\d+\\s+\\d+$"
+                }
+              }
+            },
+            "edgeStyles": {
+              "type": "object",
+              "description": "Edge styling configuration for risk and control relationship types",
+              "required": ["riskControlEdges", "allControlEdges", "subgraphEdges", "multiEdgeStyles"],
+              "additionalProperties": false,
+              "properties": {
+                "riskControlEdges": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/definitions/edgeStyleWithDash"
+                    },
+                    {
+                      "type": "array",
+                      "description": "Array of 4 edge styles for risk-control edges cycling",
+                      "minItems": 4,
+                      "maxItems": 4,
+                      "items": {
+                        "$ref": "#/definitions/edgeStyleWithDash"
+                      }
+                    }
+                  ]
+                },
+                "allControlEdges": {
+                  "$ref": "#/definitions/edgeStyleWithDash"
+                },
+                "subgraphEdges": {
+                  "$ref": "#/definitions/edgeStyle"
+                },
+                "multiEdgeStyles": {
+                  "type": "array",
+                  "description": "Array of 4 edge styles for multi-edge controls cycling",
+                  "minItems": 4,
+                  "maxItems": 4,
+                  "items": {
+                    "$ref": "#/definitions/edgeStyleOptionalDash"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "flowchartConfig": {
       "type": "object",
       "description": "Mermaid flowchart configuration parameters",
-      "required": ["nodeSpacing", "rankSpacing", "padding", "wrappingWidth"],
+      "required": ["padding", "wrappingWidth"],
       "additionalProperties": false,
       "properties": {
         "nodeSpacing": {
@@ -332,6 +441,33 @@
           "minimum": 50,
           "maximum": 1000,
           "description": "Text wrapping width in pixels"
+        }
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "description": "Configuration for Graph Frontmatter Block",
+      "required": ["layout", "mergeEdges", "nodePlacementStrategy"],
+      "additionalProperties": false,
+      "properties": {
+        "layout": {
+          "type": "string",
+          "enum": ["elk", "default"],
+          "description": "selected layout engine"
+        },
+        "mergeEdges": {
+          "type": "boolean",
+          "description": "ELK directive for edge merging"
+        },
+        "nodePlacementStrategy": {
+          "type": "string",
+          "enum": ["NETWORK_SIMPLEX", "LINEAR_SEGEMENTS", "SIMPLE", "BRANDES_KOEPF"],
+          "description": "ELK algorithm"
+        },
+        "look": {
+          "type": "string",
+          "enum": ["handdrawn", "classic"],
+          "description": "Node drawing style Layout Engine"
         }
       }
     },
