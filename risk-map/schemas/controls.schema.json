@@ -38,6 +38,7 @@
             "controlAdversarialTrainingAndTesting",
             "controlAgentPluginPermissions",
             "controlAgentPluginUserControl",
+            "controlAgentObservability",
             "controlApplicationAccessManagement",
             "controlIncidentResponseManagement",
             "controlInputValidationAndSanitization",
