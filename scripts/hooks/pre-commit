@@ -390,11 +390,11 @@ if [[ $FORCE_VALIDATE -eq 0 ]] && git diff --cached --name-only | grep -q "risk-
     if python3 "$EDGE_VALIDATOR" --to-graph "./risk-map/docs/risk-map-graph.md" -m --quiet; then
         echo "   ✅ Graph generated at ./risk-map/docs/risk-map-graph.md"
         
-        # Add the generated graph to staging area
-        if git add "./risk-map/docs/risk-map-graph.md"; then
-            echo "   ✅ Risk Map Graph added to staged files"
+        # Add the generated graph files to staging area
+        if git add "./risk-map/docs/risk-map-graph.md" "./risk-map/docs/risk-map-graph.mermaid"; then
+            echo "   ✅ Risk Map Graph files (.md and .mermaid) added to staged files"
         else
-            echo "   ⚠️  Warning: Could not stage generated graph"
+            echo "   ⚠️  Warning: Could not stage generated graph files"
         fi
     else
         echo "   ❌ Risk Map Graph generation failed"
@@ -442,11 +442,11 @@ if [[ $FORCE_VALIDATE -eq 0 ]] && git diff --cached --name-only | grep -q "risk-
     if python3 "$EDGE_VALIDATOR" --to-controls-graph "./risk-map/docs/controls-graph.md" -m --quiet; then
         echo "   ✅ Control graph generated at ./risk-map/docs/controls-graph.md"
 
-        # Add the generated graph to staging area
-        if git add "./risk-map/docs/controls-graph.md"; then
-            echo "   ✅ Controls Graph added to staged files"
+        # Add the generated graph files to staging area
+        if git add "./risk-map/docs/controls-graph.md" "./risk-map/docs/controls-graph.mermaid"; then
+            echo "   ✅ Controls Graph files (.md and .mermaid) added to staged files"
         else
-            echo "   ⚠️  Warning: Could not stage generated control graph"
+            echo "   ⚠️  Warning: Could not stage generated control graph files"
         fi
     else
         echo "   ❌ Control Graph generation failed"
@@ -555,18 +555,6 @@ generate_mermaid_svgs() {
     return $svg_failed
 }
 
-# Only run SVG generation when mermaid files change and not in force mode
-if [[ $FORCE_VALIDATE -eq 0 ]] || git diff --cached --name-only | grep -q '\.\(mmd\|mermaid\)$'; then
-    generate_mermaid_svgs
-    if [[ $? -ne 0 ]]; then
-        VALIDATION_FAILED=1
-    fi
-else
-    echo "🎨 No Mermaid files changed - skipping SVG generation"
-fi
-
-echo  # Add blank line for readability
-
 # =============================================================================
 # Risk Graph Generation
 # =============================================================================
@@ -583,16 +571,28 @@ if [[ $FORCE_VALIDATE -eq 0 ]] && git diff --cached --name-only | grep -q "risk-
     if python3 "$EDGE_VALIDATOR" --to-risk-graph "./risk-map/docs/controls-to-risk-graph.md" -m --quiet; then
         echo "   ✅ Risk-to-Control graph generated at ./risk-map/docs/controls-to-risk-graph.md"
 
-        # Add the generated graph to staging area
-        if git add "./risk-map/docs/controls-to-risk-graph.md"; then
-            echo "   ✅ Risk-to-Control Graph added to staged files"
+        # Add the generated graph files to staging area
+        if git add "./risk-map/docs/controls-to-risk-graph.md" "./risk-map/docs/controls-to-risk-graph.mermaid"; then
+            echo "   ✅ Risk-to-Control Graph files (.md and .mermaid) added to staged files"
         else
-            echo "   ⚠️  Warning: Could not stage generated control graph"
+            echo "   ⚠️  Warning: Could not stage generated control graph files"
         fi
     else
         echo "   ❌ Risk-to-Controls Graph generation failed"
         VALIDATION_FAILED=1
     fi
+fi
+
+echo  # Add blank line for readability
+
+# Only run SVG generation when mermaid files change and not in force mode
+if [[ $FORCE_VALIDATE -eq 0 ]] && git diff --cached --name-only | grep -q '\.\(mmd\|mermaid\)$'; then
+    generate_mermaid_svgs
+    if [[ $? -ne 0 ]]; then
+        VALIDATION_FAILED=1
+    fi
+else
+    echo "🎨 No Mermaid files changed - skipping SVG generation"
 fi
 
 echo  # Add blank line for readability
