@@ -316,7 +316,12 @@ class ControlGraph(BaseGraph):
 
         # Add control subgraphs
         control_subgraphs = self._get_controls_subgraph()
+        lines.append("    subgraph controls")
         lines.extend(control_subgraphs)
+
+        # Closing the controls container subgraph
+        lines.append("    end")
+        lines.append("")
 
         # Add components container subgraph to hold all components subgraphs
         lines.append("    subgraph components")
@@ -408,7 +413,8 @@ class ControlGraph(BaseGraph):
 
         # Get node styling configuration
         component_categories = self.config_loader.get_component_category_styles()
-        components_container_style = self.config_loader.get_components_container_style()
+        components_container_style = self.config_loader.get_components_container_style("control")
+        controls_container_style = self.config_loader.get_controls_container_style("control")
 
         # Add node styling
         lines.extend(
@@ -418,10 +424,15 @@ class ControlGraph(BaseGraph):
             ]
         )
 
-        # Style components container
+        # Style main components container
         if components_container_style:
-            style_str = self._get_node_style("componentsContainer")
+            style_str = self._style_node_from_dict(components_container_style)
             lines.append(f"    style components {style_str}")
+
+        # Style main controls container
+        if controls_container_style:
+            style_str = self._style_node_from_dict(controls_container_style)
+            lines.append(f"    style controls {style_str}")
 
         # Style component categories
         for category_key, category_config in component_categories.items():

@@ -215,6 +215,99 @@
         }
       }
     },
+    "componentsContainer": {
+        "type": "object",
+        "description": "Styling for the main components container",
+        "required": ["fill", "stroke", "strokeWidth", "strokeDasharray"],
+        "additionalProperties": false,
+        "properties": {
+          "fill": {
+            "type": "string",
+            "pattern": "^#[0-9A-Fa-f]{6}$"
+          },
+          "stroke": {
+            "type": "string",
+            "pattern": "^#[0-9A-Fa-f]{6}$"
+          },
+          "strokeWidth": {
+            "type": "string",
+            "pattern": "^\\d+px$"
+          },
+          "strokeDasharray": {
+            "type": "string",
+            "pattern": "^\\d+\\s+\\d+$"
+          },
+          "subgroupFill": {
+            "type": "string",
+            "pattern": "^#[0-9A-Fa-f]{6}$",
+            "description": "Fill color for subgroups within this category"
+          }
+        }
+    },
+    "controlsContainer": {
+      "type": "object",
+      "description": "Styling configuration for a component category",
+      "required": ["fill", "stroke", "strokeWidth"],
+      "additionalProperties": false,
+      "properties": {
+        "fill": {
+          "type": "string",
+          "pattern": "^#[0-9A-Fa-f]{6}$",
+          "description": "Background fill color"
+        },
+        "stroke": {
+          "type": "string",
+          "pattern": "^#[0-9A-Fa-f]{6}$",
+          "description": "Border stroke color"
+        },
+        "strokeWidth": {
+          "type": "string",
+          "pattern": "^\\d+px$",
+          "description": "Border stroke width"
+        },
+        "strokeDasharray": {
+            "type": "string",
+            "pattern": "^\\d+\\s+\\d+$"
+        },
+          "subgroupFill": {
+            "type": "string",
+            "pattern": "^#[0-9A-Fa-f]{6}$",
+            "description": "Fill color for subgroups within this category"
+        }
+      }
+    },
+    "risksContainer": {
+      "type": "object",
+      "description": "Styling configuration for a component category",
+      "required": ["fill", "stroke", "strokeWidth"],
+      "additionalProperties": false,
+      "properties": {
+        "fill": {
+          "type": "string",
+          "pattern": "^#[0-9A-Fa-f]{6}$",
+          "description": "Background fill color"
+        },
+        "stroke": {
+          "type": "string",
+          "pattern": "^#[0-9A-Fa-f]{6}$",
+          "description": "Border stroke color"
+        },
+        "strokeWidth": {
+          "type": "string",
+          "pattern": "^\\d+px$",
+          "description": "Border stroke width"
+        },
+        "strokeDasharray": {
+            "type": "string",
+            "pattern": "^\\d+\\s+\\d+$"
+        },
+        "subgroupFill": {
+            "type": "string",
+            "pattern": "^#[0-9A-Fa-f]{6}$",
+            "description": "Fill color for subgroups within this category"
+        }
+      }
+    },
     "componentGraphType": {
       "type": "object",
       "description": "Configuration for ComponentGraph",
@@ -258,32 +351,14 @@
         },
         "specialStyling": {
           "type": "object",
-          "required": ["componentsContainer", "edgeStyles"],
+          "required": ["componentsContainer", "controlsContainer", "edgeStyles"],
           "additionalProperties": false,
           "properties": {
             "componentsContainer": {
-              "type": "object",
-              "description": "Styling for the main components container",
-              "required": ["fill", "stroke", "strokeWidth", "strokeDasharray"],
-              "additionalProperties": false,
-              "properties": {
-                "fill": {
-                  "type": "string",
-                  "pattern": "^#[0-9A-Fa-f]{6}$"
-                },
-                "stroke": {
-                  "type": "string",
-                  "pattern": "^#[0-9A-Fa-f]{6}$"
-                },
-                "strokeWidth": {
-                  "type": "string",
-                  "pattern": "^\\d+px$"
-                },
-                "strokeDasharray": {
-                  "type": "string",
-                  "pattern": "^\\d+\\s+\\d+$"
-                }
-              }
+              "$ref": "#/definitions/componentsContainer"
+            },
+            "controlsContainer": {
+              "$ref": "#/definitions/controlsContainer"
             },
             "edgeStyles": {
               "type": "object",
@@ -331,7 +406,7 @@
         },
         "specialStyling": {
           "type": "object",
-          "required": ["riskCategories", "componentsContainer", "edgeStyles"],
+          "required": ["riskCategories", "componentsContainer", "controlsContainer", "risksContainer", "edgeStyles"],
           "additionalProperties": false,
           "properties": {
             "riskCategories": {
@@ -346,28 +421,13 @@
               }
             },
             "componentsContainer": {
-              "type": "object",
-              "description": "Styling for the main components container",
-              "required": ["fill", "stroke", "strokeWidth", "strokeDasharray"],
-              "additionalProperties": false,
-              "properties": {
-                "fill": {
-                  "type": "string",
-                  "pattern": "^#[0-9A-Fa-f]{6}$"
-                },
-                "stroke": {
-                  "type": "string",
-                  "pattern": "^#[0-9A-Fa-f]{6}$"
-                },
-                "strokeWidth": {
-                  "type": "string",
-                  "pattern": "^\\d+px$"
-                },
-                "strokeDasharray": {
-                  "type": "string",
-                  "pattern": "^\\d+\\s+\\d+$"
-                }
-              }
+              "$ref": "#/definitions/componentsContainer"
+            },
+            "controlsContainer": {
+              "$ref": "#/definitions/controlsContainer"
+            },
+            "risksContainer": {
+              "$ref": "#/definitions/controlsContainer"
             },
             "edgeStyles": {
               "type": "object",

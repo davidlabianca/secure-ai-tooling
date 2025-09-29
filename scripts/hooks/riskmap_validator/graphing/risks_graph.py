@@ -21,7 +21,7 @@ class RiskGraph(BaseGraph):
         risks: Risk ID to RiskNode mappings
         control_graph: Composed ControlGraph for control-component functionality
         risk_to_control_map: Risk-to-control mappings
-        risk_by_category: Risks grouped by category
+        risks_by_category: Risks grouped by category
     """
 
     def __init__(
@@ -44,14 +44,13 @@ class RiskGraph(BaseGraph):
         self.risks = risks
         self.debug = debug
 
+        self._group_risks_by_category()
         # Compose with ControlGraph to reuse all control-component optimizations
         self.control_graph = ControlGraph(controls, components, debug=debug, config_loader=self.config_loader)
 
         # Build risk mappings
         self.risk_to_control_map = self._build_risk_control_mapping()
-        self.risk_by_category = self._group_risks_by_category()
         self.graph = self.build_risk_control_component_graph()
-
 
     def _build_risk_control_mapping(self) -> dict[str, list[str]]:
         """
@@ -94,7 +93,7 @@ class RiskGraph(BaseGraph):
 
         return mapping
 
-    def _group_risks_by_category(self) -> dict[str, list[str]]:
+    def _group_risks_by_category_old(self) -> dict[str, list[str]]:
         """
         Group risks by category.
 
@@ -123,7 +122,7 @@ class RiskGraph(BaseGraph):
         """
         subgraph_lines = []
 
-        for category, risk_ids in self.risk_by_category.items():
+        for category, risk_ids in self.risks_by_category.items():
             if not risk_ids:
                 continue
 
@@ -156,11 +155,17 @@ class RiskGraph(BaseGraph):
 
         # Add risk subgraphs (top layer)
         risk_subgraphs = self._get_risk_subgraphs()
+        lines.append("    subgraph risks")
         lines.extend(risk_subgraphs)
+        lines.append("    end")
+        lines.append("")
 
         # Reuse control subgraphs (middle layer)
         control_subgraphs = self.control_graph._get_controls_subgraph()
+        lines.append("    subgraph controls")
         lines.extend(control_subgraphs)
+        lines.append("    end")
+        lines.append("")
 
         # Reuse component container (bottom layer)
         lines.append("    subgraph components")
@@ -246,20 +251,41 @@ class RiskGraph(BaseGraph):
         )
 
         # Style risk category subgraphs
-        risk_categories = self.config_loader.get_risk_category_styles()
-        for category_key, category_config in risk_categories.items():
-            if category_config:
-                style_str = self._get_node_style("riskCategory", category_config=category_config)
-                lines.append(f"    style {category_key} {style_str}")
+        risk_categories: dict[str, str] = self.config_loader.get_risk_category_styles()
+        for risk_category_key in self.risks_by_category.keys():
+            style_str: str = ""
+
+            if risk_category_key in risk_categories:
+                style_str = self._get_node_style(
+                    style_type="riskCategory", category_config=risk_categories[risk_category_key]
+                )
+            else:
+                style_str = self._get_node_style(
+                    style_type="riskCategory", category_config=risk_categories["risks"]
+                )
+
+            lines.append(f"    style {risk_category_key} {style_str}")
 
         # Reuse component styling from ControlGraph
         component_categories = self.config_loader.get_component_category_styles()
         components_container_style = self.config_loader.get_components_container_style()
+        controls_container_style = self.config_loader.get_controls_container_style()
+        risks_container_style = self.config_loader.get_risks_container_style()
 
         # Style main components container
         if components_container_style:
-            style_str = self._get_node_style("componentsContainer")
+            style_str = self._style_node_from_dict(components_container_style)
             lines.append(f"    style components {style_str}")
+
+        # Style main controls container
+        if controls_container_style:
+            style_str = self._style_node_from_dict(controls_container_style)
+            lines.append(f"    style controls {style_str}")
+
+        # Style main risks container
+        if risks_container_style:
+            style_str = self._style_node_from_dict(risks_container_style)
+            lines.append(f"    style risks {style_str}")
 
         # Style component category subgraphs
         for category_key, category_config in component_categories.items():
