@@ -1,6 +1,8 @@
 {
   "$id": "components.schema.json",
   "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "CoSAI-RM Components Schema",
+  "description": "Schema for validating YAML-based components definition",
   "type": "object",
   "properties": {
     "title": {"type": "string"},
@@ -8,6 +10,10 @@
     "categories": {
       "type": "array",
       "items": {"$ref": "#/definitions/category"}
+    },
+    "subcategory": {
+      "type": "array",
+      "items": {"$ref": "#/definitions/subcategory"}
     },
     "components": {
       "type": "array",
@@ -21,12 +27,28 @@
       "properties": {
         "id": {
           "type": "string",
-          "enum": ["componentsData", "componentsInfrastructure", "componentsModel", "componentsApplication"]
+          "enum": ["componentsInfrastructure", "componentsModel", "componentsApplication"]
+        },
+        "title": {"type": "string"},
+        "subcategory": {
+          "type": "array",
+          "items": {"$ref": "#/definitions/subcategory"}
+        },
+        "description": {"$ref": "riskmap.schema.json#/definitions/utils/text"}
+      },
+      "required": ["id", "title"]
+    },
+    "subcategory": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "enum": ["componentsModelTraining", "componentsData"]
         },
         "title": {"type": "string"},
         "description": {"$ref": "riskmap.schema.json#/definitions/utils/text"}
       },
-      "required": ["id", "title"]
+      "required": ["id","title"]
     },
     "component": {
       "type": "object",
@@ -54,6 +76,9 @@
         "description": {"$ref": "riskmap.schema.json#/definitions/utils/text"},
         "category": { 
           "$ref": "#/definitions/category/properties/id"
+        },
+        "subcategory": { 
+          "$ref": "#/definitions/subcategory/properties/id"
         },
         "edges": {"$ref": "#/definitions/edges"}
       },
