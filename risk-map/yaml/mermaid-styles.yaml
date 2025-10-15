@@ -88,6 +88,12 @@ graphTypes:
         stroke: '#666666' # Medium gray border
         strokeWidth: '3px' # Thick border for emphasis
         strokeDasharray: '10 5' # Long dashed border pattern
+      # Controls container styling
+      controlsContainer:
+        fill: '#f0f0f0' # Light gray background
+        stroke: '#666666' # Medium gray border
+        strokeWidth: '3px' # Thick border for emphasis
+        strokeDasharray: '10 5' # Long dashed border pattern
 
       # Edge styling system for different relationship types
       edgeStyles:
@@ -138,9 +144,20 @@ graphTypes:
           stroke: '#e91e63' # Pink border for risk emphasis
           strokeWidth: '2px' # Standard border width
           subgroupFill: '#ffe0e6' # Darker pink for risk subgroups (future use)
-
-      # Components container styling - reused from control graph
+      # Components container styling
       componentsContainer:
+        fill: '#f0f0f0' # Light gray background
+        stroke: '#666666' # Medium gray border
+        strokeWidth: '3px' # Thick border for emphasis
+        strokeDasharray: '10 5' # Long dashed border pattern
+      # Controls container styling
+      controlsContainer:
+        fill: '#f0f0f0' # Light gray background
+        stroke: '#666666' # Medium gray border
+        strokeWidth: '3px' # Thick border for emphasis
+        strokeDasharray: '10 5' # Long dashed border pattern
+      # Risks container styling
+      risksContainer:
         fill: '#f0f0f0' # Light gray background
         stroke: '#666666' # Medium gray border
         strokeWidth: '3px' # Thick border for emphasis

@@ -392,17 +392,35 @@ class MermaidConfigLoader:
         result = self._get_safe_value("graphTypes", "control", "specialStyling", "edgeStyles", default={})
         return result if isinstance(result, dict) else {}
 
-    def get_components_container_style(self) -> dict:
-        """
-        Get styling for main components container in control graphs.
+    def get_risks_container_style(self, graph_type:str = "risk") -> dict:
+        return self._get_group_container_style("risksContainer", graph_type)
 
-        Returns styling for top-level "components" subgraph: fill, stroke, strokeWidth, strokeDasharray.
-        Provides visual hierarchy in ControlGraph visualizations.
+    def get_components_container_style(self, graph_type:str = "risk") -> dict:
+        return self._get_group_container_style("componentsContainer", graph_type)
+
+    def get_controls_container_style(self, graph_type:str = "risk") -> dict:
+        return self._get_group_container_style("controlsContainer", graph_type)
+
+    def _get_group_container_style(self, container_type: str, graph_type: str) -> dict:
+        """
+        Get styling for containers of subgraphs - used in in control and risk graphs.
+
+        Returns styling for top-level components, risks, controls subgraph:
+        fill, stroke, strokeWidth, strokeDasharray
+        Provides visual hierarchy in ControlGraph and RiskGraph visualizations.
 
         Returns:
             Dict with container styling properties, empty if not found
         """
-        result = self._get_safe_value("graphTypes", "control", "specialStyling", "componentsContainer", default={})
+        container_types: list[str] = ["componentsContainer", "controlsContainer", "risksContainer"]
+        graph_types: list[str] = ["control", "risk"]
+        if container_type not in container_types:
+            return dict()
+
+        if graph_type not in graph_types:
+            return dict()
+
+        result = self._get_safe_value("graphTypes", graph_type, "specialStyling", container_type, default={})
         return result if isinstance(result, dict) else {}
 
     def get_risk_category_styles(self) -> dict:

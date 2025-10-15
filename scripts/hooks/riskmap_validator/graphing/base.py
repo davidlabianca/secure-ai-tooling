@@ -64,9 +64,12 @@ class BaseGraph:
         self._category_names_cache = None
         self.controls: dict[str, ControlNode] = {}
         self.risks: dict[str, RiskNode] = {}
+
         self.component_by_category: dict[str, list[str]] = dict()
         self.component_by_subcategory: dict[str, dict[str, list[str]]] = dict()
         self.control_by_category: dict[str, list[str]] = dict()
+        self.risks_by_category: dict[str, list[str]] = dict()
+
         self.components_by_control: dict[str, list[str]] = dict()
         self.graph: str = ""
 
@@ -268,6 +271,9 @@ class BaseGraph:
             elif category.startswith("controls"):
                 display_name = category.replace("controls", "").strip()
                 title_suffix = " Controls"
+            elif category.startswith("risks"):
+                display_name = category.replace("risks","").strip()
+                title_suffix = " Risks"
             # This isn't an expected dynamic category
             else:
                 return category.title()
@@ -287,6 +293,13 @@ class BaseGraph:
 
         return self.control_by_category
 
+    def _group_risks_by_category(self) -> dict[str, list[str]]:
+        """Group control IDs by their category."""
+        self.risks_by_category, _ = self._group_node_by("risks")
+
+        return self.risks_by_category
+
+
     def _group_components_by_category(self, w_subcategories: bool = False):
         """Group component IDs by their category (simple mapping without subgroups)."""
         self.component_by_category, self.component_by_subcategory = self._group_node_by("components", True)
@@ -298,6 +311,8 @@ class BaseGraph:
             items = self.controls
         elif node_type == "components":
             items = self.components
+        elif node_type == "risks":
+            items = self.risks
         else:
             raise ValueError("node_type must be 'controls' or 'components'")
 
@@ -452,16 +467,7 @@ class BaseGraph:
         Returns:
             Formatted style string for use in style commands
         """
-        if style_type == "componentsContainer":
-            components_container_style = self.config_loader.get_components_container_style()
-            fill = components_container_style.get("fill", "#f0f0f0")
-            stroke = components_container_style.get("stroke", "#666666")
-            stroke_width = components_container_style.get("strokeWidth", "3px")
-            stroke_dasharray = components_container_style.get("strokeDasharray", "10 5")
-            container_style = f"fill:{fill},stroke:{stroke},stroke-width:{stroke_width}"
-            return f"{container_style},stroke-dasharray: {stroke_dasharray}"
-
-        elif style_type == "componentCategory":
+        if style_type == "componentCategory":
             category_config = kwargs.get("category_config", {})
             fill = category_config.get("fill", "#ffffff")
             stroke = category_config.get("stroke", "#333333")
@@ -499,6 +505,14 @@ class BaseGraph:
         else:
             # Default fallback
             return "fill:#ffffff,stroke:#333333,stroke-width:2px"
+
+    def _style_node_from_dict(self, style: dict)  -> str:
+        fill = style.get("fill", "#f0f0f0")
+        stroke = style.get("stroke", "#666666")
+        stroke_width = style.get("strokeWidth", "3px")
+        stroke_dasharray = style.get("strokeDasharray", "10 5")
+        container_style = f"fill:{fill},stroke:{stroke},stroke-width:{stroke_width}"
+        return f"{container_style},stroke-dasharray: {stroke_dasharray}"
 
 
 class MultiEdgeStyler:
