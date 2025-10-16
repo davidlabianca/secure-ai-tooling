@@ -24,6 +24,16 @@
         "title": {"type": "string"},
         "shortDescription": {"$ref": "riskmap.schema.json#/definitions/utils/text"},
         "longDescription": {"$ref": "riskmap.schema.json#/definitions/utils/text"},
+        "category": {
+          "type": "string",
+          "enum": [
+                "risksSupplyChainAndDevelopment",
+                "risksDeploymentAndInfrastructure",
+                "risksRuntimeInputSecurity",
+                "risksRuntimeDataSecurity",
+                "risksRuntimeOutputSecurity"
+          ]
+        },
         "personas": {
           "type": "array",
           "items": {"$ref": "personas.schema.json#/definitions/persona/properties/id"}
@@ -46,7 +56,7 @@
           "items": {"type": "string"}
         }
       },
-      "required": ["id", "title", "shortDescription", "longDescription", "personas", "controls"]
+      "required": ["id", "title", "shortDescription", "longDescription", "category", "personas", "controls"]
     }
   }
 }

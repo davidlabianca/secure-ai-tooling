@@ -12,24 +12,40 @@ graph LR
     classDef hidden display: none;
     classDef allControl stroke:#4285f4,stroke-width:2px,stroke-dasharray: 5 5
 
-    subgraph risks ["Risks"]
-        DMS[Denial of ML Service]
+    subgraph risks
+    subgraph risksSupplyChainAndDevelopment ["Supply Chain And Development Risks"]
         DP[Data Poisoning]
         EDH[Excessive Data Handling]
-        IIC[Insecure Integrated Component]
-        IMO[Insecure Model Output]
-        ISD[Inferred Sensitive Data]
-        MDT[Model Deployment Tampering]
-        MEV[Model Evasion]
-        MRE[Model Reverse Engineering]
         MST[Model Source Tampering]
-        MXF[Model Exfiltration]
-        PIJ[Prompt Injection]
-        RA[Rogue Actions]
-        SDD[Sensitive Data Disclosure]
         UTD[Unauthorized Training Data]
     end
 
+    subgraph risksDeploymentAndInfrastructure ["Deployment And Infrastructure Risks"]
+        IIC[Insecure Integrated Component]
+        MDT[Model Deployment Tampering]
+        MRE[Model Reverse Engineering]
+        MXF[Model Exfiltration]
+    end
+
+    subgraph risksRuntimeInputSecurity ["Runtime Input Security Risks"]
+        DMS[Denial of ML Service]
+        MEV[Model Evasion]
+        PIJ[Prompt Injection]
+    end
+
+    subgraph risksRuntimeDataSecurity ["Runtime Data Security Risks"]
+        ISD[Inferred Sensitive Data]
+        SDD[Sensitive Data Disclosure]
+    end
+
+    subgraph risksRuntimeOutputSecurity ["Runtime Output Security Risks"]
+        IMO[Insecure Model Output]
+        RA[Rogue Actions]
+    end
+
+    end
+
+    subgraph controls
     subgraph controlsData ["Data Controls"]
         controlPrivacyEnhancingTechnologies[Privacy Enhancing Technologies]
         controlTrainingDataManagement[Training Data Management]
@@ -70,6 +86,8 @@ graph LR
         controlProductGovernance[Product Governance]
         controlRiskGovernance[Risk Governance]
         controlUserPoliciesAndEducation[User Policies and Education]
+    end
+
     end
 
     subgraph components
@@ -178,8 +196,14 @@ graph LR
     linkStyle 3,7,11,15,19,23,27,31,35 stroke:#1c0d0f,stroke-width:2px,stroke-dasharray: 12 5
 
 %% Node style definitions
-    style risks fill:#ffeef0,stroke:#e91e63,stroke-width:2px
+    style risksSupplyChainAndDevelopment fill:#ffeef0,stroke:#e91e63,stroke-width:2px
+    style risksDeploymentAndInfrastructure fill:#ffeef0,stroke:#e91e63,stroke-width:2px
+    style risksRuntimeInputSecurity fill:#ffeef0,stroke:#e91e63,stroke-width:2px
+    style risksRuntimeDataSecurity fill:#ffeef0,stroke:#e91e63,stroke-width:2px
+    style risksRuntimeOutputSecurity fill:#ffeef0,stroke:#e91e63,stroke-width:2px
     style components fill:#f0f0f0,stroke:#666666,stroke-width:3px,stroke-dasharray: 10 5
+    style controls fill:#f0f0f0,stroke:#666666,stroke-width:3px,stroke-dasharray: 10 5
+    style risks fill:#f0f0f0,stroke:#666666,stroke-width:3px,stroke-dasharray: 10 5
     style componentsInfrastructure fill:#e6f3e6,stroke:#333333,stroke-width:2px
     style componentsApplication fill:#e6f0ff,stroke:#333333,stroke-width:2px
     style componentsModel fill:#ffe6e6,stroke:#333333,stroke-width:2px

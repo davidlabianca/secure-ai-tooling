@@ -57,7 +57,7 @@ class TestRiskGraphInitialization:
 
         # Verify risk-specific attributes
         assert hasattr(risk_graph, "risk_to_control_map")
-        assert hasattr(risk_graph, "risk_by_category")
+        assert hasattr(risk_graph, "risks_by_category")
         assert len(risk_graph.risks) == len(sample_risks)
 
     def test_initialization_with_debug(self, sample_risks, sample_controls, sample_components):
@@ -81,7 +81,7 @@ class TestRiskGraphInitialization:
 
         assert len(risk_graph.risks) == 0
         assert len(risk_graph.risk_to_control_map) == 0
-        assert len(risk_graph.risk_by_category["risks"]) == 0
+        assert risk_graph.risks_by_category == {}
 
 
 class TestRiskControlMapping:
@@ -189,8 +189,8 @@ class TestRiskCategorization:
         risk_graph = RiskGraph(sample_risks, sample_controls, sample_components)
 
         # All risks should be in 'risks' category
-        assert "risks" in risk_graph.risk_by_category
-        risks_in_category = risk_graph.risk_by_category["risks"]
+        assert "risks" in risk_graph.risks_by_category
+        risks_in_category = risk_graph.risks_by_category["risks"]
 
         # All sample risks should be present
         for risk_id in sample_risks.keys():
@@ -200,8 +200,7 @@ class TestRiskCategorization:
         """Test categorization with no risks."""
         risk_graph = RiskGraph({}, sample_controls, sample_components)
 
-        assert "risks" in risk_graph.risk_by_category
-        assert risk_graph.risk_by_category["risks"] == []
+        assert risk_graph.risks_by_category == {}
 
 
 class TestGraphGeneration:
@@ -348,8 +347,8 @@ class TestErrorHandling:
     def test_invalid_risk_data(self, sample_controls, sample_components):
         """Test handling of invalid risk data."""
         # This should not raise an exception
-        risk_graph = RiskGraph(None, sample_controls, sample_components)  # pyright: ignore[reportArgumentType]
-        assert risk_graph.risks is None
+        with pytest.raises(AttributeError):
+            _ = RiskGraph(None, sample_controls, sample_components)  # pyright: ignore[reportArgumentType]
 
     def test_missing_config_fallback(self, sample_risks, sample_controls, sample_components):
         """Test fallback behavior when configuration is missing."""
