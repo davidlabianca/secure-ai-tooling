@@ -12,6 +12,7 @@ graph LR
     classDef hidden display: none;
     classDef allControl stroke:#4285f4,stroke-width:2px,stroke-dasharray: 5 5
 
+    subgraph controls
     subgraph controlsData ["Data Controls"]
         controlPrivacyEnhancingTechnologies[Privacy Enhancing Technologies]
         controlRetrievalAndVectorStorePoisoningDefense[Retrieval and Vector Store Poisoning Defense]
@@ -60,6 +61,8 @@ graph LR
         controlProductGovernance[Product Governance]
         controlRiskGovernance[Risk Governance]
         controlUserPoliciesAndEducation[User Policies and Education]
+    end
+
     end
 
     subgraph components
@@ -149,6 +152,7 @@ graph LR
 
 %% Node style definitions
     style components fill:#f0f0f0,stroke:#666666,stroke-width:3px,stroke-dasharray: 10 5
+    style controls fill:#f0f0f0,stroke:#666666,stroke-width:3px,stroke-dasharray: 10 5
     style componentsInfrastructure fill:#e6f3e6,stroke:#333333,stroke-width:2px
     style componentsApplication fill:#e6f0ff,stroke:#333333,stroke-width:2px
     style componentsModel fill:#ffe6e6,stroke:#333333,stroke-width:2px
