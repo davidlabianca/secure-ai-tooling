@@ -60,6 +60,7 @@ risks:
         the training data. Backdoored models would continue to function normally, but
         alternate behaviors could be triggered under certain conditions to make the
         model behave maliciously.
+    category: risksSupplyChainAndDevelopment
     personas:
       - personaModelCreator
     controls:
@@ -104,6 +105,7 @@ risks:
         policies, contracts, or regulations. Examples are user data that does not have
         appropriate user consent, unlicensed copyrighted data, or legally restricted
         data.
+    category: risksSupplyChainAndDevelopment
     personas:
       - personaModelCreator
     controls:
@@ -155,6 +157,7 @@ risks:
         are <a href="https://arxiv.org/pdf/2402.06957.pdf">backdoors embedded within
         the definition of the neural network architecture</a>. Such backdoors can
         survive full retraining of a model.
+    category: risksSupplyChainAndDevelopment
     personas:
       - personaModelCreator
     controls:
@@ -202,6 +205,7 @@ risks:
         In the context of models, user data might include user queries, text inputs
         and interactions, personalizations and preferences, and models derived from
         such data.
+    category: risksSupplyChainAndDevelopment
     personas:
       - personaModelCreator
     controls:
@@ -251,6 +255,7 @@ risks:
         These risks also extend to on-device models, where an attacker has access to
         hardware.
       - This risk is distinct from the related <a href="#MRE">Model Reverse Engineering</a>.
+    category: risksDeploymentAndInfrastructure
     personas:
       - personaModelCreator
       - personaModelConsumer
@@ -303,6 +308,7 @@ risks:
         TorchServe, whereas the <a href="https://pytorch.org/blog/compromised-nightly-dependency/">PyTorch
         example of Model Source Tampering</a> was about a supply chain attack on dependency
         code for PyTorch itself.
+    category: risksDeploymentAndInfrastructure
     personas:
       - personaModelCreator
       - personaModelConsumer
@@ -354,6 +360,7 @@ risks:
         might use their own tools to accelerate construction of such sponge examples.
         These attacks are especially relevant for on-device models, since the increased
         energy consumption can drain batteries and make the model unavailable.
+    category: risksRuntimeInputSecurity
     personas:
       - personaModelConsumer
     controls:
@@ -402,6 +409,7 @@ risks:
       - >
         These risks also extend to on-device models, where an attacker has access to
         hardware. See also <a href="#MXF">Model Exfiltration</a>.
+    category: risksDeploymentAndInfrastructure
     personas:
       - personaModelConsumer
     controls:
@@ -464,6 +472,7 @@ risks:
         Component often involve prompt injection, those could be also done via other
         means such as Poisoning and Evasion. In addition, prompt injection is possible
         even when the integrated components are secure.
+    category: risksDeploymentAndInfrastructure
     personas:
       - personaModelConsumer
     controls:
@@ -520,6 +529,7 @@ risks:
         With foundation models becoming multi-modal, multi-modal prompt injection has
         also become possible. These attacks use injection inputs other than text to
         trigger the intended model behavior.
+    category: risksRuntimeInputSecurity
     personas:
       - personaModelCreator
       - personaModelConsumer
@@ -589,6 +599,7 @@ risks:
         could be sending an image in the prompt but using steganography to encode text
         within the image pixels. This text would be part of the prompt for the LLM,
         but the user won’t see it.
+    category: risksRuntimeInputSecurity
     personas:
       - personaModelCreator
       - personaModelConsumer
@@ -644,6 +655,7 @@ risks:
           to revealing a part of the data that was used to train, tune, or prompt the
           model. For example, a model that has not been tested for memorization might
           reveal names, addresses, or other sensitive information from datasets.
+    category: risksRuntimeDataSecurity
     personas:
       - personaModelCreator
       - personaModelConsumer
@@ -707,6 +719,7 @@ risks:
       - >
         This risk differs from <a href="#SDD">Sensitive Data Disclosure</a> which involves
         sensitive data specifically from training, tuning or prompt data.
+    category: risksRuntimeDataSecurity
     personas:
       - personaModelCreator
       - personaModelConsumer
@@ -758,6 +771,7 @@ risks:
         a link to a URL that delivers malware. Alternatively, a malicious actor could
         intentionally trigger insecure content, such as requesting the LLM to produce
         a phishing email based on specific details about the target.
+    category: risksRuntimeOutputSecurity
     personas:
       - personaModelConsumer
     controls:
@@ -814,6 +828,7 @@ risks:
         purpose of assisting the user (e.g. excessive ability to access plugins or
         functionality in plugins) increases the risk and blast radius of such accidental
         or malicious Rogue Actions when compared to Insecure Integrated Components.
+    category: risksRuntimeOutputSecurity
     personas:
       - personaModelConsumer
     controls:
@@ -876,6 +891,7 @@ risks:
         or acoustic side-channels from accelerator hardware. The threat is amplified
         in scenarios where attackers can co-locate their workloads with target victims
         or gain physical access to shared infrastructure.
+    category: risksDeploymentAndInfrastructure
     personas:
       - personaModelCreator
       - personaModelConsumer
@@ -949,6 +965,7 @@ risks:
         computational overhead, memory usage, or processing time. These attacks
         can also target auto-scaling mechanisms to force unnecessary resource
         provisioning and associated costs.
+    category: risksRuntimeInputSecurity
     personas:
       - personaModelConsumer
     controls:
@@ -1013,6 +1030,7 @@ risks:
         to gradually extract information over multiple training rounds, use auxiliary
         information to enhance reconstruction attacks, or coordinate between multiple
         compromised clients to amplify privacy breaches.
+    category: risksSupplyChainAndDevelopment
     personas:
       - personaModelCreator
     controls:
@@ -1080,6 +1098,7 @@ risks:
         to inject malicious components into otherwise secure model deployments.
         These attacks may target adapter repositories, compromise distribution
         channels, or exploit weak verification processes.
+    category: risksDeploymentAndInfrastructure
     personas:
       - personaModelCreator
       - personaModelConsumer
@@ -1148,6 +1167,7 @@ risks:
         data, delivering malicious responses, or bypassing safety mechanisms. These
         attacks may be difficult to detect if the malicious models provide plausible
         responses while secretly logging data or performing unauthorized actions.
+    category: risksRuntimeOutputSecurity
     personas:
       - personaModelCreator
       - personaModelConsumer
@@ -1217,6 +1237,7 @@ risks:
         or exploit biases in evaluation methodologies to achieve favorable but
         misleading results. These attacks can be difficult to detect and may have
         long-lasting impacts on model development and deployment decisions.
+    category: risksRuntimeDataSecurity
     personas:
       - personaModelCreator
     controls:
@@ -1284,6 +1305,7 @@ risks:
         Attackers might also use adversarial techniques to encode data in model
         outputs that appear normal to human observers but contain hidden information
         extractable through specific decoding methods.
+    category: risksRuntimeOutputSecurity
     personas:
       - personaModelCreator
       - personaModelConsumer
@@ -1358,6 +1380,7 @@ risks:
         or cloud-based model repositories, making the threat landscape even more
         complex and requiring comprehensive security measures throughout the model
         lifecycle.
+    category: risksSupplyChainAndDevelopment
     personas:
       - personaModelCreator
       - personaModelConsumer
@@ -1431,6 +1454,7 @@ risks:
         applications share the same caching infrastructure without adequate isolation.
         Attackers may also exploit cache timing attacks to infer information about
         cached content or use cache behavior to fingerprint other users' activities.
+    category: risksRuntimeDataSecurity
     personas:
       - personaModelCreator
       - personaModelConsumer
@@ -1495,6 +1519,7 @@ risks:
         adversarial examples that appear semantically similar to legitimate queries
         but retrieve malicious content, or by exploiting weaknesses in similarity
         metrics used for retrieval ranking.
+    category: risksRuntimeOutputSecurity
     personas:
       - personaModelCreator
       - personaModelConsumer
