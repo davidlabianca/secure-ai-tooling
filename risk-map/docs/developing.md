@@ -8,11 +8,41 @@ This guide outlines how you can contribute to the Coalition for Secure AI (CoSAI
 
 ## Prerequisites
 
-Before contributing to the Risk Map, ensure you have the necessary validation tools set up:
+Before contributing to the Risk Map, ensure you have the necessary validation tools set up. You can set up your development environment either using the VS Code Dev Container (recommended) or through manual installation.
 
-### Setting Up Pre-commit Hooks
+### Option 1: Using Dev Container (Recommended)
 
-The repository includes automated schema validation, prettier YAML formatting, ruff Python linting, component edge consistency checks, control-to-risk reference validation, automatic graph generation, and Mermaid SVG generation via git pre-commit hooks.
+The repository includes a VS Code Dev Container configuration that provides a pre-configured development environment with all necessary dependencies.
+
+**Prerequisites:**
+
+- VS Code with the "Dev Containers" extension installed
+- Docker Desktop or compatible container runtime
+- Approximately 6GB of available disk space for the container image
+
+**Setup:**
+
+1. **Open the repository in VS Code**
+2. **Reopen in Container**: When prompted (or use Command Palette: "Dev Containers: Reopen in Container")
+3. **Wait for container build**: The first build installs Python 3.11, Node.js, Chrome/Chromium, and all project dependencies
+4. **Install pre-commit hooks** (one-time setup):
+
+   ```bash
+   # From the repository root inside the container
+   bash ./scripts/install-precommit-hook.sh
+   ```
+
+The Dev Container automatically provides:
+
+- Python 3.11 with all requirements.txt dependencies
+- Node.js 18+ with npm packages (prettier, mermaid-cli)
+- Chrome/Chromium browser pre-installed for SVG generation
+- act tool for local GitHub Actions testing
+- VS Code extensions: Mermaid preview, YAML validation, Ruff linting
+
+### Option 2: Manual Setup
+
+If you prefer not to use the Dev Container or need to set up your environment manually:
 
 **Prerequisites:**
 
@@ -41,6 +71,20 @@ The repository includes automated schema validation, prettier YAML formatting, r
    git add risk-map/yaml/components.yaml
    git commit -m "test commit"
    ```
+
+### Setting Up Pre-commit Hooks
+
+The repository includes automated schema validation, prettier YAML formatting, ruff Python linting, component edge consistency checks, control-to-risk reference validation, automatic graph generation, and Mermaid SVG generation via git pre-commit hooks.
+
+**Note**: If using the Dev Container, Chrome/Chromium is pre-installed. For manual setup on Linux ARM64, you may need to install Chromium manually:
+
+```bash
+# Use the --install-playwright flag during setup
+./scripts/install-precommit-hook.sh --install-playwright
+
+# Or install manually
+npx playwright install chromium --with-deps
+```
 
 ### Manual Edge Validation & Graph Generation
 
@@ -87,7 +131,7 @@ _See [scripts documentation](../../scripts/README.md) for more information on th
 
 ### Manual Graph Generation
 
-Beyond automatic generation, you can manually generate both types of graphs using the validation script:
+Beyond automatic generation, you can manually generate all three types of graphs using the validation script:
 
 ```bash
 # Generate component relationship graph
@@ -119,7 +163,7 @@ The generated graph shows controls (grouped by category) connected to the compon
 You can run control-to-risk reference validation at any time:
 
 ```bash
-# Validate control-to-risk references if at least on of controls.yaml or risks.yaml is staged
+# Validate control-to-risk references if at least one of controls.yaml or risks.yaml is staged
 python scripts/hooks/validate_control_risk_references.py
 
 # Force control-to-risk references validation regardless of git status
@@ -518,7 +562,7 @@ The repository handles Mermaid diagrams with different approaches for local deve
 - **Automatic SVG Creation**: When Mermaid files (`.mmd`, `.mermaid`) are staged for commit, pre-commit hooks generate corresponding SVG files
 - **Auto-staging**: Generated SVG files are automatically added to the commit
 - **Location**: SVGs are created in `./risk-map/svg/` directory
-- **Prerequisites**: Requires Chrome/Chromium browser and mermaid-cli
+- **Prerequisites**: Requires Chrome/Chromium browser and mermaid-cli (automatically handled in Dev Container)
 
 #### GitHub Actions (Pull Request Validation)
 
@@ -530,7 +574,8 @@ The repository handles Mermaid diagrams with different approaches for local deve
 #### Platform Considerations
 
 - **Mac/Windows/Linux x64**: Chrome automatically handled by puppeteer
-- **Linux ARM64**: Requires manual Chromium setup:
+- **Dev Container**: Chrome/Chromium pre-installed and configured
+- **Linux ARM64 (manual setup)**: Requires manual Chromium setup:
 
   ```bash
   # Use the --install-playwright flag during setup
@@ -544,15 +589,16 @@ The repository handles Mermaid diagrams with different approaches for local deve
 
 1. **Create a GitHub issue** to track your work (see Best Practices below)
 2. Read the repository-wide [CONTRIBUTING.md](../../CONTRIBUTING.md) and follow the [Content Update Branching Process](../../CONTRIBUTING.md#for-content-updates-two-stage-process) for all content authoring
-3. **Set up pre-commit hooks** (see Prerequisites above)
-4. Make content changes per the guides below (components, controls, risks, personas)
-5. **Validate your changes** against all validation rules:
+3. **Set up your development environment** using either the Dev Container (recommended) or manual setup
+4. **Install pre-commit hooks** (see Prerequisites above)
+5. Make content changes per the guides below (components, controls, risks, personas)
+6. **Validate your changes** against all validation rules:
    - JSON Schema validation
    - Prettier YAML formatting
    - Ruff Python linting (if modifying Python files)
    - Component edge consistency
    - Control-to-risk reference consistency
-6. Open a PR against the `develop` branch describing the Risk Map updates and validation performed
+7. Open a PR against the `develop` branch describing the Risk Map updates and validation performed
    - GitHub Actions will automatically run the same validations on your PR
    - Address any CI failures before requesting review
 
@@ -575,11 +621,11 @@ Once you've determined the need for a new component, the following steps are req
 
 First, declare the new component's unique ID in the schema. This makes the system aware of the new component and allows for validation.
 
-- **File to edit**: `schemas/components.schema.json`
+- **File to edit**: `risk-map/schemas/components.schema.json`
 - **Action**: Find the `enum` list under `definitions.component.properties.id` and add your new component's ID. The ID should follow the `component[Name]` convention.
 
 ```json
-// In schemas/components.schema.json
+// In risk-map/schemas/components.schema.json
 "id": {
   "type": "string",
   "enum": [
@@ -594,18 +640,18 @@ First, declare the new component's unique ID in the schema. This makes the syste
 
 Next, define the properties of your new component in the main data file. This includes its ID, title, a detailed description, and its category.
 
-- **File to edit**: `components.yaml`
+- **File to edit**: `risk-map/yaml/components.yaml`
 - **Action**: Add a new entry to the `components` list.
 
 ```yaml
-# In yaml/components.yaml
+# In risk-map/yaml/components.yaml
 - id: componentNewComponent
   title: New Component
   description:
     - >
       A detailed description of what this new component represents in the
       AI development lifecycle and why it is important for understanding risk.
-  category: componentsApplication # Must match an id from the components.schema.json#/definitions/category/properties/id
+  category: componentsApplication # Must match an id from risk-map/schemas/components.schema.json#/definitions/category/properties/id
   edges:
     to: []
     from: []
@@ -617,11 +663,11 @@ Now, define the connections for your new component within its own `edges` block.
 
 ⚠️ **Critical**: Component edges must be **bidirectionally consistent**. The pre-commit hook will enforce this rule.
 
-- **File to edit**: `components.yaml`
+- **File to edit**: `risk-map/yaml/components.yaml`
 - **Action**: Update the `edges` block for `componentNewComponent`. For our example, let's say it receives data from `componentInputHandling` and sends data to `componentApplication`.
 
 ```yaml
-# In yaml/components.yaml, under your new component's definition
+# In risk-map/yaml/components.yaml, under your new component's definition
 edges:
   to:
     - componentApplication # Outgoing connection
@@ -633,7 +679,7 @@ edges:
 
 To make the connections bidirectional, you must now update the corresponding `edges` on the components you just referenced. **This step is critical** - the pre-commit hook will prevent commits if edges are not bidirectionally consistent.
 
-- **File to edit**: `components.yaml`
+- **File to edit**: `risk-map/yaml/components.yaml`
 - **Action**:
   1.  Find the `componentInputHandling` definition and add `componentNewComponent` to its `edges.to` list.
   2.  Find the `componentApplication` definition and add `componentNewComponent` to its `edges.from` list.
@@ -709,11 +755,11 @@ Adding a new control involves defining it and then mapping it to the components,
 
 First, declare the new control's unique ID in the `controls.schema.json` file. This registers the new control with the framework. The ID should follow the `control[Name]` convention.
 
-- **File to edit**: `schemas/controls.schema.json`
+- **File to edit**: `risk-map/schemas/controls.schema.json`
 - **Action**: Find the `enum` list under `definitions.control.properties.id` and add your new control ID alphabetically.
 
 ```json
-// In schemas/controls.schema.json
+// In risk-map/schemas/controls.schema.json
 "id": {
   "type": "string",
   "enum": [
@@ -730,7 +776,7 @@ First, declare the new control's unique ID in the `controls.schema.json` file. T
 
 Next, define the control's properties in the main `controls.yaml` data file. This is where you describe what the control is and map it to other parts of the framework.
 
-- **File to edit**: `controls.yaml`
+- **File to edit**: `risk-map/yaml/controls.yaml`
 - **Action**: Add a new entry to the `controls` list. When filling out the properties, you must select valid IDs from the other schema files.
 
 > **Note on universal controls**: For controls that apply broadly (e.g., governance or assurance tasks), you can use the string `"all"` for `components` and `risks`. For controls that don't apply to any specific component, use `"none"`.
@@ -773,11 +819,11 @@ Next, define the control's properties in the main `controls.yaml` data file. Thi
 
 To ensure the framework remains fully connected, every risk that your new control mitigates must be updated to include a reference to that control. (This step is not necessary if you set `risks: all` in the previous step).
 
-- **File to edit**: `risks.yaml`
+- **File to edit**: `risk-map/yaml/risks.yaml`
 - **Action**: For each risk ID you listed in the previous step (e.g., `IMO`, `PIJ`), find its definition in `risks.yaml` and add your new `controlNewControl` ID to its `controls` list.
 
 ```yaml
-# In yaml/risks.yaml, under the IMO risk definition
+# In risk-map/yaml/risks.yaml, under the IMO risk definition
 - id: IMO
   # other properties
   controls:
@@ -812,14 +858,14 @@ The validation will check:
 **Example of consistent cross-references:**
 
 ```yaml
-# controls.yaml
+# risk-map/yaml/controls.yaml
 controls:
   - id: CTRL-001
     risks: # Control addresses these risks
       - RISK-001
       - RISK-002
 
-# risks.yaml
+# risk-map/yaml/risks.yaml
 risks:
   - id: RISK-001
     controls:
@@ -843,11 +889,11 @@ Risks represent the potential security threats that can affect the components of
 
 First, add a unique ID for the new risk to the `risks.schema.json` file. The ID should be a short, memorable, all-caps acronym.
 
-- **File to edit**: `schemas/risks.schema.json`
+- **File to edit**: `risk-map/schemas/risks.schema.json`
 - **Action**: Find the `enum` list under `definitions.risk.properties.id` and add your new risk ID alphabetically.
 
 ```json
-// In schemas/risks.schema.json
+// In risk-map/schemas/risks.schema.json
 "id": {
   "type": "string",
   "enum": ["DMS", "DP", "EDH", "IIC", "IMO", "ISD", "MDT", "MEV", "MRE", "MST", "MXF", "NEW", "PIJ", "RA", "SDD", "UTD"]
@@ -858,11 +904,11 @@ First, add a unique ID for the new risk to the `risks.schema.json` file. The ID 
 
 Next, provide the full definition of the risk in `risks.yaml`. This includes its title, descriptions, associated personas, mitigating controls, and contextual information.
 
-- **File to edit**: `risks.yaml`
+- **File to edit**: `risk-map/yaml/risks.yaml`
 - **Action**: Add a new entry to the `risks` list. The `personas` and `controls` lists must contain valid IDs from their respective schema files.
 
 ```yaml
-# In yaml/risks.yaml
+# In risk-map/yaml/risks.yaml
 - id: NEW
   title: New Example Risk
   shortDescription:
@@ -919,11 +965,11 @@ When adding a new risk, select the category that best describes where in the AI 
 
 To ensure the framework remains fully connected, every control that mitigates your new risk must be updated to include a reference back to that risk.
 
-- **File to edit**: `controls.yaml`
+- **File to edit**: `risk-map/yaml/controls.yaml`
 - **Action**: For each control ID you listed in the previous step (e.g., `controlNewControl`), find its definition in `controls.yaml` and add your new risk's ID (`NEW`) to its `risks` list.
 
 ```yaml
-# In yaml/controls.yaml, under the controlNewControl definition
+# In risk-map/yaml/controls.yaml, under the controlNewControl definition
 - id: controlNewControl
   # other properties
   risks:
@@ -957,14 +1003,14 @@ The validation will check:
 **Example of consistent cross-references:**
 
 ```yaml
-# controls.yaml
+# risk-map/yaml/controls.yaml
 controls:
   - id: CTRL-001
     risks: # Control addresses these risks
       - RISK-001
       - RISK-002
 
-# risks.yaml
+# risk-map/yaml/risks.yaml
 risks:
   - id: RISK-001
     controls:
@@ -988,11 +1034,11 @@ Personas define the key roles and responsibilities within the AI ecosystem. Addi
 
 First, declare the new persona's unique ID in the `personas.schema.json` file. The ID should follow the `persona[Name]` convention.
 
-- **File to edit**: `schemas/personas.schema.json`
+- **File to edit**: `risk-map/schemas/personas.schema.json`
 - **Action**: Find the `enum` list under `definitions.persona.properties.id` and add your new persona ID.
 
 ```json
-// In schemas/personas.schema.json
+// In risk-map/schemas/personas.schema.json
 "id": {
   "type": "string",
   "enum": ["personaModelCreator", "personaModelConsumer", "personaNewPersona"]
@@ -1003,11 +1049,11 @@ First, declare the new persona's unique ID in the `personas.schema.json` file. T
 
 Next, provide the definition for the new persona in the `personas.yaml` file.
 
-- **File to edit**: `personas.yaml`
+- **File to edit**: `risk-map/yaml/personas.yaml`
 - **Action**: Add a new entry to the `personas` list with an `id`, `title`, and `description`.
 
 ```yaml
-# In yaml/personas.yaml
+# In risk-map/yaml/personas.yaml
 - id: personaNewPersona
   title: New Persona
   description:
@@ -1020,11 +1066,11 @@ Next, provide the definition for the new persona in the `personas.yaml` file.
 
 If this new persona is affected by existing risks or is responsible for implementing existing controls, you must update the corresponding YAML files to reflect this.
 
-- **Files to edit**: `risks.yaml`, `controls.yaml`
+- **Files to edit**: `risk-map/yaml/risks.yaml`, `risk-map/yaml/controls.yaml`
 - **Action**: Review the existing risks and controls. Add the `personaNewPersona` ID to the `personas` list of any relevant entry.
 
 ```yaml
-# In yaml/controls.yaml, for an existing control:
+# In risk-map/yaml/controls.yaml, for an existing control:
 - id: controlRiskGovernance
   # other properties
   personas:
