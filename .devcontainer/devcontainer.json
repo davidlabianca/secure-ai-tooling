@@ -28,7 +28,10 @@
 				"bierner.markdown-mermaid",
 				"charliermarsh.ruff",
 				"redhat.vscode-yaml"
-			]
+			],
+			"settings": {
+				"python.defaultInterpreterPath": "/usr/local/python/current/bin/python"
+			}
 		}
 	},
 
