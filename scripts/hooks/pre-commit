@@ -8,27 +8,28 @@
 # - control-risk cross-reference integrity
 # - YAML schema compliance
 # - generates SVG files from Mermaid diagrams
-# 
-# Manual Installation: 
+# - generates markdown tables from YAML files
+#
+# Manual Installation:
 #   Save as .git/hooks/pre-commit and chmod +x .git/hooks/pre-commit
 #
 # Behavior:
 #   - Validates only staged files by default
-#   - If... 
-#        - riskmap.schema.json changes, validates YAML schema compliance for 
+#   - If...
+#        - riskmap.schema.json changes, validates YAML schema compliance for
 #          all files
-#        - components.yaml changes, generates a new component graph at
-#          ./risk-map/docs/risk-map-graph.md and adds it to the staged files
-#        - components.yaml or controls.yaml changes, generates a new control graph at
-#          ./risk-map/docs/controls-graph.md and adds it to the staged files
-#        - components.yaml, controls.yaml, or risks.yaml changes, generates a new
-#          control-to-risk graph at ./risk-map/docs/controls-to-risk-graph.md
+#        - components.yaml changes, generates component graph, component tables,
+#          and controls-xref-components table
+#        - controls.yaml changes, generates control graph and all 4 control tables
+#        - risks.yaml changes, generates risk graph, risk tables, and
+#          controls-xref-risks table
 #        - .mmd/.mermaid files change, generates corresponding SVG files in
 #          ./risk-map/svg/ and adds them to the staged files
 #   - Use --force/-f to run all validations against all files regardless of
-#     staging status. NOTE: --force will not generate new graphs
+#     staging status. NOTE: --force will not generate graphs or tables
 #   - See ./git/hooks/validate_riskmap.py for manual graph generation
-#        
+#   - See ./git/hooks/yaml_to_markdown.py for manual table generation
+#
 # =============================================================================
 
 # =============================================================================
@@ -451,6 +452,91 @@ if [[ $FORCE_VALIDATE -eq 0 ]] && git diff --cached --name-only | grep -q "risk-
     else
         echo "   ❌ Control Graph generation failed"
         VALIDATION_FAILED=1
+    fi
+fi
+
+echo  # Add blank line for readability
+
+# =============================================================================
+# Markdown Table Generation (when YAML files change)
+# =============================================================================
+
+# Only generate tables in normal mode when YAML files are staged
+# Table generation logic:
+#   - components.yaml → components tables + controls-xref-components (regenerate)
+#   - risks.yaml → risks tables + controls-xref-risks (regenerate)
+#   - controls.yaml → all 4 controls tables (full, summary, xref-risks, xref-components)
+if [[ $FORCE_VALIDATE -eq 0 ]]; then
+    STAGED_FILES=$(git diff --cached --name-only)
+
+    # Check if any YAML files requiring table generation are staged
+    if echo "$STAGED_FILES" | grep -q "risk-map/yaml/\(components\|controls\|risks\)\.yaml$"; then
+        echo "📋 YAML files changed - generating markdown tables..."
+
+        TABLE_GENERATOR=".git/hooks/yaml_to_markdown.py"
+
+        if [[ ! -f "$TABLE_GENERATOR" ]]; then
+            echo "   ⚠️  Warning: Table generator not found - skipping table generation"
+        else
+            # Ensure tables directory exists
+            mkdir -p risk-map/tables
+
+            # Components: generate component tables + xref-components (controls reference components)
+            if echo "$STAGED_FILES" | grep -q "components.yaml$"; then
+                echo "   📐 Generating tables for components..."
+                if python3 "$TABLE_GENERATOR" components --all-formats --quiet; then
+                    echo "   ✅ Components tables generated (full, summary)"
+                    git add risk-map/tables/components-*.md 2>/dev/null || true
+                else
+                    echo "   ❌ Components table generation failed"
+                    VALIDATION_FAILED=1
+                fi
+
+                # Also regenerate xref-components since component data changed
+                echo "   📐 Regenerating controls-xref-components (component data changed)..."
+                if python3 "$TABLE_GENERATOR" controls --format xref-components --quiet; then
+                    echo "   ✅ Controls xref-components table regenerated"
+                    git add risk-map/tables/controls-xref-components.md 2>/dev/null || true
+                else
+                    echo "   ❌ Controls xref-components regeneration failed"
+                    VALIDATION_FAILED=1
+                fi
+            fi
+
+            # Risks: generate risk tables + xref-risks (controls reference risks)
+            if echo "$STAGED_FILES" | grep -q "risks.yaml$"; then
+                echo "   📐 Generating tables for risks..."
+                if python3 "$TABLE_GENERATOR" risks --all-formats --quiet; then
+                    echo "   ✅ Risks tables generated (full, summary)"
+                    git add risk-map/tables/risks-*.md 2>/dev/null || true
+                else
+                    echo "   ❌ Risks table generation failed"
+                    VALIDATION_FAILED=1
+                fi
+
+                # Also regenerate xref-risks since risk data changed
+                echo "   📐 Regenerating controls-xref-risks (risk data changed)..."
+                if python3 "$TABLE_GENERATOR" controls --format xref-risks --quiet; then
+                    echo "   ✅ Controls xref-risks table regenerated"
+                    git add risk-map/tables/controls-xref-risks.md 2>/dev/null || true
+                else
+                    echo "   ❌ Controls xref-risks regeneration failed"
+                    VALIDATION_FAILED=1
+                fi
+            fi
+
+            # Controls: generate all 4 control formats (full, summary, xref-risks, xref-components)
+            if echo "$STAGED_FILES" | grep -q "controls.yaml$"; then
+                echo "   📐 Generating all tables for controls..."
+                if python3 "$TABLE_GENERATOR" controls --all-formats --quiet; then
+                    echo "   ✅ All controls tables generated (4 formats)"
+                    git add risk-map/tables/controls-*.md 2>/dev/null || true
+                else
+                    echo "   ❌ Controls table generation failed"
+                    VALIDATION_FAILED=1
+                fi
+            fi
+        fi
     fi
 fi
 

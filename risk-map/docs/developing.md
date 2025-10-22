@@ -103,6 +103,52 @@ python scripts/hooks/validate_riskmap.py --to-risk-graph ./risk-graph.md --force
 python scripts/hooks/validate_riskmap.py --to-graph ./components.md --to-controls-graph ./controls.md --to-risk-graph ./risk.md --force
 ```
 
+### Markdown Table Documentation
+
+The pre-commit hooks automatically generate markdown tables from YAML files for easy documentation viewing:
+
+**Automatic Generation:**
+
+- **Triggered by**: Staging `components.yaml`, `controls.yaml`, or `risks.yaml`
+- **Output location**: `risk-map/tables/`
+- **Smart regeneration**: Cross-reference tables regenerated when dependencies change
+- **Auto-staging**: Generated tables added to commit automatically
+
+**Generation rules:**
+
+- `components.yaml` → `components-full.md`, `components-summary.md`, and regenerates `controls-xref-components.md` (3 files)
+- `risks.yaml` → `risks-full.md`, `risks-summary.md`, and regenerates `controls-xref-risks.md` (3 files)
+- `controls.yaml` → all 4 formats: `controls-full.md`, `controls-summary.md`, `controls-xref-risks.md`, `controls-xref-components.md`
+
+**Manual Generation:**
+
+```bash
+# Generate all formats for one type
+python3 scripts/hooks/yaml_to_markdown.py components --all-formats
+python3 scripts/hooks/yaml_to_markdown.py controls --all-formats
+
+# Generate all types and formats (8 files total)
+python3 scripts/hooks/yaml_to_markdown.py --all --all-formats
+
+# Generate specific format
+python3 scripts/hooks/yaml_to_markdown.py controls --format xref-risks
+python3 scripts/hooks/yaml_to_markdown.py components --format summary
+```
+
+**Available formats:**
+
+- `full` - Complete tables with all columns (default)
+- `summary` - Condensed: ID, Title, Description, Category
+- `xref-risks` - Control-to-risk cross-reference (controls only)
+- `xref-components` - Control-to-component cross-reference (controls only)
+
+**Use cases:**
+
+- Review component definitions in table format
+- Export risk catalog for documentation
+- Generate control mappings for compliance reports
+- Create cross-reference documentation
+
 **Control Graph Features:**
 
 - **Dynamic Component Clustering**: Automatically groups components that share multiple controls
@@ -693,7 +739,13 @@ The validation will check:
 - ✅ No components are isolated (unless intentionally designed)
 - ✅ All referenced components exist in the YAML file
 
-**Note**: When you commit changes to `components.yaml`, the pre-commit hook will automatically generate updated graphs at `./risk-map/docs/risk-map-graph.md`, `./risk-map/docs/controls-graph.md`, and `./risk-map/docs/controls-to-risk-graph.md` and include them in your commit.
+**Note**: When you commit changes to `components.yaml`, the pre-commit hook automatically generates:
+
+- Updated component graph at `./risk-map/docs/risk-map-graph.md`
+- Component tables at `./risk-map/tables/components-full.md` and `components-summary.md`
+- Regenerated cross-reference at `./risk-map/tables/controls-xref-components.md`
+
+All files are automatically staged for your commit.
 
 ### 6. Create a Pull Request
 
@@ -807,7 +859,13 @@ The validation will check:
 - ✅ All risks that reference controls in `risks.yaml` have those controls listing them in `controls.yaml`
 - ✅ No isolated entries (controls with empty risk lists, risks with empty control lists)
 
-**Note**: When you commit changes to `controls.yaml`, the pre-commit hook will automatically generate updated control and risk graphs at `./risk-map/docs/controls-graph.md` and `./risk-map/docs/controls-to-risk-graph.md` and include them in your commit.
+**Note**: When you commit changes to `controls.yaml`, the pre-commit hook automatically generates:
+
+- Updated control graph at `./risk-map/docs/controls-graph.md`
+- Updated risk graph at `./risk-map/docs/controls-to-risk-graph.md`
+- All 4 control table formats in `./risk-map/tables/` (full, summary, xref-risks, xref-components)
+
+All files are automatically staged for your commit.
 
 **Example of consistent cross-references:**
 
@@ -973,6 +1031,14 @@ risks:
     controls:
       - CTRL-001 # Bidirectional consistency ✅
 ```
+
+**Note**: When you commit changes to `risks.yaml`, the pre-commit hook automatically generates:
+
+- Updated risk graph at `./risk-map/docs/controls-to-risk-graph.md`
+- Risk tables at `./risk-map/tables/risks-full.md` and `risks-summary.md`
+- Regenerated cross-reference at `./risk-map/tables/controls-xref-risks.md`
+
+All files are automatically staged for your commit.
 
 ### 5. Validate and Create a Pull Request
 
