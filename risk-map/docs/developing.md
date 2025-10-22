@@ -71,13 +71,13 @@ The validation script checks for:
 
 **Automatic Graph Generation**: The pre-commit hook automatically generates graphs when relevant files are staged:
 
-- **Component Graph**: When `components.yaml` is staged, generates `./risk-map/docs/risk-map-graph.md`
+- **Component Graph**: When `components.yaml` is staged, generates `./risk-map/diagrams/risk-map-graph.md`
   - Uses Elk layout engine for automatic positioning and ranking
   - Organizes components into category-based subgraphs with configurable styling
-- **Control Graph**: When `components.yaml` OR `controls.yaml` is staged, generates `./risk-map/docs/controls-graph.md`
+- **Control Graph**: When `components.yaml` OR `controls.yaml` is staged, generates `./risk-map/diagrams/controls-graph.md`
   - Shows control-to-component relationships with optimization
   - Dynamic component clustering and multi-edge styling
-- **Risk Graph**: When `components.yaml`, `controls.yaml` OR `risks.yaml` is staged, generates `./risk-map/docs/controls-to-risk-graph.md`
+- **Risk Graph**: When `components.yaml`, `controls.yaml` OR `risks.yaml` is staged, generates `./risk-map/diagrams/controls-to-risk-graph.md`
   - Maps controls to risks they mitigate with component context
   - Organizes risks into 5 color-coded category subgraphs
   - Visualizes three-layer relationships: risks → controls → components
