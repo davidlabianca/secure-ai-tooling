@@ -434,6 +434,7 @@ Examples:
   %(prog)s controls --all-formats                        # All formats for controls (4 tables)
   %(prog)s --all --all-formats                           # All types, all formats
   %(prog)s components -o custom/output.md                # Custom output file
+  %(prog)s --all --all-formats --output-dir /tmp/tables  # Generate to custom directory
   %(prog)s controls --file custom/controls.yaml          # Custom input file
   %(prog)s components --quiet                            # Minimal output
 
@@ -503,10 +504,16 @@ Exit Codes:
         help="Minimize output (only show errors)",
     )
 
+    parser.add_argument(
+        "--output-dir",
+        type=Path,
+        help="Custom output directory for generated tables (overrides default location)",
+    )
+
     return parser.parse_args()
 
 
-def get_default_paths(ytype: str, table_format: str = "full") -> tuple[Path, Path]:
+def get_default_paths(ytype: str, table_format: str = "full", output_dir: Path = None) -> tuple[Path, Path]:
     """
     Get default input and output file paths for a given type and format.
 
@@ -519,6 +526,7 @@ def get_default_paths(ytype: str, table_format: str = "full") -> tuple[Path, Pat
     Args:
         ytype: Data type (components, controls, risks)
         table_format: Table format (full, summary, xref-risks, xref-components)
+        output_dir: Optional custom output directory (overrides DEFAULT_OUTPUT_DIR)
 
     Returns:
         Tuple of (input_path, output_path)
@@ -527,7 +535,8 @@ def get_default_paths(ytype: str, table_format: str = "full") -> tuple[Path, Pat
     output_filename = OUTPUT_FILE_PATTERN.format(type=ytype, format=table_format)
 
     input_path = DEFAULT_INPUT_DIR / input_filename
-    output_path = DEFAULT_OUTPUT_DIR / output_filename
+    output_base_dir = output_dir if output_dir is not None else DEFAULT_OUTPUT_DIR
+    output_path = output_base_dir / output_filename
 
     return input_path, output_path
 
@@ -552,13 +561,14 @@ def get_applicable_formats(ytype: str) -> list[str]:
     return base_formats
 
 
-def convert_all_formats(ytype: str, input_file: Path = None, quiet: bool = False) -> bool:
+def convert_all_formats(ytype: str, input_file: Path = None, output_dir: Path = None, quiet: bool = False) -> bool:
     """
     Convert a single YAML type to all applicable markdown table formats.
 
     Args:
         ytype: Data type to convert
         input_file: Optional custom input file
+        output_dir: Optional custom output directory
         quiet: Whether to suppress output messages
 
     Returns:
@@ -572,7 +582,7 @@ def convert_all_formats(ytype: str, input_file: Path = None, quiet: bool = False
 
     all_successful = True
     for table_format in applicable_formats:
-        if not convert_type(ytype, table_format, input_file, None, quiet):
+        if not convert_type(ytype, table_format, input_file, None, output_dir, quiet):
             all_successful = False
 
     return all_successful
@@ -583,6 +593,7 @@ def convert_type(
     table_format: str = "full",
     input_file: Path = None,
     output_file: Path = None,
+    output_dir: Path = None,
     quiet: bool = False,
 ) -> bool:
     """
@@ -592,7 +603,8 @@ def convert_type(
         ytype: Data type to convert
         table_format: Table format (full, summary, xref-risks, xref-components)
         input_file: Optional custom input file
-        output_file: Optional custom output file
+        output_file: Optional custom output file (takes precedence over output_dir)
+        output_dir: Optional custom output directory
         quiet: Whether to suppress output messages
 
     Returns:
@@ -605,7 +617,7 @@ def convert_type(
             return False
 
         # Determine paths
-        default_input, default_output = get_default_paths(ytype, table_format)
+        default_input, default_output = get_default_paths(ytype, table_format, output_dir)
         in_file = input_file or default_input
         out_file = output_file or default_output
 
@@ -657,6 +669,12 @@ def main() -> None:
                 print(f"   Valid types: {', '.join(sorted(valid_types))}")
                 sys.exit(1)
 
+        if args.output and args.output_dir:
+            print("❌ Error: Cannot use both --output and --output-dir")
+            print("   --output: Specify exact output file (single conversion only)")
+            print("   --output-dir: Specify output directory (for multiple files)")
+            sys.exit(1)
+
         if args.output and (args.all or len(args.types) > 1 or args.all_formats):
             print("❌ Error: --output can only be used when converting a single type with a single format")
             sys.exit(1)
@@ -686,13 +704,13 @@ def main() -> None:
         for ytype in types_to_convert:
             if args.all_formats:
                 # Generate all applicable formats for this type
-                if not convert_all_formats(ytype, args.file, args.quiet):
+                if not convert_all_formats(ytype, args.file, args.output_dir, args.quiet):
                     all_successful = False
             else:
                 # Use custom output only if converting single type with single format
                 output = args.output if len(types_to_convert) == 1 else None
 
-                if not convert_type(ytype, args.format, args.file, output, args.quiet):
+                if not convert_type(ytype, args.format, args.file, output, args.output_dir, args.quiet):
                     all_successful = False
 
             if not args.quiet and ytype != types_to_convert[-1]:

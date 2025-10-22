@@ -340,11 +340,19 @@ In addition to local pre-commit validation, the repository includes GitHub Actio
   - Control graph (`./risk-map/docs/controls-graph.md`)
   - Controls-to-risk graph (`./risk-map/docs/controls-to-risk-graph.md`)
 - **Mermaid SVG Validation**: Validates Mermaid diagram syntax and generates SVG previews
+- **Markdown Table Validation**: Generates and compares markdown tables against committed versions
+  - Components tables (`components-full.md`, `components-summary.md`)
+  - Risks tables (`risks-full.md`, `risks-summary.md`)
+  - Controls tables (`controls-full.md`, `controls-summary.md`, `controls-xref-risks.md`, `controls-xref-components.md`)
 
 **Different Roles:**
 
-- **Pre-commit hooks**: Generate SVG files from Mermaid diagrams and stage them
-- **GitHub Actions**: Validate Mermaid syntax and provide SVG previews in PR comments (does not generate files for commit)
+- **Pre-commit hooks**:
+  - Generate SVG files from Mermaid diagrams and stage them
+  - Generate markdown tables from YAML files and stage them
+- **GitHub Actions**:
+  - Validate Mermaid syntax and provide SVG previews in PR comments (does not generate files for commit)
+  - Validate that markdown tables match generated versions (does not generate files for commit)
 
 **Graph Validation Process:**
 
@@ -371,6 +379,32 @@ python3 .git/hooks/validate_riskmap.py --to-risk-graph ./risk-map/docs/controls-
 # Then commit the updated graphs:
 git add risk-map/docs/risk-map-graph.md risk-map/docs/controls-graph.md risk-map/docs/controls-to-risk-graph.md
 git commit -m "Update generated graphs"
+```
+
+**Table Validation Process:**
+
+- GitHub Actions generates fresh markdown tables from YAML files
+- Compares generated tables with the committed versions in the PR
+- Fails the build if tables are missing or don't match, indicating they need to be regenerated
+- Provides diff output showing exactly what differences were found
+
+**When Table Validation Fails:**
+
+```bash
+# The most common cause is missing table regeneration
+# Fix by running locally and committing the updated tables:
+
+# Generate all table files (recommended)
+python3 scripts/hooks/yaml_to_markdown.py --all --all-formats
+
+# Or generate specific tables:
+python3 scripts/hooks/yaml_to_markdown.py components --all-formats
+python3 scripts/hooks/yaml_to_markdown.py risks --all-formats
+python3 scripts/hooks/yaml_to_markdown.py controls --all-formats
+
+# Then commit the updated tables:
+git add risk-map/tables/*.md
+git commit -m "Update markdown tables"
 ```
 
 #### Manual Graph Generation
@@ -419,7 +453,10 @@ python3 .git/hooks/yaml_to_markdown.py controls --format xref-risks
 # Generate all types, all formats (8 files)
 python3 .git/hooks/yaml_to_markdown.py --all --all-formats
 
-# Custom output location (single type, single format only)
+# Generate to custom output directory
+python3 .git/hooks/yaml_to_markdown.py --all --all-formats --output-dir /tmp/tables
+
+# Custom output file (single type, single format only)
 python3 .git/hooks/yaml_to_markdown.py components --format full -o custom.md
 
 # Quiet mode

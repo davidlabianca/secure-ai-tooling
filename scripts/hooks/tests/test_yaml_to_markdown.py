@@ -356,6 +356,21 @@ class TestGetDefaultPaths:
         assert "risk-map/yaml" in str(input_path)
         assert "risk-map/tables" in str(output_path)
 
+    def test_custom_output_dir(self):
+        """Test get_default_paths with custom output directory."""
+        from pathlib import Path
+
+        custom_dir = Path("/tmp/custom-tables")
+        input_path, output_path = yaml_to_markdown.get_default_paths(
+            "components", "full", output_dir=custom_dir
+        )
+
+        assert "components.yaml" in str(input_path)
+        assert "components-full.md" in str(output_path)
+        assert "risk-map/yaml" in str(input_path)
+        assert str(custom_dir) in str(output_path)
+        assert "risk-map/tables" not in str(output_path)
+
 
 class TestConvertType:
     """Test the convert_type function for single type conversion."""
@@ -424,6 +439,30 @@ class TestConvertType:
             assert result is True
             assert output_file.exists()
             assert output_file.parent.exists()
+
+    def test_convert_type_with_output_dir(self):
+        """Test convert_type with custom output directory."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            input_file = Path(tmpdir) / "input.yaml"
+            output_dir = Path(tmpdir) / "custom-output"
+
+            test_data = {"components": [{"id": "test1", "title": "Test 1", "category": "test"}]}
+            with open(input_file, "w") as f:
+                yaml.dump(test_data, f)
+
+            result = yaml_to_markdown.convert_type(
+                "components",
+                "full",
+                input_file=input_file,
+                output_dir=output_dir,
+                quiet=True,
+            )
+
+            assert result is True
+            expected_file = output_dir / "components-full.md"
+            assert expected_file.exists()
+            content = expected_file.read_text()
+            assert "test1" in content
 
 
 class TestCLIArgumentParsing:

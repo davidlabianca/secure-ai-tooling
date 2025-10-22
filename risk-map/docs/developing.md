@@ -130,6 +130,9 @@ python3 scripts/hooks/yaml_to_markdown.py controls --all-formats
 # Generate all types and formats (8 files total)
 python3 scripts/hooks/yaml_to_markdown.py --all --all-formats
 
+# Generate to custom output directory
+python3 scripts/hooks/yaml_to_markdown.py --all --all-formats --output-dir /tmp/tables
+
 # Generate specific format
 python3 scripts/hooks/yaml_to_markdown.py controls --format xref-risks
 python3 scripts/hooks/yaml_to_markdown.py components --format summary
