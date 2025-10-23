@@ -53,6 +53,11 @@ SOURCE_FILES=("controls" "components" "personas" "risks" "self-assessment" "merm
 #CHROMIUM_PATH="/ms-playwright/chromium_headless_shell-1187/chrome-linux/headless_shell"
 CHROMIUM_PATH=MUST_BE_SET
 
+# Output directories for generated files
+DIAGRAMS_DIR="risk-map/diagrams"
+TABLES_DIR="risk-map/tables"
+SVG_DIR="risk-map/svg"
+
 
 # =============================================================================
 # Global Variables and Flags
@@ -181,9 +186,9 @@ case $1 in
         echo "  - Mermaid SVG generation (when .mmd/.mermaid files change)"
         echo ""
         echo "Automatic generation:"
-        echo "  - When components.yaml is staged, generates ./risk-map/docs/risk-map-graph.md"
-        echo "  - When components.yaml or controls.yaml is staged, generates ./risk-map/docs/controls-graph.md"
-        echo "  - When components.yaml, controls.yaml or risks.yaml is staged, generates ./risk-map/docs/controls-to-risk-graph.md"
+        echo "  - When components.yaml is staged, generates ./risk-map/diagrams/risk-map-graph.md"
+        echo "  - When components.yaml or controls.yaml is staged, generates ./risk-map/diagrams/controls-graph.md"
+        echo "  - When components.yaml, controls.yaml or risks.yaml is staged, generates ./risk-map/diagrams/controls-to-risk-graph.md"
         echo "  - When .mmd/.mermaid files are staged, generates corresponding SVG files in ./risk-map/svg/"
         echo "  - Generated files are added to staged files for inclusion in commit"
         echo "  - Automatic generation is skipped in --force"
@@ -383,16 +388,16 @@ fi
 # Only generate component graph in normal mode (not --force) when components.yaml is staged
 if [[ $FORCE_VALIDATE -eq 0 ]] && git diff --cached --name-only | grep -q "risk-map/yaml/components\.yaml$"; then
     echo "📊 Components.yaml changed - generating component relationship graph..."
-    
-    # Ensure docs directory exists
-    mkdir -p risk-map/docs
-    
+
+    # Ensure diagrams directory exists
+    mkdir -p "${DIAGRAMS_DIR}"
+
     # Generate the graph using the validator script
-    if python3 "$EDGE_VALIDATOR" --to-graph "./risk-map/docs/risk-map-graph.md" -m --quiet; then
-        echo "   ✅ Graph generated at ./risk-map/docs/risk-map-graph.md"
-        
+    if python3 "$EDGE_VALIDATOR" --to-graph "${DIAGRAMS_DIR}/risk-map-graph.md" -m --quiet; then
+        echo "   ✅ Graph generated at ${DIAGRAMS_DIR}/risk-map-graph.md"
+
         # Add the generated graph files to staging area
-        if git add "./risk-map/docs/risk-map-graph.md" "./risk-map/docs/risk-map-graph.mermaid"; then
+        if git add "${DIAGRAMS_DIR}/risk-map-graph.md" "${DIAGRAMS_DIR}/risk-map-graph.mermaid"; then
             echo "   ✅ Risk Map Graph files (.md and .mermaid) added to staged files"
         else
             echo "   ⚠️  Warning: Could not stage generated graph files"
@@ -436,15 +441,15 @@ echo  # Add blank line for readability
 if [[ $FORCE_VALIDATE -eq 0 ]] && git diff --cached --name-only | grep -q "risk-map/yaml/\(components\|controls\)\.yaml$"; then
     echo "📊 Components or controls changed - generating control-to-component graph..."
 
-    # Ensure docs directory exists
-    mkdir -p risk-map/docs
+    # Ensure diagrams directory exists
+    mkdir -p "${DIAGRAMS_DIR}"
 
     # Generate the control graph using the validator script
-    if python3 "$EDGE_VALIDATOR" --to-controls-graph "./risk-map/docs/controls-graph.md" -m --quiet; then
-        echo "   ✅ Control graph generated at ./risk-map/docs/controls-graph.md"
+    if python3 "$EDGE_VALIDATOR" --to-controls-graph "${DIAGRAMS_DIR}/controls-graph.md" -m --quiet; then
+        echo "   ✅ Control graph generated at ${DIAGRAMS_DIR}/controls-graph.md"
 
         # Add the generated graph files to staging area
-        if git add "./risk-map/docs/controls-graph.md" "./risk-map/docs/controls-graph.mermaid"; then
+        if git add "${DIAGRAMS_DIR}/controls-graph.md" "${DIAGRAMS_DIR}/controls-graph.mermaid"; then
             echo "   ✅ Controls Graph files (.md and .mermaid) added to staged files"
         else
             echo "   ⚠️  Warning: Could not stage generated control graph files"
@@ -546,7 +551,7 @@ echo  # Add blank line for readability
 # SVG Generation from Mermaid Files
 # =============================================================================
 
-# Generates SVG files from Mermaid diagrams in risk-map/docs/
+# Generates SVG files from Mermaid diagrams in risk-map/diagrams/
 # Args: none (uses global FORCE_VALIDATE flag)
 # Behavior:
 #   - Normal mode: generates SVGs only for staged .mmd/.mermaid files
@@ -575,7 +580,7 @@ generate_mermaid_svgs() {
 
     local svg_failed=0
     local files_to_process=()
-    local MERMAID_PATH="./risk-map/docs/"
+    local MERMAID_PATH="./risk-map/diagrams/"
     local SVGS_PATH="./risk-map/svg"
     local MERMAID_THEME="neutral"
     local MERMAID_BACKGROUND="transparent"
@@ -600,8 +605,8 @@ generate_mermaid_svgs() {
     # Process only staged mermaid files (SVG generation doesn't run in force mode)
     echo "   Processing staged Mermaid files"
     while IFS= read -r -d '' file; do
-        # Only include files that are in risk-map/docs/ directory
-        if [[ "$file" == risk-map/docs/*.mmd ]] || [[ "$file" == risk-map/docs/*.mermaid ]]; then
+        # Only include files that are in risk-map/diagrams/ directory
+        if [[ "$file" == risk-map/diagrams/*.mmd ]] || [[ "$file" == risk-map/diagrams/*.mermaid ]]; then
             files_to_process+=("$file")
         fi
     done < <(git diff --cached --name-only -z | grep -z '\.\(mmd\|mermaid\)$')
@@ -650,15 +655,15 @@ generate_mermaid_svgs() {
 if [[ $FORCE_VALIDATE -eq 0 ]] && git diff --cached --name-only | grep -q "risk-map/yaml/\(components\|controls\|risks\)\.yaml$"; then
     echo "📊 Components, controls, or risks changed - generating control-to-risk graph..."
 
-    # Ensure docs directory exists
-    mkdir -p risk-map/docs
+    # Ensure diagrams directory exists
+    mkdir -p "${DIAGRAMS_DIR}"
 
     # Generate the control graph using the validator script
-    if python3 "$EDGE_VALIDATOR" --to-risk-graph "./risk-map/docs/controls-to-risk-graph.md" -m --quiet; then
-        echo "   ✅ Risk-to-Control graph generated at ./risk-map/docs/controls-to-risk-graph.md"
+    if python3 "$EDGE_VALIDATOR" --to-risk-graph "${DIAGRAMS_DIR}/controls-to-risk-graph.md" -m --quiet; then
+        echo "   ✅ Risk-to-Control graph generated at ${DIAGRAMS_DIR}/controls-to-risk-graph.md"
 
         # Add the generated graph files to staging area
-        if git add "./risk-map/docs/controls-to-risk-graph.md" "./risk-map/docs/controls-to-risk-graph.mermaid"; then
+        if git add "${DIAGRAMS_DIR}/controls-to-risk-graph.md" "${DIAGRAMS_DIR}/controls-to-risk-graph.mermaid"; then
             echo "   ✅ Risk-to-Control Graph files (.md and .mermaid) added to staged files"
         else
             echo "   ⚠️  Warning: Could not stage generated control graph files"
