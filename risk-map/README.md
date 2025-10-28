@@ -40,6 +40,7 @@ The framework is organized into a set of YAML files for easy reading and JSON sc
         * `risk-map-graph.svg`: Component relationship visualization showing the complete AI system architecture
         * `controls-graph.svg`: Control-to-component mapping visualization
         * `controls-to-risk-graph.svg`: Control-to-risk mapping visualization
+        * `map.svg`: Legacy comprehensive visualization (being phased out in favor of the above focused diagrams)
 
 ### How to Use
 
@@ -78,18 +79,18 @@ We made several design choices while creating this visualization:
 * **Agentic systems representation:** The map now includes a detailed breakdown of agentic systems, showing the interplay between the agent reasoning core, orchestration components (tools, memory, RAG content), and agent-specific input/output handling. While agentic systems introduce significant complexity—such as calling other models and intricate interactions with external services—the visualization balances detail with clarity by organizing these components into logical subcategories within the Model and Application sections.   
 * **A short risk assessment**: For the risk assessment, our top priority was to keep the questionnaire short, so that users could complete it in just a few minutes. We also prioritized having a design that does not save information about people’s answers, while retaining the ability for users to share results.   
 
-### Recent Enhancements
+### Recent Enhancements (October 2025)
 
 **Completed:**
 
-1. **✅ Expanded agentic components:** The map now provides a comprehensive view of agentic systems, breaking down the previously simplified "Agent/Plugins" box into detailed components including:
+1. **Expanded agentic components:** The map now provides a comprehensive view of agentic systems, breaking down the previously simplified "Agent/Plugins" box into detailed components including:
    - **Agent Reasoning Core**: The model's ability to reason about user goals and create execution plans
    - **Orchestration**: Input/output handling, external tools and services, model memory, and RAG content
    - **Agent-specific components**: Input/output handling, user queries, and system instructions
 
    This expansion enables practitioners to better understand the security implications at each stage of agent operation, from receiving user input through reasoning and planning to executing actions via external tools.
 
-2. **✅ Control mapping visualizations:** The framework now includes automated generation of control-to-risk and control-to-component mapping diagrams, providing clear traceability between security controls and the risks they mitigate. See the [Control Mapping](#control-mapping) section below for details.
+2. **Control mapping visualizations:** The framework now includes automated generation of control-to-risk and control-to-component mapping diagrams, providing clear traceability between security controls and the risks they mitigate. See the [Control Mapping](#control-mapping) section below for details.
 
 ### Future directions
 
@@ -129,5 +130,5 @@ These mappings are automatically generated and validated through the project's d
 - **CI/CD validation**: GitHub Actions ensure all mappings remain consistent with the YAML definitions
 - **Bidirectional validation**: The framework validates that component edges, risk references, and control mappings are correctly cross-referenced
 
-See the [Contributing Guide](./docs/developing.md) for details on the validation and generation process 
+See the [Validation Tools](./docs/validation.md) and [CI/CD](./docs/ci-cd.md) documentation for details on the validation and generation process 
 
