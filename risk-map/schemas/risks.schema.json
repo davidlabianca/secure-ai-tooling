@@ -82,6 +82,8 @@
             "type": "string",
             "enum": [
               "planning",
+              "data-preparation",
+              "model-training",
               "development",
               "evaluation",
               "deployment",

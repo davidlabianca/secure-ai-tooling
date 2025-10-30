@@ -115,7 +115,8 @@ risks:
       nist-ai-rmf: ["MS-2.7", "MS-2.8"]
       stride: ["tampering"]
     lifecycleStage:
-      - development
+      - data-preparation
+      - model-training
       - evaluation
     impactType:
       - integrity
@@ -138,8 +139,8 @@ controls:
       mitre-atlas: ["AML.M0005"]
       nist-ai-rmf: ["MP-4.1"]
     lifecycleStage:
-      - development
-      - evaluation
+      - data-preparation
+      - model-training
     impactType:
       - integrity
       - privacy
@@ -159,12 +160,14 @@ Indicates which AI system lifecycle phases are relevant:
 
 ```yaml
 lifecycleStage:
-  - planning        # Initial planning and design
-  - development     # Model training and development
-  - evaluation      # Testing and validation
-  - deployment      # Production deployment
-  - runtime         # Active operation
-  - maintenance     # Updates and monitoring
+  - planning          # Initial planning and design
+  - data-preparation  # Data collection, cleaning, and preparation
+  - model-training    # Model training and fine-tuning
+  - development       # Application development and integration
+  - evaluation        # Testing and validation
+  - deployment        # Production deployment
+  - runtime           # Active operation
+  - maintenance       # Updates and monitoring
 ```
 
 ### impactType
@@ -227,7 +230,8 @@ actorAccess:
     stride: ["tampering", "elevation-of-privilege"]
     owasp-top10-llm: ["LLM05"]
   lifecycleStage:
-    - development
+    - data-preparation
+    - model-training
     - deployment
   impactType:
     - integrity
@@ -258,7 +262,8 @@ actorAccess:
     mitre-atlas: ["AML.M0013"]
     nist-ai-rmf: ["SC-8", "SI-7"]
   lifecycleStage:
-    - development
+    - data-preparation
+    - model-training
     - deployment
     - runtime
   impactType:
@@ -316,6 +321,8 @@ For risks or controls that apply throughout the lifecycle:
 ```yaml
 lifecycleStage:
   - planning
+  - data-preparation
+  - model-training
   - development
   - evaluation
   - deployment
