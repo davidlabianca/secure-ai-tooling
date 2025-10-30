@@ -1,0 +1,64 @@
+{
+  "$id": "frameworks.schema.json",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Frameworks Schema",
+  "description": "Schema for external security framework definitions",
+  "type": "object",
+  "properties": {
+    "frameworks": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["id", "name", "description", "baseUri"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Unique framework identifier used in mapping references",
+            "enum": [
+              "mitre-atlas",
+              "nist-ai-rmf",
+              "stride",
+              "owasp-top10-llm"
+            ]
+          },
+          "name": {
+            "type": "string",
+            "description": "Short name of the framework"
+          },
+          "fullName": {
+            "type": "string",
+            "description": "Full official name of the framework"
+          },
+          "description": {
+            "type": "string",
+            "description": "Brief description of the framework"
+          },
+          "baseUri": {
+            "type": "string",
+            "format": "uri",
+            "description": "Base URI for framework documentation"
+          },
+          "version": {
+            "type": ["string", "null"],
+            "description": "Framework version"
+          },
+          "lastUpdated": {
+            "type": ["string", "null"],
+            "format": "date",
+            "description": "Date framework was last updated (YYYY-MM-DD)"
+          },
+          "techniqueUriPattern": {
+            "type": "string",
+            "description": "URI pattern for individual techniques (use {id} as placeholder)"
+          },
+          "documentUri": {
+            "type": "string",
+            "format": "uri",
+            "description": "Direct URI to framework document or specification"
+          }
+        }
+      }
+    }
+  },
+  "required": ["frameworks"]
+}

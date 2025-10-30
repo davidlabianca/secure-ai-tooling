@@ -91,6 +91,78 @@
               "enum": ["all"]
             }
           ]
+        },
+        "mappings": {
+          "type": "object",
+          "description": "Cross-references to external security frameworks. Keys must match valid framework IDs defined in frameworks.schema.json and frameworks.yaml.",
+          "propertyNames": {
+            "$ref": "frameworks.schema.json#/properties/frameworks/additionalProperties/properties/id"
+          },
+          "additionalProperties": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "description": "Framework-specific category, technique, or tactic identifier"
+            }
+          },
+          "examples": [
+            {
+              "mitre-atlas": ["ml-model-access", "exfiltration"],
+              "stride": ["information-disclosure"]
+            }
+          ]
+        },
+        "lifecycleStage": {
+          "type": "array",
+          "description": "AI system lifecycle phases where applicable",
+          "items": {
+            "type": "string",
+            "enum": [
+              "planning",
+              "development",
+              "evaluation",
+              "deployment",
+              "runtime",
+              "maintenance"
+            ]
+          }
+        },
+        "impactType": {
+          "type": "array",
+          "description": "Security, privacy, or safety impact categories",
+          "items": {
+            "type": "string",
+            "enum": [
+              "confidentiality",
+              "integrity",
+              "availability",
+              "privacy",
+              "safety",
+              "compliance",
+              "fairness",
+              "accountability",
+              "reliability",
+              "transparency"
+            ]
+          }
+        },
+        "actorAccess": {
+          "type": "array",
+          "description": "Level of system access required by threat actor",
+          "items": {
+            "type": "string",
+            "enum": [
+              "none",
+              "api",
+              "user",
+              "privileged",
+              "agent",
+              "supply-chain",
+              "infrastructure-provider",
+              "service-provider",
+              "physical"
+            ]
+          }
         }
       },
       "required": ["title","description","category","personas","components","risks"]

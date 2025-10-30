@@ -51,6 +51,7 @@ This guide outlines how you can contribute to the Coalition for Secure AI (CoSAI
 - **[Adding a Control](guide-controls.md)** - Add new security controls and map them to components/risks
 - **[Adding a Risk](guide-risks.md)** - Add new security risks with proper categorization
 - **[Adding a Persona](guide-personas.md)** - Add new roles in the AI ecosystem
+- **[Adding and Using Frameworks](guide-frameworks.md)** - Map risks and controls to external security frameworks
 
 ### Reference
 
@@ -75,3 +76,4 @@ This guide outlines how you can contribute to the Coalition for Secure AI (CoSAI
 - Controls Schema: `risk-map/schemas/controls.schema.json`
 - Risks Schema: `risk-map/schemas/risks.schema.json`
 - Personas Schema: `risk-map/schemas/personas.schema.json`
+- Frameworks Schema: `risk-map/schemas/frameworks.schema.json`
