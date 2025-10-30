@@ -13,7 +13,7 @@
     },
     "subcategory": {
       "type": "array",
-      "items": {"$ref": "#/definitions/subcategory"}
+      "items": { "$ref": "#/definitions/subcategory" }
     },
     "components": {
       "type": "array",
@@ -27,18 +27,14 @@
       "properties": {
         "id": {
           "type": "string",
-          "enum": [
-            "componentsInfrastructure",
-            "componentsModel",
-            "componentsApplication"
-          ]
+          "enum": ["componentsInfrastructure", "componentsModel", "componentsApplication"]
         },
-        "title": {"type": "string"},
+        "title": { "type": "string" },
         "subcategory": {
           "type": "array",
-          "items": {"$ref": "#/definitions/subcategory"}
+          "items": { "$ref": "#/definitions/subcategory" }
         },
-        "description": {"$ref": "riskmap.schema.json#/definitions/utils/text"}
+        "description": { "$ref": "riskmap.schema.json#/definitions/utils/text" }
       },
       "required": ["id", "title"]
     },
@@ -47,12 +43,12 @@
       "properties": {
         "id": {
           "type": "string",
-          "enum": ["componentsModelTraining", "componentsData", "componentsAgent","componentsOrchestration"]
+          "enum": ["componentsModelTraining", "componentsData", "componentsAgent", "componentsOrchestration"]
         },
-        "title": {"type": "string"},
-        "description": {"$ref": "riskmap.schema.json#/definitions/utils/text"}
+        "title": { "type": "string" },
+        "description": { "$ref": "riskmap.schema.json#/definitions/utils/text" }
       },
-      "required": ["id","title"]
+      "required": ["id", "title"]
     },
     "component": {
       "type": "object",
@@ -81,7 +77,7 @@
             "componentOrchestrationOutputHandling",
             "componentTools",
             "componentMemory",
-            "componentRAGContent", 
+            "componentRAGContent",
             "componentAgentUserQuery",
             "componentAgentSystemInstruction",
             "componentAgentRendering",
@@ -89,12 +85,12 @@
             "componentAgentOutputHandling"
           ]
         },
-        "title": {"type": "string"},
-        "description": {"$ref": "riskmap.schema.json#/definitions/utils/text"},
-        "category": { 
+        "title": { "type": "string" },
+        "description": { "$ref": "riskmap.schema.json#/definitions/utils/text" },
+        "category": {
           "$ref": "#/definitions/category/properties/id"
         },
-        "subcategory": { 
+        "subcategory": {
           "$ref": "#/definitions/subcategory/properties/id"
         },
         "edges": { "$ref": "#/definitions/edges" }

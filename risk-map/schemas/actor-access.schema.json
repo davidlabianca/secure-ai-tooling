@@ -5,43 +5,48 @@
   "description": "Schema for threat actor access level definitions",
   "type": "object",
   "properties": {
+    "title": { "type": "string" },
+    "description": { "$ref": "riskmap.schema.json#/definitions/utils/text" },
     "actorAccessLevels": {
-      "type": "object",
-      "additionalProperties": {
-        "type": "object",
-        "required": ["id", "title", "description"],
-        "properties": {
-          "id": {
-            "type": "string",
-            "description": "Unique actor access level identifier",
-            "enum": [
-              "none",
-              "api",
-              "user",
-              "privileged",
-              "agent",
-              "supply-chain",
-              "infrastructure-provider",
-              "service-provider",
-              "physical"
-            ]
-          },
-          "title": {
-            "type": "string",
-            "description": "Display name for the access level"
-          },
-          "description": {
-            "type": "string",
-            "description": "Detailed description of the access level and typical threat actors"
-          },
-          "category": {
-            "type": "string",
-            "enum": ["traditional", "modern"],
-            "description": "Whether this is a traditional or modern/AI-specific access level"
-          }
-        }
-      }
+      "type": "array",
+      "items": { "$ref": "#/definitions/actorAccessLevel" }
     }
   },
-  "required": ["actorAccessLevels"]
+  "required": ["title", "description", "actorAccessLevels"],
+  "definitions": {
+    "actorAccessLevel": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique actor access level identifier",
+          "enum": [
+            "none",
+            "api",
+            "user",
+            "privileged",
+            "agent",
+            "supply-chain",
+            "infrastructure-provider",
+            "service-provider",
+            "physical"
+          ]
+        },
+        "title": {
+          "type": "string",
+          "description": "Display name for the access level"
+        },
+        "description": {
+          "type": "string",
+          "description": "Detailed description of the access level and typical threat actors"
+        },
+        "category": {
+          "type": "string",
+          "enum": ["traditional", "modern"],
+          "description": "Whether this is a traditional or modern/AI-specific access level"
+        }
+      },
+      "required": ["id", "title", "description"]
+    }
+  }
 }

@@ -5,26 +5,26 @@
   "description": "Schema for validating YAML-based self-assessment definition",
   "type": "object",
   "properties": {
-    "selfAssessment": {"$ref": "#/definitions/selfAssessment"}
+    "selfAssessment": { "$ref": "#/definitions/selfAssessment" }
   },
   "required": ["selfAssessment"],
   "definitions": {
     "selfAssessment": {
       "type": "object",
       "properties": {
-        "title": {"type": "string"},
-        "description": {"$ref": "riskmap.schema.json#/definitions/utils/text"},
+        "title": { "type": "string" },
+        "description": { "$ref": "riskmap.schema.json#/definitions/utils/text" },
         "personas": {
           "type": "object",
           "properties": {
-            "text": {"$ref": "riskmap.schema.json#/definitions/utils/text"},
-            "multipleChoice": {"type": "boolean"},
+            "text": { "$ref": "riskmap.schema.json#/definitions/utils/text" },
+            "multipleChoice": { "type": "boolean" },
             "answers": {
               "type": "array",
               "items": {
                 "type": "object",
                 "properties": {
-                  "label": {"$ref": "personas.schema.json#/definitions/persona/properties/id"},
+                  "label": { "$ref": "personas.schema.json#/definitions/persona/properties/id" },
                   "value": {
                     "type": "integer",
                     "enum": [1, 2]
@@ -38,7 +38,7 @@
         },
         "questions": {
           "type": "array",
-          "items": {"$ref": "#/definitions/selfAssessment/definitions/question"}
+          "items": { "$ref": "#/definitions/selfAssessment/definitions/question" }
         }
       },
       "required": ["title", "description", "personas", "questions"],
@@ -47,20 +47,20 @@
         "question": {
           "type": "object",
           "properties": {
-            "id": {"type": "string"},
-            "text": {"$ref": "riskmap.schema.json#/definitions/utils/text"},
-            "answers": {"$ref": "#/definitions/selfAssessment/definitions/answers"},
+            "id": { "type": "string" },
+            "text": { "$ref": "riskmap.schema.json#/definitions/utils/text" },
+            "answers": { "$ref": "#/definitions/selfAssessment/definitions/answers" },
             "personas": {
               "type": "array",
-              "items": {"$ref": "personas.schema.json#/definitions/persona/properties/id"}
+              "items": { "$ref": "personas.schema.json#/definitions/persona/properties/id" }
             },
             "risks": {
               "type": "array",
-              "items": {"$ref": "risks.schema.json#/definitions/risk/properties/id"}
+              "items": { "$ref": "risks.schema.json#/definitions/risk/properties/id" }
             },
             "relevance": {
               "type": "array",
-              "items": {"$ref": "#/definitions/selfAssessment/definitions/answers/items/properties/label"}
+              "items": { "$ref": "#/definitions/selfAssessment/definitions/answers/items/properties/label" }
             }
           },
           "required": ["id", "text", "answers"]

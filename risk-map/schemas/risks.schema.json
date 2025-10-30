@@ -5,11 +5,11 @@
   "description": "Schema for validating YAML-based risks definition",
   "type": "object",
   "properties": {
-    "title": {"type": "string"},
-    "description": {"$ref": "riskmap.schema.json#/definitions/utils/text"},
+    "title": { "type": "string" },
+    "description": { "$ref": "riskmap.schema.json#/definitions/utils/text" },
     "risks": {
       "type": "array",
-      "items": {"$ref": "#/definitions/risk"}
+      "items": { "$ref": "#/definitions/risk" }
     }
   },
   "required": ["title", "description", "risks"],
@@ -19,47 +19,63 @@
       "properties": {
         "id": {
           "type": "string",
-          "enum": ["DMS", "DP", "EDH", "IIC", "IMO", "ISD", "MDT", "MEV", "MRE", "MST", "MXF", "PIJ", "RA", "SDD", "UTD"]
+          "enum": [
+            "DMS",
+            "DP",
+            "EDH",
+            "IIC",
+            "IMO",
+            "ISD",
+            "MDT",
+            "MEV",
+            "MRE",
+            "MST",
+            "MXF",
+            "PIJ",
+            "RA",
+            "SDD",
+            "UTD"
+          ]
         },
-        "title": {"type": "string"},
-        "shortDescription": {"$ref": "riskmap.schema.json#/definitions/utils/text"},
-        "longDescription": {"$ref": "riskmap.schema.json#/definitions/utils/text"},
+        "title": { "type": "string" },
+        "shortDescription": { "$ref": "riskmap.schema.json#/definitions/utils/text" },
+        "longDescription": { "$ref": "riskmap.schema.json#/definitions/utils/text" },
         "category": {
           "type": "string",
           "enum": [
-                "risksSupplyChainAndDevelopment",
-                "risksDeploymentAndInfrastructure",
-                "risksRuntimeInputSecurity",
-                "risksRuntimeDataSecurity",
-                "risksRuntimeOutputSecurity"
+            "risksSupplyChainAndDevelopment",
+            "risksDeploymentAndInfrastructure",
+            "risksRuntimeInputSecurity",
+            "risksRuntimeDataSecurity",
+            "risksRuntimeOutputSecurity"
           ]
         },
         "personas": {
           "type": "array",
-          "items": {"$ref": "personas.schema.json#/definitions/persona/properties/id"}
+          "items": { "$ref": "personas.schema.json#/definitions/persona/properties/id" }
         },
         "tourContent": {
           "type": "object",
           "properties": {
-            "introduced": {"$ref": "riskmap.schema.json#/definitions/utils/text"},
-            "exposed": {"$ref": "riskmap.schema.json#/definitions/utils/text"},
-            "mitigated": {"$ref": "riskmap.schema.json#/definitions/utils/text"}
+            "introduced": { "$ref": "riskmap.schema.json#/definitions/utils/text" },
+            "exposed": { "$ref": "riskmap.schema.json#/definitions/utils/text" },
+            "mitigated": { "$ref": "riskmap.schema.json#/definitions/utils/text" }
           }
         },
         "controls": {
           "type": "array",
-          "items": {"$ref": "controls.schema.json#/definitions/control/properties/id"}
+          "items": { "$ref": "controls.schema.json#/definitions/control/properties/id" }
         },
-        "examples": {"$ref": "riskmap.schema.json#/definitions/utils/text"},
+        "examples": { "$ref": "riskmap.schema.json#/definitions/utils/text" },
         "relevantQuestions": {
           "type": "array",
-          "items": {"type": "string"}
+          "items": { "type": "string" }
         },
         "mappings": {
           "type": "object",
           "description": "Cross-references to external security frameworks. Keys must match valid framework IDs defined in frameworks.schema.json and frameworks.yaml.",
           "propertyNames": {
-            "$ref": "frameworks.schema.json#/properties/frameworks/additionalProperties/properties/id"
+            "$ref": "frameworks.schema.json#/definitions/framework/properties/id"
           },
           "additionalProperties": {
             "type": "array",
@@ -76,25 +92,49 @@
           ]
         },
         "lifecycleStage": {
-          "type": "array",
           "description": "AI system lifecycle phases where applicable",
-          "items": {
-            "$ref": "lifecycle-stage.schema.json#/properties/lifecycleStages/additionalProperties/properties/id"
-          }
+          "oneOf": [
+            {
+              "type": "array",
+              "items": {
+                "$ref": "lifecycle-stage.schema.json#/definitions/lifecycleStage/properties/id"
+              }
+            },
+            {
+              "type": "string",
+              "enum": ["all", "none"]
+            }
+          ]
         },
         "impactType": {
-          "type": "array",
           "description": "Security, privacy, or safety impact categories",
-          "items": {
-            "$ref": "impact-type.schema.json#/properties/impactTypes/additionalProperties/properties/id"
-          }
+          "oneOf": [
+            {
+              "type": "array",
+              "items": {
+                "$ref": "impact-type.schema.json#/definitions/impactType/properties/id"
+              }
+            },
+            {
+              "type": "string",
+              "enum": ["all", "none"]
+            }
+          ]
         },
         "actorAccess": {
-          "type": "array",
           "description": "Level of system access required by threat actor",
-          "items": {
-            "$ref": "actor-access.schema.json#/properties/actorAccessLevels/additionalProperties/properties/id"
-          }
+          "oneOf": [
+            {
+              "type": "array",
+              "items": {
+                "$ref": "actor-access.schema.json#/definitions/actorAccessLevel/properties/id"
+              }
+            },
+            {
+              "type": "string",
+              "enum": ["all"]
+            }
+          ]
         }
       },
       "required": ["id", "title", "shortDescription", "longDescription", "category", "personas", "controls"]

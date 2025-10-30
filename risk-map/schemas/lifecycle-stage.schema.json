@@ -5,41 +5,46 @@
   "description": "Schema for AI system lifecycle stage definitions",
   "type": "object",
   "properties": {
+    "title": { "type": "string" },
+    "description": { "$ref": "riskmap.schema.json#/definitions/utils/text" },
     "lifecycleStages": {
-      "type": "object",
-      "additionalProperties": {
-        "type": "object",
-        "required": ["id", "title", "description"],
-        "properties": {
-          "id": {
-            "type": "string",
-            "description": "Unique lifecycle stage identifier",
-            "enum": [
-              "planning",
-              "data-preparation",
-              "model-training",
-              "development",
-              "evaluation",
-              "deployment",
-              "runtime",
-              "maintenance"
-            ]
-          },
-          "title": {
-            "type": "string",
-            "description": "Display name for the lifecycle stage"
-          },
-          "description": {
-            "type": "string",
-            "description": "Detailed description of the lifecycle stage"
-          },
-          "order": {
-            "type": "integer",
-            "description": "Sequential order in the lifecycle (1-8)"
-          }
-        }
-      }
+      "type": "array",
+      "items": { "$ref": "#/definitions/lifecycleStage" }
     }
   },
-  "required": ["lifecycleStages"]
+  "required": ["title", "description", "lifecycleStages"],
+  "definitions": {
+    "lifecycleStage": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique lifecycle stage identifier",
+          "enum": [
+            "planning",
+            "data-preparation",
+            "model-training",
+            "development",
+            "evaluation",
+            "deployment",
+            "runtime",
+            "maintenance"
+          ]
+        },
+        "title": {
+          "type": "string",
+          "description": "Display name for the lifecycle stage"
+        },
+        "description": {
+          "type": "string",
+          "description": "Detailed description of the lifecycle stage"
+        },
+        "order": {
+          "type": "integer",
+          "description": "Sequential order in the lifecycle (1-8)"
+        }
+      },
+      "required": ["id", "title", "description"]
+    }
+  }
 }
