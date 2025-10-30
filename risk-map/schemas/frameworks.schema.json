@@ -40,12 +40,12 @@
           },
           "version": {
             "type": ["string", "null"],
-            "description": "Framework version"
+            "description": "Framework version. Supports multiple versioning schemes: semantic versioning (e.g., '5.0.1'), year-based (e.g., '2025'), or null for unversioned frameworks"
           },
           "lastUpdated": {
             "type": ["string", "null"],
-            "format": "date",
-            "description": "Date framework was last updated (YYYY-MM-DD)"
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+            "description": "Date framework was last updated (YYYY-MM-DD format)"
           },
           "techniqueUriPattern": {
             "type": "string",

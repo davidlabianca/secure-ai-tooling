@@ -90,7 +90,7 @@ jobs:
         BASE_URI="file://$(pwd)/risk-map/schemas/"
         YAML_BASE_DIR="risk-map/yaml"
         SCHEMA_BASE_DIR="risk-map/schemas"
-        SOURCE_FILES=("controls" "components" "personas" "risks" "self-assessment" "mermaid-styles")
+        SOURCE_FILES=("controls" "components" "personas" "risks" "self-assessment" "mermaid-styles" "frameworks")
 
         validation_failed=false
         validation_count=0
