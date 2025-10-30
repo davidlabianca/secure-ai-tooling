@@ -1,0 +1,52 @@
+# AI System Lifecycle Stages
+#
+# Defines the phases of AI system development, deployment, and operation
+
+lifecycleStages:
+  planning:
+    id: planning
+    title: Planning
+    description: Initial planning, design, and architecture definition for the AI system
+    order: 1
+
+  data-preparation:
+    id: data-preparation
+    title: Data Preparation
+    description: Data collection, cleaning, labeling, and preparation for model training
+    order: 2
+
+  model-training:
+    id: model-training
+    title: Model Training
+    description: Model training, fine-tuning, and hyperparameter optimization
+    order: 3
+
+  development:
+    id: development
+    title: Development
+    description: Application development and integration of the AI model into systems
+    order: 4
+
+  evaluation:
+    id: evaluation
+    title: Evaluation
+    description: Testing, validation, and evaluation of model performance and safety
+    order: 5
+
+  deployment:
+    id: deployment
+    title: Deployment
+    description: Production deployment and initial rollout of the AI system
+    order: 6
+
+  runtime:
+    id: runtime
+    title: Runtime
+    description: Active operation and serving of the AI system in production
+    order: 7
+
+  maintenance:
+    id: maintenance
+    title: Maintenance
+    description: Ongoing monitoring, updates, retraining, and system maintenance
+    order: 8

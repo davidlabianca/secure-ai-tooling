@@ -79,54 +79,21 @@
           "type": "array",
           "description": "AI system lifecycle phases where applicable",
           "items": {
-            "type": "string",
-            "enum": [
-              "planning",
-              "data-preparation",
-              "model-training",
-              "development",
-              "evaluation",
-              "deployment",
-              "runtime",
-              "maintenance"
-            ]
+            "$ref": "lifecycle-stage.schema.json#/properties/lifecycleStages/additionalProperties/properties/id"
           }
         },
         "impactType": {
           "type": "array",
           "description": "Security, privacy, or safety impact categories",
           "items": {
-            "type": "string",
-            "enum": [
-              "confidentiality",
-              "integrity",
-              "availability",
-              "privacy",
-              "safety",
-              "compliance",
-              "fairness",
-              "accountability",
-              "reliability",
-              "transparency"
-            ]
+            "$ref": "impact-type.schema.json#/properties/impactTypes/additionalProperties/properties/id"
           }
         },
         "actorAccess": {
           "type": "array",
           "description": "Level of system access required by threat actor",
           "items": {
-            "type": "string",
-            "enum": [
-              "none",
-              "api",
-              "user",
-              "privileged",
-              "agent",
-              "supply-chain",
-              "infrastructure-provider",
-              "service-provider",
-              "physical"
-            ]
+            "$ref": "actor-access.schema.json#/properties/actorAccessLevels/additionalProperties/properties/id"
           }
         }
       },

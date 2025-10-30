@@ -1,0 +1,58 @@
+# Threat Actor Access Levels
+#
+# Defines the level of system access required by threat actors to exploit vulnerabilities
+
+actorAccessLevels:
+  none:
+    id: none
+    title: No Access
+    description: External attackers with no direct access to the system (e.g., remote attacks, public interfaces)
+    category: traditional
+
+  api:
+    id: api
+    title: API Access
+    description: Attackers with access to public or authenticated API endpoints
+    category: traditional
+
+  user:
+    id: user
+    title: User Access
+    description: Standard authenticated users with normal application access privileges
+    category: traditional
+
+  privileged:
+    id: privileged
+    title: Privileged Access
+    description: Users with elevated privileges such as administrators, operators, or power users
+    category: traditional
+
+  agent:
+    id: agent
+    title: Agent Access
+    description: AI agents or autonomous systems with tool/plugin execution capabilities
+    category: modern
+
+  supply-chain:
+    id: supply-chain
+    title: Supply Chain Position
+    description: Actors positioned in the software, data, or model supply chain (e.g., data providers, model vendors)
+    category: modern
+
+  infrastructure-provider:
+    id: infrastructure-provider
+    title: Infrastructure Provider
+    description: Cloud or infrastructure providers with access to underlying systems (e.g., hypervisor, storage)
+    category: modern
+
+  service-provider:
+    id: service-provider
+    title: Service Provider
+    description: Third-party service providers with access to systems or data (e.g., ML platforms, annotation services)
+    category: modern
+
+  physical:
+    id: physical
+    title: Physical Access
+    description: Attackers with physical access to hardware, facilities, or devices
+    category: traditional

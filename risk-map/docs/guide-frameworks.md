@@ -152,9 +152,11 @@ controls:
 
 ## Extended Metadata Fields
 
-In addition to `mappings`, risks and controls support three additional metadata fields:
+In addition to `mappings`, risks and controls support three additional metadata fields. These fields reference separate schema and YAML definition files:
 
 ### lifecycleStage
+
+Defined in [`lifecycle-stage.schema.json`](../schemas/lifecycle-stage.schema.json) and [`lifecycle-stage.yaml`](../yaml/lifecycle-stage.yaml).
 
 Indicates which AI system lifecycle phases are relevant:
 
@@ -171,6 +173,8 @@ lifecycleStage:
 ```
 
 ### impactType
+
+Defined in [`impact-type.schema.json`](../schemas/impact-type.schema.json) and [`impact-type.yaml`](../yaml/impact-type.yaml).
 
 Categorizes the security, privacy, or safety impacts:
 
@@ -189,6 +193,8 @@ impactType:
 ```
 
 ### actorAccess
+
+Defined in [`actor-access.schema.json`](../schemas/actor-access.schema.json) and [`actor-access.yaml`](../yaml/actor-access.yaml).
 
 Specifies the level of system access required by threat actors:
 
