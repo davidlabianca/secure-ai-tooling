@@ -10,7 +10,7 @@ Traditional software security practices are not always sufficient for AI systems
 
 The CoSAI Risk Map addresses this by providing a structured map of the AI security landscape.
 
-![CoSAI Risk Map](./docs/images/risk-map.png)
+![CoSAI Risk Map](./svg/risk-map-graph.svg)
 
 The Risk Map is broken down into four key areas:
 
@@ -35,9 +35,12 @@ The framework is organized into a set of YAML files for easy reading and JSON sc
 * **Schema Files (`.schema.json`)**: These files define the structure for the associated YAML files.
     * schemas/
         * `components.schema.json`, `risks.schema.json`, etc.
-* **SVG File (`.svg`)**: SVG format files
+* **SVG Files (`.svg`)**: Automatically generated graphical visualizations
     * svg/
-        * `map.svg`: Graphical representation of the AI system components defined in `components.yaml`
+        * `risk-map-graph.svg`: Component relationship visualization showing the complete AI system architecture
+        * `controls-graph.svg`: Control-to-component mapping visualization
+        * `controls-to-risk-graph.svg`: Control-to-risk mapping visualization
+        * `map.svg`: Legacy comprehensive visualization (being phased out in favor of the above focused diagrams)
 
 ### How to Use
 
@@ -73,11 +76,59 @@ We made several design choices while creating this visualization:
 
 * **Central model representation:** The machine learning model artifact is represented only once, positioned centrally. We considered alternatives, such as showing separate instances for "model in training," "model in storage," and "model in production." However, depicting the model centrally highlights its fundamental role and its direct connection to the surrounding infrastructure.  
 * **Placement of storage and serving:** "Model Storage" and "Model Serving" are shown connected beneath the central model artifact. This reflects our view of them primarily as *infrastructure components* supporting the model, rather than distinct sequential steps occurring *after* the model's conceptual finalization. An alternative valid representation could place "Model Serving" sequentially after the model to better illustrate the operational flow. Our chosen layout prioritizes grouping related infrastructure elements together in the “Infrastructure” section of the map.   
-* **Simplifying agentic systems:** Agentic systems introduce significant complexity, as they can call other models, which transitively replicates this risk map for each model called. They also introduce intricate interactions between tools, orchestration, and external content. To maintain the main map's clarity, this complexity is consolidated into a single component, with a plan to create a second accompanying diagram that goes into agents in more detail.   
+* **Agentic systems representation:** The map now includes a detailed breakdown of agentic systems, showing the interplay between the agent reasoning core, orchestration components (tools, memory, RAG content), and agent-specific input/output handling. While agentic systems introduce significant complexity—such as calling other models and intricate interactions with external services—the visualization balances detail with clarity by organizing these components into logical subcategories within the Model and Application sections.   
 * **A short risk assessment**: For the risk assessment, our top priority was to keep the questionnaire short, so that users could complete it in just a few minutes. We also prioritized having a design that does not save information about people’s answers, while retaining the ability for users to share results.   
+
+### Recent Enhancements (October 2025)
+
+**Completed:**
+
+1. **Expanded agentic components:** The map now provides a comprehensive view of agentic systems, breaking down the previously simplified "Agent/Plugins" box into detailed components including:
+   - **Agent Reasoning Core**: The model's ability to reason about user goals and create execution plans
+   - **Orchestration**: Input/output handling, external tools and services, model memory, and RAG content
+   - **Agent-specific components**: Input/output handling, user queries, and system instructions
+
+   This expansion enables practitioners to better understand the security implications at each stage of agent operation, from receiving user input through reasoning and planning to executing actions via external tools.
+
+2. **Control mapping visualizations:** The framework now includes automated generation of control-to-risk and control-to-component mapping diagrams, providing clear traceability between security controls and the risks they mitigate. See the [Control Mapping](#control-mapping) section below for details.
 
 ### Future directions
 
-1. **Expanding on agents:** The map currently shows a single box representing components for Agents (Agent/Plugins). This needs expansion to show the interplay between an application, a model for reasoning and planning, tools, agentic memory, and other components that allow AI agents to take action.   
-2. **Clearer risk-to-control mapping:** The map is a blank canvas that can take overlays of many concepts. A clearer representation of which controls can address each risk would be useful for users. 
+While significant progress has been made, opportunities for continued enhancement include:
+- **Enhanced risk assessment personalization**: Expanding the self-assessment questionnaire to provide more granular risk profiles
+- **Supply chain visualization**: Adding explicit representation of supply chain risks that affect multiple lifecycle stages
+
+## Control Mapping
+
+The CoSAI Risk Map includes comprehensive mapping between controls, risks, and components, providing traceability throughout the AI security lifecycle. These mappings are automatically generated from the YAML definitions and visualized as interactive diagrams.
+
+### Control-to-Risk Mapping
+
+The control-to-risk mapping ([`controls-to-risk-graph.svg`](./svg/controls-to-risk-graph.svg)) shows which security controls address specific risks. This visualization helps practitioners:
+
+- **Identify applicable controls**: Quickly find which controls mitigate a specific risk
+- **Assess coverage**: Understand which risks have multiple defense layers
+- **Plan security implementations**: Prioritize control deployment based on risk exposure
+
+Each control in [`controls.yaml`](./yaml/controls.yaml) includes a `risks` field that explicitly lists the risks it addresses. This bidirectional mapping ensures consistency and enables automated validation.
+
+### Control-to-Component Mapping
+
+The control-to-component mapping ([`controls-graph.svg`](./svg/controls-graph.svg)) illustrates where in the AI system lifecycle each control should be applied. This helps teams:
+
+- **Assign ownership**: Clarify which teams are responsible for implementing specific controls
+- **Understand scope**: See which components are affected by a control implementation
+- **Trace impacts**: Analyze how control changes affect different parts of the system
+
+Each control specifies applicable `components` and `personas` (Model Creator or Model Consumer), enabling role-based security guidance.
+
+### Automated Generation
+
+These mappings are automatically generated and validated through the project's development workflow:
+
+- **Pre-commit hooks**: When YAML files are modified, corresponding Mermaid diagrams and SVG visualizations are regenerated
+- **CI/CD validation**: GitHub Actions ensure all mappings remain consistent with the YAML definitions
+- **Bidirectional validation**: The framework validates that component edges, risk references, and control mappings are correctly cross-referenced
+
+See the [Validation Tools](./docs/validation.md) and [CI/CD](./docs/ci-cd.md) documentation for details on the validation and generation process 
 
