@@ -156,59 +156,59 @@ In addition to `mappings`, risks and controls support three additional metadata 
 
 ### lifecycleStage
 
-Defined in [`lifecycle-stage.schema.json`](../schemas/lifecycle-stage.schema.json) and [`lifecycle-stage.yaml`](../yaml/lifecycle-stage.yaml).
+Indicates which AI system lifecycle phases are relevant. See [`lifecycle-stage.schema.json`](../schemas/lifecycle-stage.schema.json) and [`lifecycle-stage.yaml`](../yaml/lifecycle-stage.yaml) for complete definitions and descriptions.
 
-Indicates which AI system lifecycle phases are relevant:
+Valid values:
 
 ```yaml
 lifecycleStage:
-  - planning          # Initial planning and design
-  - data-preparation  # Data collection, cleaning, and preparation
-  - model-training    # Model training and fine-tuning
-  - development       # Application development and integration
-  - evaluation        # Testing and validation
-  - deployment        # Production deployment
-  - runtime           # Active operation
-  - maintenance       # Updates and monitoring
+  - planning
+  - data-preparation
+  - model-training
+  - development
+  - evaluation
+  - deployment
+  - runtime
+  - maintenance
 ```
 
 ### impactType
 
-Defined in [`impact-type.schema.json`](../schemas/impact-type.schema.json) and [`impact-type.yaml`](../yaml/impact-type.yaml).
+Categorizes the security, privacy, or safety impacts. See [`impact-type.schema.json`](../schemas/impact-type.schema.json) and [`impact-type.yaml`](../yaml/impact-type.yaml) for complete definitions, descriptions, and categorization.
 
-Categorizes the security, privacy, or safety impacts:
+Valid values:
 
 ```yaml
 impactType:
-  - confidentiality  # Data/model confidentiality
-  - integrity        # Data/model integrity
-  - availability     # System availability
-  - privacy          # User privacy
-  - safety           # Physical or operational safety
-  - compliance       # Regulatory compliance
-  - fairness         # Fairness and bias
-  - accountability   # Accountability and attribution
-  - reliability      # System reliability
-  - transparency     # Model transparency
+  - confidentiality
+  - integrity
+  - availability
+  - privacy
+  - safety
+  - compliance
+  - fairness
+  - accountability
+  - reliability
+  - transparency
 ```
 
 ### actorAccess
 
-Defined in [`actor-access.schema.json`](../schemas/actor-access.schema.json) and [`actor-access.yaml`](../yaml/actor-access.yaml).
+Specifies the level of system access required by threat actors. See [`actor-access.schema.json`](../schemas/actor-access.schema.json) and [`actor-access.yaml`](../yaml/actor-access.yaml) for complete definitions, descriptions, and categorization.
 
-Specifies the level of system access required by threat actors:
+Valid values:
 
 ```yaml
 actorAccess:
-  - none                    # No access required (external attacks)
-  - api                     # API access only
-  - user                    # Standard user access
-  - privileged              # Elevated privileges
-  - agent                   # Agent/plugin access
-  - supply-chain            # Supply chain position
-  - infrastructure-provider # Infrastructure provider access
-  - service-provider        # Service provider access
-  - physical                # Physical access
+  - none
+  - api
+  - user
+  - privileged
+  - agent
+  - supply-chain
+  - infrastructure-provider
+  - service-provider
+  - physical
 ```
 
 ---
