@@ -32,6 +32,8 @@ Next, define the control's properties in the main `controls.yaml` data file. Thi
 
 > **Note on universal controls**: For controls that apply broadly (e.g., governance or assurance tasks), you can use the string `"all"` for `components` and `risks`. For controls that don't apply to any specific component, use `"none"`.
 
+> **Optional Metadata Fields**: You can also add optional metadata fields like `mappings` (framework cross-references), `lifecycleStage`, `impactType`, and `actorAccess` to provide additional context. These fields support both specific arrays (e.g., `lifecycleStage: [planning, deployment]`) and universal values (e.g., `lifecycleStage: all`). See [Metadata Fields Guide](guide-metadata.md) for details.
+
 ```yaml
 # Example of a specific control
 - id: controlNewControl
