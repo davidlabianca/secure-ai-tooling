@@ -333,28 +333,6 @@ The schemas enforce these validation rules for metadata fields:
    - Impact types must be one of the 10 types defined in `impact-type.schema.json`
    - Actor access levels must be one of the 9 levels defined in `actor-access.schema.json`
 
-### Common Validation Errors
-
-1. **Invalid framework ID**:
-   - Error: `Property name does not match any enum value`
-   - Solution: Ensure the framework exists in `frameworks.yaml`
-
-2. **Invalid lifecycle stage**:
-   - Error: `Value not in enum`
-   - Solution: Must be one of the 8 stages defined in `lifecycle-stage.yaml`
-
-3. **Invalid impact type**:
-   - Error: `Value not in enum`
-   - Solution: Must be one of the 10 types defined in `impact-type.yaml`
-
-4. **Invalid actor access**:
-   - Error: `Value not in enum`
-   - Solution: Must be one of the 9 levels defined in `actor-access.yaml`
-
-5. **Wrong data type**:
-   - Error: `Expected array but got string`
-   - Solution: Metadata fields (except `mappings` keys) must be arrays: `lifecycleStage: [planning]` not `lifecycleStage: planning`
-
 ---
 
 ## Best Practices
