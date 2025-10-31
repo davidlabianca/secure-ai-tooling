@@ -25,7 +25,9 @@ Cross-references to external security frameworks like MITRE ATLAS, NIST AI RMF, 
 
 ```yaml
 mappings:
-  framework-id: ["technique-1", "technique-2"]
+  <framework-id>: 
+    - <technique-1>
+    - <technique-2>
 ```
 
 ### Valid Framework IDs
