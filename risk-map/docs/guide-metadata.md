@@ -56,9 +56,14 @@ Indicates which AI system lifecycle phases are relevant to this risk or control.
 ### Structure
 
 ```yaml
+# Option 1: Array of specific stages
 lifecycleStage:
   - stage-id-1
   - stage-id-2
+
+# Option 2: Universal value
+lifecycleStage: all   # Applies to all lifecycle stages
+lifecycleStage: none  # Not applicable to any specific stage
 ```
 
 ### Definition Files
@@ -97,9 +102,14 @@ Categorizes the security, privacy, or safety impacts that the risk poses or the 
 ### Structure
 
 ```yaml
+# Option 1: Array of specific impact types
 impactType:
   - impact-id-1
   - impact-id-2
+
+# Option 2: Universal value
+impactType: all   # Affects all impact types
+impactType: none  # No specific impact categorization
 ```
 
 ### Definition Files
@@ -141,9 +151,14 @@ Specifies the level of system access required by threat actors to exploit a risk
 ### Structure
 
 ```yaml
+# Option 1: Array of specific access levels
 actorAccess:
   - access-level-1
   - access-level-2
+
+# Option 2: Universal value
+actorAccess: all   # Applies to all access levels
+actorAccess: none  # Not applicable to any specific access level
 ```
 
 ### Definition Files
@@ -154,7 +169,7 @@ actorAccess:
 ### Valid Values
 
 **Traditional:**
-- **none** - External attackers with no direct access
+- **external** - External attackers with no direct system access
 - **api** - Public or authenticated API endpoint access
 - **user** - Standard authenticated user access
 - **privileged** - Elevated privileges (admin, operator)
@@ -263,6 +278,25 @@ You can include only the fields that are relevant:
     - confidentiality
 ```
 
+### Universal Values
+
+Use universal values for broad applicability:
+
+```yaml
+# Governance control that applies universally
+- id: CTRL-GOVERNANCE
+  # ... required fields ...
+  lifecycleStage: all      # All lifecycle stages
+  impactType: all          # All impact types
+  actorAccess: all         # All access levels
+
+# Risk not tied to specific lifecycle stage
+- id: RISK-GENERAL
+  # ... required fields ...
+  lifecycleStage: none     # Not stage-specific
+  impactType: none         # Not impact-specific
+```
+
 ---
 
 ## Validation
@@ -275,12 +309,51 @@ All metadata fields are validated against their respective schemas:
 .git/hooks/pre-commit --force
 ```
 
-**Common validation errors:**
+### Validation Rules
 
-1. **Invalid framework ID**: Ensure the framework exists in `frameworks.yaml`
-2. **Invalid lifecycle stage**: Must be one of the 8 stages defined in `lifecycle-stage.yaml`
-3. **Invalid impact type**: Must be one of the 10 types defined in `impact-type.yaml`
-4. **Invalid actor access**: Must be one of the 9 levels defined in `actor-access.yaml`
+The schemas enforce these validation rules for metadata fields:
+
+1. **Optional Fields**: All four metadata fields (`mappings`, `lifecycleStage`, `impactType`, `actorAccess`) are optional
+
+2. **Value Format Options** (using `oneOf` pattern):
+   - **mappings**: Must be an object where keys are framework IDs and values are arrays of strings
+   - **lifecycleStage**: Can be either:
+     - Array of specific stage IDs, OR
+     - String value: `"all"` or `"none"`
+   - **impactType**: Can be either:
+     - Array of specific impact type IDs, OR
+     - String value: `"all"` or `"none"`
+   - **actorAccess**: Can be either:
+     - Array of specific access level IDs, OR
+     - String value: `"all"` or `"none"`
+
+3. **Enum Constraints**: All specific values must match their respective schema enums:
+   - Framework IDs in `mappings` must exist in `frameworks.yaml`
+   - Lifecycle stages must be one of the 8 stages defined in `lifecycle-stage.schema.json`
+   - Impact types must be one of the 10 types defined in `impact-type.schema.json`
+   - Actor access levels must be one of the 9 levels defined in `actor-access.schema.json`
+
+### Common Validation Errors
+
+1. **Invalid framework ID**:
+   - Error: `Property name does not match any enum value`
+   - Solution: Ensure the framework exists in `frameworks.yaml`
+
+2. **Invalid lifecycle stage**:
+   - Error: `Value not in enum`
+   - Solution: Must be one of the 8 stages defined in `lifecycle-stage.yaml`
+
+3. **Invalid impact type**:
+   - Error: `Value not in enum`
+   - Solution: Must be one of the 10 types defined in `impact-type.yaml`
+
+4. **Invalid actor access**:
+   - Error: `Value not in enum`
+   - Solution: Must be one of the 9 levels defined in `actor-access.yaml`
+
+5. **Wrong data type**:
+   - Error: `Expected array but got string`
+   - Solution: Metadata fields (except `mappings` keys) must be arrays: `lifecycleStage: [planning]` not `lifecycleStage: planning`
 
 ---
 

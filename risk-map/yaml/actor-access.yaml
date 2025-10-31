@@ -11,9 +11,9 @@ description:
     levels and AI-specific access patterns such as agent access and service providers
 
 actorAccessLevels:
-  - id: none
-    title: No Access
-    description: External attackers with no direct access to the system (e.g., remote attacks, public interfaces)
+  - id: external
+    title: External Access
+    description: External attackers with no direct system access (e.g., remote attacks via public interfaces)
     category: traditional
 
   - id: api

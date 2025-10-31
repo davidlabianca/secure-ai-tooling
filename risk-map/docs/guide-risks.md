@@ -24,7 +24,7 @@ Next, provide the full definition of the risk in `risks.yaml`. This includes its
 - **File to edit**: `risks.yaml`
 - **Action**: Add a new entry to the `risks` list. The `personas` and `controls` lists must contain valid IDs from their respective schema files.
 
-> **Optional Metadata Fields**: You can also add optional metadata fields like `mappings` (framework cross-references), `lifecycleStage`, `impactType`, and `actorAccess` to provide additional context. See [Metadata Fields Guide](guide-metadata.md) for details.
+> **Optional Metadata Fields**: You can also add optional metadata fields like `mappings` (framework cross-references), `lifecycleStage`, `impactType`, and `actorAccess` to provide additional context. These fields support both specific arrays (e.g., `lifecycleStage: [planning, deployment]`) and universal values (e.g., `lifecycleStage: all` or `lifecycleStage: none`). See [Metadata Fields Guide](guide-metadata.md) for details.
 
 ```yaml
 # In yaml/risks.yaml
