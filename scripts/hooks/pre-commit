@@ -47,7 +47,7 @@ SCHEMA_BASE_DIR="risk-map/schemas"
 SCHEMA_SUFFIX=".schema.json"
 
 # List of YAML|schema files to validate without extensions
-SOURCE_FILES=("controls" "components" "personas" "risks" "self-assessment" "mermaid-styles")
+SOURCE_FILES=("controls" "components" "personas" "risks" "self-assessment" "mermaid-styles" "frameworks" "lifecycle-stage" "impact-type" "actor-access")
 
 # Path to Chrome, Chromium, Chrome for testing...
 #CHROMIUM_PATH="/ms-playwright/chromium_headless_shell-1187/chrome-linux/headless_shell"

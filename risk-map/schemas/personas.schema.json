@@ -5,11 +5,11 @@
   "description": "Schema for validating YAML-based persona definition",
   "type": "object",
   "properties": {
-    "title": {"type": "string"},
-    "description": {"$ref": "riskmap.schema.json#/definitions/utils/text"},
+    "title": { "type": "string" },
+    "description": { "$ref": "riskmap.schema.json#/definitions/utils/text" },
     "personas": {
       "type": "array",
-      "items": {"$ref": "#/definitions/persona"}
+      "items": { "$ref": "#/definitions/persona" }
     }
   },
   "required": ["title", "description", "personas"],
@@ -21,9 +21,9 @@
           "type": "string",
           "enum": ["personaModelCreator", "personaModelConsumer"]
         },
-        "title": {"type": "string"},
-        "description": {"$ref": "riskmap.schema.json#/definitions/utils/text"}
-      }, 
+        "title": { "type": "string" },
+        "description": { "$ref": "riskmap.schema.json#/definitions/utils/text" }
+      },
       "required": ["id", "title", "description"]
     }
   }
