@@ -40,9 +40,14 @@ Must match one of the frameworks defined in [`frameworks.yaml`](../yaml/framewor
 
 ```yaml
 mappings:
-  mitre-atlas: ["AML.T0018", "AML.T0020"]
-  nist-ai-rmf: ["MS-2.7", "MS-2.8"]
-  stride: ["tampering"]
+  mitre-atlas:
+    - AML.T0018
+    - AML.T0020
+  nist-ai-rmf:
+    - MS-2.7
+    - MS-2.8
+  stride:
+    - tampering
 ```
 
 **See Also**: [Framework Guide](guide-frameworks.md) for adding new frameworks
@@ -210,9 +215,13 @@ actorAccess:
     - controlVulnerabilityManagement
     - controlModelAndDataIntegrityManagement
   mappings:
-    mitre-atlas: ["AML.T0010"]
-    stride: ["tampering", "elevation-of-privilege"]
-    owasp-top10-llm: ["LLM05"]
+    mitre-atlas:
+      - AML.T0010
+    stride:
+      - tampering
+      - elevation-of-privilege
+    owasp-top10-llm:
+      - LLM05
   lifecycleStage:
     - data-preparation
     - model-training
@@ -243,8 +252,11 @@ actorAccess:
     - MST
     - MDT
   mappings:
-    mitre-atlas: ["AML.M0013"]
-    nist-ai-rmf: ["SC-8", "SI-7"]
+    mitre-atlas:
+      - AML.M0013
+    nist-ai-rmf:
+      - SC-8
+      - SI-7
   lifecycleStage:
     - data-preparation
     - model-training
@@ -267,7 +279,8 @@ You can include only the fields that are relevant:
 - id: RISK-001
   # ... required fields ...
   mappings:
-    mitre-atlas: ["AML.T0015"]
+    mitre-atlas:
+      - AML.T0015
 
 # Only lifecycle and impact
 - id: RISK-002

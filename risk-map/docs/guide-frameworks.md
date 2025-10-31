@@ -109,9 +109,14 @@ risks:
     title: Data Poisoning
     # ... other required fields ...
     mappings:
-      mitre-atlas: ["AML.T0018", "AML.T0020"]
-      nist-ai-rmf: ["MS-2.7", "MS-2.8"]
-      stride: ["tampering"]
+      mitre-atlas:
+        - AML.T0018
+        - AML.T0020
+      nist-ai-rmf:
+        - MS-2.7
+        - MS-2.8
+      stride:
+        - tampering
 ```
 
 ### Example: Adding Framework Mappings to Controls
@@ -124,8 +129,10 @@ controls:
     title: Training Data Sanitization
     # ... other required fields ...
     mappings:
-      mitre-atlas: ["AML.M0005"]
-      nist-ai-rmf: ["MP-4.1"]
+      mitre-atlas:
+        - AML.M0005
+      nist-ai-rmf:
+        - MP-4.1
 ```
 
 **Note**: Risks and controls also support additional optional metadata fields (`lifecycleStage`, `impactType`, `actorAccess`). See [Metadata Fields Guide](guide-metadata.md) for details
@@ -150,9 +157,13 @@ controls:
     - controlVulnerabilityManagement
     - controlModelAndDataIntegrityManagement
   mappings:
-    mitre-atlas: ["AML.T0010"]
-    stride: ["tampering", "elevation-of-privilege"]
-    owasp-top10-llm: ["LLM05"]
+    mitre-atlas:
+      - AML.T0010
+    stride:
+      - tampering
+      - elevation-of-privilege
+    owasp-top10-llm:
+      - LLM05
   lifecycleStage:
     - data-preparation
     - model-training
@@ -183,8 +194,11 @@ controls:
     - MST
     - MDT
   mappings:
-    mitre-atlas: ["AML.M0013"]
-    nist-ai-rmf: ["SC-8", "SI-7"]
+    mitre-atlas:
+      - AML.M0013
+    nist-ai-rmf:
+      - SC-8
+      - SI-7
   lifecycleStage:
     - data-preparation
     - model-training
@@ -218,8 +232,13 @@ The schema enforces these validation rules:
 
 ```yaml
 mappings:
-  mitre-atlas: ["AML.T0001", "AML.T0002", "AML.T0003"]
-  stride: ["spoofing", "tampering"]
+  mitre-atlas:
+    - AML.T0001
+    - AML.T0002
+    - AML.T0003
+  stride:
+    - spoofing
+    - tampering
 ```
 
 ### Partial Metadata
@@ -229,7 +248,8 @@ You can include only the fields relevant to your risk or control:
 ```yaml
 # Only mappings
 mappings:
-  mitre-atlas: ["AML.T0015"]
+  mitre-atlas:
+    - AML.T0015
 
 # Only lifecycle and impact
 lifecycleStage:
