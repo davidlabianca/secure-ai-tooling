@@ -1,0 +1,39 @@
+{
+	"name": "Python-3",
+	"dockerFile": "Dockerfile",
+	"build": {
+		"args": {
+			"WORKSPACE": "/workspace",
+			"WORKSPACE_REPO": "secure-ai-tooling"
+		}
+	},
+
+	"features": {
+		"ghcr.io/devcontainers/features/python:1": {
+	      "version": "3.11"
+	    },
+		"ghcr.io/devcontainers/features/node:1": {},
+		"ghcr.io/devcontainers/features/docker-in-docker:2": {}
+	},
+
+	// Use 'forwardPorts' to make a list of ports inside the container available locally.
+	// "forwardPorts": [],
+
+	"postCreateCommand": "bash .devcontainer/setup-script",
+
+	// Configure tool-specific properties.
+	"customizations": {
+		"vscode": {
+			"extensions": [
+				"bierner.markdown-mermaid",
+				"charliermarsh.ruff",
+				"redhat.vscode-yaml"
+			],
+			"settings": {
+				"python.defaultInterpreterPath": "/usr/local/python/current/bin/python"
+			}
+		}
+	},
+
+	"remoteUser": "vscode"
+}

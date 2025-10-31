@@ -216,33 +216,33 @@
       }
     },
     "componentsContainer": {
-        "type": "object",
-        "description": "Styling for the main components container",
-        "required": ["fill", "stroke", "strokeWidth", "strokeDasharray"],
-        "additionalProperties": false,
-        "properties": {
-          "fill": {
-            "type": "string",
-            "pattern": "^#[0-9A-Fa-f]{6}$"
-          },
-          "stroke": {
-            "type": "string",
-            "pattern": "^#[0-9A-Fa-f]{6}$"
-          },
-          "strokeWidth": {
-            "type": "string",
-            "pattern": "^\\d+px$"
-          },
-          "strokeDasharray": {
-            "type": "string",
-            "pattern": "^\\d+\\s+\\d+$"
-          },
-          "subgroupFill": {
-            "type": "string",
-            "pattern": "^#[0-9A-Fa-f]{6}$",
-            "description": "Fill color for subgroups within this category"
-          }
+      "type": "object",
+      "description": "Styling for the main components container",
+      "required": ["fill", "stroke", "strokeWidth", "strokeDasharray"],
+      "additionalProperties": false,
+      "properties": {
+        "fill": {
+          "type": "string",
+          "pattern": "^#[0-9A-Fa-f]{6}$"
+        },
+        "stroke": {
+          "type": "string",
+          "pattern": "^#[0-9A-Fa-f]{6}$"
+        },
+        "strokeWidth": {
+          "type": "string",
+          "pattern": "^\\d+px$"
+        },
+        "strokeDasharray": {
+          "type": "string",
+          "pattern": "^\\d+\\s+\\d+$"
+        },
+        "subgroupFill": {
+          "type": "string",
+          "pattern": "^#[0-9A-Fa-f]{6}$",
+          "description": "Fill color for subgroups within this category"
         }
+      }
     },
     "controlsContainer": {
       "type": "object",
@@ -266,13 +266,13 @@
           "description": "Border stroke width"
         },
         "strokeDasharray": {
-            "type": "string",
-            "pattern": "^\\d+\\s+\\d+$"
+          "type": "string",
+          "pattern": "^\\d+\\s+\\d+$"
         },
-          "subgroupFill": {
-            "type": "string",
-            "pattern": "^#[0-9A-Fa-f]{6}$",
-            "description": "Fill color for subgroups within this category"
+        "subgroupFill": {
+          "type": "string",
+          "pattern": "^#[0-9A-Fa-f]{6}$",
+          "description": "Fill color for subgroups within this category"
         }
       }
     },
@@ -298,13 +298,13 @@
           "description": "Border stroke width"
         },
         "strokeDasharray": {
-            "type": "string",
-            "pattern": "^\\d+\\s+\\d+$"
+          "type": "string",
+          "pattern": "^\\d+\\s+\\d+$"
         },
         "subgroupFill": {
-            "type": "string",
-            "pattern": "^#[0-9A-Fa-f]{6}$",
-            "description": "Fill color for subgroups within this category"
+          "type": "string",
+          "pattern": "^#[0-9A-Fa-f]{6}$",
+          "description": "Fill color for subgroups within this category"
         }
       }
     },
