@@ -16,32 +16,31 @@ The framework system provides a structured way to:
 
 ### Framework Definition File
 
-Frameworks are defined in [`risk-map/yaml/frameworks.yaml`](../yaml/frameworks.yaml). Each framework includes:
+Frameworks are defined in [`risk-map/yaml/frameworks.yaml`](../yaml/frameworks.yaml) as an array. Each framework includes:
 
 ```yaml
 frameworks:
-  framework-id:
-    id: framework-id                    # Must match the YAML key
-    name: "Short Name"                  # Display name
-    fullName: "Full Official Name"      # Complete framework name
-    description: "Brief description"    # Purpose and scope
-    baseUri: "https://example.com"      # Main documentation URL
-    version: "1.0"                      # Framework version (or null)
-    lastUpdated: "2024-01-01"          # Last update date (or null)
-    techniqueUriPattern: "https://..."  # Optional: URL pattern for techniques
-    documentUri: "https://..."          # Optional: Direct link to specification
+  - id: framework-id
+    name: "Short Name"
+    fullName: "Full Official Name"
+    description: "Brief description"
+    baseUri: "https://example.com"
+    version: "1.0"                      # Optional: or null
+    lastUpdated: "2024-01-01"          # Optional: or null
+    techniqueUriPattern: "https://..."  # Optional
+    documentUri: "https://..."          # Optional
 ```
 
 ### Required vs Optional Fields
 
 **Required:**
-- `id` - Must match the YAML key and be in the frameworks.schema.json enum
+- `id` - Must be in the frameworks.schema.json enum
 - `name` - Short name for display
+- `fullName` - Full official name
 - `description` - Brief description of the framework
 - `baseUri` - Base URL for framework documentation
 
 **Optional:**
-- `fullName` - Full official name
 - `version` - Framework version string or null
 - `lastUpdated` - Date in YYYY-MM-DD format or null
 - `techniqueUriPattern` - URL pattern with `{id}` placeholder
@@ -67,14 +66,13 @@ Add your framework ID to the enum in [`risk-map/schemas/frameworks.schema.json`]
 
 ### Step 2: Add Framework Definition
 
-Add the framework to [`risk-map/yaml/frameworks.yaml`](../yaml/frameworks.yaml):
+Add the framework to the array in [`risk-map/yaml/frameworks.yaml`](../yaml/frameworks.yaml):
 
 ```yaml
 frameworks:
   # ... existing frameworks ...
 
-  your-new-framework-id:
-    id: your-new-framework-id
+  - id: your-new-framework-id
     name: "Framework Name"
     fullName: "Full Framework Name"
     description: "Brief description of the framework's purpose"
@@ -84,8 +82,6 @@ frameworks:
     techniqueUriPattern: "https://framework-website.com/techniques/{id}"
     documentUri: "https://framework-website.com/docs/specification.pdf"
 ```
-
-**Important:** The `id` field must exactly match the YAML key.
 
 ### Step 3: Validate
 
@@ -97,11 +93,11 @@ python scripts/hooks/validate_riskmap.py --force
 
 ---
 
-## Using Frameworks in Risks and Controls
+## Using Framework Mappings in Risks and Controls
 
 Once frameworks are defined, you can reference them in risk and control definitions using the `mappings` field.
 
-### Adding Mappings to Risks
+### Example: Adding Framework Mappings to Risks
 
 In [`risk-map/yaml/risks.yaml`](../yaml/risks.yaml):
 
@@ -114,19 +110,9 @@ risks:
       mitre-atlas: ["AML.T0018", "AML.T0020"]
       nist-ai-rmf: ["MS-2.7", "MS-2.8"]
       stride: ["tampering"]
-    lifecycleStage:
-      - data-preparation
-      - model-training
-      - evaluation
-    impactType:
-      - integrity
-      - reliability
-    actorAccess:
-      - supply-chain
-      - privileged
 ```
 
-### Adding Mappings to Controls
+### Example: Adding Framework Mappings to Controls
 
 In [`risk-map/yaml/controls.yaml`](../yaml/controls.yaml):
 
@@ -138,80 +124,10 @@ controls:
     mappings:
       mitre-atlas: ["AML.M0005"]
       nist-ai-rmf: ["MP-4.1"]
-    lifecycleStage:
-      - data-preparation
-      - model-training
-    impactType:
-      - integrity
-      - privacy
-    actorAccess:
-      - supply-chain
 ```
 
----
+**Note**: Risks and controls also support additional optional metadata fields (`lifecycleStage`, `impactType`, `actorAccess`). See [Metadata Fields Guide](guide-metadata.md) for details
 
-## Extended Metadata Fields
-
-In addition to `mappings`, risks and controls support three additional metadata fields. These fields reference separate schema and YAML definition files:
-
-### lifecycleStage
-
-Indicates which AI system lifecycle phases are relevant. See [`lifecycle-stage.schema.json`](../schemas/lifecycle-stage.schema.json) and [`lifecycle-stage.yaml`](../yaml/lifecycle-stage.yaml) for complete definitions and descriptions.
-
-Valid values:
-
-```yaml
-lifecycleStage:
-  - planning
-  - data-preparation
-  - model-training
-  - development
-  - evaluation
-  - deployment
-  - runtime
-  - maintenance
-```
-
-### impactType
-
-Categorizes the security, privacy, or safety impacts. See [`impact-type.schema.json`](../schemas/impact-type.schema.json) and [`impact-type.yaml`](../yaml/impact-type.yaml) for complete definitions, descriptions, and categorization.
-
-Valid values:
-
-```yaml
-impactType:
-  - confidentiality
-  - integrity
-  - availability
-  - privacy
-  - safety
-  - compliance
-  - fairness
-  - accountability
-  - reliability
-  - transparency
-```
-
-### actorAccess
-
-Specifies the level of system access required by threat actors. See [`actor-access.schema.json`](../schemas/actor-access.schema.json) and [`actor-access.yaml`](../yaml/actor-access.yaml) for complete definitions, descriptions, and categorization.
-
-Valid values:
-
-```yaml
-actorAccess:
-  - none
-  - api
-  - user
-  - privileged
-  - agent
-  - supply-chain
-  - infrastructure-provider
-  - service-provider
-  - physical
-```
-
----
 
 ## Examples
 
@@ -286,11 +202,11 @@ actorAccess:
 
 The schema enforces these validation rules:
 
-1. **Framework ID Validation**: All keys in the `mappings` object must match framework IDs defined in the enum
+1. **Framework ID Validation**: All keys in the `mappings` object must match framework IDs defined in the frameworks schema enum
 2. **Array Values**: Each framework mapping must be an array of strings
-3. **Optional Fields**: All four extended metadata fields (`mappings`, `lifecycleStage`, `impactType`, `actorAccess`) are optional
-4. **Enum Constraints**: Values in `lifecycleStage`, `impactType`, and `actorAccess` must match predefined enums
-5. **Framework ID Consistency**: The `id` field in each framework definition must match its YAML key
+3. **Optional Fields**: All four metadata fields (`mappings`, `lifecycleStage`, `impactType`, `actorAccess`) are optional
+4. **Enum Constraints**: Values in `lifecycleStage`, `impactType`, and `actorAccess` must match their respective schema enums
+5. **Framework Definition**: Each framework in `frameworks.yaml` must include all required fields (`id`, `name`, `fullName`, `description`, `baseUri`)
 
 ---
 
@@ -359,24 +275,15 @@ lifecycleStage:
 
 ### Schema Validation Failure
 
-**Error:** `Missing required field: id`
+**Error:** `Missing required field`
 
-**Solution:** Every framework definition must include the required fields: `id`, `name`, `description`, `baseUri`
+**Solution:** Every framework definition must include all required fields: `id`, `name`, `fullName`, `description`, `baseUri`
 
-### ID Mismatch
+### Invalid Metadata Value
 
-**Error:** Framework ID in YAML doesn't match the key
+**Error:** `Value not in enum`
 
-**Solution:** The `id` field must exactly match the YAML key:
-```yaml
-# Correct
-mitre-atlas:
-  id: mitre-atlas
-
-# Incorrect
-mitre-atlas:
-  id: mitre_atlas
-```
+**Solution:** Ensure the value matches one of the valid options defined in the respective schema (`lifecycle-stage.schema.json`, `impact-type.schema.json`, or `actor-access.schema.json`)
 
 ---
 
