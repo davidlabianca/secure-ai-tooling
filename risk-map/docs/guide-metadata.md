@@ -270,8 +270,9 @@ You can include only the fields that are relevant:
 All metadata fields are validated against their respective schemas:
 
 ```bash
-# Validate all YAML files including metadata
-python scripts/hooks/validate_riskmap.py --force
+# Run full validation including schema checks, formatting, and cross-references
+# (Requires pre-commit hook installation via ./scripts/install-pre-commit-hook.sh)
+.git/hooks/pre-commit --force
 ```
 
 **Common validation errors:**

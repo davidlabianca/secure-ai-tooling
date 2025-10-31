@@ -88,7 +88,9 @@ frameworks:
 Run validation to ensure your changes are correct:
 
 ```bash
-python scripts/hooks/validate_riskmap.py --force
+# Run full validation including schema checks, formatting, and cross-references
+# (Requires pre-commit hook installation via ./scripts/install-pre-commit-hook.sh)
+.git/hooks/pre-commit --force
 ```
 
 ---
