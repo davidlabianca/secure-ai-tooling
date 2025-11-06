@@ -83,7 +83,7 @@ risks:
       exposed:
         - >
           Data Poisoning is exposed during development in the data filtering and processing
-          steps or the training, tuning, and evaluation stages. It’s also exposed
+          steps or the training, tuning, and evaluation stages. It's also exposed
           in the model itself, when it produces inaccurate results, malicious outputs,
           or unexpected behavior.
       mitigated:
@@ -91,6 +91,27 @@ risks:
           Proactive mitigation against Data Poisoning happens early in development.
           This includes data sanitization, secure systems and access controls, and
           mechanisms to ensure data and model integrity.
+    mappings:
+      mitre-atlas:
+        - AML.T0020
+        - AML.T0019
+        - AML.T0010.002
+      stride:
+        - tampering
+      owasp-top10-llm:
+        - LLM04
+    lifecycleStage:
+      - data-preparation
+      - model-training
+      - maintenance
+    impactType:
+      - integrity
+      - reliability
+      - safety
+    actorAccess:
+      - supply-chain
+      - privileged
+      - service-provider
   - id: UTD
     title: Unauthorized Training Data
     shortDescription:
@@ -126,12 +147,30 @@ risks:
         - >
           The risk is exposed during development, through data filtering and processing
           steps or training, tuning, and evaluation. It is also exposed during model
-          use, when the model may produce inferences based on data it shouldn’t have
+          use, when the model may produce inferences based on data it shouldn't have
           access to.
       mitigated:
         - >
           Mitigations for this risk start early, with careful data selection, filtering,
           and evaluation during training to catch any lingering issues.
+    mappings:
+      mitre-atlas:
+        - AML.T0010.002
+      stride:
+        - information-disclosure
+      owasp-top10-llm:
+        - LLM04
+    lifecycleStage:
+      - planning
+      - data-preparation
+      - model-training
+    impactType:
+      - compliance
+      - privacy
+      - fairness
+    actorAccess:
+      - supply-chain
+      - service-provider
   - id: MST
     title: Model Source Tampering
     shortDescription:
@@ -174,7 +213,7 @@ risks:
     tourContent:
       introduced:
         - >
-          Model Source Tampering is a risk that’s introduced when model code, training
+          Model Source Tampering is a risk that's introduced when model code, training
           frameworks, or model weights are not hardened against supply chain attacks
           and tampering.
       exposed:
@@ -188,6 +227,27 @@ risks:
           management for model code and weights, comprehensive inventory tracking
           to monitor and verify models and code throughout systems, and secure-by-default
           infrastructure tools.
+    mappings:
+      mitre-atlas:
+        - AML.T0010.001
+        - AML.T0010.003
+        - AML.T0018
+      stride:
+        - tampering
+        - elevation-of-privilege
+      owasp-top10-llm:
+        - LLM03
+    lifecycleStage:
+      - development
+      - model-training
+      - deployment
+    impactType:
+      - integrity
+      - availability
+      - safety
+    actorAccess:
+      - supply-chain
+      - privileged
   - id: EDH
     title: Excessive Data Handling
     shortDescription:
@@ -229,6 +289,21 @@ risks:
           Mitigate this risk with data filtering and processing, along with automation
           for data archiving, deletion, or issuing alerts for models trained with outdated
           data.
+    mappings:
+      stride:
+        - information-disclosure
+      owasp-top10-llm:
+        - LLM02
+    lifecycleStage:
+      - data-preparation
+      - runtime
+      - maintenance
+    impactType:
+      - privacy
+      - compliance
+    actorAccess:
+      - privileged
+      - service-provider
   - id: MXF
     title: Model Exfiltration
     shortDescription:
@@ -279,6 +354,23 @@ risks:
         - >
           Mitigate this risk by hardening both storage and serving systems to prevent
           unauthorized access and protect against model theft.
+    mappings:
+      mitre-atlas:
+        - AML.T0024.002
+        - AML.T0025
+        - AML.T0048.004
+      stride:
+        - information-disclosure
+    lifecycleStage:
+      - deployment
+      - runtime
+    impactType:
+      - confidentiality
+      - integrity
+    actorAccess:
+      - external
+      - privileged
+      - infrastructure-provider
   - id: MDT
     title: Model Deployment Tampering
     shortDescription:
@@ -330,6 +422,25 @@ risks:
         - >
           Mitigation focuses on hardening the model serving infrastructure with secure-by-default
           tooling.
+    mappings:
+      mitre-atlas:
+        - AML.T0010.003
+        - AML.T0049
+      stride:
+        - tampering
+        - elevation-of-privilege
+      owasp-top10-llm:
+        - LLM03
+    lifecycleStage:
+      - deployment
+      - runtime
+    impactType:
+      - integrity
+      - availability
+      - safety
+    actorAccess:
+      - privileged
+      - infrastructure-provider
   - id: DMS
     title: Denial of ML Service
     shortDescription:
@@ -381,6 +492,22 @@ risks:
         - >
           Mitigation occurs at the application level, using input filtering and employing
           rate limiting and load balancing to control the volume of calls to the model.
+    mappings:
+      mitre-atlas:
+        - AML.T0029
+        - AML.T0034
+      stride:
+        - denial-of-service
+      owasp-top10-llm:
+        - LLM10
+    lifecycleStage:
+      - runtime
+    impactType:
+      - availability
+    actorAccess:
+      - external
+      - api
+      - user
   - id: MRE
     title: Model Reverse Engineering
     shortDescription:
@@ -427,6 +554,21 @@ risks:
           Mitigate this risk with rate limiting within the application API or using
           other protective measures at the application level to prevent excessive
           model access.
+    mappings:
+      mitre-atlas:
+        - AML.T0024.002
+        - AML.T0005
+        - AML.T0048.004
+      stride:
+        - information-disclosure
+    lifecycleStage:
+      - runtime
+    impactType:
+      - confidentiality
+      - integrity
+    actorAccess:
+      - api
+      - user
   - id: IIC
     title: Insecure Integrated Component
     shortDescription:
@@ -493,6 +635,27 @@ risks:
           Mitigate this risk by addressing vulnerabilities directly within the application
           and agent/plugin components, and by enforcing strict permissions for agents
           and plugins.
+    mappings:
+      mitre-atlas:
+        - AML.T0051
+      stride:
+        - tampering
+        - elevation-of-privilege
+      owasp-top10-llm:
+        - LLM06
+    lifecycleStage:
+      - development
+      - deployment
+      - runtime
+    impactType:
+      - confidentiality
+      - integrity
+      - availability
+      - safety
+    actorAccess:
+      - external
+      - api
+      - agent
   - id: PIJ
     title: Prompt Injection
     shortDescription:
@@ -554,6 +717,24 @@ risks:
           Mitigation involves robust filtering and processing of inputs and outputs.
           Additionally, thorough training, tuning, and evaluation processes help fortify
           the model against prompt injection attacks.
+    mappings:
+      mitre-atlas:
+        - AML.T0051
+      stride:
+        - tampering
+        - elevation-of-privilege
+      owasp-top10-llm:
+        - LLM01
+    lifecycleStage:
+      - runtime
+    impactType:
+      - integrity
+      - confidentiality
+      - safety
+    actorAccess:
+      - external
+      - api
+      - user
   - id: MEV
     title: Model Evasion
     shortDescription:
@@ -616,6 +797,25 @@ risks:
           Mitigation occurs in the training, tuning, and evaluation phases, where robust
           models can be developed using extensive and diverse data to better withstand
           such attacks.
+    mappings:
+      mitre-atlas:
+        - AML.T0015
+        - AML.T0043
+      stride:
+        - tampering
+      owasp-top10-llm:
+        - LLM01
+    lifecycleStage:
+      - runtime
+    impactType:
+      - integrity
+      - safety
+      - reliability
+    actorAccess:
+      - external
+      - api
+      - user
+      - physical
   - id: SDD
     title: Sensitive Data Disclosure
     shortDescription:
@@ -720,6 +920,26 @@ risks:
           testing the model during training, tuning, and evaluation, and removing or
           labeling sensitive data during sourcing, filtering, and processing before
           it's used for training.
+    mappings:
+      mitre-atlas:
+        - AML.T0024
+        - AML.T0024.000
+        - AML.T0024.001
+      stride:
+        - information-disclosure
+      owasp-top10-llm:
+        - LLM02
+        - LLM07
+    lifecycleStage:
+      - runtime
+    impactType:
+      - confidentiality
+      - privacy
+    actorAccess:
+      - external
+      - api
+      - user
+      - agent
   - id: ISD
     title: Inferred Sensitive Data
     shortDescription:
@@ -778,6 +998,21 @@ risks:
           and evaluation to prevent sensitive inferences, and proactively removing
           or labeling data that could lead to such inferences during sourcing, filtering,
           and processing before training.
+    mappings:
+      stride:
+        - information-disclosure
+      owasp-top10-llm:
+        - LLM02
+        - LLM09
+    lifecycleStage:
+      - runtime
+    impactType:
+      - privacy
+      - fairness
+    actorAccess:
+      - external
+      - api
+      - user
   - id: IMO
     title: Insecure Model Output
     shortDescription:
@@ -821,6 +1056,22 @@ risks:
         - >
           Mitigation includes robust model validation and sanitization processes within
           the model output handling component to screen and filter for insecure responses.
+    mappings:
+      stride:
+        - tampering
+      owasp-top10-llm:
+        - LLM05
+        - LLM09
+    lifecycleStage:
+      - runtime
+    impactType:
+      - integrity
+      - safety
+      - reliability
+    actorAccess:
+      - external
+      - api
+      - user
   - id: RA
     title: Rogue Actions
     shortDescription:
@@ -894,3 +1145,22 @@ risks:
           Mitigation involves model output handling and granting minimal permissions
           to agents and plugins. Involving humans in the scoping process may be necessary
           for added oversight and control.
+    mappings:
+      mitre-atlas:
+        - AML.T0051
+      stride:
+        - tampering
+        - elevation-of-privilege
+      owasp-top10-llm:
+        - LLM06
+    lifecycleStage:
+      - runtime
+    impactType:
+      - integrity
+      - safety
+      - confidentiality
+    actorAccess:
+      - external
+      - api
+      - user
+      - agent
