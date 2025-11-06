@@ -726,6 +726,7 @@ risks:
       owasp-top10-llm:
         - LLM01
     lifecycleStage:
+      - evaluation
       - runtime
     impactType:
       - integrity
@@ -806,6 +807,7 @@ risks:
       owasp-top10-llm:
         - LLM01
     lifecycleStage:
+      - evaluation
       - runtime
     impactType:
       - integrity
@@ -815,7 +817,6 @@ risks:
       - external
       - api
       - user
-      - physical
   - id: SDD
     title: Sensitive Data Disclosure
     shortDescription:
@@ -925,12 +926,16 @@ risks:
         - AML.T0024
         - AML.T0024.000
         - AML.T0024.001
+      nist-ai-rmf:
+        - MS-2.9
       stride:
         - information-disclosure
       owasp-top10-llm:
         - LLM02
         - LLM07
     lifecycleStage:
+      - model-training
+      - evaluation
       - runtime
     impactType:
       - confidentiality
@@ -1005,6 +1010,7 @@ risks:
         - LLM02
         - LLM09
     lifecycleStage:
+      - evaluation
       - runtime
     impactType:
       - privacy
@@ -1063,6 +1069,7 @@ risks:
         - LLM05
         - LLM09
     lifecycleStage:
+      - evaluation
       - runtime
     impactType:
       - integrity
@@ -1154,6 +1161,7 @@ risks:
       owasp-top10-llm:
         - LLM06
     lifecycleStage:
+      - evaluation
       - runtime
     impactType:
       - integrity

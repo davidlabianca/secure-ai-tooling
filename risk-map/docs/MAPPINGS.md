@@ -2,6 +2,7 @@
 
 This document describes the methodology, conventions, and rationale used for populating extended metadata fields (`mappings`, `lifecycleStage`, `impactType`, `actorAccess`) in Phase 2 of the CoSAI Risk Map development.
 
+**Version:** 1.0
 **Last Updated:** 2025-11-05
 **Phase:** Phase 2 - Initial Data Population
 **Status:** Completed (15 risks, 8 controls)
@@ -231,10 +232,13 @@ This is a **best-effort** initial population based on:
 
 **Patterns:**
 - **Supply chain risks** (DP, MST, UTD): data-preparation, model-training
-- **Runtime input risks** (PIJ, MEV, DMS): runtime
-- **Data security risks** (SDD, ISD, EDH): runtime (+ earlier stages where applicable)
+- **Runtime input risks** (PIJ, MEV, DMS): evaluation, runtime
+  - Note: Evaluation stage added for risks that should be tested before deployment
+- **Data security risks** (SDD, ISD, EDH): evaluation, runtime (+ training where applicable)
 - **Infrastructure risks** (MXF, MDT): deployment, runtime
 - **Development risks** (IIC): development, deployment, runtime
+- **Output security risks** (IMO, RA): evaluation, runtime
+  - Testing and validation critical before production deployment
 
 ---
 
