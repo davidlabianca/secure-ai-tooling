@@ -1129,7 +1129,6 @@ risks:
       - controlModelAndDataIntegrityManagement
       - controlThreatDetection
       - controlSecureByDefaultMLTooling
-      - controlFederatedTrainingPrivacyAndRobustAggregation
     examples:
       - >
         Research demonstrates <a href="https://arxiv.org/abs/1906.08935" target="_blank"

@@ -50,7 +50,6 @@
             "controlAgentObservability",
             "controlApplicationAccessManagement",
             "controlCostQuotaGuardrails",
-            "controlFederatedTrainingPrivacyAndRobustAggregation",
             "controlIncidentResponseManagement",
             "controlInputValidationAndSanitization",
             "controlInternalPoliciesAndEducation",

@@ -33,7 +33,6 @@ graph LR
     subgraph controlsModel ["Model Controls"]
         controlAdapterIntegrityAndAllowlisting[Adapter Integrity and Allowlisting]
         controlAdversarialTrainingAndTesting[Adversarial Training and Testing]
-        controlFederatedTrainingPrivacyAndRobustAggregation[Federated Training Privacy and Robust Aggregation]
         controlInputValidationAndSanitization[Input Validation and Sanitization]
         controlOutputValidationAndSanitization[Output Validation and Sanitization]
     end
@@ -146,7 +145,6 @@ graph LR
     controlRetrievalAndVectorStorePoisoningDefense --> componentDataStorage
     controlAdapterIntegrityAndAllowlisting --> componentTheModel
     controlAdapterIntegrityAndAllowlisting --> componentsModels
-    controlFederatedTrainingPrivacyAndRobustAggregation --> componentsModelSubgroup
     controlOrchestratorAndRouteIntegrity --> componentApplication
     controlOrchestratorAndRouteIntegrity --> componentModelServing
     controlModelRepositoryTrustAndAttestation --> componentsModels
@@ -161,7 +159,7 @@ graph LR
 
     %% Edge styling
     linkStyle 26,27,28,29 stroke:#4285f4,stroke-width:3px,stroke-dasharray: 8 4
-    linkStyle 0,3,6,7,8,9,10,11,12,13,41,42,45 stroke:#34a853,stroke-width:2px
+    linkStyle 0,3,6,7,8,9,10,11,12,13,41,44 stroke:#34a853,stroke-width:2px
     linkStyle 1,22,30,34,37 stroke:#9c27b0,stroke-width:2px
     linkStyle 2,23,31,38 stroke:#ff9800,stroke-width:2px,stroke-dasharray: 5 5
     linkStyle 24,32,39 stroke:#e91e63,stroke-width:2px,stroke-dasharray: 10 2

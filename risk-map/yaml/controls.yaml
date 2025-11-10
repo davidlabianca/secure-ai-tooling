@@ -486,21 +486,6 @@ controls:
       - MLD
       - MST
       - MXF
-  - id: controlFederatedTrainingPrivacyAndRobustAggregation
-    title: Federated Training Privacy and Robust Aggregation
-    description:
-      - >
-        Implement secure aggregation protocols, differential privacy mechanisms,
-        robust aggregation rules, and client attestation to protect participant
-        privacy in federated learning systems.
-    category: controlsModel
-    personas:
-      - personaModelCreator
-    components:
-      - componentModelTrainingTuning
-      - componentModelEvaluation
-    risks:
-      - FLP
   - id: controlOrchestratorAndRouteIntegrity
     title: Orchestrator and Route Integrity
     description:
