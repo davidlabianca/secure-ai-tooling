@@ -735,7 +735,8 @@ risks:
       - personaModelCreator
       - personaModelConsumer
     controls:
-      - controlPrivacyEnhancingTechnologies
+      - controlModelPrivacyEnhancingTechnologies
+      - controlRuntimePrivacyEnhancingTechnologies
       - controlUserDataManagement
       - controlOutputValidationAndSanitization
       - controlAdversarialTrainingAndTesting
@@ -1125,7 +1126,8 @@ risks:
     personas:
       - personaModelCreator
     controls:
-      - controlPrivacyEnhancingTechnologies
+      - controlModelPrivacyEnhancingTechnologies
+      - controlRuntimePrivacyEnhancingTechnologies
       - controlModelAndDataIntegrityManagement
       - controlThreatDetection
       - controlSecureByDefaultMLTooling

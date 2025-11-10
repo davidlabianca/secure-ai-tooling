@@ -14,8 +14,9 @@ graph LR
 
     subgraph controls
     subgraph controlsData ["Data Controls"]
-        controlPrivacyEnhancingTechnologies[Privacy Enhancing Technologies]
+        controlModelPrivacyEnhancingTechnologies[Privacy Enhancing Technologies for Model Training]
         controlRetrievalAndVectorStorePoisoningDefense[Retrieval and Vector Store Poisoning Defense]
+        controlRuntimePrivacyEnhancingTechnologies[Privacy Enhancing Technologies for Inference]
         controlTrainingDataManagement[Training Data Management]
         controlTrainingDataSanitization[Training Data Sanitization]
         controlUserDataManagement[User Data Management]
@@ -104,7 +105,8 @@ graph LR
     end
 
     %% Control to Component relationships
-    controlPrivacyEnhancingTechnologies --> componentsModelSubgroup
+    controlModelPrivacyEnhancingTechnologies --> componentsModelSubgroup
+    controlRuntimePrivacyEnhancingTechnologies --> componentModelServing
     controlTrainingDataManagement --> componentDataSources
     controlTrainingDataManagement --> componentTrainingData
     controlTrainingDataManagement --> componentsModelSubgroup
@@ -159,12 +161,12 @@ graph LR
     controlVulnerabilityManagement:::allControl
 
     %% Edge styling
-    linkStyle 26,27,28,29 stroke:#4285f4,stroke-width:3px,stroke-dasharray: 8 4
-    linkStyle 0,3,6,7,8,9,10,11,12,13,41,44 stroke:#34a853,stroke-width:2px
-    linkStyle 1,22,30,34,37 stroke:#9c27b0,stroke-width:2px
-    linkStyle 2,23,31,38 stroke:#ff9800,stroke-width:2px,stroke-dasharray: 5 5
-    linkStyle 24,32,39 stroke:#e91e63,stroke-width:2px,stroke-dasharray: 10 2
-    linkStyle 25,33 stroke:#C95792,stroke-width:2px,stroke-dasharray: 10 5
+    linkStyle 27,28,29,30 stroke:#4285f4,stroke-width:3px,stroke-dasharray: 8 4
+    linkStyle 0,4,7,8,9,10,11,12,13,14,42,45 stroke:#34a853,stroke-width:2px
+    linkStyle 2,23,31,35,38 stroke:#9c27b0,stroke-width:2px
+    linkStyle 3,24,32,39 stroke:#ff9800,stroke-width:2px,stroke-dasharray: 5 5
+    linkStyle 25,33,40 stroke:#e91e63,stroke-width:2px,stroke-dasharray: 10 2
+    linkStyle 26,34 stroke:#C95792,stroke-width:2px,stroke-dasharray: 10 5
 
 %% Node style definitions
     style components fill:#f0f0f0,stroke:#666666,stroke-width:3px,stroke-dasharray: 10 5

@@ -35,19 +35,37 @@ categories:
   - id: controlsGovernance
     title: Governance Controls
 controls:
-  - id: controlPrivacyEnhancingTechnologies
-    title: Privacy Enhancing Technologies
+  - id: controlModelPrivacyEnhancingTechnologies
+    title: Privacy Enhancing Technologies for Model Training
     description:
       - >
         Use technologies that minimize, de-identify, or restrict use of PII data in
-        training or evaluating models.
+        training or evaluating models, including differential privacy, secure aggregation
+        protocols, federated learning, data anonymization, and synthetic data generation.
     category: controlsData
     personas:
       - personaModelCreator
     components:
-      - componentOutputHandling
       - componentModelTrainingTuning
       - componentModelEvaluation
+    risks:
+      - SDD
+      - FLP
+  - id: controlRuntimePrivacyEnhancingTechnologies
+    title: Privacy Enhancing Technologies for Inference
+    description:
+      - >
+        Use technologies that minimize, de-identify, or restrict use of PII data during
+        model deployment and inference, including secure multi-party computation, 
+        homomorphic encryption, inference log de-identification, on-device processing, and 
+        privacy-preserving query mechanisms.
+    category: controlsData
+    personas:
+      - personaModelCreator
+      - personaModelConsumer
+    components:
+      - componentOutputHandling
+      - componentModelServing
     risks:
       - SDD
       - FLP
