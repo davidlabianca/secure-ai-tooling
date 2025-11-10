@@ -553,18 +553,3 @@ controls:
     risks:
       - EDW
       - DMS
-  - id: controlEvaluationProvenanceAndDriftDetection
-    title: Evaluation Provenance and Drift Detection
-    description:
-      - >
-        Implement secure evaluation pipelines with dataset provenance tracking,
-        integrity verification, and drift detection to prevent manipulation
-        of evaluation and benchmark processes.
-    category: controlsModel
-    personas:
-      - personaModelCreator
-    components:
-      - componentModelEvaluation
-      - componentModelTrainingTuning
-    risks:
-      - EBM

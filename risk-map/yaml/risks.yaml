@@ -1336,7 +1336,6 @@ risks:
       - controlRedTeaming
       - controlVulnerabilityManagement
       - controlThreatDetection
-      - controlEvaluationProvenanceAndDriftDetection
     examples:
       - >
         Research demonstrates <a href="https://arxiv.org/abs/2108.07258" target="_blank"
