@@ -194,18 +194,62 @@ risks:
     title: Excessive Data Handling
     shortDescription:
       - >
-        Unauthorized collection, retention, processing, or sharing of user data. Excessive
-        Data Handling may lead to policy and legal challenges.
+        Using data for model training and development that exceeds authorized or legal
+        boundaries for collection, retention, or processing. This may lead to policy
+        and legal challenges.
     longDescription:
       - >
-        Collection, retention, processing, or sharing of user data beyond what is allowed
-        by relevant policies.
-      - Excessive Data Handling can create both policy and legal challenges.
+        The collection, retention, or processing of data for model training that violates
+        legal, ethical, or organizational policies.
+      - Excessive Data Handling can create significant policy and legal challenges.
       - >
-        In the context of models, user data might include user queries, text inputs
-        and interactions, personalizations and preferences, and models derived from
-        such data.
+        This includes training models on datasets containing copyrighted material,
+        proprietary information, or sensitive Personally Identifiable Information
+        (PII) without a proper legal basis.
     category: risksSupplyChainAndDevelopment
+    personas:
+      - personaModelCreator
+    controls:
+      - controlTrainingDataManagement
+      - controlUserTransparencyAndControls
+    examples:
+      - >
+        <a href="https://www.theguardian.com/us-news/2022/may/09/clearview-chicago-settlement-aclu" 
+        target="_blank" rel="noopener"> Clearview AI collected photos from public websites
+        and social media for their facial recognition database.
+    tourContent:
+      introduced:
+        - >
+          The risk of Excessive Data Handling is introduced when training data sources
+          lack proper metadata or when storage infrastructure isn't designed to
+          address data lifecycle requirements like consent and retention limits.
+      exposed:
+        - >
+          This risk is exposed in datasets and storage components, leading to training
+          data being retained or used beyond permissible limits.
+      mitigated:
+        - >
+          Mitigate this risk with robust data filtering and pre-processing to remove
+          unauthorized content, along with automation for data archiving and deletion
+          to comply with retention policies.
+  - id: EDH-I
+    title: Excessive Data Handling During Inference
+    shortDescription:
+      - >
+        Unauthorized collection, retention, processing, or sharing of user data
+        during model inference. This can lead to privacy violations and legal
+        challenges.
+    longDescription:
+      - >
+        The collection, retention, or processing of user inputs and session data
+        during runtime that exceeds what is necessary for the immediate task or
+        violates legal or organizational policies.
+      - Excessive Data Handling during inference can create significant privacy risks.
+      - >
+        This includes logging entire user conversations, improperly retaining data
+        retrieved by tools, or sharing interaction data with third parties without
+        proper consent or a legal basis.
+    category: risksRuntimeDataSecurity
     personas:
       - personaModelCreator
     controls:
@@ -214,23 +258,25 @@ risks:
     examples:
       - >
         <a href="https://www.forbes.com/sites/siladityaray/2023/05/02/samsung-bans-chatgpt-and-other-chatbots-for-employees-after-sensitive-code-leak/"
-        target="_blank" rel="noopener">Samsung banned usage of ChatGPT</a> after
-        discovering private code source has leaked via using it in GenAI prompts.
+        target="_blank" rel="noopener">Samsung banned the use of ChatGPT</a> after
+        employees inadvertently leaked proprietary source code by pasting it into
+        prompts during inference.
     tourContent:
       introduced:
         - >
-          The risk of Excessive Data Handling is introduced when data sources lack
-          proper metadata tagging for effective management or when model and data storage
-          infrastructure isn't designed to address data lifecycle concerns.
+          The risk is introduced when the application or deployment architecture
+          lacks strict controls for handling live user data, such as enabling
+          excessive logging or insecure session management.
       exposed:
         - >
-          This risk is exposed in both the model and in storage components, leading
-          to data retention or usage beyond permissible limits.
+          This risk is exposed in application logs, memory caches, and intermediary
+          systems that store user interaction data beyond the immediate need of
+          the session.
       mitigated:
         - >
-          Mitigate this risk with data filtering and processing, along with automation
-          for data archiving, deletion, or issuing alerts for models trained with outdated
-          data.
+          Mitigate this risk with data minimization techniques (e.g., logging only
+          essential metadata), using ephemeral storage for session data, and enforcing
+          strict data handling and retention policies for all runtime data.
   - id: MXF
     title: Model Exfiltration
     shortDescription:

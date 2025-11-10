@@ -68,6 +68,7 @@ controls:
     risks:
       - ISD
       - UTD
+      - EDH
   - id: controlTrainingDataSanitization
     title: Training Data Sanitization
     description:
@@ -96,8 +97,8 @@ controls:
       - componentDataStorage
     risks:
       - SDD
-      - EDH
       - PCP
+      - EDH-I
   - id: controlModelAndDataInventoryManagement
     title: Model and Data Inventory Management
     description:
@@ -280,6 +281,7 @@ controls:
     risks:
       - SDD
       - EDH
+      - EDH-I
   - id: controlAgentPluginUserControl
     title: Agent User Control
     description:
