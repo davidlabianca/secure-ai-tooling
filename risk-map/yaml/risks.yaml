@@ -161,6 +161,7 @@ risks:
     personas:
       - personaModelCreator
     controls:
+      - controlIsolatedConfidentialComputing
       - controlModelAndDataAccessControls
       - controlModelAndDataExecutionIntegrity
       - controlModelAndDataIntegrityManagement
@@ -305,6 +306,7 @@ risks:
       - personaModelCreator
       - personaModelConsumer
     controls:
+      - controlIsolatedConfidentialComputing
       - controlModelAndDataInventoryManagement
       - controlModelAndDataAccessControls
       - controlSecureByDefaultMLTooling
@@ -357,6 +359,7 @@ risks:
       - personaModelCreator
       - personaModelConsumer
     controls:
+      - controlIsolatedConfidentialComputing
       - controlModelAndDataExecutionIntegrity
       - controlOrchestratorAndRouteIntegrity
       - controlSecureByDefaultMLTooling
@@ -983,7 +986,7 @@ risks:
       - controlModelAndDataAccessControls
       - controlThreatDetection
       - controlVulnerabilityManagement
-      - controlAcceleratorIsolationAndSideChannelMitigation
+      - controlIsolatedConfidentialComputing
     examples:
       - >
         Research has demonstrated <a href="https://arxiv.org/abs/2006.12784" target="_blank"
@@ -1253,6 +1256,7 @@ risks:
       - personaModelCreator
       - personaModelConsumer
     controls:
+      - controlIsolatedConfidentialComputing
       - controlModelAndDataIntegrityManagement
       - controlModelAndDataAccessControls
       - controlSecureByDefaultMLTooling

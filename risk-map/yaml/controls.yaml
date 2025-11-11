@@ -489,13 +489,16 @@ controls:
     risks:
       - SDD
       - RA
-  - id: controlAcceleratorIsolationAndSideChannelMitigation
-    title: Accelerator Isolation and Side-channel Mitigation
+  - id: controlIsolatedConfidentialComputing
+    title: Isolated and Confidential Computing
     description:
       - >
-        Implement hardware-level isolation, secure scheduling, and side-channel
-        monitoring for GPU/TPU and other AI accelerator resources to prevent
-        cross-tenant information leakage.
+        Use technologies that minimize the risk of 3rd-party access to critical resources 
+        via hardware isolation invariants and/or physically isolated computing systems.
+      - >
+        Examples include including CPU and TPU-based confidential computing technologies 
+        (TEEs, secure enclaves), system isolation, secure scheduling, and side-channel 
+        monitoring to prevent cross-tenant information leakage.
     category: controlsInfrastructure
     personas:
       - personaModelCreator
@@ -503,8 +506,14 @@ controls:
     components:
       - componentModelServing
       - componentModelTrainingTuning
+      - componentMemory
+      - componentReasoningCore
     risks:
       - ASSC
+      - MST
+      - MXF
+      - MDT
+      - ORH
   - id: controlRetrievalAndVectorSystemIntegrity
     title: Retrieval and Vector System Integrity Management
     description:

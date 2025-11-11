@@ -42,7 +42,6 @@
         "id": {
           "type": "string",
           "enum": [
-            "controlAcceleratorIsolationAndSideChannelMitigation",
             "controlAdversarialTrainingAndTesting",
             "controlAgentPluginPermissions",
             "controlAgentPluginUserControl",
@@ -51,6 +50,7 @@
             "controlIncidentResponseManagement",
             "controlInputValidationAndSanitization",
             "controlInternalPoliciesAndEducation",
+            "controlIsolatedConfidentialComputing",
             "controlModelAndDataAccessControls",
             "controlModelAndDataExecutionIntegrity",
             "controlModelAndDataIntegrityManagement",

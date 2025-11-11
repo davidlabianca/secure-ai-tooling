@@ -22,7 +22,7 @@ graph LR
     end
 
     subgraph controlsInfrastructure ["Infrastructure Controls"]
-        controlAcceleratorIsolationAndSideChannelMitigation[Accelerator Isolation and Side-channel Mitigation]
+        controlIsolatedConfidentialComputing[Isolated and Confidential Computing]
         controlModelAndDataAccessControls[Model and Data Access Controls]
         controlModelAndDataExecutionIntegrity[Model and Data Execution Integrity]
         controlModelAndDataIntegrityManagement[Model and Data Integrity Management]
@@ -140,8 +140,10 @@ graph LR
     controlAgentObservability --> componentOrchestrationInputHandling
     controlAgentObservability --> componentOrchestrationOutputHandling
     controlAgentObservability --> componentReasoningCore
-    controlAcceleratorIsolationAndSideChannelMitigation --> componentModelServing
-    controlAcceleratorIsolationAndSideChannelMitigation --> componentModelTrainingTuning
+    controlIsolatedConfidentialComputing --> componentMemory
+    controlIsolatedConfidentialComputing --> componentModelServing
+    controlIsolatedConfidentialComputing --> componentModelTrainingTuning
+    controlIsolatedConfidentialComputing --> componentReasoningCore
     controlRetrievalAndVectorSystemIntegrity --> componentDataFilteringAndProcessing
     controlRetrievalAndVectorSystemIntegrity --> componentDataSources
     controlRetrievalAndVectorSystemIntegrity --> componentDataStorage
@@ -157,10 +159,10 @@ graph LR
     %% Edge styling
     linkStyle 29,30,31,32 stroke:#4285f4,stroke-width:3px,stroke-dasharray: 8 4
     linkStyle 0,4,7,8,9,10,11,12,14,15,16 stroke:#34a853,stroke-width:2px
-    linkStyle 2,25,33,37,40 stroke:#9c27b0,stroke-width:2px
-    linkStyle 3,26,34,41 stroke:#ff9800,stroke-width:2px,stroke-dasharray: 5 5
-    linkStyle 27,35,42 stroke:#e91e63,stroke-width:2px,stroke-dasharray: 10 2
-    linkStyle 28,36 stroke:#C95792,stroke-width:2px,stroke-dasharray: 10 5
+    linkStyle 2,25,33,37,38,42 stroke:#9c27b0,stroke-width:2px
+    linkStyle 3,26,34,39,43 stroke:#ff9800,stroke-width:2px,stroke-dasharray: 5 5
+    linkStyle 27,35,40,44 stroke:#e91e63,stroke-width:2px,stroke-dasharray: 10 2
+    linkStyle 28,36,41 stroke:#C95792,stroke-width:2px,stroke-dasharray: 10 5
 
 %% Node style definitions
     style components fill:#f0f0f0,stroke:#666666,stroke-width:3px,stroke-dasharray: 10 5
