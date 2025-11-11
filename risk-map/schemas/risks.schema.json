@@ -20,7 +20,7 @@
         "id": {
           "type": "string",
           "enum": [
-            "ASC",
+            "ASSC",
             "ADI",
             "COV",
             "DMS",
@@ -44,7 +44,8 @@
             "RA",
             "RVP",
             "SDD",
-            "UTD"
+            "UTD",
+            "EDH-I"
           ]
         },
         "title": { "type": "string" },
