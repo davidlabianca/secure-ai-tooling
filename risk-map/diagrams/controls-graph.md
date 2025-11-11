@@ -27,7 +27,6 @@ graph LR
         controlModelAndDataAccessControls[Model and Data Access Controls]
         controlModelAndDataIntegrityManagement[Model and Data Integrity Management]
         controlModelAndDataInventoryManagement[Model and Data Inventory Management]
-        controlModelRepositoryTrustAndAttestation[Model Repository Trust and Attestation]
         controlOrchestratorAndRouteIntegrity[Orchestrator and Route Integrity]
         controlSecureByDefaultMLTooling[Secure-by-Default ML Tooling]
     end
@@ -150,7 +149,6 @@ graph LR
     controlAdapterIntegrityAndAllowlisting --> componentsModels
     controlOrchestratorAndRouteIntegrity --> componentApplication
     controlOrchestratorAndRouteIntegrity --> componentModelServing
-    controlModelRepositoryTrustAndAttestation --> componentsModels
     controlCostQuotaGuardrails --> componentApplication
     controlCostQuotaGuardrails --> componentModelServing
 
@@ -162,7 +160,7 @@ graph LR
 
     %% Edge styling
     linkStyle 27,28,29,30 stroke:#4285f4,stroke-width:3px,stroke-dasharray: 8 4
-    linkStyle 0,4,7,8,9,10,11,12,13,14,42,45 stroke:#34a853,stroke-width:2px
+    linkStyle 0,4,7,8,9,10,11,12,13,14,42 stroke:#34a853,stroke-width:2px
     linkStyle 2,23,31,35,38 stroke:#9c27b0,stroke-width:2px
     linkStyle 3,24,32,39 stroke:#ff9800,stroke-width:2px,stroke-dasharray: 5 5
     linkStyle 25,33,40 stroke:#e91e63,stroke-width:2px,stroke-dasharray: 10 2

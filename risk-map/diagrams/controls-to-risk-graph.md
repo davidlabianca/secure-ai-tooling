@@ -71,7 +71,6 @@ graph LR
         controlModelAndDataAccessControls[Model and Data Access Controls]
         controlModelAndDataIntegrityManagement[Model and Data Integrity Management]
         controlModelAndDataInventoryManagement[Model and Data Inventory Management]
-        controlModelRepositoryTrustAndAttestation[Model Repository Trust and Attestation]
         controlOrchestratorAndRouteIntegrity[Orchestrator and Route Integrity]
         controlSecureByDefaultMLTooling[Secure-by-Default ML Tooling]
     end
@@ -160,7 +159,6 @@ graph LR
     MST --> controlModelAndDataAccessControls
     MST --> controlModelAndDataIntegrityManagement
     MST --> controlModelAndDataInventoryManagement
-    MST --> controlModelRepositoryTrustAndAttestation
     MST --> controlSecureByDefaultMLTooling
     EDH --> controlTrainingDataManagement
     EDH --> controlUserTransparencyAndControls
@@ -168,8 +166,8 @@ graph LR
     EDH-I --> controlUserTransparencyAndControls
     MXF --> controlAdapterIntegrityAndAllowlisting
     MXF --> controlModelAndDataAccessControls
+    MXF --> controlModelAndDataIntegrityManagement
     MXF --> controlModelAndDataInventoryManagement
-    MXF --> controlModelRepositoryTrustAndAttestation
     MXF --> controlSecureByDefaultMLTooling
     MDT --> controlOrchestratorAndRouteIntegrity
     MDT --> controlSecureByDefaultMLTooling
@@ -213,7 +211,6 @@ graph LR
     ADI --> controlAdapterIntegrityAndAllowlisting
     ADI --> controlModelAndDataAccessControls
     ADI --> controlModelAndDataIntegrityManagement
-    ADI --> controlModelRepositoryTrustAndAttestation
     ADI --> controlSecureByDefaultMLTooling
     ORH --> controlModelAndDataAccessControls
     ORH --> controlModelAndDataIntegrityManagement
@@ -226,7 +223,6 @@ graph LR
     MLD --> controlInputValidationAndSanitization
     MLD --> controlModelAndDataAccessControls
     MLD --> controlModelAndDataIntegrityManagement
-    MLD --> controlModelRepositoryTrustAndAttestation
     MLD --> controlSecureByDefaultMLTooling
     PCP --> controlInputValidationAndSanitization
     PCP --> controlModelAndDataAccessControls
@@ -285,15 +281,14 @@ graph LR
     controlAdapterIntegrityAndAllowlisting --> componentsModels
     controlOrchestratorAndRouteIntegrity --> componentApplication
     controlOrchestratorAndRouteIntegrity --> componentModelServing
-    controlModelRepositoryTrustAndAttestation --> componentsModels
     controlCostQuotaGuardrails --> componentApplication
     controlCostQuotaGuardrails --> componentModelServing
 
     %% Edge styling
-    linkStyle 0,4,8,12,16,20,24,28,32,36,40,44,48,52,56,60,64,68,72,76,80,84,88 stroke:#e6cbce,stroke-width:2px,stroke-dasharray: 5 3
+    linkStyle 0,4,8,12,16,20,24,28,32,36,40,44,48,52,56,60,64,68,72,76,80,84 stroke:#e6cbce,stroke-width:2px,stroke-dasharray: 5 3
     linkStyle 1,5,9,13,17,21,25,29,33,37,41,45,49,53,57,61,65,69,73,77,81,85 stroke:#b66871,stroke-width:2px,stroke-dasharray: 8 4
-    linkStyle 2,6,10,14,18,22,26,30,34,38,42,46,50,54,58,62,66,70,74,78,82,86 stroke:#b66871,stroke-width:2px,stroke-dasharray: 10 2
-    linkStyle 3,7,11,15,19,23,27,31,35,39,43,47,51,55,59,63,67,71,75,79,83,87 stroke:#1c0d0f,stroke-width:2px,stroke-dasharray: 12 5
+    linkStyle 2,6,10,14,18,22,26,30,34,38,42,46,50,54,58,62,66,70,74,78,82 stroke:#b66871,stroke-width:2px,stroke-dasharray: 10 2
+    linkStyle 3,7,11,15,19,23,27,31,35,39,43,47,51,55,59,63,67,71,75,79,83 stroke:#1c0d0f,stroke-width:2px,stroke-dasharray: 12 5
 
 %% Node style definitions
     style risksSupplyChainAndDevelopment fill:#ffeef0,stroke:#e91e63,stroke-width:2px

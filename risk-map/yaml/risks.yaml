@@ -165,7 +165,6 @@ risks:
       - controlModelAndDataIntegrityManagement
       - controlModelAndDataAccessControls
       - controlModelAndDataInventoryManagement
-      - controlModelRepositoryTrustAndAttestation
       - controlAdapterIntegrityAndAllowlisting
     examples:
       - >
@@ -306,11 +305,11 @@ risks:
       - personaModelCreator
       - personaModelConsumer
     controls:
+      - controlAdapterIntegrityAndAllowlisting
       - controlModelAndDataInventoryManagement
       - controlModelAndDataAccessControls
       - controlSecureByDefaultMLTooling
-      - controlModelRepositoryTrustAndAttestation
-      - controlAdapterIntegrityAndAllowlisting
+      - controlModelAndDataIntegrityManagement
     examples:
       - >
         <a href="https://www.theverge.com/2023/3/8/23629362/meta-ai-language-model-llama-leak-online-misuse"
@@ -1200,7 +1199,6 @@ risks:
       - controlSecureByDefaultMLTooling
       - controlVulnerabilityManagement
       - controlAdapterIntegrityAndAllowlisting
-      - controlModelRepositoryTrustAndAttestation
     examples:
       - >
         Research demonstrates <a href="https://arxiv.org/abs/2311.03262" target="_blank"
@@ -1482,7 +1480,6 @@ risks:
       - controlInputValidationAndSanitization
       - controlVulnerabilityManagement
       - controlAdapterIntegrityAndAllowlisting
-      - controlModelRepositoryTrustAndAttestation
     examples:
       - >
         Research has demonstrated <a href="https://blog.trailofbits.com/2021/03/15/never-a-dill-moment-exploiting-machine-learning-pickle-files/"

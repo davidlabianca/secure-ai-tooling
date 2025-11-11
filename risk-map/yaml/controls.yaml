@@ -166,6 +166,10 @@ controls:
       - >
         Ensure that all data, models, and code used to produce AI models are verifiably
         integrity-protected during development and deployment.
+      - >
+        Implement repository trust policies, cryptographic signatures, attestation
+        frameworks, and offline verification capabilities to ensure integrity
+        and authenticity of models and artifacts.
     category: controlsInfrastructure
     personas:
       - personaModelCreator
@@ -176,14 +180,15 @@ controls:
       - componentModelTrainingTuning
       - componentModelStorage
     risks:
-      - DP
-      - MST
-      - FLP
       - ADI
-      - ORH
-      - EBM
       - COV
+      - DP
+      - EBM
+      - FLP
       - MLD
+      - MST
+      - MXF
+      - ORH
       - PCP
       - RVP
   - id: controlSecureByDefaultMLTooling
@@ -521,25 +526,6 @@ controls:
     risks:
       - ORH
       - MDT
-  - id: controlModelRepositoryTrustAndAttestation
-    title: Model Repository Trust and Attestation
-    description:
-      - >
-        Implement repository trust policies, cryptographic signatures, attestation
-        frameworks, and offline verification capabilities to ensure integrity
-        and authenticity of models and artifacts.
-    category: controlsInfrastructure
-    personas:
-      - personaModelCreator
-      - personaModelConsumer
-    components:
-      - componentModelStorage
-      - componentModelServing
-    risks:
-      - ADI
-      - MLD
-      - MST
-      - MXF
   - id: controlCostQuotaGuardrails
     title: Cost Quota Guardrails
     description:
