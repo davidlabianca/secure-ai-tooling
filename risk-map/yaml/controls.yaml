@@ -505,8 +505,8 @@ controls:
       - componentModelTrainingTuning
     risks:
       - ASSC
-  - id: controlRetrievalAndVectorStorePoisoningDefense
-    title: Retrieval and Vector Store Poisoning Defense
+  - id: controlRetrievalAndVectorSystemIntegrity
+    title: Retrieval and Vector System Integrity Management
     description:
       - >
         Implement provenance tracking, cryptographic signing, deduplication,

@@ -60,7 +60,7 @@
             "controlOutputValidationAndSanitization",
             "controlProductGovernance",
             "controlRedTeaming",
-            "controlRetrievalAndVectorStorePoisoningDefense",
+            "controlRetrievalAndVectorSystemIntegrity",
             "controlRiskGovernance",
             "controlRuntimePrivacyEnhancingTechnologies",
             "controlSecureByDefaultMLTooling",

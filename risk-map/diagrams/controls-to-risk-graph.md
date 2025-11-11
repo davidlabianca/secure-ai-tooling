@@ -59,7 +59,7 @@ graph LR
     subgraph controls
     subgraph controlsData ["Data Controls"]
         controlModelPrivacyEnhancingTechnologies[Privacy Enhancing Technologies for Model Training]
-        controlRetrievalAndVectorStorePoisoningDefense[Retrieval and Vector Store Poisoning Defense]
+        controlRetrievalAndVectorSystemIntegrity[Retrieval and Vector System Integrity Management]
         controlRuntimePrivacyEnhancingTechnologies[Privacy Enhancing Technologies for Inference]
         controlTrainingDataManagement[Training Data Management]
         controlTrainingDataSanitization[Training Data Sanitization]
@@ -230,7 +230,7 @@ graph LR
     RVP --> controlInputValidationAndSanitization
     RVP --> controlModelAndDataIntegrityManagement
     RVP --> controlOutputValidationAndSanitization
-    RVP --> controlRetrievalAndVectorStorePoisoningDefense
+    RVP --> controlRetrievalAndVectorSystemIntegrity
     RVP --> controlTrainingDataSanitization
 
     %% Control to Component relationships (reused from ControlGraph)
@@ -274,9 +274,9 @@ graph LR
     controlAgentObservability --> componentReasoningCore
     controlAcceleratorIsolationAndSideChannelMitigation --> componentModelServing
     controlAcceleratorIsolationAndSideChannelMitigation --> componentModelTrainingTuning
-    controlRetrievalAndVectorStorePoisoningDefense --> componentDataFilteringAndProcessing
-    controlRetrievalAndVectorStorePoisoningDefense --> componentDataSources
-    controlRetrievalAndVectorStorePoisoningDefense --> componentDataStorage
+    controlRetrievalAndVectorSystemIntegrity --> componentDataFilteringAndProcessing
+    controlRetrievalAndVectorSystemIntegrity --> componentDataSources
+    controlRetrievalAndVectorSystemIntegrity --> componentDataStorage
     controlOrchestratorAndRouteIntegrity --> componentApplication
     controlOrchestratorAndRouteIntegrity --> componentModelServing
 

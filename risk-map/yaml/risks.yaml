@@ -1607,7 +1607,7 @@ risks:
       - controlModelAndDataIntegrityManagement
       - controlInputValidationAndSanitization
       - controlOutputValidationAndSanitization
-      - controlRetrievalAndVectorStorePoisoningDefense
+      - controlRetrievalAndVectorSystemIntegrity
     examples:
       - >
         Researchers have demonstrated <a href="https://arxiv.org/abs/2310.19156"
