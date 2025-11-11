@@ -20,7 +20,7 @@
         "id": {
           "type": "string",
           "enum": [
-            "ASC",
+            "ASSC",
             "ADI",
             "COV",
             "DMS",

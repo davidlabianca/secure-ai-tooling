@@ -31,7 +31,7 @@ graph LR
 
     subgraph risksDeploymentAndInfrastructure ["Deployment And Infrastructure Risks"]
         ADI[Adapter/PEFT Injection]
-        ASC[Accelerator Side-channels]
+        ASSC[Accelerator and System Side-channels]
         IIC[Insecure Integrated Component]
         MDT[Model Deployment Tampering]
         MRE[Model Reverse Engineering]
@@ -199,9 +199,9 @@ graph LR
     RA --> controlAgentPluginPermissions
     RA --> controlAgentPluginUserControl
     RA --> controlOutputValidationAndSanitization
-    ASC --> controlAcceleratorIsolationAndSideChannelMitigation
-    ASC --> controlModelAndDataAccessControls
-    ASC --> controlSecureByDefaultMLTooling
+    ASSC --> controlAcceleratorIsolationAndSideChannelMitigation
+    ASSC --> controlModelAndDataAccessControls
+    ASSC --> controlSecureByDefaultMLTooling
     EDW --> controlApplicationAccessManagement
     EDW --> controlCostQuotaGuardrails
     FLP --> controlModelAndDataIntegrityManagement

@@ -155,7 +155,7 @@ controls:
       - DP
       - MST
       - MXF
-      - ASC
+      - ASSC
       - ADI
       - ORH
       - MLD
@@ -239,7 +239,7 @@ controls:
       - MST
       - MXF
       - MDT
-      - ASC
+      - ASSC
       - FLP
       - ADI
       - ORH
@@ -498,7 +498,7 @@ controls:
       - componentModelServing
       - componentModelTrainingTuning
     risks:
-      - ASC
+      - ASSC
   - id: controlRetrievalAndVectorStorePoisoningDefense
     title: Retrieval and Vector Store Poisoning Defense
     description:

@@ -947,42 +947,34 @@ risks:
           Mitigation involves model output handling and granting minimal permissions
           to agents and plugins. Involving humans in the scoping process may be necessary
           for added oversight and control.
-  - id: ASC
-    title: Accelerator Side-channels
+  - id: ASSC
+    title: Accelerator and System Side-channels
     shortDescription:
       - >
-        Cross-tenant leakage via GPU/TPU timing, cache, and memory side-channels.
-        Accelerator Side-channels can compromise data confidentiality and enable
-        unauthorized access to sensitive information in shared computing environments.
+        Cross-tenant leakage via hardware side-channels in CPUs, GPUs, TPUs, memory
+        systems, and interconnects. These vulnerabilities exploit timing, cache,
+        speculative execution, and memory access patterns to compromise data
+        confidentiality and infer sensitive information in shared computing
+        environments.
     longDescription:
       - >
-        Exploitation of side-channel vulnerabilities in GPU, TPU, and other AI
-        accelerator hardware to extract sensitive information from co-located
-        tenants or processes in shared computing environments.
+        In cloud and multi-tenant environments, AI systems rely on complex, shared
+        hardware stacks. This resource sharing creates opportunities for side-channel
+        attacks, where one tenant can exploit the physical properties of the
+        hardware (like timing variations or cache behavior) to infer sensitive
+        information from another tenant.
       - >
-        Modern AI workloads heavily rely on specialized accelerator hardware like
-        GPUs and TPUs for efficient computation. In cloud and multi-tenant environments,
-        these expensive resources are often shared among multiple users or applications.
-        This sharing creates opportunities for side-channel attacks where malicious
-        actors can exploit timing variations, cache behavior, memory access patterns,
-        or electromagnetic emissions to infer sensitive information from other tenants.
+        Examples of these vulnerabilities are well-known: CPU-level attacks
+        include cache timing (Flush+Reload) and speculative execution (Spectre,
+        Meltdown), while memory attacks target DRAM (Rowhammer) or bus contention.
+        Accelerators like GPUs and TPUs have their own vulnerabilities,
+        exploiting shared memory, execution units, or interconnects.
       - >
-        Side-channel attacks on accelerators can target various components including
-        shared GPU memory, cache hierarchies, execution units, memory controllers,
-        and interconnects. Attackers may extract model weights, training data,
-        intermediate computations, or even reconstruct private inputs and outputs
-        from other users' AI workloads running on the same hardware.
-      - >
-        These attacks are particularly concerning because they can bypass traditional
-        software-based security measures and exploit fundamental properties of the
-        underlying hardware. The high computational intensity and predictable access
-        patterns of AI workloads can make them especially vulnerable to timing-based
-        and cache-based side-channel attacks.
-      - >
-        Advanced attacks may also exploit power analysis, electromagnetic emanations,
-        or acoustic side-channels from accelerator hardware. The threat is amplified
-        in scenarios where attackers can co-locate their workloads with target victims
-        or gain physical access to shared infrastructure.
+        An attacker can exploit these channels to extract sensitive AI assets,
+        including model weights, training data, private inputs, or cryptographic
+        keys. These attacks bypass traditional software-based security by exploiting
+        fundamental hardware properties. The risk is highest in shared environments 
+        where an attacker can co-locate their workload with a victim's.
     category: risksDeploymentAndInfrastructure
     personas:
       - personaModelCreator
@@ -999,10 +991,6 @@ risks:
         rel="noopener">GPU side-channel attacks</a> that can extract neural network
         weights and training data from co-located processes on shared GPU hardware.
       - >
-        Studies show <a href="https://arxiv.org/abs/2010.02717" target="_blank"
-        rel="noopener">timing-based attacks on GPU memory systems</a> that can
-        infer sensitive information about concurrent AI workloads.
-      - >
         Security researchers have shown <a href="https://arxiv.org/abs/2108.11021"
         target="_blank" rel="noopener">cache-based side-channel attacks</a> on
         machine learning accelerators that can leak model parameters and intermediate
@@ -1010,22 +998,26 @@ risks:
     tourContent:
       introduced:
         - >
-          Accelerator Side-channels are introduced when AI workloads share hardware
-          resources without adequate isolation mechanisms, allowing malicious processes
-          to exploit timing, cache, memory, or other physical characteristics to
-          extract information from co-located tenants.
+          Accelerator and System Side-channels are introduced when AI workloads share
+          hardware resources (CPUs, GPUs, TPUs, memory systems, interconnects) without
+          adequate isolation mechanisms, allowing malicious processes to exploit timing,
+          cache, speculative execution, or memory access patterns to extract information
+          from co-located tenants.
       exposed:
         - >
           This risk is exposed during model training, inference, or serving when
-          multiple tenants share accelerator hardware, creating opportunities for
-          side-channel attacks to extract sensitive model or data information from
-          concurrent workloads.
+          multiple tenants share hardware infrastructure in cloud or multi-tenant
+          environments, creating opportunities for side-channel attacks to extract
+          sensitive information including model weights, training data, private inputs,
+          or cryptographic keys from concurrent workloads.
       mitigated:
         - >
-          Mitigation involves implementing hardware-level isolation mechanisms,
-          using secure scheduling algorithms, applying noise injection or randomization
-          techniques, monitoring for anomalous access patterns, and deploying
-          dedicated or properly partitioned accelerator resources for sensitive workloads.
+          Mitigation involves implementing hardware-level isolation (dedicated instances,
+          partitioning), deploying microarchitectural defenses (cache partitioning,
+          disabling hyperthreading), applying operating system protections (kernel
+          page-table isolation, retpolines), using secure scheduling algorithms, applying
+          noise injection or randomization techniques, and monitoring for anomalous
+          access patterns indicative of side-channel attacks.
   - id: EDW
     title: Economic Denial of Wallet
     shortDescription:
