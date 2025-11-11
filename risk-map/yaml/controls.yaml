@@ -303,11 +303,17 @@ controls:
       - ISD
       - IMO
   - id: controlApplicationAccessManagement
-    title: Application Access Management
+    title: Application Access and Resource Management
     description:
       - >
-        Ensure that only authorized users and endpoints can access specific resources
-        for authorized actions
+        Ensure comprehensive access governance through:
+      - >
+        Identity and authorization controls that restrict resources to authorized
+        users and endpoints for authorized actions.
+      - >
+        Resource governance controls including usage quotas, rate limiting, cost
+        monitoring, and anomaly detection to prevent resource exhaustion and economic
+        denial of wallet attacks.
     category: controlsApplication
     personas:
       - personaModelConsumer
@@ -315,8 +321,8 @@ controls:
       - componentApplication
     risks:
       - DMS
-      - MRE
       - EDW
+      - MRE
   - id: controlUserTransparencyAndControls
     title: User Transparency and Controls
     description:
@@ -533,19 +539,3 @@ controls:
     risks:
       - ORH
       - MDT
-  - id: controlCostQuotaGuardrails
-    title: Cost Quota Guardrails
-    description:
-      - >
-        Implement comprehensive cost monitoring, usage quotas, rate limiting,
-        and anomaly detection to prevent economic denial of wallet attacks
-        and resource exhaustion.
-    category: controlsApplication
-    personas:
-      - personaModelConsumer
-    components:
-      - componentApplication
-      - componentModelServing
-    risks:
-      - EDW
-      - DMS

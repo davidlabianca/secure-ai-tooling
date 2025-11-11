@@ -42,8 +42,7 @@ graph LR
         controlAgentObservability[Agent Observability]
         controlAgentPluginPermissions[Agent Permissions]
         controlAgentPluginUserControl[Agent User Control]
-        controlApplicationAccessManagement[Application Access Management]
-        controlCostQuotaGuardrails[Cost Quota Guardrails]
+        controlApplicationAccessManagement[Application Access and Resource Management]
         controlUserTransparencyAndControls[User Transparency and Controls]
     end
 
@@ -149,8 +148,6 @@ graph LR
     controlRetrievalAndVectorStorePoisoningDefense --> componentDataStorage
     controlOrchestratorAndRouteIntegrity --> componentApplication
     controlOrchestratorAndRouteIntegrity --> componentModelServing
-    controlCostQuotaGuardrails --> componentApplication
-    controlCostQuotaGuardrails --> componentModelServing
 
     %% Apply styling to controls mapped to 'all'
     controlIncidentResponseManagement:::allControl

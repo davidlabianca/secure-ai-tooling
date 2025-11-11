@@ -48,7 +48,6 @@
             "controlAgentPluginUserControl",
             "controlAgentObservability",
             "controlApplicationAccessManagement",
-            "controlCostQuotaGuardrails",
             "controlIncidentResponseManagement",
             "controlInputValidationAndSanitization",
             "controlInternalPoliciesAndEducation",

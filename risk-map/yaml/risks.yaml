@@ -410,7 +410,6 @@ risks:
       - personaModelConsumer
     controls:
       - controlApplicationAccessManagement
-      - controlCostQuotaGuardrails
     examples:
       - >
         Researchers have proven how slight perturbation to images <a href="https://arxiv.org/abs/2205.13618"
@@ -1056,7 +1055,6 @@ risks:
       - controlApplicationAccessManagement
       - controlThreatDetection
       - controlVulnerabilityManagement
-      - controlCostQuotaGuardrails
     examples:
       - >
         Research has shown <a href="https://arxiv.org/abs/2401.07464" target="_blank"

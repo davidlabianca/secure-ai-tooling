@@ -85,8 +85,7 @@ graph LR
         controlAgentObservability[Agent Observability]
         controlAgentPluginPermissions[Agent Permissions]
         controlAgentPluginUserControl[Agent User Control]
-        controlApplicationAccessManagement[Application Access Management]
-        controlCostQuotaGuardrails[Cost Quota Guardrails]
+        controlApplicationAccessManagement[Application Access and Resource Management]
         controlUserTransparencyAndControls[User Transparency and Controls]
     end
 
@@ -171,7 +170,6 @@ graph LR
     MDT --> controlOrchestratorAndRouteIntegrity
     MDT --> controlSecureByDefaultMLTooling
     DMS --> controlApplicationAccessManagement
-    DMS --> controlCostQuotaGuardrails
     MRE --> controlApplicationAccessManagement
     IIC --> controlAgentPluginPermissions
     IIC --> controlModelAndDataExecutionIntegrity
@@ -203,7 +201,6 @@ graph LR
     ASSC --> controlModelAndDataAccessControls
     ASSC --> controlSecureByDefaultMLTooling
     EDW --> controlApplicationAccessManagement
-    EDW --> controlCostQuotaGuardrails
     FLP --> controlModelAndDataIntegrityManagement
     FLP --> controlModelPrivacyEnhancingTechnologies
     FLP --> controlRuntimePrivacyEnhancingTechnologies
@@ -281,13 +278,11 @@ graph LR
     controlRetrievalAndVectorStorePoisoningDefense --> componentDataStorage
     controlOrchestratorAndRouteIntegrity --> componentApplication
     controlOrchestratorAndRouteIntegrity --> componentModelServing
-    controlCostQuotaGuardrails --> componentApplication
-    controlCostQuotaGuardrails --> componentModelServing
 
     %% Edge styling
     linkStyle 0,4,8,12,16,20,24,28,32,36,40,44,48,52,56,60,64,68,72,76,80,84 stroke:#e6cbce,stroke-width:2px,stroke-dasharray: 5 3
-    linkStyle 1,5,9,13,17,21,25,29,33,37,41,45,49,53,57,61,65,69,73,77,81,85 stroke:#b66871,stroke-width:2px,stroke-dasharray: 8 4
-    linkStyle 2,6,10,14,18,22,26,30,34,38,42,46,50,54,58,62,66,70,74,78,82,86 stroke:#b66871,stroke-width:2px,stroke-dasharray: 10 2
+    linkStyle 1,5,9,13,17,21,25,29,33,37,41,45,49,53,57,61,65,69,73,77,81 stroke:#b66871,stroke-width:2px,stroke-dasharray: 8 4
+    linkStyle 2,6,10,14,18,22,26,30,34,38,42,46,50,54,58,62,66,70,74,78,82 stroke:#b66871,stroke-width:2px,stroke-dasharray: 10 2
     linkStyle 3,7,11,15,19,23,27,31,35,39,43,47,51,55,59,63,67,71,75,79,83 stroke:#1c0d0f,stroke-width:2px,stroke-dasharray: 12 5
 
 %% Node style definitions
