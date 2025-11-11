@@ -161,11 +161,11 @@ risks:
     personas:
       - personaModelCreator
     controls:
-      - controlSecureByDefaultMLTooling
-      - controlModelAndDataIntegrityManagement
       - controlModelAndDataAccessControls
+      - controlModelAndDataExecutionIntegrity
+      - controlModelAndDataIntegrityManagement
       - controlModelAndDataInventoryManagement
-      - controlAdapterIntegrityAndAllowlisting
+      - controlSecureByDefaultMLTooling
     examples:
       - >
         The nightly build of <a href="https://pytorch.org/blog/compromised-nightly-dependency/">PyTorch
@@ -305,7 +305,6 @@ risks:
       - personaModelCreator
       - personaModelConsumer
     controls:
-      - controlAdapterIntegrityAndAllowlisting
       - controlModelAndDataInventoryManagement
       - controlModelAndDataAccessControls
       - controlSecureByDefaultMLTooling
@@ -358,8 +357,9 @@ risks:
       - personaModelCreator
       - personaModelConsumer
     controls:
-      - controlSecureByDefaultMLTooling
+      - controlModelAndDataExecutionIntegrity
       - controlOrchestratorAndRouteIntegrity
+      - controlSecureByDefaultMLTooling
     examples:
       - >
         <a href="https://www.wiz.io/blog/wiz-and-hugging-face-address-risks-to-ai-infrastructure#what-did-we-find-11"
@@ -522,6 +522,7 @@ risks:
       - personaModelConsumer
     controls:
       - controlAgentPluginPermissions
+      - controlModelAndDataExecutionIntegrity
       - controlUserPoliciesAndEducation
     examples:
       - >
@@ -1194,11 +1195,11 @@ risks:
       - personaModelCreator
       - personaModelConsumer
     controls:
+      - controlModelAndDataExecutionIntegrity
       - controlModelAndDataIntegrityManagement
       - controlModelAndDataAccessControls
       - controlSecureByDefaultMLTooling
       - controlVulnerabilityManagement
-      - controlAdapterIntegrityAndAllowlisting
     examples:
       - >
         Research demonstrates <a href="https://arxiv.org/abs/2311.03262" target="_blank"
@@ -1474,12 +1475,12 @@ risks:
       - personaModelCreator
       - personaModelConsumer
     controls:
-      - controlModelAndDataIntegrityManagement
-      - controlModelAndDataAccessControls
-      - controlSecureByDefaultMLTooling
       - controlInputValidationAndSanitization
+      - controlModelAndDataAccessControls
+      - controlModelAndDataExecutionIntegrity
+      - controlModelAndDataIntegrityManagement
+      - controlSecureByDefaultMLTooling
       - controlVulnerabilityManagement
-      - controlAdapterIntegrityAndAllowlisting
     examples:
       - >
         Research has demonstrated <a href="https://blog.trailofbits.com/2021/03/15/never-a-dill-moment-exploiting-machine-learning-pickle-files/"

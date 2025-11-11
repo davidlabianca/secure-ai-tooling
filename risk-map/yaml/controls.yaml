@@ -191,6 +191,33 @@ controls:
       - ORH
       - PCP
       - RVP
+  - id: controlModelAndDataExecutionIntegrity
+    title: Model and Data Execution Integrity
+    description:
+      - >
+        Ensure that the code and model results from training and development are of known
+        provenance and lineage and not modified from known-good sources in unexpected ways
+        at inference time.
+      - >
+        Examples include ...
+        - validating expected code and model signatures / hashes at inference-time
+        - limit and immutably record all modifications to runtime AI system components via 
+          oversight processes
+        - etc
+    category: controlsInfrastructure
+    personas:
+      - personaModelCreator
+      - personaModelConsumer
+    components:
+      - componentModelServing
+      - componentModelStorage
+      - componentTheModel
+    risks:
+      - ADI
+      - IIC
+      - MDT
+      - MLD
+      - MST
   - id: controlSecureByDefaultMLTooling
     title: Secure-by-Default ML Tooling
     description:
@@ -489,26 +516,6 @@ controls:
       - componentDataFilteringAndProcessing
     risks:
       - RVP
-  - id: controlAdapterIntegrityAndAllowlisting
-    title: Adapter Integrity and Allowlisting
-    description:
-      - >
-        Implement cryptographic signing, checksums, and allowlisting for LoRA/PEFT
-        adapters with runtime verification to prevent injection of malicious
-        fine-tuning components.
-    category: controlsModel
-    personas:
-      - personaModelCreator
-      - personaModelConsumer
-    components:
-      - componentTheModel
-      - componentModelServing
-      - componentModelStorage
-    risks:
-      - ADI
-      - MLD
-      - MST
-      - MXF
   - id: controlOrchestratorAndRouteIntegrity
     title: Orchestrator and Route Integrity
     description:

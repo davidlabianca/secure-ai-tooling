@@ -24,6 +24,7 @@ graph LR
     subgraph controlsInfrastructure ["Infrastructure Controls"]
         controlAcceleratorIsolationAndSideChannelMitigation[Accelerator Isolation and Side-channel Mitigation]
         controlModelAndDataAccessControls[Model and Data Access Controls]
+        controlModelAndDataExecutionIntegrity[Model and Data Execution Integrity]
         controlModelAndDataIntegrityManagement[Model and Data Integrity Management]
         controlModelAndDataInventoryManagement[Model and Data Inventory Management]
         controlOrchestratorAndRouteIntegrity[Orchestrator and Route Integrity]
@@ -31,7 +32,6 @@ graph LR
     end
 
     subgraph controlsModel ["Model Controls"]
-        controlAdapterIntegrityAndAllowlisting[Adapter Integrity and Allowlisting]
         controlAdversarialTrainingAndTesting[Adversarial Training and Testing]
         controlInputValidationAndSanitization[Input Validation and Sanitization]
         controlOutputValidationAndSanitization[Output Validation and Sanitization]
@@ -116,6 +116,8 @@ graph LR
     controlModelAndDataAccessControls --> componentsModels
     controlModelAndDataIntegrityManagement --> componentsModelSubgroup
     controlModelAndDataIntegrityManagement --> componentsModels
+    controlModelAndDataExecutionIntegrity --> componentTheModel
+    controlModelAndDataExecutionIntegrity --> componentsModels
     controlSecureByDefaultMLTooling --> componentsModelSubgroup
     controlSecureByDefaultMLTooling --> componentsModels
     controlInputValidationAndSanitization --> componentAgentInputHandling
@@ -144,8 +146,6 @@ graph LR
     controlRetrievalAndVectorStorePoisoningDefense --> componentDataFilteringAndProcessing
     controlRetrievalAndVectorStorePoisoningDefense --> componentDataSources
     controlRetrievalAndVectorStorePoisoningDefense --> componentDataStorage
-    controlAdapterIntegrityAndAllowlisting --> componentTheModel
-    controlAdapterIntegrityAndAllowlisting --> componentsModels
     controlOrchestratorAndRouteIntegrity --> componentApplication
     controlOrchestratorAndRouteIntegrity --> componentModelServing
     controlCostQuotaGuardrails --> componentApplication
@@ -158,12 +158,12 @@ graph LR
     controlVulnerabilityManagement:::allControl
 
     %% Edge styling
-    linkStyle 27,28,29,30 stroke:#4285f4,stroke-width:3px,stroke-dasharray: 8 4
-    linkStyle 0,4,7,8,9,10,11,12,13,14,42 stroke:#34a853,stroke-width:2px
-    linkStyle 2,23,31,35,38 stroke:#9c27b0,stroke-width:2px
-    linkStyle 3,24,32,39 stroke:#ff9800,stroke-width:2px,stroke-dasharray: 5 5
-    linkStyle 25,33,40 stroke:#e91e63,stroke-width:2px,stroke-dasharray: 10 2
-    linkStyle 26,34 stroke:#C95792,stroke-width:2px,stroke-dasharray: 10 5
+    linkStyle 29,30,31,32 stroke:#4285f4,stroke-width:3px,stroke-dasharray: 8 4
+    linkStyle 0,4,7,8,9,10,11,12,14,15,16 stroke:#34a853,stroke-width:2px
+    linkStyle 2,25,33,37,40 stroke:#9c27b0,stroke-width:2px
+    linkStyle 3,26,34,41 stroke:#ff9800,stroke-width:2px,stroke-dasharray: 5 5
+    linkStyle 27,35,42 stroke:#e91e63,stroke-width:2px,stroke-dasharray: 10 2
+    linkStyle 28,36 stroke:#C95792,stroke-width:2px,stroke-dasharray: 10 5
 
 %% Node style definitions
     style components fill:#f0f0f0,stroke:#666666,stroke-width:3px,stroke-dasharray: 10 5

@@ -43,7 +43,6 @@
           "type": "string",
           "enum": [
             "controlAcceleratorIsolationAndSideChannelMitigation",
-            "controlAdapterIntegrityAndAllowlisting",
             "controlAdversarialTrainingAndTesting",
             "controlAgentPluginPermissions",
             "controlAgentPluginUserControl",
@@ -54,6 +53,7 @@
             "controlInputValidationAndSanitization",
             "controlInternalPoliciesAndEducation",
             "controlModelAndDataAccessControls",
+            "controlModelAndDataExecutionIntegrity",
             "controlModelAndDataIntegrityManagement",
             "controlModelAndDataInventoryManagement",
             "controlModelPrivacyEnhancingTechnologies",
