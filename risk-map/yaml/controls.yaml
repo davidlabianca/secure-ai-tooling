@@ -437,7 +437,7 @@ controls:
       - IIC
       - SDD
       - RA
-    mappings: 
+    mappings:
       mitre-atlas:
         - AML.M0028
       nist-ai-rmf:
