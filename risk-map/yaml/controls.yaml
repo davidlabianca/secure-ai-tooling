@@ -176,8 +176,6 @@ controls:
         - AML.M0014
       nist-ai-rmf:
         - MS-2.3
-      stride:
-        - tampering
     lifecycleStage:
       - data-preparation
       - model-training
@@ -217,9 +215,6 @@ controls:
       nist-ai-rmf:
         - MS-1.1
         - MS-2.5
-      stride:
-        - tampering
-        - information-disclosure
     lifecycleStage:
       - development
       - model-training
@@ -252,9 +247,6 @@ controls:
         - AML.M0015
         - AML.M0020
         - AML.M0024
-      stride:
-        - tampering
-        - elevation-of-privilege
       owasp-top10-llm:
         - LLM01
     lifecycleStage:
@@ -291,9 +283,6 @@ controls:
       mitre-atlas:
         - AML.M0020
         - AML.M0024
-      stride:
-        - information-disclosure
-        - tampering
       owasp-top10-llm:
         - LLM02
         - LLM05
@@ -335,8 +324,6 @@ controls:
       nist-ai-rmf:
         - MS-2.3
         - MS-2.6
-      stride:
-        - tampering
     lifecycleStage:
       - model-training
       - evaluation
@@ -369,9 +356,6 @@ controls:
       nist-ai-rmf:
         - GV-6.1
         - MS-2.11
-      stride:
-        - denial-of-service
-        - information-disclosure
       owasp-top10-llm:
         - LLM10
     lifecycleStage:
@@ -441,9 +425,6 @@ controls:
       nist-ai-rmf:
         - MS-2.11
         - GV-6.2
-      stride:
-        - elevation-of-privilege
-        - tampering
       owasp-top10-llm:
         - LLM06
     lifecycleStage:
