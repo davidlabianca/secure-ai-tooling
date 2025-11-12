@@ -128,14 +128,14 @@ This is a **best-effort** initial population based on:
 | Control | NIST AI RMF | Rationale |
 |---------|-------------|-----------|
 | controlTrainingDataSanitization | MS-2.7, MS-2.8 | Data quality and provenance management |
-| controlModelAndDataIntegrityManagement | SC-8, SI-7 | Cryptographic protections and integrity verification |
-| controlAdversarialTrainingAndTesting | MS-2.3, MS-2.6 | Adversarial testing and robustness |
+| controlModelAndDataIntegrityManagement | MS-2.3 | Integrity verification of AI system data and models |
+| controlAdversarialTrainingAndTesting | MS-2.6 | Adversarial testing and robustness |
 | controlApplicationAccessManagement | GV-6.1, MS-2.11 | Access controls and authentication |
 
 **Gaps:**
 - NIST AI RMF codes are less granular than needed for specific technical controls
 - Many risk items don't map directly (framework is control-focused)
-- Specific section references (like SC-8, SI-7) borrowed from NIST 800-53 where RMF aligns
+- NIST 800-53 controls (like SC-8, SI-7) are not included as AI RMF uses its own category system
 
 ### STRIDE
 

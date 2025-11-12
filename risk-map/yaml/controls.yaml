@@ -175,8 +175,7 @@ controls:
         - AML.M0013
         - AML.M0014
       nist-ai-rmf:
-        - SC-8
-        - SI-7
+        - MS-2.3
       stride:
         - tampering
     lifecycleStage:
