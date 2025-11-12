@@ -73,6 +73,22 @@ def format_dict(entry) -> str:
     return result.replace("- >", "").replace("\n", "<br>")
 
 
+def format_mappings(entry) -> str:
+    """Format mappings dictionary for metadata fields."""
+    if not entry or not isinstance(entry, dict):
+        return ""
+
+    parts = []
+    for framework, values in entry.items():
+        if isinstance(values, list):
+            values_str = ", ".join(values)
+            parts.append(f"**{framework}**: {values_str}")
+        else:
+            parts.append(f"**{framework}**: {values}")
+
+    return "<br>".join(parts)
+
+
 def collapse_column(entry) -> str:
     """Collapse multi-line or nested list content into HTML-formatted string."""
     if isinstance(entry, str):
@@ -187,6 +203,8 @@ class FullDetailTableGenerator(TableGenerator):
                 df[col] = df[col].apply(format_edges)
             elif col == "tourContent":
                 df[col] = df[col].apply(format_dict)
+            elif col == "mappings":
+                df[col] = df[col].apply(format_mappings)
             else:
                 df[col] = df[col].apply(format_list)
 

@@ -96,7 +96,6 @@ controls:
       - safety
       - privacy
       - fairness
-      - safety
     actorAccess:
       - supply-chain
       - privileged
