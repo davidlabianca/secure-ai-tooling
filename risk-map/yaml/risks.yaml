@@ -96,6 +96,9 @@ risks:
         - AML.T0020
         - AML.T0019
         - AML.T0010.002
+        - AML.T0043
+        - AML.T0059
+        - AML.T0008.002
       stride:
         - tampering
       owasp-top10-llm:
@@ -108,10 +111,12 @@ risks:
       - integrity
       - reliability
       - safety
+      - fairness
     actorAccess:
       - supply-chain
       - privileged
       - service-provider
+      - infrastructure-provider
   - id: UTD
     title: Unauthorized Training Data
     shortDescription:
@@ -245,9 +250,13 @@ risks:
       - integrity
       - availability
       - safety
+      - reliability
+      - compliance
     actorAccess:
       - supply-chain
       - privileged
+      - infrastructure-provider
+      - physical
   - id: EDH
     title: Excessive Data Handling
     shortDescription:
@@ -298,9 +307,12 @@ risks:
       - data-preparation
       - runtime
       - maintenance
+      - model-training
+      - evaluation
     impactType:
       - privacy
       - compliance
+      - confidentiality
     actorAccess:
       - privileged
       - service-provider
@@ -364,13 +376,19 @@ risks:
     lifecycleStage:
       - deployment
       - runtime
+      - model-training
+      - evaluation
+      - maintenance
     impactType:
       - confidentiality
       - integrity
+      - privacy
     actorAccess:
       - external
       - privileged
       - infrastructure-provider
+      - physical
+      - api
   - id: MDT
     title: Model Deployment Tampering
     shortDescription:
@@ -431,6 +449,7 @@ risks:
         - elevation-of-privilege
       owasp-top10-llm:
         - LLM03
+        - LLM01
     lifecycleStage:
       - deployment
       - runtime
@@ -441,6 +460,8 @@ risks:
     actorAccess:
       - privileged
       - infrastructure-provider
+      - api
+      - user
   - id: DMS
     title: Denial of ML Service
     shortDescription:
