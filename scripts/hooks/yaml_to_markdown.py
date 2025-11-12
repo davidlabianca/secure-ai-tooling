@@ -36,6 +36,10 @@ OUTPUT_FILE_PATTERN = "{type}-{format}.md"  # e.g., "controls-summary.md"
 
 def format_edges(edges: dict | None) -> str:
     """Format edges dictionary into readable markdown."""
+    # Handle pandas NaN values - check type first to avoid array ambiguity
+    if not isinstance(edges, dict) and pd.isna(edges):
+        return ""
+
     if not edges or not isinstance(edges, dict):
         return ""
 
@@ -50,6 +54,10 @@ def format_edges(edges: dict | None) -> str:
 
 def format_list(entry) -> str:
     """Format list entries with HTML line breaks."""
+    # Handle pandas NaN values - check type first to avoid array ambiguity
+    if not isinstance(entry, list) and pd.isna(entry):
+        return ""
+
     if not entry or not isinstance(entry, list):
         return str(entry) if entry else ""
 
@@ -58,6 +66,10 @@ def format_list(entry) -> str:
 
 def format_dict(entry) -> str:
     """Format dictionary entries with HTML formatting."""
+    # Handle pandas NaN values - check type first to avoid array ambiguity
+    if not isinstance(entry, dict) and pd.isna(entry):
+        return ""
+
     if not entry or not isinstance(entry, dict):
         return str(entry) if entry else ""
 
@@ -75,6 +87,10 @@ def format_dict(entry) -> str:
 
 def format_mappings(entry) -> str:
     """Format mappings dictionary for metadata fields."""
+    # Handle pandas NaN values - check type first to avoid array ambiguity
+    if not isinstance(entry, dict) and pd.isna(entry):
+        return ""
+
     if not entry or not isinstance(entry, dict):
         return ""
 
@@ -91,6 +107,10 @@ def format_mappings(entry) -> str:
 
 def collapse_column(entry) -> str:
     """Collapse multi-line or nested list content into HTML-formatted string."""
+    # Handle pandas NaN values - check type first to avoid array ambiguity
+    if not isinstance(entry, (str, list)) and pd.isna(entry):
+        return ""
+
     if isinstance(entry, str):
         return entry.replace("- >", "").replace("\n", "<br>")
     elif isinstance(entry, list) and len(entry) == 1:
