@@ -444,6 +444,7 @@ risks:
       mitre-atlas:
         - AML.T0010.003
         - AML.T0049
+        - AML.T0051
       stride:
         - tampering
         - elevation-of-privilege
@@ -663,6 +664,7 @@ risks:
         - tampering
         - elevation-of-privilege
       owasp-top10-llm:
+        - LLM03
         - LLM06
     lifecycleStage:
       - development
@@ -677,6 +679,7 @@ risks:
       - external
       - api
       - agent
+      - user
   - id: PIJ
     title: Prompt Injection
     shortDescription:
@@ -747,7 +750,6 @@ risks:
       owasp-top10-llm:
         - LLM01
     lifecycleStage:
-      - evaluation
       - runtime
     impactType:
       - integrity
@@ -945,10 +947,6 @@ risks:
     mappings:
       mitre-atlas:
         - AML.T0024
-        - AML.T0024.000
-        - AML.T0024.001
-      nist-ai-rmf:
-        - MS-2.9
       stride:
         - information-disclosure
       owasp-top10-llm:
@@ -966,6 +964,8 @@ risks:
       - api
       - user
       - agent
+      - privileged
+      - infrastructure-provider
   - id: ISD
     title: Inferred Sensitive Data
     shortDescription:
@@ -1031,7 +1031,6 @@ risks:
         - LLM02
         - LLM09
     lifecycleStage:
-      - evaluation
       - runtime
     impactType:
       - privacy
@@ -1090,7 +1089,6 @@ risks:
         - LLM05
         - LLM09
     lifecycleStage:
-      - evaluation
       - runtime
     impactType:
       - integrity
@@ -1176,13 +1174,13 @@ risks:
     mappings:
       mitre-atlas:
         - AML.T0051
+        - AML.T0086
       stride:
         - tampering
         - elevation-of-privilege
       owasp-top10-llm:
         - LLM06
     lifecycleStage:
-      - evaluation
       - runtime
     impactType:
       - integrity
