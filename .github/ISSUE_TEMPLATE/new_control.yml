@@ -93,7 +93,7 @@ body:
         ---
         ## Framework Mappings (Optional)
 
-        Map this control to external security frameworks by listing relevant technique/control IDs.
+        Map this control to external security frameworks by listing relevant mitigation or control IDs.
         Enter one ID per line (no special formatting needed).
 
   - type: textarea
@@ -103,34 +103,10 @@ body:
       description: |
         [MITRE Adversarial Threat Landscape for AI Systems](https://atlas.mitre.org)
 
-        List MITRE ATLAS technique or mitigation IDs (e.g., AML.T0043, AML.M0007)
+        List MITRE ATLAS mitigation IDs (e.g., AML.M0007, AML.M0013)
       placeholder: |
         AML.M0007
-        AML.T0043
-
-  - type: textarea
-    id: mapping-owasp-top10-llm
-    attributes:
-      label: OWASP Top 10 for LLM
-      description: |
-        [OWASP Top 10 for Large Language Model Applications](https://owasp.org/www-project-top-10-for-large-language-model-applications)
-
-        List OWASP LLM vulnerability IDs (e.g., LLM01, LLM02)
-      placeholder: |
-        LLM01
-        LLM03
-
-  - type: textarea
-    id: mapping-stride
-    attributes:
-      label: STRIDE Threat Model
-      description: |
-        [Microsoft STRIDE Threat Modeling](https://learn.microsoft.com/en-us/azure/security/develop/threat-modeling-tool-threats)
-
-        List STRIDE threat categories this control addresses
-      placeholder: |
-        information-disclosure
-        tampering
+        AML.M0013
 
   - type: textarea
     id: mapping-nist-ai-rmf
@@ -139,10 +115,10 @@ body:
       description: |
         [NIST AI Risk Management Framework](https://www.nist.gov/itl/ai-risk-management-framework)
 
-        List relevant NIST AI RMF functions or categories
+        List relevant NIST AI RMF subcategories (e.g., MS-2.3, GV-6.2)
       placeholder: |
-        GOVERN-1.1
-        MAP-2.3
+        MS-2.3
+        GV-6.2
 
   - type: checkboxes
     id: lifecycle-stage
