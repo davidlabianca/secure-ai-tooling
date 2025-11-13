@@ -36,6 +36,10 @@ OUTPUT_FILE_PATTERN = "{type}-{format}.md"  # e.g., "controls-summary.md"
 
 def format_edges(edges: dict | None) -> str:
     """Format edges dictionary into readable markdown."""
+    # Handle pandas NaN values - check type first to avoid array ambiguity
+    if not isinstance(edges, dict) and pd.isna(edges):
+        return ""
+
     if not edges or not isinstance(edges, dict):
         return ""
 
@@ -50,6 +54,10 @@ def format_edges(edges: dict | None) -> str:
 
 def format_list(entry) -> str:
     """Format list entries with HTML line breaks."""
+    # Handle pandas NaN values - check type first to avoid array ambiguity
+    if not isinstance(entry, list) and pd.isna(entry):
+        return ""
+
     if not entry or not isinstance(entry, list):
         return str(entry) if entry else ""
 
@@ -58,6 +66,10 @@ def format_list(entry) -> str:
 
 def format_dict(entry) -> str:
     """Format dictionary entries with HTML formatting."""
+    # Handle pandas NaN values - check type first to avoid array ambiguity
+    if not isinstance(entry, dict) and pd.isna(entry):
+        return ""
+
     if not entry or not isinstance(entry, dict):
         return str(entry) if entry else ""
 
@@ -73,8 +85,32 @@ def format_dict(entry) -> str:
     return result.replace("- >", "").replace("\n", "<br>")
 
 
+def format_mappings(entry) -> str:
+    """Format mappings dictionary for metadata fields."""
+    # Handle pandas NaN values - check type first to avoid array ambiguity
+    if not isinstance(entry, dict) and pd.isna(entry):
+        return ""
+
+    if not entry or not isinstance(entry, dict):
+        return ""
+
+    parts = []
+    for framework, values in entry.items():
+        if isinstance(values, list):
+            values_str = ", ".join(values)
+            parts.append(f"**{framework}**: {values_str}")
+        else:
+            parts.append(f"**{framework}**: {values}")
+
+    return "<br>".join(parts)
+
+
 def collapse_column(entry) -> str:
     """Collapse multi-line or nested list content into HTML-formatted string."""
+    # Handle pandas NaN values - check type first to avoid array ambiguity
+    if not isinstance(entry, (str, list)) and pd.isna(entry):
+        return ""
+
     if isinstance(entry, str):
         return entry.replace("- >", "").replace("\n", "<br>")
     elif isinstance(entry, list) and len(entry) == 1:
@@ -187,6 +223,8 @@ class FullDetailTableGenerator(TableGenerator):
                 df[col] = df[col].apply(format_edges)
             elif col == "tourContent":
                 df[col] = df[col].apply(format_dict)
+            elif col == "mappings":
+                df[col] = df[col].apply(format_mappings)
             else:
                 df[col] = df[col].apply(format_list)
 
