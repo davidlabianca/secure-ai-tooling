@@ -83,9 +83,6 @@ controls:
     mappings:
       mitre-atlas:
         - AML.M0007
-      nist-ai-rmf:
-        - MS-2.7
-        - MS-2.8
     lifecycleStage:
       - data-preparation
       - model-training
@@ -212,9 +209,6 @@ controls:
     mappings:
       mitre-atlas:
         - AML.M0011
-      nist-ai-rmf:
-        - MS-1.1
-        - MS-2.5
     lifecycleStage:
       - development
       - model-training
@@ -321,9 +315,6 @@ controls:
         - AML.M0003
         - AML.M0006
         - AML.M0008
-      nist-ai-rmf:
-        - MS-2.3
-        - MS-2.6
     lifecycleStage:
       - model-training
       - evaluation
@@ -353,9 +344,6 @@ controls:
     mappings:
       mitre-atlas:
         - AML.M0019
-      nist-ai-rmf:
-        - GV-6.1
-        - MS-2.11
       owasp-top10-llm:
         - LLM10
     lifecycleStage:

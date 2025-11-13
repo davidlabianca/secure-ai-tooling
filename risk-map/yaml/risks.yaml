@@ -163,8 +163,6 @@ risks:
         - AML.T0010.002
       stride:
         - information-disclosure
-      owasp-top10-llm:
-        - LLM04
     lifecycleStage:
       - planning
       - data-preparation
@@ -660,6 +658,7 @@ risks:
     mappings:
       mitre-atlas:
         - AML.T0051
+        - AML.T0049
       stride:
         - tampering
         - elevation-of-privilege
