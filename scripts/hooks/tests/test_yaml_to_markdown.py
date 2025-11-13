@@ -31,6 +31,8 @@ Test Coverage:
    - Text collapsing (multi-line descriptions)
    - List formatting
    - Dictionary formatting (tourContent)
+   - Mappings formatting (metadata mappings)
+   - Pandas NaN handling for all formatters
 
 5. End-to-End Workflows:
    - Single type conversion
@@ -49,6 +51,7 @@ import tempfile
 from pathlib import Path
 from unittest.mock import patch
 
+import pandas as pd
 import pytest
 import yaml
 
@@ -194,6 +197,82 @@ class TestFormattingFunctions:
     def test_collapse_column_non_list_non_string(self):
         """Test collapse_column with non-list, non-string input returns string representation."""
         assert yaml_to_markdown.collapse_column(123) == "123"
+
+    # NaN handling tests
+    def test_format_edges_with_nan(self):
+        """Test format_edges handles pandas NaN values correctly."""
+        result = yaml_to_markdown.format_edges(pd.NA)
+        assert result == ""
+
+        result = yaml_to_markdown.format_edges(float('nan'))
+        assert result == ""
+
+    def test_format_list_with_nan(self):
+        """Test format_list handles pandas NaN values correctly."""
+        result = yaml_to_markdown.format_list(pd.NA)
+        assert result == ""
+
+        result = yaml_to_markdown.format_list(float('nan'))
+        assert result == ""
+
+    def test_format_dict_with_nan(self):
+        """Test format_dict handles pandas NaN values correctly."""
+        result = yaml_to_markdown.format_dict(pd.NA)
+        assert result == ""
+
+        result = yaml_to_markdown.format_dict(float('nan'))
+        assert result == ""
+
+    def test_collapse_column_with_nan(self):
+        """Test collapse_column handles pandas NaN values correctly."""
+        result = yaml_to_markdown.collapse_column(pd.NA)
+        assert result == ""
+
+        result = yaml_to_markdown.collapse_column(float('nan'))
+        assert result == ""
+
+    def test_format_mappings_simple(self):
+        """Test formatting a simple mappings dictionary."""
+        test_dict = {
+            "NIST AI RMF": ["GOVERN-1.1", "GOVERN-1.2"],
+            "ISO 42001": ["5.1", "5.2"]
+        }
+        result = yaml_to_markdown.format_mappings(test_dict)
+
+        assert "**NIST AI RMF**:" in result
+        assert "GOVERN-1.1, GOVERN-1.2" in result
+        assert "**ISO 42001**:" in result
+        assert "5.1, 5.2" in result
+        assert "<br>" in result
+
+    def test_format_mappings_string_values(self):
+        """Test formatting mappings with string values."""
+        test_dict = {
+            "Framework1": "Single value",
+            "Framework2": ["Value1", "Value2"]
+        }
+        result = yaml_to_markdown.format_mappings(test_dict)
+
+        assert "**Framework1**: Single value" in result
+        assert "**Framework2**: Value1, Value2" in result
+
+    def test_format_mappings_empty(self):
+        """Test format_mappings with empty/None inputs."""
+        assert yaml_to_markdown.format_mappings({}) == ""
+        assert yaml_to_markdown.format_mappings(None) == ""
+
+    def test_format_mappings_with_nan(self):
+        """Test format_mappings handles pandas NaN values correctly."""
+        result = yaml_to_markdown.format_mappings(pd.NA)
+        assert result == ""
+
+        result = yaml_to_markdown.format_mappings(float('nan'))
+        assert result == ""
+
+    def test_format_mappings_non_dict(self):
+        """Test format_mappings with non-dict input returns empty string."""
+        assert yaml_to_markdown.format_mappings("string") == ""
+        assert yaml_to_markdown.format_mappings(123) == ""
 
 
 class TestYamlToMarkdownTable:
