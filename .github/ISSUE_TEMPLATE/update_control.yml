@@ -62,59 +62,48 @@ body:
         ---
         ## Quick Add/Remove (Optional)
 
-        Use these fields for quick additions or removals. Leave blank if not applicable.
+        Use these fields for quick additions or removals. Prefix with `+` to add, `-` to remove.
+        Leave blank if not applicable.
 
   - type: textarea
-    id: add-components
+    id: components
     attributes:
-      label: Add Components
+      label: Component Changes
       description: |
-        Component IDs to add (one per line)
+        Add or remove component IDs. Use `+` to add, `-` to remove (one per line)
 
         📋 [View component list](../../risk-map/tables/components-summary.md)
       placeholder: |
-        componentModelEvaluation
-        componentOutputHandling
+        + componentModelEvaluation
+        + componentOutputHandling
+        - componentDataSources
 
   - type: textarea
-    id: remove-components
+    id: risks
     attributes:
-      label: Remove Components
-      description: Component IDs to remove (one per line)
-      placeholder: |
-        componentDataSources
-
-  - type: textarea
-    id: add-risks
-    attributes:
-      label: Add Risks
+      label: Risk Changes
       description: |
-        Risk IDs to add (one per line)
+        Add or remove risk IDs. Use `+` to add, `-` to remove (one per line)
 
         📋 [View risk list](../../risk-map/tables/risks-summary.md)
       placeholder: |
-        MEV
-        IIC
+        + MEV
+        + IIC
+        - PIJ
 
   - type: textarea
-    id: remove-risks
+    id: framework-mappings
     attributes:
-      label: Remove Risks
-      description: Risk IDs to remove (one per line)
-      placeholder: |
-        PIJ
-
-  - type: textarea
-    id: add-framework-mappings
-    attributes:
-      label: Add Framework Mappings
+      label: Framework Mapping Changes
       description: |
-        Framework mappings to add. Use format: `framework-id: mapping-value`
+        Add or remove framework mappings. Use `+` to add, `-` to remove.
+        Format: `+/- framework-id: mapping-value`
 
         Valid frameworks for controls: mitre-atlas, nist-ai-rmf
       placeholder: |
-        mitre-atlas: AML.M0015
-        nist-ai-rmf: GV-4.1
+        + mitre-atlas: AML.M0015
+        + nist-ai-rmf: GV-4.1
+        - mitre-atlas: AML.M0007
 
   - type: textarea
     id: supporting-evidence
