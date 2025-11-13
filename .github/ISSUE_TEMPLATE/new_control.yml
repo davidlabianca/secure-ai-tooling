@@ -61,6 +61,9 @@ body:
       label: Applicable Components*
       description: |
         List component IDs this control applies to (one per line), or use "all" or "none"
+
+        📋 [View full component list](../../risk-map/tables/components-summary.md)
+
         Common components: componentDataSources, componentTrainingData, componentModelServing, componentModelStorage, componentOutputHandling, etc.
       placeholder: |
         componentDataSources
@@ -74,6 +77,9 @@ body:
       label: Mitigated Risks*
       description: |
         List risk IDs this control addresses (one per line), or use "all"
+
+        📋 [View full risk list](../../risk-map/tables/risks-summary.md)
+
         Common risks: DP (Data Poisoning), MST (Model Theft), PIJ (Prompt Injection), SDD (Sensitive Data Disclosure), etc.
       placeholder: |
         DP
@@ -81,24 +87,62 @@ body:
     validations:
       required: true
 
-  - type: textarea
-    id: mappings
+  - type: markdown
     attributes:
-      label: Framework Mappings (Optional)
+      value: |
+        ---
+        ## Framework Mappings (Optional)
+
+        Map this control to external security frameworks by listing relevant technique/control IDs.
+        Enter one ID per line (no special formatting needed).
+
+  - type: textarea
+    id: mapping-mitre-atlas
+    attributes:
+      label: MITRE ATLAS
       description: |
-        Map this control to external security frameworks. Use YAML format:
-        ```
-        mitre-atlas:
-          - AML.M0007
-          - AML.M0015
-        owasp-top10-llm:
-          - LLM01
-        ```
+        [MITRE Adversarial Threat Landscape for AI Systems](https://atlas.mitre.org)
+
+        List MITRE ATLAS technique or mitigation IDs (e.g., AML.T0043, AML.M0007)
       placeholder: |
-        mitre-atlas:
-          - AML.M0007
-        stride:
-          - information-disclosure
+        AML.M0007
+        AML.T0043
+
+  - type: textarea
+    id: mapping-owasp-top10-llm
+    attributes:
+      label: OWASP Top 10 for LLM
+      description: |
+        [OWASP Top 10 for Large Language Model Applications](https://owasp.org/www-project-top-10-for-large-language-model-applications)
+
+        List OWASP LLM vulnerability IDs (e.g., LLM01, LLM02)
+      placeholder: |
+        LLM01
+        LLM03
+
+  - type: textarea
+    id: mapping-stride
+    attributes:
+      label: STRIDE Threat Model
+      description: |
+        [Microsoft STRIDE Threat Modeling](https://learn.microsoft.com/en-us/azure/security/develop/threat-modeling-tool-threats)
+
+        List STRIDE threat categories this control addresses
+      placeholder: |
+        information-disclosure
+        tampering
+
+  - type: textarea
+    id: mapping-nist-ai-rmf
+    attributes:
+      label: NIST AI RMF
+      description: |
+        [NIST AI Risk Management Framework](https://www.nist.gov/itl/ai-risk-management-framework)
+
+        List relevant NIST AI RMF functions or categories
+      placeholder: |
+        GOVERN-1.1
+        MAP-2.3
 
   - type: checkboxes
     id: lifecycle-stage
