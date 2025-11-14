@@ -1,0 +1,246 @@
+name: New Risk Proposal
+description: Propose a new AI security risk for the CoSAI Risk Map
+title: '[Risk]: '
+labels: ['risk', 'new-risk']
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## Propose a New Risk
+        Use this template to suggest a new AI security risk for the framework.
+
+        **Required fields** are marked with an asterisk (*).
+
+  - type: input
+    id: risk-id
+    attributes:
+      label: Risk ID*
+      description: |
+        Unique 2-4 letter uppercase identifier (abbreviation of the risk name)
+
+        Examples: DP (Data Poisoning), PIJ (Prompt Injection), MST (Model Source Tampering)
+      placeholder: 'e.g., MEM'
+    validations:
+      required: true
+
+  - type: input
+    id: risk-title
+    attributes:
+      label: Risk Title*
+      description: A concise, descriptive name for the risk
+      placeholder: 'e.g., Model Extraction via Membership Inference'
+    validations:
+      required: true
+
+  - type: textarea
+    id: risk-short-description
+    attributes:
+      label: Short Description*
+      description: |
+        One or two sentence summary of the risk (1-2 sentences)
+
+        This appears in risk summary tables and overviews
+      placeholder: 'Brief description of the risk, its cause, and primary impact...'
+    validations:
+      required: true
+
+  - type: textarea
+    id: risk-long-description
+    attributes:
+      label: Long Description*
+      description: |
+        Comprehensive explanation of the risk (multiple paragraphs)
+
+        Include:
+        - Detailed description of the attack/vulnerability
+        - How it occurs and attack vectors
+        - Potential impact and consequences
+        - Known real-world examples or research
+      placeholder: |
+        Paragraph 1: Detailed description of what this risk entails...
+
+        Paragraph 2: How this risk manifests and attack vectors...
+
+        Paragraph 3: Impact and consequences...
+    validations:
+      required: true
+
+  - type: dropdown
+    id: risk-category
+    attributes:
+      label: Risk Category*
+      description: Primary category this risk belongs to
+      options:
+        - risksSupplyChainAndDevelopment (Supply Chain & Development)
+        - risksDeploymentAndInfrastructure (Deployment & Infrastructure)
+        - risksRuntimeInputSecurity (Runtime Input Security)
+        - risksRuntimeDataSecurity (Runtime Data Security)
+        - risksRuntimeOutputSecurity (Runtime Output Security)
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: personas
+    attributes:
+      label: Applicable Personas*
+      description: Which personas need to mitigate this risk?
+      options:
+        - label: Model Creator (personaModelCreator)
+        - label: Model Consumer (personaModelConsumer)
+    validations:
+      required: true
+
+  - type: textarea
+    id: controls
+    attributes:
+      label: Applicable Controls*
+      description: |
+        Control IDs that mitigate this risk (one per line)
+
+        ✨ **Automatic Cross-Mapping**: When you map this risk to controls, the reverse mappings are automatically created. Each control you list here will automatically get this risk added to its mitigated risks.
+
+        📋 [View control list](../../risk-map/tables/controls-summary.md)
+      placeholder: |
+        controlModelAndDataAccessControls
+        controlThreatDetection
+    validations:
+      required: true
+
+  - type: textarea
+    id: examples
+    attributes:
+      label: Examples (Optional)
+      description: |
+        Real-world examples, research papers, or case studies demonstrating this risk
+
+        Can include HTML links: <a href="URL">description</a>
+      placeholder: |
+        Researchers demonstrated this attack in [paper/case study]...
+
+        <a href="https://arxiv.org/..." target="_blank" rel="noopener">Research paper title</a>
+
+  - type: textarea
+    id: relevant-questions
+    attributes:
+      label: Relevant Questions (Optional)
+      description: |
+        Key questions organizations should ask when assessing this risk (one per line)
+      placeholder: |
+        How is training data sourced and validated?
+        What access controls are in place for model storage?
+        Are there monitoring systems to detect anomalous behavior?
+
+  - type: markdown
+    attributes:
+      value: |
+        ---
+        ## Framework Mappings (Optional)
+
+        Map this risk to external security frameworks by listing relevant technique/attack IDs.
+        Enter one ID per line (no special formatting needed).
+
+  - type: textarea
+    id: mapping-mitre-atlas
+    attributes:
+      label: MITRE ATLAS
+      description: |
+        [MITRE Adversarial Threat Landscape for AI Systems](https://atlas.mitre.org)
+
+        List MITRE ATLAS technique IDs (e.g., AML.T0043, AML.T0020)
+      placeholder: |
+        AML.T0043
+        AML.T0020
+
+  - type: textarea
+    id: mapping-stride
+    attributes:
+      label: STRIDE Threat Model
+      description: |
+        [Microsoft STRIDE Threat Modeling](https://learn.microsoft.com/en-us/azure/security/develop/threat-modeling-tool-threats)
+
+        List STRIDE threat categories this risk represents
+      placeholder: |
+        information-disclosure
+        tampering
+
+  - type: textarea
+    id: mapping-owasp-top10-llm
+    attributes:
+      label: OWASP Top 10 for LLM
+      description: |
+        [OWASP Top 10 for Large Language Model Applications](https://owasp.org/www-project-top-10-for-large-language-model-applications)
+
+        List OWASP LLM vulnerability IDs (e.g., LLM01, LLM02)
+      placeholder: |
+        LLM01
+        LLM03
+
+  - type: checkboxes
+    id: lifecycle-stage
+    attributes:
+      label: Lifecycle Stages (Optional)
+      description: Which AI system lifecycle phases does this risk apply to?
+      options:
+        - label: Planning
+        - label: Data Preparation
+        - label: Model Training
+        - label: Development
+        - label: Evaluation
+        - label: Deployment
+        - label: Runtime
+        - label: Maintenance
+
+  - type: checkboxes
+    id: impact-type
+    attributes:
+      label: Impact Types (Optional)
+      description: What types of security/safety impacts does this risk create?
+      options:
+        - label: Confidentiality
+        - label: Integrity
+        - label: Availability
+        - label: Privacy
+        - label: Safety
+        - label: Compliance
+        - label: Fairness
+        - label: Accountability
+        - label: Reliability
+        - label: Transparency
+
+  - type: checkboxes
+    id: actor-access
+    attributes:
+      label: Actor Access Levels (Optional)
+      description: What threat actor access levels can exploit this risk?
+      options:
+        - label: External (no system access)
+        - label: API (API-level access)
+        - label: User (authenticated user)
+        - label: Privileged (admin/elevated access)
+        - label: Agent (autonomous agent)
+        - label: Supply Chain
+        - label: Infrastructure Provider
+        - label: Service Provider
+        - label: Physical (physical access)
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional Context
+      description: Any additional information, references, or considerations
+      placeholder: 'Provide additional context, related risks, mitigation strategies, etc.'
+
+  - type: checkboxes
+    id: terms
+    attributes:
+      label: Submission Checklist
+      description: Please confirm the following
+      options:
+        - label: I have reviewed existing risks to ensure this is not a duplicate
+          required: true
+        - label: I understand that reverse control-to-risk mappings will be automatically created
+          required: true
+        - label: I have provided all required fields marked with (*)
+          required: true
+        - label: The risk aligns with the CoSAI Risk Map framework objectives
+          required: true

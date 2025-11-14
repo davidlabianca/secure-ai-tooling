@@ -1,0 +1,128 @@
+name: Update Existing Persona
+description: Propose updates to an existing persona in the CoSAI Risk Map
+title: '[Update Persona]: '
+labels: ['persona', 'update-persona']
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## Update an Existing Persona
+
+        Use this template to propose changes to an existing persona. Only fill out the sections relevant to your proposed changes.
+
+        **Current personas**: Model Creator, Model Consumer
+
+  - type: input
+    id: persona-permalink
+    attributes:
+      label: Persona Permalink*
+      description: |
+        GitHub permalink to the persona in personas.yaml (right-click line number → Copy permalink)
+
+        📋 [Browse personas.yaml](../../risk-map/yaml/personas.yaml)
+      placeholder: 'https://github.com/org/repo/blob/abc123/risk-map/yaml/personas.yaml#L20-L30'
+    validations:
+      required: true
+
+  - type: dropdown
+    id: change-type
+    attributes:
+      label: Change Type*
+      description: What type of change are you proposing?
+      options:
+        - Update title (rename persona)
+        - Update description (clarification or expansion)
+        - Refine scope or responsibilities
+        - Other (describe below)
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposed-changes
+    attributes:
+      label: Proposed Changes*
+      description: |
+        Describe what you want to change and why. Be specific about what should be added, removed, or modified.
+
+        **Examples:**
+        - "Update description to clarify that Model Creator includes both those who train from scratch and those who fine-tune existing models"
+        - "Expand scope to explicitly include MLOps engineers who manage model deployment pipelines"
+        - "Clarify distinction between Model Creator and Model Consumer for organizations that do both"
+        - "Update title from 'Model Creator' to 'Model Developer' for better industry alignment"
+      placeholder: |
+        Current state: [what it says now]
+        Proposed change: [what it should say]
+        Rationale: [why this change improves the persona definition]
+    validations:
+      required: true
+
+  - type: textarea
+    id: updated-description
+    attributes:
+      label: Updated Description
+      description: |
+        If proposing description changes, provide the updated text here
+
+        Include the complete proposed description
+      placeholder: |
+        Proposed new description:
+
+        [Full description text]
+
+  - type: textarea
+    id: scope-clarification
+    attributes:
+      label: Scope Clarification
+      description: |
+        If refining scope, clarify what roles/responsibilities are included or excluded
+      placeholder: |
+        Included in this persona:
+        - Role A
+        - Role B
+
+        Excluded from this persona (covered by other personas):
+        - Role C
+        - Role D
+
+  - type: textarea
+    id: framework-impact
+    attributes:
+      label: Framework Impact Assessment
+      description: |
+        How would this change affect the existing framework?
+
+        Consider:
+        - Does this change the interpretation of existing controls?
+        - Does this affect which risks apply to this persona?
+        - Are there downstream impacts to control/risk mappings?
+      placeholder: |
+        Impact analysis:
+        - This change clarifies existing mappings but doesn't require updates
+        - OR: This would require reviewing X controls and Y risks for applicability
+
+  - type: textarea
+    id: supporting-evidence
+    attributes:
+      label: Supporting Evidence
+      description: |
+        Links to industry standards, role definitions, or discussions supporting this change
+      placeholder: |
+        - Industry standard role definition: https://...
+        - Discussion in issue #123
+        - MLOps maturity model: https://...
+        - NIST guidance on AI roles: https://...
+
+  - type: checkboxes
+    id: terms
+    attributes:
+      label: Submission Checklist
+      description: Please confirm the following
+      options:
+        - label: I have provided a valid GitHub permalink to the persona
+          required: true
+        - label: I have clearly described the proposed changes and rationale
+          required: true
+        - label: I have considered the impact on existing control and risk mappings
+          required: true
+        - label: This change improves clarity or accuracy of the persona definition
+          required: true

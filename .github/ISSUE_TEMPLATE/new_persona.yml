@@ -1,0 +1,156 @@
+name: New Persona Proposal
+description: Propose a new persona for the CoSAI Risk Map
+title: '[Persona]: '
+labels: ['persona', 'new-persona']
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## Propose a New Persona
+
+        Use this template to suggest a new persona for the AI risk framework.
+
+        **Required fields** are marked with an asterisk (*).
+
+        **Current personas**: Model Creator, Model Consumer
+
+        **Note**: Personas represent key roles in the AI ecosystem responsible for implementing controls and managing risks. Consider carefully whether a new persona is needed or if the proposed role fits within existing personas.
+
+  - type: input
+    id: persona-id
+    attributes:
+      label: Persona ID*
+      description: |
+        Unique identifier in camelCase format
+
+        Must start with "persona" (e.g., personaModelAuditor)
+      placeholder: 'e.g., personaModelAuditor'
+    validations:
+      required: true
+
+  - type: input
+    id: persona-title
+    attributes:
+      label: Persona Title*
+      description: A concise, human-readable name for the persona
+      placeholder: 'e.g., Model Auditor'
+    validations:
+      required: true
+
+  - type: textarea
+    id: persona-description
+    attributes:
+      label: Persona Description*
+      description: |
+        Comprehensive explanation of this persona's role, responsibilities, and relationship to AI systems
+
+        Include:
+        - Primary responsibilities and activities
+        - Relationship to AI development/deployment lifecycle
+        - Key concerns and objectives
+        - How this persona differs from existing personas
+      placeholder: |
+        Describe the persona's role, responsibilities, and how they interact with AI systems...
+
+        Explain why this persona is distinct from existing personas...
+    validations:
+      required: true
+
+  - type: textarea
+    id: use-cases
+    attributes:
+      label: Use Cases and Examples*
+      description: |
+        Concrete examples of roles or organizations that would fall under this persona
+
+        Help clarify who this persona represents in practice
+      placeholder: |
+        Examples:
+        - Third-party security auditors
+        - Compliance officers
+        - Regulatory bodies
+        - Independent researchers
+    validations:
+      required: true
+
+  - type: textarea
+    id: control-responsibilities
+    attributes:
+      label: Control Responsibilities
+      description: |
+        What types of controls would this persona be responsible for implementing?
+
+        List control categories or specific controls this persona would manage
+      placeholder: |
+        This persona would be responsible for:
+        - Assurance controls (verification, validation)
+        - Compliance controls (regulatory requirements)
+        - Independent testing and evaluation
+
+  - type: textarea
+    id: risk-responsibilities
+    attributes:
+      label: Risk Responsibilities
+      description: |
+        What risks would this persona be responsible for mitigating?
+
+        List risk categories or specific risks this persona addresses
+      placeholder: |
+        This persona would address risks such as:
+        - Compliance violations
+        - Undetected vulnerabilities
+        - Lack of independent oversight
+
+  - type: textarea
+    id: relationship-to-existing
+    attributes:
+      label: Relationship to Existing Personas*
+      description: |
+        Explain how this persona relates to and differs from Model Creator and Model Consumer
+
+        Why can't existing personas cover this role?
+      placeholder: |
+        Unlike Model Creator (who develops models) and Model Consumer (who deploys models), this persona...
+
+        This role is distinct because...
+    validations:
+      required: true
+
+  - type: textarea
+    id: framework-impact
+    attributes:
+      label: Framework Impact Assessment
+      description: |
+        How would adding this persona affect the existing framework?
+
+        Consider:
+        - How many controls would need to be updated?
+        - How many risks would need to be updated?
+        - What new relationships would be created?
+      placeholder: |
+        Impact analysis:
+        - Estimated X controls would be updated to include this persona
+        - Estimated Y risks would be updated
+        - New relationships: ...
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional Context
+      description: Any additional information, references, or considerations
+      placeholder: 'Provide industry standards, regulatory frameworks, or other supporting context...'
+
+  - type: checkboxes
+    id: terms
+    attributes:
+      label: Submission Checklist
+      description: Please confirm the following
+      options:
+        - label: I have reviewed existing personas to ensure this is not redundant
+          required: true
+        - label: I have clearly explained why existing personas cannot cover this role
+          required: true
+        - label: I have provided all required fields marked with (*)
+          required: true
+        - label: I understand that adding a persona requires significant updates to controls and risks
+          required: true

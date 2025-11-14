@@ -1,0 +1,131 @@
+name: Update Existing Component
+description: Propose updates to an existing AI system component in the CoSAI Risk Map
+title: '[Update Component]: '
+labels: ['component', 'update-component']
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## Update an Existing Component
+
+        Use this template to propose changes to an existing component. Only fill out the sections relevant to your proposed changes.
+
+        ✨ **Automatic Bidirectionality**: When you modify edges, the reverse edges are automatically updated. If you add/remove an edge here, the connected components will be automatically updated to maintain bidirectional consistency.
+
+  - type: input
+    id: component-permalink
+    attributes:
+      label: Component Permalink*
+      description: |
+        GitHub permalink to the component in components.yaml (right-click line number → Copy permalink)
+
+        📋 [Browse components.yaml](../../risk-map/yaml/components.yaml)
+      placeholder: 'https://github.com/org/repo/blob/abc123/risk-map/yaml/components.yaml#L45-L52'
+    validations:
+      required: true
+
+  - type: dropdown
+    id: change-type
+    attributes:
+      label: Change Type*
+      description: What type of change are you proposing?
+      options:
+        - Update description/title (clarification or correction)
+        - Modify edges (add or remove connections)
+        - Change category or subcategory
+        - Other (describe below)
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposed-changes
+    attributes:
+      label: Proposed Changes*
+      description: |
+        Describe what you want to change and why. Be specific about what should be added, removed, or modified.
+
+        **Examples:**
+        - "Update description to clarify this component's role in the agent workflow"
+        - "Add edge to componentPromptCache - this component feeds data to the cache"
+        - "Remove edge from componentDataSources - this connection doesn't accurately reflect the architecture"
+        - "Change category from componentsModel to componentsApplication - better classification"
+      placeholder: |
+        Current state: [what it says now]
+        Proposed change: [what it should say]
+        Rationale: [why this change improves the component definition]
+    validations:
+      required: true
+
+  - type: markdown
+    attributes:
+      value: |
+        ---
+        ## Quick Edge Changes (Optional)
+
+        Use these fields for quick edge additions or removals. Use `+` to add, `-` to remove.
+
+        ✨ **Automatic Bidirectionality**: Edge changes automatically update connected components. When you add/remove edges here, the reverse edges are automatically created/removed in the connected components.
+
+        📋 [View component list](../../risk-map/tables/components-summary.md)
+
+  - type: textarea
+    id: edges-to
+    attributes:
+      label: Edges To Changes (Downstream)
+      description: |
+        Add or remove downstream connections. Use `+` to add, `-` to remove (one per line)
+
+        Components that this component flows TO
+      placeholder: |
+        + componentOutputHandling
+        - componentOldComponent
+
+  - type: textarea
+    id: edges-from
+    attributes:
+      label: Edges From Changes (Upstream)
+      description: |
+        Add or remove upstream connections. Use `+` to add, `-` to remove (one per line)
+
+        Components that flow TO this component
+      placeholder: |
+        + componentInputHandling
+        - componentDeprecatedSource
+
+  - type: textarea
+    id: related-components
+    attributes:
+      label: Related Component Updates
+      description: |
+        List other components that need edge updates to maintain bidirectionality
+
+        Format: `componentName: add/remove edge to/from [this component]`
+      placeholder: |
+        componentOutputHandling: add edge from componentMyComponent
+        componentOldComponent: remove edge to componentMyComponent
+
+  - type: textarea
+    id: supporting-evidence
+    attributes:
+      label: Supporting Evidence
+      description: |
+        Links to architecture diagrams, discussions, or other evidence supporting this change
+      placeholder: |
+        - Architecture diagram: https://example.com/diagram.png
+        - Discussion in issue #123
+        - Related component update: #456
+
+  - type: checkboxes
+    id: terms
+    attributes:
+      label: Submission Checklist
+      description: Please confirm the following
+      options:
+        - label: I have provided a valid GitHub permalink to the component
+          required: true
+        - label: I have clearly described the proposed changes and rationale
+          required: true
+        - label: I understand that reverse edges will be automatically updated in connected components
+          required: true
+        - label: This change improves the accuracy of the component architecture
+          required: true
