@@ -1,7 +1,7 @@
 name: Update Existing Control
 description: Propose updates to an existing security control in the CoSAI Risk Map
-title: "[Update Control]: "
-labels: ["control", "update-control"]
+title: '[Update Control]: '
+labels: ['control', 'update-control']
 body:
   - type: markdown
     attributes:
@@ -18,7 +18,7 @@ body:
         GitHub permalink to the control in controls.yaml (right-click line number → Copy permalink)
 
         📋 [Browse controls.yaml](../../risk-map/yaml/controls.yaml)
-      placeholder: "https://github.com/org/repo/blob/abc123/risk-map/yaml/controls.yaml#L45-L52"
+      placeholder: 'https://github.com/org/repo/blob/abc123/risk-map/yaml/controls.yaml#L45-L52'
     validations:
       required: true
 

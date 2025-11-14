@@ -1,7 +1,7 @@
 name: Update Existing Persona
 description: Propose updates to an existing persona in the CoSAI Risk Map
-title: "[Update Persona]: "
-labels: ["persona", "update-persona"]
+title: '[Update Persona]: '
+labels: ['persona', 'update-persona']
 body:
   - type: markdown
     attributes:
@@ -20,7 +20,7 @@ body:
         GitHub permalink to the persona in personas.yaml (right-click line number → Copy permalink)
 
         📋 [Browse personas.yaml](../../risk-map/yaml/personas.yaml)
-      placeholder: "https://github.com/org/repo/blob/abc123/risk-map/yaml/personas.yaml#L20-L30"
+      placeholder: 'https://github.com/org/repo/blob/abc123/risk-map/yaml/personas.yaml#L20-L30'
     validations:
       required: true
 

@@ -1,7 +1,7 @@
 name: New Risk Proposal
 description: Propose a new AI security risk for the CoSAI Risk Map
-title: "[Risk]: "
-labels: ["risk", "new-risk"]
+title: '[Risk]: '
+labels: ['risk', 'new-risk']
 body:
   - type: markdown
     attributes:
@@ -19,7 +19,7 @@ body:
         Unique 2-4 letter uppercase identifier (abbreviation of the risk name)
 
         Examples: DP (Data Poisoning), PIJ (Prompt Injection), MST (Model Source Tampering)
-      placeholder: "e.g., MEM"
+      placeholder: 'e.g., MEM'
     validations:
       required: true
 
@@ -28,7 +28,7 @@ body:
     attributes:
       label: Risk Title*
       description: A concise, descriptive name for the risk
-      placeholder: "e.g., Model Extraction via Membership Inference"
+      placeholder: 'e.g., Model Extraction via Membership Inference'
     validations:
       required: true
 
@@ -40,7 +40,7 @@ body:
         One or two sentence summary of the risk (1-2 sentences)
 
         This appears in risk summary tables and overviews
-      placeholder: "Brief description of the risk, its cause, and primary impact..."
+      placeholder: 'Brief description of the risk, its cause, and primary impact...'
     validations:
       required: true
 
@@ -226,7 +226,7 @@ body:
     attributes:
       label: Additional Context
       description: Any additional information, references, or considerations
-      placeholder: "Provide additional context, related risks, mitigation strategies, etc."
+      placeholder: 'Provide additional context, related risks, mitigation strategies, etc.'
 
   - type: checkboxes
     id: terms

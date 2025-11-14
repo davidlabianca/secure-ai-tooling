@@ -1,7 +1,7 @@
 name: Update Existing Component
 description: Propose updates to an existing AI system component in the CoSAI Risk Map
-title: "[Update Component]: "
-labels: ["component", "update-component"]
+title: '[Update Component]: '
+labels: ['component', 'update-component']
 body:
   - type: markdown
     attributes:
@@ -20,7 +20,7 @@ body:
         GitHub permalink to the component in components.yaml (right-click line number → Copy permalink)
 
         📋 [Browse components.yaml](../../risk-map/yaml/components.yaml)
-      placeholder: "https://github.com/org/repo/blob/abc123/risk-map/yaml/components.yaml#L45-L52"
+      placeholder: 'https://github.com/org/repo/blob/abc123/risk-map/yaml/components.yaml#L45-L52'
     validations:
       required: true
 

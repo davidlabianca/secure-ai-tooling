@@ -1,7 +1,7 @@
 name: Update Existing Risk
 description: Propose updates to an existing AI security risk in the CoSAI Risk Map
-title: "[Update Risk]: "
-labels: ["risk", "update-risk"]
+title: '[Update Risk]: '
+labels: ['risk', 'update-risk']
 body:
   - type: markdown
     attributes:
@@ -18,7 +18,7 @@ body:
         GitHub permalink to the risk in risks.yaml (right-click line number → Copy permalink)
 
         📋 [Browse risks.yaml](../../risk-map/yaml/risks.yaml)
-      placeholder: "https://github.com/org/repo/blob/abc123/risk-map/yaml/risks.yaml#L45-L90"
+      placeholder: 'https://github.com/org/repo/blob/abc123/risk-map/yaml/risks.yaml#L45-L90'
     validations:
       required: true
 

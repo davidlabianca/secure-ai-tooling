@@ -1,7 +1,7 @@
 name: New Component Proposal
 description: Propose a new AI system component for the CoSAI Risk Map
-title: "[Component]: "
-labels: ["component", "new-component"]
+title: '[Component]: '
+labels: ['component', 'new-component']
 body:
   - type: markdown
     attributes:
@@ -21,7 +21,7 @@ body:
         Unique identifier in camelCase format
 
         Must start with "component" (e.g., componentMyNewComponent)
-      placeholder: "e.g., componentPromptCache"
+      placeholder: 'e.g., componentPromptCache'
     validations:
       required: true
 
@@ -30,7 +30,7 @@ body:
     attributes:
       label: Component Title*
       description: A concise, human-readable name for the component
-      placeholder: "e.g., Prompt Cache"
+      placeholder: 'e.g., Prompt Cache'
     validations:
       required: true
 
@@ -64,7 +64,7 @@ body:
       label: Component Subcategory (Optional)
       description: Subcategory if applicable
       options:
-        - None
+        - N/A - No subcategory
         - componentsData (Data components)
         - componentsModelTraining (Model training components)
         - componentsAgent (Agent components)
@@ -120,7 +120,7 @@ body:
         Any additional information about this component
 
         Include use cases, examples, architectural diagrams, or implementation details
-      placeholder: "Provide examples, architectural context, related components, etc."
+      placeholder: 'Provide examples, architectural context, related components, etc.'
 
   - type: checkboxes
     id: terms

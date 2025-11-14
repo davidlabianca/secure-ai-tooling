@@ -1,7 +1,7 @@
 name: New Control Proposal
 description: Propose a new security control for the CoSAI Risk Map
-title: "[Control]: "
-labels: ["control", "new-control"]
+title: '[Control]: '
+labels: ['control', 'new-control']
 body:
   - type: markdown
     attributes:
@@ -16,7 +16,7 @@ body:
     attributes:
       label: Control Title*
       description: A concise, descriptive name for the control
-      placeholder: "e.g., Privacy Enhancing Technologies"
+      placeholder: 'e.g., Privacy Enhancing Technologies'
     validations:
       required: true
 
@@ -173,7 +173,7 @@ body:
     attributes:
       label: Additional Context
       description: Any additional information, use cases, or implementation considerations
-      placeholder: "Provide examples, related standards, implementation challenges, etc."
+      placeholder: 'Provide examples, related standards, implementation challenges, etc.'
 
   - type: checkboxes
     id: terms

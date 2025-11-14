@@ -1,7 +1,7 @@
 name: New Persona Proposal
 description: Propose a new persona for the CoSAI Risk Map
-title: "[Persona]: "
-labels: ["persona", "new-persona"]
+title: '[Persona]: '
+labels: ['persona', 'new-persona']
 body:
   - type: markdown
     attributes:
@@ -24,7 +24,7 @@ body:
         Unique identifier in camelCase format
 
         Must start with "persona" (e.g., personaModelAuditor)
-      placeholder: "e.g., personaModelAuditor"
+      placeholder: 'e.g., personaModelAuditor'
     validations:
       required: true
 
@@ -33,7 +33,7 @@ body:
     attributes:
       label: Persona Title*
       description: A concise, human-readable name for the persona
-      placeholder: "e.g., Model Auditor"
+      placeholder: 'e.g., Model Auditor'
     validations:
       required: true
 
@@ -138,7 +138,7 @@ body:
     attributes:
       label: Additional Context
       description: Any additional information, references, or considerations
-      placeholder: "Provide industry standards, regulatory frameworks, or other supporting context..."
+      placeholder: 'Provide industry standards, regulatory frameworks, or other supporting context...'
 
   - type: checkboxes
     id: terms
