@@ -20,21 +20,32 @@
         "id": {
           "type": "string",
           "enum": [
+            "ASSC",
+            "ADI",
+            "COV",
             "DMS",
             "DP",
+            "EBM",
             "EDH",
+            "EDW",
+            "FLP",
             "IIC",
             "IMO",
             "ISD",
             "MDT",
             "MEV",
+            "MLD",
             "MRE",
             "MST",
             "MXF",
+            "ORH",
+            "PCP",
             "PIJ",
             "RA",
+            "RVP",
             "SDD",
-            "UTD"
+            "UTD",
+            "EDH-I"
           ]
         },
         "title": { "type": "string" },

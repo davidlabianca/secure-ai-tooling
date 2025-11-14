@@ -15,11 +15,23 @@ graph LR
     subgraph risksSupplyChainAndDevelopment ["Supply Chain And Development Risks"]
         DP[Data Poisoning]
         EDH[Excessive Data Handling]
+        FLP[Federated/Distributed Training Privacy]
+        MLD[Malicious Loader/Deserialization]
         MST[Model Source Tampering]
         UTD[Unauthorized Training Data]
     end
 
+    subgraph risksRuntimeDataSecurity ["Runtime Data Security Risks"]
+        EBM[Evaluation/Benchmark Manipulation]
+        EDH-I[Excessive Data Handling During Inference]
+        ISD[Inferred Sensitive Data]
+        PCP[Prompt/Response Cache Poisoning]
+        SDD[Sensitive Data Disclosure]
+    end
+
     subgraph risksDeploymentAndInfrastructure ["Deployment And Infrastructure Risks"]
+        ADI[Adapter/PEFT Injection]
+        ASSC[Accelerator and System Side-channels]
         IIC[Insecure Integrated Component]
         MDT[Model Deployment Tampering]
         MRE[Model Reverse Engineering]
@@ -28,34 +40,38 @@ graph LR
 
     subgraph risksRuntimeInputSecurity ["Runtime Input Security Risks"]
         DMS[Denial of ML Service]
+        EDW[Economic Denial of Wallet]
         MEV[Model Evasion]
         PIJ[Prompt Injection]
     end
 
-    subgraph risksRuntimeDataSecurity ["Runtime Data Security Risks"]
-        ISD[Inferred Sensitive Data]
-        SDD[Sensitive Data Disclosure]
-    end
-
     subgraph risksRuntimeOutputSecurity ["Runtime Output Security Risks"]
+        COV[Covert Channels in Model Outputs]
         IMO[Insecure Model Output]
+        ORH[Orchestrator/Route Hijack]
         RA[Rogue Actions]
+        RVP[Retrieval/Vector Store Poisoning]
     end
 
     end
 
     subgraph controls
     subgraph controlsData ["Data Controls"]
-        controlPrivacyEnhancingTechnologies[Privacy Enhancing Technologies]
+        controlModelPrivacyEnhancingTechnologies[Privacy Enhancing Technologies for Model Training]
+        controlRetrievalAndVectorSystemIntegrity[Retrieval and Vector System Integrity Management]
+        controlRuntimePrivacyEnhancingTechnologies[Privacy Enhancing Technologies for Inference]
         controlTrainingDataManagement[Training Data Management]
         controlTrainingDataSanitization[Training Data Sanitization]
         controlUserDataManagement[User Data Management]
     end
 
     subgraph controlsInfrastructure ["Infrastructure Controls"]
+        controlIsolatedConfidentialComputing[Isolated and Confidential Computing]
         controlModelAndDataAccessControls[Model and Data Access Controls]
+        controlModelAndDataExecutionIntegrity[Model and Data Execution Integrity]
         controlModelAndDataIntegrityManagement[Model and Data Integrity Management]
         controlModelAndDataInventoryManagement[Model and Data Inventory Management]
+        controlOrchestratorAndRouteIntegrity[Orchestrator and Route Integrity]
         controlSecureByDefaultMLTooling[Secure-by-Default ML Tooling]
     end
 
@@ -69,7 +85,7 @@ graph LR
         controlAgentObservability[Agent Observability]
         controlAgentPluginPermissions[Agent Permissions]
         controlAgentPluginUserControl[Agent User Control]
-        controlApplicationAccessManagement[Application Access Management]
+        controlApplicationAccessManagement[Application Access and Resource Management]
         controlUserTransparencyAndControls[User Transparency and Controls]
     end
 
@@ -137,19 +153,29 @@ graph LR
     DP --> controlTrainingDataSanitization
     UTD --> controlTrainingDataManagement
     UTD --> controlTrainingDataSanitization
+    MST --> controlIsolatedConfidentialComputing
     MST --> controlModelAndDataAccessControls
+    MST --> controlModelAndDataExecutionIntegrity
     MST --> controlModelAndDataIntegrityManagement
     MST --> controlModelAndDataInventoryManagement
     MST --> controlSecureByDefaultMLTooling
-    EDH --> controlUserDataManagement
+    EDH --> controlTrainingDataManagement
     EDH --> controlUserTransparencyAndControls
+    EDH-I --> controlUserDataManagement
+    EDH-I --> controlUserTransparencyAndControls
+    MXF --> controlIsolatedConfidentialComputing
     MXF --> controlModelAndDataAccessControls
+    MXF --> controlModelAndDataIntegrityManagement
     MXF --> controlModelAndDataInventoryManagement
     MXF --> controlSecureByDefaultMLTooling
+    MDT --> controlIsolatedConfidentialComputing
+    MDT --> controlModelAndDataExecutionIntegrity
+    MDT --> controlOrchestratorAndRouteIntegrity
     MDT --> controlSecureByDefaultMLTooling
     DMS --> controlApplicationAccessManagement
     MRE --> controlApplicationAccessManagement
     IIC --> controlAgentPluginPermissions
+    IIC --> controlModelAndDataExecutionIntegrity
     IIC --> controlUserPoliciesAndEducation
     PIJ --> controlAdversarialTrainingAndTesting
     PIJ --> controlInputValidationAndSanitization
@@ -159,8 +185,9 @@ graph LR
     SDD --> controlAgentObservability
     SDD --> controlAgentPluginPermissions
     SDD --> controlAgentPluginUserControl
+    SDD --> controlModelPrivacyEnhancingTechnologies
     SDD --> controlOutputValidationAndSanitization
-    SDD --> controlPrivacyEnhancingTechnologies
+    SDD --> controlRuntimePrivacyEnhancingTechnologies
     SDD --> controlUserDataManagement
     SDD --> controlUserPoliciesAndEducation
     SDD --> controlUserTransparencyAndControls
@@ -173,9 +200,45 @@ graph LR
     RA --> controlAgentPluginPermissions
     RA --> controlAgentPluginUserControl
     RA --> controlOutputValidationAndSanitization
+    ASSC --> controlIsolatedConfidentialComputing
+    ASSC --> controlModelAndDataAccessControls
+    ASSC --> controlSecureByDefaultMLTooling
+    EDW --> controlApplicationAccessManagement
+    FLP --> controlModelAndDataIntegrityManagement
+    FLP --> controlModelPrivacyEnhancingTechnologies
+    FLP --> controlRuntimePrivacyEnhancingTechnologies
+    FLP --> controlSecureByDefaultMLTooling
+    ADI --> controlModelAndDataAccessControls
+    ADI --> controlModelAndDataExecutionIntegrity
+    ADI --> controlModelAndDataIntegrityManagement
+    ADI --> controlSecureByDefaultMLTooling
+    ORH --> controlIsolatedConfidentialComputing
+    ORH --> controlModelAndDataAccessControls
+    ORH --> controlModelAndDataIntegrityManagement
+    ORH --> controlOrchestratorAndRouteIntegrity
+    ORH --> controlSecureByDefaultMLTooling
+    EBM --> controlModelAndDataIntegrityManagement
+    COV --> controlModelAndDataIntegrityManagement
+    COV --> controlOutputValidationAndSanitization
+    MLD --> controlInputValidationAndSanitization
+    MLD --> controlModelAndDataAccessControls
+    MLD --> controlModelAndDataExecutionIntegrity
+    MLD --> controlModelAndDataIntegrityManagement
+    MLD --> controlSecureByDefaultMLTooling
+    PCP --> controlInputValidationAndSanitization
+    PCP --> controlModelAndDataAccessControls
+    PCP --> controlModelAndDataIntegrityManagement
+    PCP --> controlOutputValidationAndSanitization
+    PCP --> controlUserDataManagement
+    RVP --> controlInputValidationAndSanitization
+    RVP --> controlModelAndDataIntegrityManagement
+    RVP --> controlOutputValidationAndSanitization
+    RVP --> controlRetrievalAndVectorSystemIntegrity
+    RVP --> controlTrainingDataSanitization
 
     %% Control to Component relationships (reused from ControlGraph)
-    controlPrivacyEnhancingTechnologies --> componentsModelSubgroup
+    controlModelPrivacyEnhancingTechnologies --> componentsModelSubgroup
+    controlRuntimePrivacyEnhancingTechnologies --> componentModelServing
     controlTrainingDataManagement --> componentDataSources
     controlTrainingDataManagement --> componentTrainingData
     controlTrainingDataManagement --> componentsModelSubgroup
@@ -187,6 +250,8 @@ graph LR
     controlModelAndDataAccessControls --> componentsModels
     controlModelAndDataIntegrityManagement --> componentsModelSubgroup
     controlModelAndDataIntegrityManagement --> componentsModels
+    controlModelAndDataExecutionIntegrity --> componentTheModel
+    controlModelAndDataExecutionIntegrity --> componentsModels
     controlSecureByDefaultMLTooling --> componentsModelSubgroup
     controlSecureByDefaultMLTooling --> componentsModels
     controlInputValidationAndSanitization --> componentAgentInputHandling
@@ -210,18 +275,27 @@ graph LR
     controlAgentObservability --> componentOrchestrationInputHandling
     controlAgentObservability --> componentOrchestrationOutputHandling
     controlAgentObservability --> componentReasoningCore
+    controlIsolatedConfidentialComputing --> componentMemory
+    controlIsolatedConfidentialComputing --> componentModelServing
+    controlIsolatedConfidentialComputing --> componentModelTrainingTuning
+    controlIsolatedConfidentialComputing --> componentReasoningCore
+    controlRetrievalAndVectorSystemIntegrity --> componentDataFilteringAndProcessing
+    controlRetrievalAndVectorSystemIntegrity --> componentDataSources
+    controlRetrievalAndVectorSystemIntegrity --> componentDataStorage
+    controlOrchestratorAndRouteIntegrity --> componentApplication
+    controlOrchestratorAndRouteIntegrity --> componentModelServing
 
     %% Edge styling
-    linkStyle 0,4,8,12,16,20,24,28,32,36,40 stroke:#e6cbce,stroke-width:2px,stroke-dasharray: 5 3
-    linkStyle 1,5,9,13,17,21,25,29,33,37,41 stroke:#b66871,stroke-width:2px,stroke-dasharray: 8 4
-    linkStyle 2,6,10,14,18,22,26,30,34,38,42 stroke:#b66871,stroke-width:2px,stroke-dasharray: 10 2
-    linkStyle 3,7,11,15,19,23,27,31,35,39 stroke:#1c0d0f,stroke-width:2px,stroke-dasharray: 12 5
+    linkStyle 0,4,8,12,16,20,24,28,32,36,40,44,48,52,56,60,64,68,72,76,80,84,88 stroke:#e6cbce,stroke-width:2px,stroke-dasharray: 5 3
+    linkStyle 1,5,9,13,17,21,25,29,33,37,41,45,49,53,57,61,65,69,73,77,81,85 stroke:#b66871,stroke-width:2px,stroke-dasharray: 8 4
+    linkStyle 2,6,10,14,18,22,26,30,34,38,42,46,50,54,58,62,66,70,74,78,82,86 stroke:#b66871,stroke-width:2px,stroke-dasharray: 10 2
+    linkStyle 3,7,11,15,19,23,27,31,35,39,43,47,51,55,59,63,67,71,75,79,83,87 stroke:#1c0d0f,stroke-width:2px,stroke-dasharray: 12 5
 
 %% Node style definitions
     style risksSupplyChainAndDevelopment fill:#ffeef0,stroke:#e91e63,stroke-width:2px
+    style risksRuntimeDataSecurity fill:#ffeef0,stroke:#e91e63,stroke-width:2px
     style risksDeploymentAndInfrastructure fill:#ffeef0,stroke:#e91e63,stroke-width:2px
     style risksRuntimeInputSecurity fill:#ffeef0,stroke:#e91e63,stroke-width:2px
-    style risksRuntimeDataSecurity fill:#ffeef0,stroke:#e91e63,stroke-width:2px
     style risksRuntimeOutputSecurity fill:#ffeef0,stroke:#e91e63,stroke-width:2px
     style components fill:#f0f0f0,stroke:#666666,stroke-width:3px,stroke-dasharray: 10 5
     style controls fill:#f0f0f0,stroke:#666666,stroke-width:3px,stroke-dasharray: 10 5

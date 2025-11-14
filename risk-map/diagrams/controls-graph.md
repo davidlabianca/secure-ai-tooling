@@ -14,16 +14,21 @@ graph LR
 
     subgraph controls
     subgraph controlsData ["Data Controls"]
-        controlPrivacyEnhancingTechnologies[Privacy Enhancing Technologies]
+        controlModelPrivacyEnhancingTechnologies[Privacy Enhancing Technologies for Model Training]
+        controlRetrievalAndVectorSystemIntegrity[Retrieval and Vector System Integrity Management]
+        controlRuntimePrivacyEnhancingTechnologies[Privacy Enhancing Technologies for Inference]
         controlTrainingDataManagement[Training Data Management]
         controlTrainingDataSanitization[Training Data Sanitization]
         controlUserDataManagement[User Data Management]
     end
 
     subgraph controlsInfrastructure ["Infrastructure Controls"]
+        controlIsolatedConfidentialComputing[Isolated and Confidential Computing]
         controlModelAndDataAccessControls[Model and Data Access Controls]
+        controlModelAndDataExecutionIntegrity[Model and Data Execution Integrity]
         controlModelAndDataIntegrityManagement[Model and Data Integrity Management]
         controlModelAndDataInventoryManagement[Model and Data Inventory Management]
+        controlOrchestratorAndRouteIntegrity[Orchestrator and Route Integrity]
         controlSecureByDefaultMLTooling[Secure-by-Default ML Tooling]
     end
 
@@ -37,7 +42,7 @@ graph LR
         controlAgentObservability[Agent Observability]
         controlAgentPluginPermissions[Agent Permissions]
         controlAgentPluginUserControl[Agent User Control]
-        controlApplicationAccessManagement[Application Access Management]
+        controlApplicationAccessManagement[Application Access and Resource Management]
         controlUserTransparencyAndControls[User Transparency and Controls]
     end
 
@@ -98,7 +103,8 @@ graph LR
     end
 
     %% Control to Component relationships
-    controlPrivacyEnhancingTechnologies --> componentsModelSubgroup
+    controlModelPrivacyEnhancingTechnologies --> componentsModelSubgroup
+    controlRuntimePrivacyEnhancingTechnologies --> componentModelServing
     controlTrainingDataManagement --> componentDataSources
     controlTrainingDataManagement --> componentTrainingData
     controlTrainingDataManagement --> componentsModelSubgroup
@@ -110,6 +116,8 @@ graph LR
     controlModelAndDataAccessControls --> componentsModels
     controlModelAndDataIntegrityManagement --> componentsModelSubgroup
     controlModelAndDataIntegrityManagement --> componentsModels
+    controlModelAndDataExecutionIntegrity --> componentTheModel
+    controlModelAndDataExecutionIntegrity --> componentsModels
     controlSecureByDefaultMLTooling --> componentsModelSubgroup
     controlSecureByDefaultMLTooling --> componentsModels
     controlInputValidationAndSanitization --> componentAgentInputHandling
@@ -133,6 +141,15 @@ graph LR
     controlAgentObservability --> componentOrchestrationInputHandling
     controlAgentObservability --> componentOrchestrationOutputHandling
     controlAgentObservability --> componentReasoningCore
+    controlIsolatedConfidentialComputing --> componentMemory
+    controlIsolatedConfidentialComputing --> componentModelServing
+    controlIsolatedConfidentialComputing --> componentModelTrainingTuning
+    controlIsolatedConfidentialComputing --> componentReasoningCore
+    controlRetrievalAndVectorSystemIntegrity --> componentDataFilteringAndProcessing
+    controlRetrievalAndVectorSystemIntegrity --> componentDataSources
+    controlRetrievalAndVectorSystemIntegrity --> componentDataStorage
+    controlOrchestratorAndRouteIntegrity --> componentApplication
+    controlOrchestratorAndRouteIntegrity --> componentModelServing
 
     %% Apply styling to controls mapped to 'all'
     controlIncidentResponseManagement:::allControl
@@ -141,12 +158,12 @@ graph LR
     controlVulnerabilityManagement:::allControl
 
     %% Edge styling
-    linkStyle 26,27,28,29 stroke:#4285f4,stroke-width:3px,stroke-dasharray: 8 4
-    linkStyle 0,3,6,7,8,9,10,11,12,13 stroke:#34a853,stroke-width:2px
-    linkStyle 1,22,30,34 stroke:#9c27b0,stroke-width:2px
-    linkStyle 2,23,31 stroke:#ff9800,stroke-width:2px,stroke-dasharray: 5 5
-    linkStyle 24,32 stroke:#e91e63,stroke-width:2px,stroke-dasharray: 10 2
-    linkStyle 25,33 stroke:#C95792,stroke-width:2px,stroke-dasharray: 10 5
+    linkStyle 29,30,31,32 stroke:#4285f4,stroke-width:3px,stroke-dasharray: 8 4
+    linkStyle 0,4,7,8,9,10,11,12,14,15,16 stroke:#34a853,stroke-width:2px
+    linkStyle 2,25,33,37,38,42 stroke:#9c27b0,stroke-width:2px
+    linkStyle 3,26,34,39,43 stroke:#ff9800,stroke-width:2px,stroke-dasharray: 5 5
+    linkStyle 27,35,40,44 stroke:#e91e63,stroke-width:2px,stroke-dasharray: 10 2
+    linkStyle 28,36,41 stroke:#C95792,stroke-width:2px,stroke-dasharray: 10 5
 
 %% Node style definitions
     style components fill:#f0f0f0,stroke:#666666,stroke-width:3px,stroke-dasharray: 10 5
