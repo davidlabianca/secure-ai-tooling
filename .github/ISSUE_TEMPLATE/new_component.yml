@@ -78,9 +78,9 @@ body:
 
         Define how this component connects to other components in the system.
 
-        ⚠️ **Edge Bidirectionality**: Edges must be bidirectional. If you specify:
-        - `edges.to: [componentB]` - you must also ensure componentB has `edges.from: [componentMyNew]`
-        - `edges.from: [componentA]` - you must also ensure componentA has `edges.to: [componentMyNew]`
+        ✨ **Automatic Bidirectionality**: When you specify edges, the reverse edges are automatically created.
+        - If you add `componentB` in "Edges To", then `componentB` will automatically get an "Edges From" entry for this component
+        - If you add `componentA` in "Edges From", then `componentA` will automatically get an "Edges To" entry for this component
 
         📋 [View component list](../../risk-map/tables/components-summary.md)
 
@@ -130,7 +130,7 @@ body:
       options:
         - label: I have reviewed existing components to ensure this is not a duplicate
           required: true
-        - label: I have verified edge bidirectionality (if A→B, then B←A exists or will be added)
+        - label: I understand that reverse edges will be automatically created for connected components
           required: true
         - label: I have provided all required fields marked with (*)
           required: true

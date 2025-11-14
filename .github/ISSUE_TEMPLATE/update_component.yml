@@ -10,7 +10,7 @@ body:
 
         Use this template to propose changes to an existing component. Only fill out the sections relevant to your proposed changes.
 
-        ⚠️ **Important**: When modifying edges, remember that edges must be bidirectional. If you update edges for this component, you may need to update the connected components as well.
+        ✨ **Automatic Bidirectionality**: When you modify edges, the reverse edges are automatically updated. If you add/remove an edge here, the connected components will be automatically updated to maintain bidirectional consistency.
 
   - type: input
     id: component-permalink
@@ -64,7 +64,7 @@ body:
 
         Use these fields for quick edge additions or removals. Use `+` to add, `-` to remove.
 
-        ⚠️ **Remember**: Edge changes must be bidirectional. If you add/remove edges here, the connected components must also be updated.
+        ✨ **Automatic Bidirectionality**: Edge changes automatically update connected components. When you add/remove edges here, the reverse edges are automatically created/removed in the connected components.
 
         📋 [View component list](../../risk-map/tables/components-summary.md)
 
@@ -125,7 +125,7 @@ body:
           required: true
         - label: I have clearly described the proposed changes and rationale
           required: true
-        - label: I understand that edge changes require bidirectional updates to connected components
+        - label: I understand that reverse edges will be automatically updated in connected components
           required: true
         - label: This change improves the accuracy of the component architecture
           required: true

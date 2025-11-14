@@ -97,6 +97,8 @@ body:
       description: |
         Control IDs that mitigate this risk (one per line)
 
+        ✨ **Automatic Cross-Mapping**: When you map this risk to controls, the reverse mappings are automatically created. Each control you list here will automatically get this risk added to its mitigated risks.
+
         📋 [View control list](../../risk-map/tables/controls-summary.md)
       placeholder: |
         controlModelAndDataAccessControls
@@ -235,6 +237,8 @@ body:
       description: Please confirm the following
       options:
         - label: I have reviewed existing risks to ensure this is not a duplicate
+          required: true
+        - label: I understand that reverse control-to-risk mappings will be automatically created
           required: true
         - label: I have provided all required fields marked with (*)
           required: true

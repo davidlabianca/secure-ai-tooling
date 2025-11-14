@@ -78,6 +78,8 @@ body:
       description: |
         List risk IDs this control addresses (one per line), or use "all"
 
+        ✨ **Automatic Cross-Mapping**: When you map this control to risks, the reverse mappings are automatically created. Each risk you list here will automatically get this control added to its applicable controls.
+
         📋 [View full risk list](../../risk-map/tables/risks-summary.md)
 
         Common risks: DP (Data Poisoning), MST (Model Theft), PIJ (Prompt Injection), SDD (Sensitive Data Disclosure), etc.
@@ -182,6 +184,8 @@ body:
       description: Please confirm the following
       options:
         - label: I have reviewed existing controls to ensure this is not a duplicate
+          required: true
+        - label: I understand that reverse risk-to-control mappings will be automatically created
           required: true
         - label: I have provided all required fields marked with (*)
           required: true

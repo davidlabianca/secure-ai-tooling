@@ -74,6 +74,8 @@ body:
       description: |
         Add or remove control IDs. Use `+` to add, `-` to remove (one per line)
 
+        ✨ **Automatic Cross-Mapping**: Control mappings are automatically bidirectional. When you add/remove controls here, the reverse risk mappings are automatically updated in those controls.
+
         📋 [View control list](../../risk-map/tables/controls-summary.md)
       placeholder: |
         + controlThreatDetection
@@ -138,6 +140,8 @@ body:
         - label: I have provided a valid GitHub permalink to the risk
           required: true
         - label: I have clearly described the proposed changes and rationale
+          required: true
+        - label: I understand that reverse control-to-risk mappings will be automatically updated
           required: true
         - label: This change improves the accuracy or completeness of the risk
           required: true
