@@ -101,6 +101,22 @@ controls:
       - DP
       - UTD
       - RVP
+    mappings:
+      mitre-atlas:
+        - AML.M0007
+    lifecycleStage:
+      - data-preparation
+      - model-training
+      - evaluation
+    impactType:
+      - integrity
+      - reliability
+      - safety
+      - privacy
+      - fairness
+    actorAccess:
+      - supply-chain
+      - privileged
   - id: controlUserDataManagement
     title: User Data Management
     description:
@@ -191,6 +207,24 @@ controls:
       - ORH
       - PCP
       - RVP
+    mappings:
+      mitre-atlas:
+        - AML.M0013
+        - AML.M0014
+      nist-ai-rmf:
+        - MS-2.3
+    lifecycleStage:
+      - data-preparation
+      - model-training
+      - deployment
+      - runtime
+    impactType:
+      - integrity
+      - accountability
+    actorAccess:
+      - supply-chain
+      - privileged
+      - infrastructure-provider
   - id: controlModelAndDataExecutionIntegrity
     title: Model and Data Execution Integrity
     description:
@@ -244,6 +278,21 @@ controls:
       - ADI
       - ORH
       - MLD
+    mappings:
+      mitre-atlas:
+        - AML.M0011
+    lifecycleStage:
+      - development
+      - model-training
+      - deployment
+      - runtime
+    impactType:
+      - confidentiality
+      - integrity
+      - availability
+    actorAccess:
+      - supply-chain
+      - infrastructure-provider
   - id: controlInputValidationAndSanitization
     title: Input Validation and Sanitization
     description:
@@ -261,6 +310,24 @@ controls:
       - MLD
       - PCP
       - RVP
+    mappings:
+      mitre-atlas:
+        - AML.M0010
+        - AML.M0015
+        - AML.M0020
+        - AML.M0024
+      owasp-top10-llm:
+        - LLM01
+    lifecycleStage:
+      - runtime
+    impactType:
+      - integrity
+      - confidentiality
+      - safety
+    actorAccess:
+      - external
+      - api
+      - user
   - id: controlOutputValidationAndSanitization
     title: Output Validation and Sanitization
     description:
@@ -284,6 +351,25 @@ controls:
       - PCP
       - IMO
       - RVP
+    mappings:
+      mitre-atlas:
+        - AML.M0020
+        - AML.M0024
+      owasp-top10-llm:
+        - LLM02
+        - LLM05
+    lifecycleStage:
+      - runtime
+    impactType:
+      - confidentiality
+      - integrity
+      - privacy
+      - safety
+    actorAccess:
+      - external
+      - api
+      - user
+      - agent
   - id: controlAdversarialTrainingAndTesting
     title: Adversarial Training and Testing
     description:
@@ -302,6 +388,23 @@ controls:
       - SDD
       - ISD
       - IMO
+    mappings:
+      mitre-atlas:
+        - AML.M0003
+        - AML.M0006
+        - AML.M0008
+    lifecycleStage:
+      - model-training
+      - evaluation
+      - runtime
+    impactType:
+      - integrity
+      - reliability
+      - safety
+    actorAccess:
+      - external
+      - api
+      - user
   - id: controlApplicationAccessManagement
     title: Application Access and Resource Management
     description:
@@ -323,6 +426,20 @@ controls:
       - DMS
       - EDW
       - MRE
+    mappings:
+      mitre-atlas:
+        - AML.M0019
+      owasp-top10-llm:
+        - LLM10
+    lifecycleStage:
+      - runtime
+    impactType:
+      - availability
+      - confidentiality
+    actorAccess:
+      - external
+      - api
+      - user
   - id: controlUserTransparencyAndControls
     title: User Transparency and Controls
     description:
@@ -356,13 +473,13 @@ controls:
     title: Agent Permissions
     description:
       - >
-        Use least-privilege principle as the upper bound on agentic system permissions to 
-        minimize the number of tools that an agent is permitted to interact with and the 
-        actions it is allowed to take. An agentic system’s use of privileges should be 
-        contextual and dynamic, adapting to the specific user query and trusted contextual 
-        information. This design also applies to agents that have access to user 
-        information. For example, an agent asked to fill out a form or answer questions 
-        should share only contextually appropriate information and can be designed to 
+        Use least-privilege principle as the upper bound on agentic system permissions to
+        minimize the number of tools that an agent is permitted to interact with and the
+        actions it is allowed to take. An agentic system's use of privileges should be
+        contextual and dynamic, adapting to the specific user query and trusted contextual
+        information. This design also applies to agents that have access to user
+        information. For example, an agent asked to fill out a form or answer questions
+        should share only contextually appropriate information and can be designed to
         dynamically minimize exposed data using reference monitors.
     category: controlsApplication
     personas:
@@ -376,6 +493,24 @@ controls:
       - IIC
       - SDD
       - RA
+    mappings:
+      mitre-atlas:
+        - AML.M0028
+      nist-ai-rmf:
+        - MS-2.11
+        - GV-6.2
+      owasp-top10-llm:
+        - LLM06
+    lifecycleStage:
+      - development
+      - runtime
+    impactType:
+      - confidentiality
+      - integrity
+      - safety
+    actorAccess:
+      - agent
+      - user
   - id: controlRedTeaming
     title: Red Teaming
     description:
