@@ -141,6 +141,47 @@ The control-to-risk validates cross-reference consistency between `controls.yaml
 - **Isolated entry detection**: Finds controls with no risk references or risks with no control references
 - **all or none awareness**: Will not flag controls that leverage the `all` or `none` risk mappings
 
+## Manual Framework Reference Validation
+
+You can run framework reference validation at any time:
+
+```bash
+# Validate framework references if frameworks.yaml, risks.yaml, or controls.yaml is staged
+python scripts/hooks/validate_framework_references.py
+
+# Force framework reference validation regardless of git status
+python scripts/hooks/validate_framework_references.py --force
+```
+
+The framework reference validator ensures consistency between framework definitions and their usage:
+
+- **Framework existence**: Verifies all framework IDs used in `mappings` exist in `frameworks.yaml`
+- **Schema consistency**: Ensures framework IDs in YAML data match the enum in `frameworks.schema.json`
+- **Required fields**: Validates that all framework definitions include required fields (`id`, `name`, `fullName`, `description`, `baseUri`)
+- **No duplicates**: Detects duplicate framework IDs in framework definitions
+- **Backward compatibility**: Passes validation for risks/controls without `mappings` fields
+
+**Example output:**
+
+```
+🔍 Force checking framework references...
+   Found staged frameworks.yaml, risks.yaml, and/or controls.yaml
+   Validating framework references in: risk-map/yaml/frameworks.yaml, risk-map/yaml/risks.yaml, risk-map/yaml/controls.yaml
+  ✅ Framework references are consistent
+     - Found 4 valid frameworks: mitre-atlas, nist-ai-rmf, owasp-top10-llm, stride
+     - Validated 16 risks with framework mappings
+     - Validated 8 controls with framework mappings
+✅ Framework reference validation passed for all files.
+```
+
+**Common validation errors:**
+
+- `Framework 'X' references framework 'Y' which does not exist in frameworks.yaml` - The framework ID used in a mapping doesn't exist
+- `Duplicate framework ID 'X' found in frameworks.yaml` - Multiple frameworks have the same ID
+- `Framework 'X' is missing required field 'Y'` - A framework definition is incomplete
+
+See the [Framework Guide](guide-frameworks.md) for detailed information on adding and using frameworks.
+
 ## Manual Prettier Formatting
 
 You can run prettier formatting on YAML files manually:
