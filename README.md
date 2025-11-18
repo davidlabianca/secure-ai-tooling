@@ -31,4 +31,15 @@ The Risk Map organizes the AI development lifecycle into four primary groups: **
 
 The framework is provided as a set of human-readable .yaml files and machine-readable .schema.json files that you can use to learn, assess your own projects, and build upon for your organization's needs.
 
+#### **Framework Mappings**
+
+The CoSAI Risk Map includes mappings to established security frameworks, enabling cross-referencing with:
+
+* **MITRE ATLAS** - Adversarial Threat Landscape for AI Systems
+* **NIST AI RMF** - NIST Artificial Intelligence Risk Management Framework
+* **STRIDE** - Microsoft Threat Modeling Framework
+* **OWASP Top 10 for LLM** - Top security risks for Large Language Model applications
+
+These mappings allow organizations to align CoSAI risks and controls with existing security standards and compliance requirements. Framework references are automatically validated to ensure consistency across the risk map.
+
 [Explore the full CoSAI Risk Map project here...](./risk-map/)

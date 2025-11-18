@@ -236,6 +236,43 @@ jobs:
           exit 1
         fi
 
+  framework-validation:
+    runs-on: ubuntu-latest
+    name: Framework Reference Validation
+    needs: setup
+    outputs:
+      framework_status: ${{ steps.validate-frameworks.outputs.status }}
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+        cache: 'pip'
+
+    - name: Copy validation scripts
+      run: cp scripts/hooks/validate_framework_references.py .
+
+    - name: Install dependencies
+      run: pip install -r requirements.txt
+
+    - name: Run Framework Reference Validation
+      id: validate-frameworks
+      run: |
+        echo "🔗 Running framework reference validation..."
+
+        if python3 validate_framework_references.py --force; then
+          echo "✅ Framework reference validation completed successfully"
+          echo "status=success" >> $GITHUB_OUTPUT
+        else
+          echo "❌ Framework reference validation failed"
+          echo "::error::Framework reference validation failed"
+          echo "status=failed" >> $GITHUB_OUTPUT
+          exit 1
+        fi
+
   graph-validation:
     runs-on: ubuntu-latest
     name: Graph Validation
@@ -328,7 +365,7 @@ jobs:
   validation-summary:
     runs-on: ubuntu-latest
     name: Validation Summary
-    needs: [schema-validation, format-validation, component-edge-validation, control-risk-validation, graph-validation]
+    needs: [schema-validation, format-validation, component-edge-validation, control-risk-validation, framework-validation, graph-validation]
     if: always()
     steps:
     - name: Generate Summary
@@ -341,6 +378,7 @@ jobs:
         format_result="${{ needs.format-validation.result }}"
         edge_result="${{ needs.component-edge-validation.result }}"
         control_result="${{ needs.control-risk-validation.result }}"
+        framework_result="${{ needs.framework-validation.result }}"
         graph_result="${{ needs.graph-validation.result }}"
 
         # Get output details
@@ -377,6 +415,13 @@ jobs:
           echo "- ✅ **Control-to-risk reference validation**: Passed" >> $GITHUB_STEP_SUMMARY
         else
           echo "- ❌ **Control-to-risk reference validation**: $control_result" >> $GITHUB_STEP_SUMMARY
+          overall_success=false
+        fi
+
+        if [ "$framework_result" = "success" ]; then
+          echo "- ✅ **Framework reference validation**: Passed" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "- ❌ **Framework reference validation**: $framework_result" >> $GITHUB_STEP_SUMMARY
           overall_success=false
         fi
 
