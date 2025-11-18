@@ -81,7 +81,11 @@ class TestExtractRiskFrameworkReferences:
             ]
         }
         result = extract_risk_framework_references(data)
-        assert result == {"DP": ["mitre-atlas", "stride"], "UTD": ["stride"]}
+        # Convert list values to sets for order-independent comparison
+        assert {k: set(v) for k, v in result.items()} == {
+            "DP": {"mitre-atlas", "stride"},
+            "UTD": {"stride"}
+        }
 
     def test_extract_risk_without_mappings(self):
         """Test extraction for risks without mappings field (backward compatibility)"""
@@ -122,9 +126,10 @@ class TestExtractControlFrameworkReferences:
             ]
         }
         result = extract_control_framework_references(data)
-        assert result == {
-            "controlTrainingDataSanitization": ["mitre-atlas"],
-            "controlModelIntegrity": ["nist-ai-rmf", "mitre-atlas"],
+        # Convert list values to sets for order-independent comparison
+        assert {k: set(v) for k, v in result.items()} == {
+            "controlTrainingDataSanitization": {"mitre-atlas"},
+            "controlModelIntegrity": {"nist-ai-rmf", "mitre-atlas"},
         }
 
     def test_extract_control_without_mappings(self):
