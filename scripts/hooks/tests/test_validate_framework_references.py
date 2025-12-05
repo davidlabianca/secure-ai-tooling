@@ -82,10 +82,7 @@ class TestExtractRiskFrameworkReferences:
         }
         result = extract_risk_framework_references(data)
         # Convert list values to sets for order-independent comparison
-        assert {k: set(v) for k, v in result.items()} == {
-            "DP": {"mitre-atlas", "stride"},
-            "UTD": {"stride"}
-        }
+        assert {k: set(v) for k, v in result.items()} == {"DP": {"mitre-atlas", "stride"}, "UTD": {"stride"}}
 
     def test_extract_risk_without_mappings(self):
         """Test extraction for risks without mappings field (backward compatibility)"""
