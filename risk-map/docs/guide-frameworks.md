@@ -309,6 +309,258 @@ lifecycleStage:
 
 ---
 
+## Query Examples
+
+The extended metadata fields enable powerful querying and analysis capabilities. Here are practical examples demonstrating how to use these fields programmatically.
+
+### Example 1: Filter Risks by Runtime Lifecycle Stage
+
+Find all risks that occur during the runtime phase:
+
+```python
+import yaml
+
+with open('risk-map/yaml/risks.yaml', 'r') as f:
+    risks_data = yaml.safe_load(f)
+
+runtime_risks = []
+for risk in risks_data['risks']:
+    lifecycle = risk.get('lifecycleStage', [])
+    # Handle both array and string values
+    if isinstance(lifecycle, list) and 'runtime' in lifecycle:
+        runtime_risks.append(risk['id'])
+    elif lifecycle == 'all':
+        runtime_risks.append(risk['id'])
+
+print(f"Risks occurring at runtime: {runtime_risks}")
+# Output: ['MEV', 'PIJ', 'DMS', 'MRE', 'SDD', 'ISD', 'IMO', 'RA', 'MDT', 'MXF', ...]
+```
+
+### Example 2: Find Risks Mapped to MITRE ATLAS Techniques
+
+Query all risks that map to specific MITRE ATLAS techniques:
+
+```python
+import yaml
+
+with open('risk-map/yaml/risks.yaml', 'r') as f:
+    risks_data = yaml.safe_load(f)
+
+mitre_atlas_risks = {}
+for risk in risks_data['risks']:
+    mappings = risk.get('mappings', {})
+    if 'mitre-atlas' in mappings:
+        mitre_atlas_risks[risk['id']] = {
+            'title': risk['title'],
+            'techniques': mappings['mitre-atlas']
+        }
+
+# Find risks mapping to a specific technique
+target_technique = 'AML.T0020'
+for risk_id, info in mitre_atlas_risks.items():
+    if target_technique in info['techniques']:
+        print(f"{risk_id}: {info['title']} -> {target_technique}")
+# Output: DP: Data Poisoning -> AML.T0020
+```
+
+### Example 3: Query Controls by Confidentiality Impact
+
+Find controls that protect confidentiality:
+
+```python
+import yaml
+
+with open('risk-map/yaml/controls.yaml', 'r') as f:
+    controls_data = yaml.safe_load(f)
+
+confidentiality_controls = []
+for control in controls_data['controls']:
+    impact = control.get('impactType', [])
+    # Handle both array and string values
+    if isinstance(impact, list) and 'confidentiality' in impact:
+        confidentiality_controls.append({
+            'id': control['id'],
+            'title': control['title'],
+            'impacts': impact
+        })
+    elif impact == 'all':
+        confidentiality_controls.append({
+            'id': control['id'],
+            'title': control['title'],
+            'impacts': 'all'
+        })
+
+print(f"Found {len(confidentiality_controls)} controls protecting confidentiality")
+for ctrl in confidentiality_controls[:3]:
+    print(f"  - {ctrl['id']}: {ctrl['title']}")
+```
+
+### Example 4: Get All Risks for Specific Actor Access Level
+
+Find risks that can be exploited by external attackers:
+
+```python
+import yaml
+
+with open('risk-map/yaml/risks.yaml', 'r') as f:
+    risks_data = yaml.safe_load(f)
+
+external_actor_risks = []
+for risk in risks_data['risks']:
+    actor_access = risk.get('actorAccess', [])
+    # Handle both array and string values
+    if isinstance(actor_access, list) and 'external' in actor_access:
+        external_actor_risks.append({
+            'id': risk['id'],
+            'title': risk['title'],
+            'access_levels': actor_access
+        })
+    elif actor_access == 'all':
+        external_actor_risks.append({
+            'id': risk['id'],
+            'title': risk['title'],
+            'access_levels': 'all'
+        })
+
+print(f"Risks exploitable by external actors: {len(external_actor_risks)}")
+for risk in external_actor_risks[:5]:
+    print(f"  - {risk['id']}: {risk['title']}")
+# Output includes: PIJ, MEV, DMS, MRE, SDD, IMO, RA, IIC...
+```
+
+### Example 5: Construct URIs Using techniqueUriPattern
+
+Generate clickable links to framework techniques:
+
+```python
+import yaml
+
+with open('risk-map/yaml/frameworks.yaml', 'r') as f:
+    frameworks_data = yaml.safe_load(f)
+
+with open('risk-map/yaml/risks.yaml', 'r') as f:
+    risks_data = yaml.safe_load(f)
+
+# Build framework lookup
+frameworks = {fw['id']: fw for fw in frameworks_data['frameworks']}
+
+# Generate URIs for risk mappings
+risk_id = 'DP'  # Data Poisoning
+risk = next(r for r in risks_data['risks'] if r['id'] == risk_id)
+mappings = risk.get('mappings', {})
+
+if 'mitre-atlas' in mappings:
+    framework = frameworks['mitre-atlas']
+    pattern = framework.get('techniqueUriPattern')
+
+    if pattern:
+        print(f"MITRE ATLAS techniques for {risk['title']}:")
+        for technique in mappings['mitre-atlas']:
+            uri = pattern.replace('{id}', technique)
+            print(f"  - {technique}: {uri}")
+# Output:
+#   MITRE ATLAS techniques for Data Poisoning:
+#   - AML.T0020: https://atlas.mitre.org/techniques/AML.T0020
+#   - AML.T0019: https://atlas.mitre.org/techniques/AML.T0019
+#   - ...
+```
+
+### Example 6: Cross-Reference Risks, Controls, and Frameworks
+
+Build a comprehensive mapping view:
+
+```python
+import yaml
+
+# Load all data
+with open('risk-map/yaml/risks.yaml', 'r') as f:
+    risks = {r['id']: r for r in yaml.safe_load(f)['risks']}
+
+with open('risk-map/yaml/controls.yaml', 'r') as f:
+    controls = {c['id']: c for c in yaml.safe_load(f)['controls']}
+
+with open('risk-map/yaml/frameworks.yaml', 'r') as f:
+    frameworks = {fw['id']: fw for fw in yaml.safe_load(f)['frameworks']}
+
+# Find controls for a risk and their framework mappings
+risk_id = 'DP'
+risk = risks[risk_id]
+
+print(f"Risk: {risk['title']} ({risk_id})")
+print(f"Framework Mappings:")
+for fw_id, techniques in risk.get('mappings', {}).items():
+    print(f"  {frameworks[fw_id]['name']}: {', '.join(techniques)}")
+
+print(f"\nControls:")
+for control_id in risk.get('controls', []):
+    control = controls[control_id]
+    print(f"  - {control['title']}")
+    for fw_id, techniques in control.get('mappings', {}).items():
+        print(f"    {frameworks[fw_id]['name']}: {', '.join(techniques)}")
+```
+
+### Example 7: Generate Framework Coverage Report
+
+Analyze which frameworks are most referenced:
+
+```python
+import yaml
+from collections import defaultdict
+
+with open('risk-map/yaml/risks.yaml', 'r') as f:
+    risks_data = yaml.safe_load(f)
+
+with open('risk-map/yaml/controls.yaml', 'r') as f:
+    controls_data = yaml.safe_load(f)
+
+framework_coverage = defaultdict(lambda: {'risks': 0, 'controls': 0})
+
+# Count risk mappings
+for risk in risks_data['risks']:
+    for fw_id in risk.get('mappings', {}).keys():
+        framework_coverage[fw_id]['risks'] += 1
+
+# Count control mappings
+for control in controls_data['controls']:
+    for fw_id in control.get('mappings', {}).keys():
+        framework_coverage[fw_id]['controls'] += 1
+
+print("Framework Coverage Report:")
+for fw_id, counts in sorted(framework_coverage.items()):
+    print(f"{fw_id}: {counts['risks']} risks, {counts['controls']} controls")
+# Output:
+#   mitre-atlas: 16 risks, 8 controls
+#   stride: 14 risks, 0 controls
+#   owasp-top10-llm: 12 risks, 0 controls
+#   nist-ai-rmf: 0 risks, 2 controls
+```
+
+---
+
+## URI Construction Guidelines
+
+When using `techniqueUriPattern`, follow these guidelines:
+
+1. **Placeholder Syntax**: Use `{id}` as the placeholder in URI patterns
+   ```yaml
+   techniqueUriPattern: "https://example.com/techniques/{id}"
+   ```
+
+2. **ID Format**: Ensure technique IDs in mappings match the expected format
+   ```yaml
+   mappings:
+     mitre-atlas:
+       - AML.T0020  # Will become: https://atlas.mitre.org/techniques/AML.T0020
+   ```
+
+3. **Validation**: The pattern should produce valid, accessible URIs when IDs are substituted
+
+4. **Optional Field**: Not all frameworks require `techniqueUriPattern`
+   - Include it when the framework has a consistent URL structure
+   - Omit it for frameworks without online technique documentation
+
+---
+
 ## Related Documentation
 
 - [Adding a Risk](guide-risks.md) - Complete guide for adding new risks
