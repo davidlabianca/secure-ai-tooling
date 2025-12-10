@@ -183,6 +183,7 @@ case $1 in
         echo "  - Ruff linting (Python files only)"
         echo "  - Component edge validation"
         echo "  - Control-to-risk reference validation"
+        echo "  - Framework reference validation"
         echo "  - Mermaid SVG generation (when .mmd/.mermaid files change)"
         echo ""
         echo "Automatic generation:"
@@ -426,6 +427,28 @@ else
     # Run the control-risk reference validation
     # Uses same EDGE_ARGS since both validators support --force flag
     if ! python3 "$REF_VALIDATOR" $EDGE_ARGS; then
+        VALIDATION_FAILED=1 # Mark as failed if reference validation fails
+    fi
+fi
+
+echo  # Add blank line for readability
+
+# =============================================================================
+# Framework Reference Validation
+# =============================================================================
+echo "🔗 Running framework reference validation..."
+
+# Path to the framework reference validation script
+FRAMEWORK_VALIDATOR=".git/hooks/validate_framework_references.py"
+
+# Check if validator exists before attempting to run it
+if [[ ! -f "$FRAMEWORK_VALIDATOR" ]]; then
+    echo "   Warning: Framework reference validator not found at $FRAMEWORK_VALIDATOR"
+    echo "   Skipping framework reference validation..."
+else
+    # Run the framework reference validation
+    # Uses same EDGE_ARGS since both validators support --force flag
+    if ! python3 "$FRAMEWORK_VALIDATOR" $EDGE_ARGS; then
         VALIDATION_FAILED=1 # Mark as failed if reference validation fails
     fi
 fi
@@ -702,6 +725,7 @@ echo "   ✅ Prettier formatting"
 echo "   ✅ Ruff linting"
 echo "   ✅ Component edge validation"
 echo "   ✅ Control-to-risk reference validation"
+echo "   ✅ Framework reference validation"
 echo "   ✅ Mermaid SVG generation"
 
 # Check if component graph was generated and add to summary

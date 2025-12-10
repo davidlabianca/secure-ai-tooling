@@ -17,10 +17,11 @@ Development tools and utilities for this project.
 ### Pre-commit Hooks
 
 **[Hook Validations](docs/hook-validations.md)**
-- What the pre-commit hook validates (7 validation types)
+- What the pre-commit hook validates (8 validation types)
 - YAML schema validation, Prettier formatting, Ruff linting
 - Component edge validation and graph generation
 - Control-to-risk reference validation
+- Framework reference validation
 - Mermaid SVG generation and markdown table generation
 
 **[Validation Flow](docs/validation-flow.md)**
@@ -77,6 +78,7 @@ Development tools and utilities for this project.
 - `hooks/pre-commit` - Main git hook script orchestrating all validations
 - `hooks/validate_riskmap.py` - Component edge validation and graph generation
 - `hooks/validate_control_risk_references.py` - Control-risk cross-reference validation
+- `hooks/validate_framework_references.py` - Framework reference validation
 - `hooks/yaml_to_markdown.py` - Markdown table generation from YAML
 - `install-precommit-hook.sh` - Installation script for git hooks
 

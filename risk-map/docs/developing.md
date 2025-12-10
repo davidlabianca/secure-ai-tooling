@@ -66,6 +66,12 @@ This guide outlines how you can contribute to the Coalition for Secure AI (CoSAI
 - Documentation standards
 - Graph preview techniques
 
+**[Writing Documentation](writing-documentation.md)**
+- How to write testable Python code examples
+- Skip markers for documentation-only code
+- Working directory and file path guidelines
+- Testing examples locally
+
 ---
 
 ## Quick Links

@@ -94,9 +94,9 @@ configure_chromium_path() {
                         exit 1
                     fi
 
-                    if ! npx playwright -V &> /dev/null and [[ "$INSTALL_PLAYWRIGHT" == "true" ]]; then
+                    if ! npx playwright -V &> /dev/null && [[ "$INSTALL_PLAYWRIGHT" == "true" ]]; then
                         echo "   Playwright Chromium not found. Installing..."
-                        if ! $(npx playwright install chromium --with-deps); then
+                        if ! npx playwright install chromium --with-deps; then
                             echo "❌ Failed to install Playwright Chromium"
                             echo "   Exiting..."
                             exit 1
@@ -185,6 +185,7 @@ VALIDATOR_SRC="scripts/hooks/validate_riskmap.py"
 VALIDATOR_MODULE_SRC="scripts/hooks/riskmap_validator"
 REF_VALIDATOR_SRC="scripts/hooks/validate_control_risk_references.py"
 YAML_TO_MD_SRC="scripts/hooks/yaml_to_markdown.py"
+FRAMEWORK_VALIDATOR_SRC="scripts/hooks/validate_framework_references.py"
 
 while [[ $# -gt 0 ]]; do
     case $1 in
@@ -207,6 +208,7 @@ while [[ $# -gt 0 ]]; do
             echo "  - Component edge validator (edge consistency validation)"
             echo "  - Control-to-risk reference validator (reference consistency validation)"
             echo "  - Markdown table generator (YAML to markdown conversion)"
+            echo "  - Framework reference (framework reference validation)"
             echo ""
             echo "Chrome/Chromium configuration:"
             echo "  - On most platforms: automatic Chrome detection (recommended)"
@@ -228,6 +230,7 @@ TARGET_VALIDATOR="$REPO_ROOT/.git/hooks/validate_riskmap.py"
 TARGET_VALIDATOR_MODULE="$REPO_ROOT/.git/hooks/riskmap_validator"
 TARGET_REF_VALIDATOR="$REPO_ROOT/.git/hooks/validate_control_risk_references.py"
 TARGET_YAML_TO_MD="$REPO_ROOT/.git/hooks/yaml_to_markdown.py"
+TARGET_FRAMEWORK_VALIDATOR="$REPO_ROOT/.git/hooks/validate_framework_references.py"
 
 echo "Installing git hooks..."
 
@@ -264,11 +267,17 @@ if [[ ! -f "$REPO_ROOT/${YAML_TO_MD_SRC}" ]]; then
     exit 1
 fi
 
+if [[ ! -f "$REPO_ROOT/${FRAMEWORK_VALIDATOR_SRC}" ]]; then
+    echo "❌ Error: ${FRAMEWORK_VALIDATOR_SRC} not found"
+    exit 1
+fi
+
 # Check if target files already exist
 EXISTING_HOOK=false
 EXISTING_VALIDATOR=false
 EXISTING_REF_VALIDATOR=false
 EXISTING_YAML_TO_MD=false
+EXISTING_FRAMEWORK_VALIDATOR=false
 
 if [[ -f "$TARGET_HOOK" ]]; then
     EXISTING_HOOK=true
@@ -287,16 +296,28 @@ if [[ -f "$TARGET_YAML_TO_MD" ]]; then
     EXISTING_YAML_TO_MD=true
 fi
 
-if [[ ($EXISTING_HOOK == true || $EXISTING_VALIDATOR == true || $EXISTING_REF_VALIDATOR == true || $EXISTING_YAML_TO_MD == true) && "$FORCE" != "true" ]]; then
-    echo "❌ Error: One or more hooks already exist:"
-    [[ $EXISTING_HOOK == true ]] && echo "   - pre-commit hook exists at $TARGET_HOOK"
-    [[ $EXISTING_VALIDATOR == true ]] && echo "   - component validator exists at $TARGET_VALIDATOR"
-    [[ $EXISTING_REF_VALIDATOR == true ]] && echo "   - control-to-risk reference validator exists at $TARGET_REF_VALIDATOR"
-    [[ $EXISTING_YAML_TO_MD == true ]] && echo "   - markdown table generator exists at $TARGET_YAML_TO_MD"
-    echo ""
-    echo "💡 Use --force to overwrite, or remove the existing hooks manually"
-    echo "   Example: $0 --force"
-    exit 1
+if [[ -f "$TARGET_FRAMEWORK_VALIDATOR" ]]; then
+    EXISTING_FRAMEWORK_VALIDATOR=true
+fi
+
+# Check if any hooks already exist (unless --force is used)
+if [[ "$FORCE" != "true" ]]; then
+    if [[ $EXISTING_HOOK == true || \
+          $EXISTING_VALIDATOR == true || \
+          $EXISTING_REF_VALIDATOR == true || \
+          $EXISTING_YAML_TO_MD == true || \
+          $EXISTING_FRAMEWORK_VALIDATOR == true ]]; then
+        echo "❌ Error: One or more hooks already exist:"
+        [[ $EXISTING_HOOK == true ]] && echo "   - pre-commit hook exists at $TARGET_HOOK"
+        [[ $EXISTING_VALIDATOR == true ]] && echo "   - component validator exists at $TARGET_VALIDATOR"
+        [[ $EXISTING_REF_VALIDATOR == true ]] && echo "   - control-to-risk reference validator exists at $TARGET_REF_VALIDATOR"
+        [[ $EXISTING_YAML_TO_MD == true ]] && echo "   - markdown table generator exists at $TARGET_YAML_TO_MD"
+        [[ $EXISTING_FRAMEWORK_VALIDATOR == true ]] && echo "   - framework validator exists at $TARGET_FRAMEWORK_VALIDATOR"
+        echo ""
+        echo "💡 Use --force to overwrite, or remove the existing hooks manually"
+        echo "   Example: $0 --force"
+        exit 1
+    fi
 fi
 
 # Create .git/hooks directory if it doesn't exist
@@ -326,7 +347,7 @@ chmod +x "$TARGET_HOOK"
 echo "🔗 Installing component edge validator..."
 mkdir -p "${TARGET_VALIDATOR_MODULE}"
 cp "${REPO_ROOT}/${VALIDATOR_SRC}" "${TARGET_VALIDATOR}"
-cp -r ${REPO_ROOT}/${VALIDATOR_MODULE_SRC}/* "${TARGET_VALIDATOR_MODULE}/"
+cp -r "${REPO_ROOT}/${VALIDATOR_MODULE_SRC}"/* "${TARGET_VALIDATOR_MODULE}/"
 chmod +x "$TARGET_VALIDATOR"
 
 # Install control-to-risk reference validator
@@ -338,6 +359,11 @@ chmod +x "$TARGET_REF_VALIDATOR"
 echo "📋 Installing markdown table generator..."
 cp "$REPO_ROOT/${YAML_TO_MD_SRC}" "$TARGET_YAML_TO_MD"
 chmod +x "$TARGET_YAML_TO_MD"
+
+# Install framework validator
+echo "📋 Installing framework validator..."
+cp "$REPO_ROOT/${FRAMEWORK_VALIDATOR_SRC}" "$TARGET_FRAMEWORK_VALIDATOR"
+chmod +x "$TARGET_FRAMEWORK_VALIDATOR"
 
 # Success message
 if [[ "$FORCE" == "true" ]]; then
@@ -354,6 +380,7 @@ echo "   - Pre-commit hook: $TARGET_HOOK"
 echo "   - Edge validator: $TARGET_VALIDATOR"
 echo "   - Control-to-risk validator: $TARGET_REF_VALIDATOR"
 echo "   - Markdown table generator: $TARGET_YAML_TO_MD"
+echo "   - Framework validator: $TARGET_FRAMEWORK_VALIDATOR"
 echo ""
 echo "🔍 These hooks will now run automatically before each commit to validate:"
 echo "   ✅ YAML schema compliance"
@@ -361,5 +388,6 @@ echo "   ✅ Component edge consistency"
 echo "   ✅ Control-to-risk reference consistency"
 echo "   ✅ Generate SVG files from Mermaid diagrams"
 echo "   ✅ Generate markdown tables from YAML files"
+echo "   ✅ Framework reference validation"
 echo ""
 echo "💡 To bypass hooks temporarily: git commit --no-verify"
