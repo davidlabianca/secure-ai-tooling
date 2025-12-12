@@ -52,8 +52,6 @@ body:
       options:
         - label: Model Creator (personaModelCreator)
         - label: Model Consumer (personaModelConsumer)
-    validations:
-      required: true
 
   - type: textarea
     id: components
