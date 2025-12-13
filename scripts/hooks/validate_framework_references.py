@@ -101,6 +101,36 @@ def extract_framework_ids(frameworks_data: dict[str, Any]) -> set[str]:
     return framework_ids
 
 
+def extract_framework_applicability(frameworks_data: dict[str, Any]) -> dict[str, list[str]]:
+    """
+    Extract applicableTo arrays from frameworks.yaml.
+
+    Args:
+        frameworks_data: Parsed frameworks.yaml dict
+
+    Returns:
+        Dict mapping framework_id -> list of applicable entity types
+        Example: {"mitre-atlas": ["controls", "risks"], "nist-ai-rmf": ["controls"]}
+    """
+    frameworks_applicability = {}
+
+    if not frameworks_data or "frameworks" not in frameworks_data:
+        return frameworks_applicability
+
+    for framework in frameworks_data["frameworks"]:
+        framework_id = framework.get("id")
+        if not framework_id:
+            continue
+
+        applicable_to = framework.get("applicableTo")
+        if applicable_to is not None:
+            # Store the applicableTo array (could be list or other type)
+            # Schema validation will catch if it's not a list
+            frameworks_applicability[framework_id] = applicable_to
+
+    return frameworks_applicability
+
+
 def extract_risk_framework_references(risks_data: dict[str, Any]) -> dict[str, list[str]]:
     """
     Extract framework references from risks.yaml.
@@ -194,6 +224,59 @@ def validate_framework_references(
     return errors
 
 
+def validate_framework_applicability(
+    frameworks_applicability: dict[str, list[str]],
+    risk_frameworks: dict[str, list[str]],
+    control_frameworks: dict[str, list[str]],
+) -> list[str]:
+    """
+    Validate that controls/risks only reference applicable frameworks.
+
+    Args:
+        frameworks_applicability: Dict mapping framework_id -> list of applicable entity types
+        risk_frameworks: Dict mapping risk_id -> list of framework_ids
+        control_frameworks: Dict mapping control_id -> list of framework_ids
+
+    Returns:
+        List of error messages (empty if all valid)
+    """
+    errors = []
+
+    # Validate control framework applicability
+    for control_id, framework_ids in control_frameworks.items():
+        for framework_id in framework_ids:
+            # Skip frameworks not in applicability dict (validated by validate_framework_references)
+            if framework_id not in frameworks_applicability:
+                continue
+
+            applicable_to = frameworks_applicability[framework_id]
+            # Check if "controls" is in the applicableTo array
+            if "controls" not in applicable_to:
+                errors.append(
+                    f"[ISSUE: frameworks.yaml] "
+                    f"Control '{control_id}' references framework '{framework_id}' "
+                    f"which is not applicable to controls (applicableTo: {applicable_to})"
+                )
+
+    # Validate risk framework applicability
+    for risk_id, framework_ids in risk_frameworks.items():
+        for framework_id in framework_ids:
+            # Skip frameworks not in applicability dict (validated by validate_framework_references)
+            if framework_id not in frameworks_applicability:
+                continue
+
+            applicable_to = frameworks_applicability[framework_id]
+            # Check if "risks" is in the applicableTo array
+            if "risks" not in applicable_to:
+                errors.append(
+                    f"[ISSUE: frameworks.yaml] "
+                    f"Risk '{risk_id}' references framework '{framework_id}' "
+                    f"which is not applicable to risks (applicableTo: {applicable_to})"
+                )
+
+    return errors
+
+
 def validate_framework_consistency(frameworks_data: dict[str, Any]) -> list[str]:
     """
     Validate that framework definitions are internally consistent.
@@ -269,6 +352,9 @@ def validate_frameworks(file_paths: list[Path]) -> bool:
     # Extract framework IDs
     valid_framework_ids = extract_framework_ids(frameworks_yaml_data)
 
+    # Extract framework applicability
+    frameworks_applicability = extract_framework_applicability(frameworks_yaml_data)
+
     if not valid_framework_ids:
         print("  ℹ️  No frameworks found in frameworks.yaml - skipping reference validation")
         if consistency_errors:
@@ -285,6 +371,11 @@ def validate_frameworks(file_paths: list[Path]) -> bool:
     # Validate references
     reference_errors = validate_framework_references(valid_framework_ids, risk_frameworks, control_frameworks)
 
+    # Validate applicability
+    applicability_errors = validate_framework_applicability(
+        frameworks_applicability, risk_frameworks, control_frameworks
+    )
+
     # Report results
     success = True
 
@@ -300,8 +391,14 @@ def validate_frameworks(file_paths: list[Path]) -> bool:
             print(f"     - {error}")
         success = False
 
+    if applicability_errors:
+        print(f"   ❌ Found {len(applicability_errors)} framework applicability errors:")
+        for error in applicability_errors:
+            print(f"     - {error}")
+        success = False
+
     if success:
-        print("  ✅ Framework references are consistent")
+        print("  ✅ Framework references and applicability are consistent")
         framework_list = ", ".join(sorted(valid_framework_ids))
         print(f"     - Found {len(valid_framework_ids)} valid frameworks: {framework_list}")
         if risk_frameworks:
