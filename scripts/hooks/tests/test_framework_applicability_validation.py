@@ -387,7 +387,7 @@ class TestExtractFrameworkApplicability:
             "Should handle malformed applicableTo gracefully"
         )
 
-    def test_extract_from_actual_frameworks_yaml(self):
+    def test_extract_from_actual_frameworks_yaml(self, frameworks_yaml_path):
         """
         Test extraction from actual production frameworks.yaml.
 
@@ -397,7 +397,7 @@ class TestExtractFrameworkApplicability:
         """
         from validate_framework_references import extract_framework_applicability
 
-        frameworks_path = Path("/workspaces/secure-ai-tooling/risk-map/yaml/frameworks.yaml")
+        frameworks_path = frameworks_yaml_path
         assert frameworks_path.exists(), "frameworks.yaml must exist"
 
         with open(frameworks_path) as f:
@@ -1200,7 +1200,9 @@ controls:
 
         assert result is False, "Validation should fail with multiple error types"
 
-    def test_validation_with_actual_production_data(self):
+    def test_validation_with_actual_production_data(
+        self, frameworks_yaml_path, risks_yaml_path, controls_yaml_path
+    ):
         """
         Test validation with actual production YAML files.
 
@@ -1210,9 +1212,9 @@ controls:
         """
         from validate_framework_references import validate_frameworks
 
-        frameworks_path = Path("/workspaces/secure-ai-tooling/risk-map/yaml/frameworks.yaml")
-        risks_path = Path("/workspaces/secure-ai-tooling/risk-map/yaml/risks.yaml")
-        controls_path = Path("/workspaces/secure-ai-tooling/risk-map/yaml/controls.yaml")
+        frameworks_path = frameworks_yaml_path
+        risks_path = risks_yaml_path
+        controls_path = controls_yaml_path
 
         assert frameworks_path.exists(), "frameworks.yaml must exist"
         assert risks_path.exists(), "risks.yaml must exist"
@@ -1390,7 +1392,7 @@ controls:
 class TestFrameworkApplicabilityWithRealData:
     """Test framework applicability validation with actual production data."""
 
-    def test_validate_actual_controls_yaml_framework_mappings(self):
+    def test_validate_actual_controls_yaml_framework_mappings(self, frameworks_yaml_path, controls_yaml_path):
         """
         Test that actual controls.yaml only references applicable frameworks.
 
@@ -1405,8 +1407,8 @@ class TestFrameworkApplicabilityWithRealData:
             validate_framework_applicability,
         )
 
-        frameworks_path = Path("/workspaces/secure-ai-tooling/risk-map/yaml/frameworks.yaml")
-        controls_path = Path("/workspaces/secure-ai-tooling/risk-map/yaml/controls.yaml")
+        frameworks_path = frameworks_yaml_path
+        controls_path = controls_yaml_path
 
         frameworks_data = load_yaml_file(frameworks_path)
         controls_data = load_yaml_file(controls_path)
@@ -1421,7 +1423,7 @@ class TestFrameworkApplicabilityWithRealData:
 
         assert errors == [], f"Production controls should only reference applicable frameworks. Errors: {errors}"
 
-    def test_validate_actual_risks_yaml_framework_mappings(self):
+    def test_validate_actual_risks_yaml_framework_mappings(self, frameworks_yaml_path, risks_yaml_path):
         """
         Test that actual risks.yaml only references applicable frameworks.
 
@@ -1436,8 +1438,8 @@ class TestFrameworkApplicabilityWithRealData:
             validate_framework_applicability,
         )
 
-        frameworks_path = Path("/workspaces/secure-ai-tooling/risk-map/yaml/frameworks.yaml")
-        risks_path = Path("/workspaces/secure-ai-tooling/risk-map/yaml/risks.yaml")
+        frameworks_path = frameworks_yaml_path
+        risks_path = risks_yaml_path
 
         frameworks_data = load_yaml_file(frameworks_path)
         risks_data = load_yaml_file(risks_path)
@@ -1452,7 +1454,9 @@ class TestFrameworkApplicabilityWithRealData:
 
         assert errors == [], f"Production risks should only reference applicable frameworks. Errors: {errors}"
 
-    def test_detect_invalid_applicability_in_production_data_if_exists(self):
+    def test_detect_invalid_applicability_in_production_data_if_exists(
+        self, frameworks_yaml_path, risks_yaml_path, controls_yaml_path
+    ):
         """
         Test detection of any invalid applicability in production data.
 
@@ -1462,16 +1466,16 @@ class TestFrameworkApplicabilityWithRealData:
         """
         from validate_framework_references import validate_frameworks
 
-        frameworks_path = Path("/workspaces/secure-ai-tooling/risk-map/yaml/frameworks.yaml")
-        risks_path = Path("/workspaces/secure-ai-tooling/risk-map/yaml/risks.yaml")
-        controls_path = Path("/workspaces/secure-ai-tooling/risk-map/yaml/controls.yaml")
+        frameworks_path = frameworks_yaml_path
+        risks_path = risks_yaml_path
+        controls_path = controls_yaml_path
 
         result = validate_frameworks([frameworks_path, risks_path, controls_path])
 
         # This test documents actual state - if production has issues, they'll be caught
         assert isinstance(result, bool), "Validation should return boolean result"
 
-    def test_all_production_frameworks_have_applicable_to_defined(self):
+    def test_all_production_frameworks_have_applicable_to_defined(self, frameworks_yaml_path):
         """
         Test that all production frameworks have applicableTo field.
 
@@ -1481,7 +1485,7 @@ class TestFrameworkApplicabilityWithRealData:
         """
         from validate_framework_references import load_yaml_file
 
-        frameworks_path = Path("/workspaces/secure-ai-tooling/risk-map/yaml/frameworks.yaml")
+        frameworks_path = frameworks_yaml_path
         frameworks_data = load_yaml_file(frameworks_path)
 
         assert frameworks_data is not None

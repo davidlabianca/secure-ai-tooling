@@ -33,7 +33,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 class TestApplicableToSchemaStructure:
     """Test that applicableTo field exists and has correct schema structure."""
 
-    def test_applicable_to_field_exists_in_schema(self):
+    def test_applicable_to_field_exists_in_schema(self, frameworks_schema_path):
         """
         Test that applicableTo field is defined in framework schema.
 
@@ -41,10 +41,9 @@ class TestApplicableToSchemaStructure:
         When: Schema is loaded and parsed
         Then: Framework definition includes applicableTo property
         """
-        schema_path = Path("/workspaces/secure-ai-tooling/risk-map/schemas/frameworks.schema.json")
-        assert schema_path.exists(), "frameworks.schema.json must exist"
+        assert frameworks_schema_path.exists(), "frameworks.schema.json must exist"
 
-        with open(schema_path) as f:
+        with open(frameworks_schema_path) as f:
             schema = json.load(f)
 
         framework_def = schema["definitions"]["framework"]
@@ -52,7 +51,7 @@ class TestApplicableToSchemaStructure:
 
         assert "applicableTo" in properties, "applicableTo field must be defined in framework schema"
 
-    def test_applicable_to_is_array_type(self):
+    def test_applicable_to_is_array_type(self, frameworks_schema_path):
         """
         Test that applicableTo is defined as array type.
 
@@ -60,15 +59,14 @@ class TestApplicableToSchemaStructure:
         When: applicableTo property is examined
         Then: Property type is "array"
         """
-        schema_path = Path("/workspaces/secure-ai-tooling/risk-map/schemas/frameworks.schema.json")
-        with open(schema_path) as f:
+        with open(frameworks_schema_path) as f:
             schema = json.load(f)
 
         applicable_to_def = schema["definitions"]["framework"]["properties"]["applicableTo"]
 
         assert applicable_to_def["type"] == "array", "applicableTo must be array type"
 
-    def test_applicable_to_items_are_strings(self):
+    def test_applicable_to_items_are_strings(self, frameworks_schema_path):
         """
         Test that applicableTo array items are strings.
 
@@ -76,8 +74,7 @@ class TestApplicableToSchemaStructure:
         When: items schema is examined
         Then: Items are defined as string type
         """
-        schema_path = Path("/workspaces/secure-ai-tooling/risk-map/schemas/frameworks.schema.json")
-        with open(schema_path) as f:
+        with open(frameworks_schema_path) as f:
             schema = json.load(f)
 
         applicable_to_def = schema["definitions"]["framework"]["properties"]["applicableTo"]
@@ -85,7 +82,7 @@ class TestApplicableToSchemaStructure:
 
         assert items_def["type"] == "string", "applicableTo items must be strings"
 
-    def test_applicable_to_has_enum_constraint(self):
+    def test_applicable_to_has_enum_constraint(self, frameworks_schema_path):
         """
         Test that applicableTo items have enum constraint.
 
@@ -93,15 +90,14 @@ class TestApplicableToSchemaStructure:
         When: items schema is examined
         Then: Enum constraint is defined with valid entity types
         """
-        schema_path = Path("/workspaces/secure-ai-tooling/risk-map/schemas/frameworks.schema.json")
-        with open(schema_path) as f:
+        with open(frameworks_schema_path) as f:
             schema = json.load(f)
 
         items_def = schema["definitions"]["framework"]["properties"]["applicableTo"]["items"]
 
         assert "enum" in items_def, "applicableTo items must have enum constraint"
 
-    def test_applicable_to_enum_contains_expected_values(self):
+    def test_applicable_to_enum_contains_expected_values(self, frameworks_schema_path):
         """
         Test that applicableTo enum includes all expected entity types.
 
@@ -109,8 +105,7 @@ class TestApplicableToSchemaStructure:
         When: Enum values are examined
         Then: Contains ["controls", "risks", "components", "personas"]
         """
-        schema_path = Path("/workspaces/secure-ai-tooling/risk-map/schemas/frameworks.schema.json")
-        with open(schema_path) as f:
+        with open(frameworks_schema_path) as f:
             schema = json.load(f)
 
         items_def = schema["definitions"]["framework"]["properties"]["applicableTo"]["items"]
@@ -123,7 +118,7 @@ class TestApplicableToSchemaStructure:
             f"applicableTo enum must contain exactly {expected_values}, got {actual_values}"
         )
 
-    def test_applicable_to_has_min_items_constraint(self):
+    def test_applicable_to_has_min_items_constraint(self, frameworks_schema_path):
         """
         Test that applicableTo has minItems constraint.
 
@@ -131,8 +126,7 @@ class TestApplicableToSchemaStructure:
         When: Schema constraints are examined
         Then: minItems is set to 1
         """
-        schema_path = Path("/workspaces/secure-ai-tooling/risk-map/schemas/frameworks.schema.json")
-        with open(schema_path) as f:
+        with open(frameworks_schema_path) as f:
             schema = json.load(f)
 
         applicable_to_def = schema["definitions"]["framework"]["properties"]["applicableTo"]
@@ -140,7 +134,7 @@ class TestApplicableToSchemaStructure:
         assert "minItems" in applicable_to_def, "applicableTo must have minItems constraint"
         assert applicable_to_def["minItems"] == 1, "applicableTo minItems must be 1"
 
-    def test_applicable_to_is_required_field(self):
+    def test_applicable_to_is_required_field(self, frameworks_schema_path):
         """
         Test that applicableTo is a required field.
 
@@ -148,8 +142,7 @@ class TestApplicableToSchemaStructure:
         When: Required fields are examined
         Then: applicableTo is in the required array
         """
-        schema_path = Path("/workspaces/secure-ai-tooling/risk-map/schemas/frameworks.schema.json")
-        with open(schema_path) as f:
+        with open(frameworks_schema_path) as f:
             schema = json.load(f)
 
         framework_def = schema["definitions"]["framework"]
@@ -166,7 +159,7 @@ class TestApplicableToSchemaStructure:
 class TestApplicableToValidCases:
     """Test that valid applicableTo configurations pass schema validation."""
 
-    def test_framework_with_controls_and_risks_passes_validation(self, tmp_path):
+    def test_framework_with_controls_and_risks_passes_validation(self, tmp_path, frameworks_schema_path, base_uri):
         """
         Test framework with applicableTo containing controls and risks.
 
@@ -192,19 +185,19 @@ frameworks:
         yaml_file = tmp_path / "frameworks.yaml"
         yaml_file.write_text(yaml_content)
 
-        schema_path = Path("/workspaces/secure-ai-tooling/risk-map/schemas/frameworks.schema.json")
-        base_uri = "file:///workspaces/secure-ai-tooling/risk-map/schemas/"
+        schema_path = frameworks_schema_path
+        base_uri_str = base_uri
 
         # Use check-jsonschema for validation with base URI for $ref resolution
         result = subprocess.run(
-            ["check-jsonschema", "--base-uri", base_uri, "--schemafile", str(schema_path), str(yaml_file)],
+            ["check-jsonschema", "--base-uri", base_uri_str, "--schemafile", str(schema_path), str(yaml_file)],
             capture_output=True,
             text=True,
         )
 
         assert result.returncode == 0, f"Validation should pass. Error: {result.stderr}"
 
-    def test_framework_with_controls_only_passes_validation(self, tmp_path):
+    def test_framework_with_controls_only_passes_validation(self, tmp_path, frameworks_schema_path, base_uri):
         """
         Test framework with applicableTo containing only controls.
 
@@ -229,18 +222,18 @@ frameworks:
         yaml_file = tmp_path / "frameworks.yaml"
         yaml_file.write_text(yaml_content)
 
-        schema_path = Path("/workspaces/secure-ai-tooling/risk-map/schemas/frameworks.schema.json")
-        base_uri = "file:///workspaces/secure-ai-tooling/risk-map/schemas/"
+        schema_path = frameworks_schema_path
+        base_uri_str = base_uri
 
         result = subprocess.run(
-            ["check-jsonschema", "--base-uri", base_uri, "--schemafile", str(schema_path), str(yaml_file)],
+            ["check-jsonschema", "--base-uri", base_uri_str, "--schemafile", str(schema_path), str(yaml_file)],
             capture_output=True,
             text=True,
         )
 
         assert result.returncode == 0, f"Validation should pass. Error: {result.stderr}"
 
-    def test_framework_with_risks_only_passes_validation(self, tmp_path):
+    def test_framework_with_risks_only_passes_validation(self, tmp_path, frameworks_schema_path, base_uri):
         """
         Test framework with applicableTo containing only risks.
 
@@ -265,18 +258,18 @@ frameworks:
         yaml_file = tmp_path / "frameworks.yaml"
         yaml_file.write_text(yaml_content)
 
-        schema_path = Path("/workspaces/secure-ai-tooling/risk-map/schemas/frameworks.schema.json")
-        base_uri = "file:///workspaces/secure-ai-tooling/risk-map/schemas/"
+        schema_path = frameworks_schema_path
+        base_uri_str = base_uri
 
         result = subprocess.run(
-            ["check-jsonschema", "--base-uri", base_uri, "--schemafile", str(schema_path), str(yaml_file)],
+            ["check-jsonschema", "--base-uri", base_uri_str, "--schemafile", str(schema_path), str(yaml_file)],
             capture_output=True,
             text=True,
         )
 
         assert result.returncode == 0, f"Validation should pass. Error: {result.stderr}"
 
-    def test_framework_with_all_entity_types_passes_validation(self, tmp_path):
+    def test_framework_with_all_entity_types_passes_validation(self, tmp_path, frameworks_schema_path, base_uri):
         """
         Test framework with all possible entity types.
 
@@ -289,7 +282,7 @@ title: Test Frameworks
 description:
   - Test frameworks for validation
 frameworks:
-  - id: test-framework
+  - id: mitre-atlas
     name: Test Framework
     fullName: Test Framework
     description: Framework applicable to all entity types
@@ -303,18 +296,18 @@ frameworks:
         yaml_file = tmp_path / "frameworks.yaml"
         yaml_file.write_text(yaml_content)
 
-        schema_path = Path("/workspaces/secure-ai-tooling/risk-map/schemas/frameworks.schema.json")
-        base_uri = "file:///workspaces/secure-ai-tooling/risk-map/schemas/"
+        schema_path = frameworks_schema_path
+        base_uri_str = base_uri
 
         result = subprocess.run(
-            ["check-jsonschema", "--base-uri", base_uri, "--schemafile", str(schema_path), str(yaml_file)],
+            ["check-jsonschema", "--base-uri", base_uri_str, "--schemafile", str(schema_path), str(yaml_file)],
             capture_output=True,
             text=True,
         )
 
         assert result.returncode == 0, f"Validation should pass. Error: {result.stderr}"
 
-    def test_framework_with_components_passes_validation(self, tmp_path):
+    def test_framework_with_components_passes_validation(self, tmp_path, frameworks_schema_path, base_uri):
         """
         Test framework with applicableTo containing components.
 
@@ -327,7 +320,7 @@ title: Test Frameworks
 description:
   - Test frameworks for validation
 frameworks:
-  - id: test-framework
+  - id: nist-ai-rmf
     name: Test Framework
     fullName: Test Framework
     description: Framework applicable to components
@@ -338,18 +331,18 @@ frameworks:
         yaml_file = tmp_path / "frameworks.yaml"
         yaml_file.write_text(yaml_content)
 
-        schema_path = Path("/workspaces/secure-ai-tooling/risk-map/schemas/frameworks.schema.json")
-        base_uri = "file:///workspaces/secure-ai-tooling/risk-map/schemas/"
+        schema_path = frameworks_schema_path
+        base_uri_str = base_uri
 
         result = subprocess.run(
-            ["check-jsonschema", "--base-uri", base_uri, "--schemafile", str(schema_path), str(yaml_file)],
+            ["check-jsonschema", "--base-uri", base_uri_str, "--schemafile", str(schema_path), str(yaml_file)],
             capture_output=True,
             text=True,
         )
 
         assert result.returncode == 0, f"Validation should pass. Error: {result.stderr}"
 
-    def test_framework_with_personas_passes_validation(self, tmp_path):
+    def test_framework_with_personas_passes_validation(self, tmp_path, frameworks_schema_path, base_uri):
         """
         Test framework with applicableTo containing personas.
 
@@ -362,7 +355,7 @@ title: Test Frameworks
 description:
   - Test frameworks for validation
 frameworks:
-  - id: test-framework
+  - id: stride
     name: Test Framework
     fullName: Test Framework
     description: Framework applicable to personas
@@ -373,11 +366,11 @@ frameworks:
         yaml_file = tmp_path / "frameworks.yaml"
         yaml_file.write_text(yaml_content)
 
-        schema_path = Path("/workspaces/secure-ai-tooling/risk-map/schemas/frameworks.schema.json")
-        base_uri = "file:///workspaces/secure-ai-tooling/risk-map/schemas/"
+        schema_path = frameworks_schema_path
+        base_uri_str = base_uri
 
         result = subprocess.run(
-            ["check-jsonschema", "--base-uri", base_uri, "--schemafile", str(schema_path), str(yaml_file)],
+            ["check-jsonschema", "--base-uri", base_uri_str, "--schemafile", str(schema_path), str(yaml_file)],
             capture_output=True,
             text=True,
         )
@@ -393,7 +386,7 @@ frameworks:
 class TestApplicableToInvalidCases:
     """Test that invalid applicableTo configurations fail schema validation."""
 
-    def test_framework_without_applicable_to_fails_validation(self, tmp_path):
+    def test_framework_without_applicable_to_fails_validation(self, tmp_path, frameworks_schema_path, base_uri):
         """
         Test that framework without applicableTo fails validation.
 
@@ -406,7 +399,7 @@ title: Test Frameworks
 description:
   - Test frameworks for validation
 frameworks:
-  - id: test-framework
+  - id: mitre-atlas
     name: Test Framework
     fullName: Test Framework
     description: Framework missing applicableTo
@@ -415,11 +408,11 @@ frameworks:
         yaml_file = tmp_path / "frameworks.yaml"
         yaml_file.write_text(yaml_content)
 
-        schema_path = Path("/workspaces/secure-ai-tooling/risk-map/schemas/frameworks.schema.json")
-        base_uri = "file:///workspaces/secure-ai-tooling/risk-map/schemas/"
+        schema_path = frameworks_schema_path
+        base_uri_str = base_uri
 
         result = subprocess.run(
-            ["check-jsonschema", "--base-uri", base_uri, "--schemafile", str(schema_path), str(yaml_file)],
+            ["check-jsonschema", "--base-uri", base_uri_str, "--schemafile", str(schema_path), str(yaml_file)],
             capture_output=True,
             text=True,
         )
@@ -430,7 +423,7 @@ frameworks:
             f"Error should mention missing required field applicableTo. Output: {output}"
         )
 
-    def test_framework_with_empty_applicable_to_fails_validation(self, tmp_path):
+    def test_framework_with_empty_applicable_to_fails_validation(self, tmp_path, frameworks_schema_path, base_uri):
         """
         Test that framework with empty applicableTo array fails validation.
 
@@ -443,7 +436,7 @@ title: Test Frameworks
 description:
   - Test frameworks for validation
 frameworks:
-  - id: test-framework
+  - id: mitre-atlas
     name: Test Framework
     fullName: Test Framework
     description: Framework with empty applicableTo
@@ -453,11 +446,11 @@ frameworks:
         yaml_file = tmp_path / "frameworks.yaml"
         yaml_file.write_text(yaml_content)
 
-        schema_path = Path("/workspaces/secure-ai-tooling/risk-map/schemas/frameworks.schema.json")
-        base_uri = "file:///workspaces/secure-ai-tooling/risk-map/schemas/"
+        schema_path = frameworks_schema_path
+        base_uri_str = base_uri
 
         result = subprocess.run(
-            ["check-jsonschema", "--base-uri", base_uri, "--schemafile", str(schema_path), str(yaml_file)],
+            ["check-jsonschema", "--base-uri", base_uri_str, "--schemafile", str(schema_path), str(yaml_file)],
             capture_output=True,
             text=True,
         )
@@ -468,7 +461,7 @@ frameworks:
             f"Error should mention minItems constraint violation. Output: {output}"
         )
 
-    def test_framework_with_invalid_entity_type_fails_validation(self, tmp_path):
+    def test_framework_with_invalid_entity_type_fails_validation(self, tmp_path, frameworks_schema_path, base_uri):
         """
         Test that framework with invalid entity type fails validation.
 
@@ -481,7 +474,7 @@ title: Test Frameworks
 description:
   - Test frameworks for validation
 frameworks:
-  - id: test-framework
+  - id: mitre-atlas
     name: Test Framework
     fullName: Test Framework
     description: Framework with invalid entity type
@@ -492,11 +485,11 @@ frameworks:
         yaml_file = tmp_path / "frameworks.yaml"
         yaml_file.write_text(yaml_content)
 
-        schema_path = Path("/workspaces/secure-ai-tooling/risk-map/schemas/frameworks.schema.json")
-        base_uri = "file:///workspaces/secure-ai-tooling/risk-map/schemas/"
+        schema_path = frameworks_schema_path
+        base_uri_str = base_uri
 
         result = subprocess.run(
-            ["check-jsonschema", "--base-uri", base_uri, "--schemafile", str(schema_path), str(yaml_file)],
+            ["check-jsonschema", "--base-uri", base_uri_str, "--schemafile", str(schema_path), str(yaml_file)],
             capture_output=True,
             text=True,
         )
@@ -507,7 +500,9 @@ frameworks:
             f"Error should mention enum constraint violation or invalid value. Output: {output}"
         )
 
-    def test_framework_with_multiple_invalid_types_fails_validation(self, tmp_path):
+    def test_framework_with_multiple_invalid_types_fails_validation(
+        self, tmp_path, frameworks_schema_path, base_uri
+    ):
         """
         Test that framework with multiple invalid types fails validation.
 
@@ -520,7 +515,7 @@ title: Test Frameworks
 description:
   - Test frameworks for validation
 frameworks:
-  - id: test-framework
+  - id: mitre-atlas
     name: Test Framework
     fullName: Test Framework
     description: Framework with mixed valid and invalid types
@@ -533,11 +528,11 @@ frameworks:
         yaml_file = tmp_path / "frameworks.yaml"
         yaml_file.write_text(yaml_content)
 
-        schema_path = Path("/workspaces/secure-ai-tooling/risk-map/schemas/frameworks.schema.json")
-        base_uri = "file:///workspaces/secure-ai-tooling/risk-map/schemas/"
+        schema_path = frameworks_schema_path
+        base_uri_str = base_uri
 
         result = subprocess.run(
-            ["check-jsonschema", "--base-uri", base_uri, "--schemafile", str(schema_path), str(yaml_file)],
+            ["check-jsonschema", "--base-uri", base_uri_str, "--schemafile", str(schema_path), str(yaml_file)],
             capture_output=True,
             text=True,
         )
@@ -548,7 +543,9 @@ frameworks:
             f"Error should mention the invalid value. Output: {output}"
         )
 
-    def test_framework_with_non_array_applicable_to_fails_validation(self, tmp_path):
+    def test_framework_with_non_array_applicable_to_fails_validation(
+        self, tmp_path, frameworks_schema_path, base_uri
+    ):
         """
         Test that framework with non-array applicableTo fails validation.
 
@@ -561,7 +558,7 @@ title: Test Frameworks
 description:
   - Test frameworks for validation
 frameworks:
-  - id: test-framework
+  - id: mitre-atlas
     name: Test Framework
     fullName: Test Framework
     description: Framework with string applicableTo
@@ -571,11 +568,11 @@ frameworks:
         yaml_file = tmp_path / "frameworks.yaml"
         yaml_file.write_text(yaml_content)
 
-        schema_path = Path("/workspaces/secure-ai-tooling/risk-map/schemas/frameworks.schema.json")
-        base_uri = "file:///workspaces/secure-ai-tooling/risk-map/schemas/"
+        schema_path = frameworks_schema_path
+        base_uri_str = base_uri
 
         result = subprocess.run(
-            ["check-jsonschema", "--base-uri", base_uri, "--schemafile", str(schema_path), str(yaml_file)],
+            ["check-jsonschema", "--base-uri", base_uri_str, "--schemafile", str(schema_path), str(yaml_file)],
             capture_output=True,
             text=True,
         )
@@ -586,7 +583,9 @@ frameworks:
             f"Error should mention type mismatch. Output: {output}"
         )
 
-    def test_framework_with_numeric_applicable_to_fails_validation(self, tmp_path):
+    def test_framework_with_numeric_applicable_to_fails_validation(
+        self, tmp_path, frameworks_schema_path, base_uri
+    ):
         """
         Test that framework with numeric items in applicableTo fails validation.
 
@@ -599,7 +598,7 @@ title: Test Frameworks
 description:
   - Test frameworks for validation
 frameworks:
-  - id: test-framework
+  - id: mitre-atlas
     name: Test Framework
     fullName: Test Framework
     description: Framework with numeric applicableTo
@@ -611,11 +610,11 @@ frameworks:
         yaml_file = tmp_path / "frameworks.yaml"
         yaml_file.write_text(yaml_content)
 
-        schema_path = Path("/workspaces/secure-ai-tooling/risk-map/schemas/frameworks.schema.json")
-        base_uri = "file:///workspaces/secure-ai-tooling/risk-map/schemas/"
+        schema_path = frameworks_schema_path
+        base_uri_str = base_uri
 
         result = subprocess.run(
-            ["check-jsonschema", "--base-uri", base_uri, "--schemafile", str(schema_path), str(yaml_file)],
+            ["check-jsonschema", "--base-uri", base_uri_str, "--schemafile", str(schema_path), str(yaml_file)],
             capture_output=True,
             text=True,
         )
@@ -635,7 +634,7 @@ frameworks:
 class TestApplicableToEdgeCases:
     """Test edge cases for applicableTo field validation."""
 
-    def test_framework_with_duplicate_entity_types(self, tmp_path):
+    def test_framework_with_duplicate_entity_types(self, tmp_path, frameworks_schema_path, base_uri):
         """
         Test framework with duplicate entity types in applicableTo.
 
@@ -651,7 +650,7 @@ title: Test Frameworks
 description:
   - Test frameworks for validation
 frameworks:
-  - id: test-framework
+  - id: owasp-top10-llm
     name: Test Framework
     fullName: Test Framework
     description: Framework with duplicate types
@@ -664,11 +663,11 @@ frameworks:
         yaml_file = tmp_path / "frameworks.yaml"
         yaml_file.write_text(yaml_content)
 
-        schema_path = Path("/workspaces/secure-ai-tooling/risk-map/schemas/frameworks.schema.json")
-        base_uri = "file:///workspaces/secure-ai-tooling/risk-map/schemas/"
+        schema_path = frameworks_schema_path
+        base_uri_str = base_uri
 
         result = subprocess.run(
-            ["check-jsonschema", "--base-uri", base_uri, "--schemafile", str(schema_path), str(yaml_file)],
+            ["check-jsonschema", "--base-uri", base_uri_str, "--schemafile", str(schema_path), str(yaml_file)],
             capture_output=True,
             text=True,
         )
@@ -682,7 +681,7 @@ frameworks:
             # If uniqueItems constraint exists, verify error message
             assert "unique" in result.stderr.lower(), "Error should mention uniqueness violation"
 
-    def test_framework_with_case_sensitive_entity_types_fails(self, tmp_path):
+    def test_framework_with_case_sensitive_entity_types_fails(self, tmp_path, frameworks_schema_path, base_uri):
         """
         Test that entity types are case-sensitive.
 
@@ -695,7 +694,7 @@ title: Test Frameworks
 description:
   - Test frameworks for validation
 frameworks:
-  - id: test-framework
+  - id: mitre-atlas
     name: Test Framework
     fullName: Test Framework
     description: Framework with capitalized types
@@ -707,11 +706,11 @@ frameworks:
         yaml_file = tmp_path / "frameworks.yaml"
         yaml_file.write_text(yaml_content)
 
-        schema_path = Path("/workspaces/secure-ai-tooling/risk-map/schemas/frameworks.schema.json")
-        base_uri = "file:///workspaces/secure-ai-tooling/risk-map/schemas/"
+        schema_path = frameworks_schema_path
+        base_uri_str = base_uri
 
         result = subprocess.run(
-            ["check-jsonschema", "--base-uri", base_uri, "--schemafile", str(schema_path), str(yaml_file)],
+            ["check-jsonschema", "--base-uri", base_uri_str, "--schemafile", str(schema_path), str(yaml_file)],
             capture_output=True,
             text=True,
         )
@@ -722,7 +721,7 @@ frameworks:
             f"Error should mention invalid capitalized values. Output: {output}"
         )
 
-    def test_multiple_frameworks_with_different_applicable_to(self, tmp_path):
+    def test_multiple_frameworks_with_different_applicable_to(self, tmp_path, frameworks_schema_path, base_uri):
         """
         Test multiple frameworks with different applicableTo configurations.
 
@@ -735,7 +734,7 @@ title: Test Frameworks
 description:
   - Test frameworks for validation
 frameworks:
-  - id: framework-1
+  - id: mitre-atlas
     name: Framework 1
     fullName: Framework 1
     description: Controls and risks
@@ -744,7 +743,7 @@ frameworks:
       - controls
       - risks
 
-  - id: framework-2
+  - id: nist-ai-rmf
     name: Framework 2
     fullName: Framework 2
     description: Risks only
@@ -752,7 +751,7 @@ frameworks:
     applicableTo:
       - risks
 
-  - id: framework-3
+  - id: stride
     name: Framework 3
     fullName: Framework 3
     description: All types
@@ -766,11 +765,11 @@ frameworks:
         yaml_file = tmp_path / "frameworks.yaml"
         yaml_file.write_text(yaml_content)
 
-        schema_path = Path("/workspaces/secure-ai-tooling/risk-map/schemas/frameworks.schema.json")
-        base_uri = "file:///workspaces/secure-ai-tooling/risk-map/schemas/"
+        schema_path = frameworks_schema_path
+        base_uri_str = base_uri
 
         result = subprocess.run(
-            ["check-jsonschema", "--base-uri", base_uri, "--schemafile", str(schema_path), str(yaml_file)],
+            ["check-jsonschema", "--base-uri", base_uri_str, "--schemafile", str(schema_path), str(yaml_file)],
             capture_output=True,
             text=True,
         )
@@ -786,7 +785,7 @@ frameworks:
 class TestApplicableToIntegration:
     """Integration tests validating actual frameworks.yaml with applicableTo field."""
 
-    def test_actual_frameworks_yaml_structure_is_loadable(self):
+    def test_actual_frameworks_yaml_structure_is_loadable(self, frameworks_yaml_path):
         """
         Test that actual frameworks.yaml can be loaded.
 
@@ -796,7 +795,7 @@ class TestApplicableToIntegration:
         """
         import yaml
 
-        yaml_path = Path("/workspaces/secure-ai-tooling/risk-map/yaml/frameworks.yaml")
+        yaml_path = frameworks_yaml_path
         assert yaml_path.exists(), "frameworks.yaml must exist"
 
         with open(yaml_path) as f:
@@ -805,7 +804,7 @@ class TestApplicableToIntegration:
         assert data is not None, "frameworks.yaml should contain valid YAML"
         assert "frameworks" in data, "frameworks.yaml should have frameworks array"
 
-    def test_mitre_atlas_expected_applicable_to_configuration(self):
+    def test_mitre_atlas_expected_applicable_to_configuration(self, frameworks_yaml_path):
         """
         Test mitre-atlas should have applicableTo: ["controls", "risks"].
 
@@ -817,7 +816,7 @@ class TestApplicableToIntegration:
         """
         import yaml
 
-        yaml_path = Path("/workspaces/secure-ai-tooling/risk-map/yaml/frameworks.yaml")
+        yaml_path = frameworks_yaml_path
 
         with open(yaml_path) as f:
             data = yaml.safe_load(f)
@@ -830,7 +829,7 @@ class TestApplicableToIntegration:
             "mitre-atlas should be applicable to controls and risks"
         )
 
-    def test_nist_ai_rmf_expected_applicable_to_configuration(self):
+    def test_nist_ai_rmf_expected_applicable_to_configuration(self, frameworks_yaml_path):
         """
         Test nist-ai-rmf should have applicableTo: ["controls"].
 
@@ -842,7 +841,7 @@ class TestApplicableToIntegration:
         """
         import yaml
 
-        yaml_path = Path("/workspaces/secure-ai-tooling/risk-map/yaml/frameworks.yaml")
+        yaml_path = frameworks_yaml_path
 
         with open(yaml_path) as f:
             data = yaml.safe_load(f)
@@ -853,7 +852,7 @@ class TestApplicableToIntegration:
         assert "applicableTo" in nist_rmf, "nist-ai-rmf must have applicableTo field"
         assert nist_rmf["applicableTo"] == ["controls"], "nist-ai-rmf should be applicable to controls only"
 
-    def test_stride_expected_applicable_to_configuration(self):
+    def test_stride_expected_applicable_to_configuration(self, frameworks_yaml_path):
         """
         Test stride should have applicableTo: ["risks"].
 
@@ -865,7 +864,7 @@ class TestApplicableToIntegration:
         """
         import yaml
 
-        yaml_path = Path("/workspaces/secure-ai-tooling/risk-map/yaml/frameworks.yaml")
+        yaml_path = frameworks_yaml_path
 
         with open(yaml_path) as f:
             data = yaml.safe_load(f)
@@ -876,19 +875,22 @@ class TestApplicableToIntegration:
         assert "applicableTo" in stride, "stride must have applicableTo field"
         assert stride["applicableTo"] == ["risks"], "stride should be applicable to risks only"
 
-    def test_owasp_top10_llm_expected_applicable_to_configuration(self):
+    def test_owasp_top10_llm_expected_applicable_to_configuration(self, frameworks_yaml_path):
         """
-        Test owasp-top10-llm should have applicableTo: ["risks"].
+        Test owasp-top10-llm should have applicableTo: ["controls", "risks"].
 
         Given: The actual frameworks.yaml file with applicableTo added
         When: owasp-top10-llm framework is examined
-        Then: applicableTo contains ["risks"]
+        Then: applicableTo contains ["controls", "risks"]
 
-        Note: This test will fail initially (RED) until applicableTo is added to frameworks.yaml
+        Note: Updated during Phase 2C - owasp-top10-llm applies to both controls and risks
+        because 4 controls reference it (controlInputValidationAndSanitization,
+        controlOutputValidationAndSanitization, controlApplicationAccessManagement,
+        controlAgentPluginPermissions)
         """
         import yaml
 
-        yaml_path = Path("/workspaces/secure-ai-tooling/risk-map/yaml/frameworks.yaml")
+        yaml_path = frameworks_yaml_path
 
         with open(yaml_path) as f:
             data = yaml.safe_load(f)
@@ -897,9 +899,13 @@ class TestApplicableToIntegration:
         assert owasp is not None, "owasp-top10-llm framework must exist"
 
         assert "applicableTo" in owasp, "owasp-top10-llm must have applicableTo field"
-        assert owasp["applicableTo"] == ["risks"], "owasp-top10-llm should be applicable to risks only"
+        assert set(owasp["applicableTo"]) == {"controls", "risks"}, (
+            "owasp-top10-llm should be applicable to controls and risks"
+        )
 
-    def test_actual_frameworks_yaml_passes_schema_validation_with_applicable_to(self):
+    def test_actual_frameworks_yaml_passes_schema_validation_with_applicable_to(
+        self, frameworks_yaml_path, frameworks_schema_path, base_uri
+    ):
         """
         Test that actual frameworks.yaml passes schema validation after adding applicableTo.
 
@@ -909,12 +915,12 @@ class TestApplicableToIntegration:
 
         Note: This test will fail initially (RED) until applicableTo is added to all frameworks
         """
-        yaml_path = Path("/workspaces/secure-ai-tooling/risk-map/yaml/frameworks.yaml")
-        schema_path = Path("/workspaces/secure-ai-tooling/risk-map/schemas/frameworks.schema.json")
-        base_uri = "file:///workspaces/secure-ai-tooling/risk-map/schemas/"
+        yaml_path = frameworks_yaml_path
+        schema_path = frameworks_schema_path
+        base_uri_str = base_uri
 
         result = subprocess.run(
-            ["check-jsonschema", "--base-uri", base_uri, "--schemafile", str(schema_path), str(yaml_path)],
+            ["check-jsonschema", "--base-uri", base_uri_str, "--schemafile", str(schema_path), str(yaml_path)],
             capture_output=True,
             text=True,
         )
