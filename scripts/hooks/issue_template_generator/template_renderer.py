@@ -29,22 +29,55 @@ class TemplateRenderer:
     # Valid entity types
     VALID_ENTITY_TYPES = {"controls", "risks", "components", "personas"}
 
-    # Placeholder mappings to schema paths
-    # Some placeholders have fallback paths for backward compatibility with test fixtures
+    # Placeholder mappings to schema paths with field type metadata
+    # Field types determine output format:
+    # - "dropdown": Plain strings for GitHub dropdown fields (e.g., "- controlsData")
+    # - "checkbox": Label-only objects for GitHub checkbox fields (e.g., "- label: personaModelCreator")
+    # - None: Fallback format with label and value (for textarea/markdown context)
     PLACEHOLDER_MAPPINGS = {
-        "CONTROL_CATEGORIES": [("controls.schema.json", "definitions.category.properties.id")],
-        "RISK_CATEGORIES": [
-            ("risks.schema.json", "definitions.risk.properties.category"),
-            ("risks.schema.json", "definitions.category.properties.id"),  # Fallback for test fixtures
-        ],
-        "PERSONAS": [("personas.schema.json", "definitions.persona.properties.id")],
-        "COMPONENTS": [("components.schema.json", "definitions.component.properties.id")],
-        "CONTROLS": [("controls.schema.json", "definitions.control.properties.id")],
-        "RISKS": [("risks.schema.json", "definitions.risk.properties.id")],
-        "LIFECYCLE_STAGE": [("lifecycle-stage.schema.json", "definitions.lifecycleStage.properties.id")],
-        "IMPACT_TYPE": [("impact-type.schema.json", "definitions.impactType.properties.id")],
-        "ACTOR_ACCESS": [("actor-access.schema.json", "definitions.actorAccessLevel.properties.id")],
-        "COMPONENT_CATEGORIES": [("components.schema.json", "definitions.category.properties.id")],
+        # Dropdowns - plain string format required
+        "CONTROL_CATEGORIES": {
+            "schema_paths": [("controls.schema.json", "definitions.category.properties.id")],
+            "field_type": "dropdown",
+        },
+        "RISK_CATEGORIES": {
+            "schema_paths": [
+                ("risks.schema.json", "definitions.risk.properties.category"),
+                ("risks.schema.json", "definitions.category.properties.id"),  # Fallback for test fixtures
+            ],
+            "field_type": "dropdown",
+        },
+        "COMPONENT_CATEGORIES": {
+            "schema_paths": [("components.schema.json", "definitions.category.properties.id")],
+            "field_type": "dropdown",
+        },
+        # Checkboxes - label-only object format required
+        "PERSONAS": {
+            "schema_paths": [("personas.schema.json", "definitions.persona.properties.id")],
+            "field_type": "checkbox",
+        },
+        "LIFECYCLE_STAGE": {
+            "schema_paths": [("lifecycle-stage.schema.json", "definitions.lifecycleStage.properties.id")],
+            "field_type": "checkbox",
+        },
+        "IMPACT_TYPE": {
+            "schema_paths": [("impact-type.schema.json", "definitions.impactType.properties.id")],
+            "field_type": "checkbox",
+        },
+        "ACTOR_ACCESS": {
+            "schema_paths": [("actor-access.schema.json", "definitions.actorAccessLevel.properties.id")],
+            "field_type": "checkbox",
+        },
+        # Not used in dropdowns/checkboxes - fallback format for textarea/markdown context
+        "COMPONENTS": {
+            "schema_paths": [("components.schema.json", "definitions.component.properties.id")],
+            "field_type": None,
+        },
+        "CONTROLS": {
+            "schema_paths": [("controls.schema.json", "definitions.control.properties.id")],
+            "field_type": None,
+        },
+        "RISKS": {"schema_paths": [("risks.schema.json", "definitions.risk.properties.id")], "field_type": None},
     }
 
     def __init__(self, schema_parser: SchemaParser, frameworks_data: dict[str, Any]) -> None:
@@ -79,7 +112,11 @@ class TemplateRenderer:
         Expand all placeholders in template with enum values.
 
         Replaces placeholders like {{CONTROL_CATEGORIES}} with actual enum
-        values from schemas, maintaining proper YAML formatting.
+        values from schemas, maintaining proper YAML formatting. Output format
+        depends on field type:
+        - dropdown: Plain strings (e.g., "- controlsData")
+        - checkbox: Label-only objects (e.g., "- label: personaModelCreator")
+        - None: Fallback format with label and value
 
         Args:
             template_content: Raw template content with placeholders
@@ -116,11 +153,14 @@ class TemplateRenderer:
                 # Unknown placeholder - leave as-is
                 return full_match
 
-            # Try each path mapping until one works
-            path_mappings = self.PLACEHOLDER_MAPPINGS[placeholder_name]
-            enum_values = None
+            # Get mapping configuration
+            mapping = self.PLACEHOLDER_MAPPINGS[placeholder_name]
+            schema_paths = mapping["schema_paths"]
+            field_type = mapping.get("field_type")
 
-            for schema_file, field_path in path_mappings:
+            # Try each path mapping until one works
+            enum_values = None
+            for schema_file, field_path in schema_paths:
                 try:
                     # Load schema and extract enum values (let FileNotFoundError propagate)
                     schema_data = self.schema_parser.load_schema(schema_file)
@@ -138,17 +178,39 @@ class TemplateRenderer:
                 # Empty enum - return empty string
                 return ""
 
-            # Format as YAML list with proper indentation
-            # First item replaces placeholder inline (no leading indentation)
-            # Subsequent items need indentation to align with first item
+            # Format based on field type
             yaml_lines = []
-            for i, value in enumerate(enum_values):
-                if i == 0:
-                    # First item - no leading indentation (replaces placeholder inline)
-                    yaml_lines.append(f'- label: "{value}"\n{indentation}  value: {value}')
-                else:
-                    # Subsequent items - add indentation to align
-                    yaml_lines.append(f'{indentation}- label: "{value}"\n{indentation}  value: {value}')
+
+            if field_type == "dropdown":
+                # Plain strings for dropdown fields (no label/value, no quotes)
+                for i, value in enumerate(enum_values):
+                    if i == 0:
+                        # First item - no leading indentation (replaces placeholder inline)
+                        yaml_lines.append(f"- {value}")
+                    else:
+                        # Subsequent items - add indentation to align
+                        yaml_lines.append(f"{indentation}- {value}")
+
+            elif field_type == "checkbox":
+                # Label-only objects for checkbox fields (no value field, no quotes)
+                for i, value in enumerate(enum_values):
+                    if i == 0:
+                        # First item - no leading indentation (replaces placeholder inline)
+                        yaml_lines.append(f"- label: {value}")
+                    else:
+                        # Subsequent items - add indentation to align
+                        yaml_lines.append(f"{indentation}- label: {value}")
+
+            else:
+                # Fallback for field_type=None (textarea context)
+                # Keep current behavior for backwards compatibility
+                for i, value in enumerate(enum_values):
+                    if i == 0:
+                        # First item - no leading indentation (replaces placeholder inline)
+                        yaml_lines.append(f'- label: "{value}"\n{indentation}  value: {value}')
+                    else:
+                        # Subsequent items - add indentation to align
+                        yaml_lines.append(f'{indentation}- label: "{value}"\n{indentation}  value: {value}')
 
             return "\n".join(yaml_lines)
 

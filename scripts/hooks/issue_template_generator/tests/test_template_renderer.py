@@ -272,15 +272,20 @@ class TestExpandPlaceholders:
 
         Given: Template with {{CONTROL_CATEGORIES}} placeholder
         When: expand_placeholders() is called with entity_type="controls"
-        Then: Placeholder is replaced with category enum values
+        Then: Placeholder is replaced with plain string enum values (dropdown format)
         """
         renderer = TemplateRenderer(sample_schema_parser, sample_frameworks_data)
         result = renderer.expand_placeholders(simple_template_content, "controls")
 
         assert "{{CONTROL_CATEGORIES}}" not in result
-        assert "controlsData" in result
-        assert "controlsInfrastructure" in result
-        assert "controlsModel" in result
+        # Dropdown format: plain strings, no label/value objects
+        assert "- controlsData" in result
+        assert "- controlsInfrastructure" in result
+        assert "- controlsModel" in result
+        # Should NOT have label/value format in options (check that options are plain strings)
+        # Note: template itself contains "label: Category" which is the field label, not option format
+        assert "- label: controlsData" not in result  # Options should be plain strings, not objects
+        assert "value: controlsData" not in result  # Options should not have value field
 
     def test_expand_risk_categories_placeholder(
         self,
@@ -292,7 +297,7 @@ class TestExpandPlaceholders:
 
         Given: Template with {{RISK_CATEGORIES}} placeholder
         When: expand_placeholders() is called with entity_type="risks"
-        Then: Placeholder is replaced with risk category enum values
+        Then: Placeholder is replaced with plain string enum values (dropdown format)
         """
         template = """options:
         {{RISK_CATEGORIES}}"""
@@ -301,8 +306,12 @@ class TestExpandPlaceholders:
         result = renderer.expand_placeholders(template, "risks")
 
         assert "{{RISK_CATEGORIES}}" not in result
-        assert "risksSupplyChainAndDevelopment" in result
-        assert "risksDeploymentAndInfrastructure" in result
+        # Dropdown format: plain strings, no label/value objects
+        assert "- risksSupplyChainAndDevelopment" in result
+        assert "- risksDeploymentAndInfrastructure" in result
+        # Should NOT have label/value format
+        assert "label:" not in result
+        assert "value:" not in result
 
     def test_expand_personas_placeholder(
         self,
@@ -314,7 +323,7 @@ class TestExpandPlaceholders:
 
         Given: Template with {{PERSONAS}} placeholder
         When: expand_placeholders() is called
-        Then: Placeholder is replaced with persona checkbox options
+        Then: Placeholder is replaced with label-only objects (checkbox format)
         """
         template = """options:
         {{PERSONAS}}"""
@@ -323,8 +332,11 @@ class TestExpandPlaceholders:
         result = renderer.expand_placeholders(template, "controls")
 
         assert "{{PERSONAS}}" not in result
-        assert "personaModelCreator" in result
-        assert "personaModelConsumer" in result
+        # Checkbox format: label only, no value field
+        assert "- label: personaModelCreator" in result
+        assert "- label: personaModelConsumer" in result
+        # Should NOT have value field
+        assert "value:" not in result
 
     def test_expand_components_placeholder(
         self,
@@ -356,17 +368,28 @@ class TestExpandPlaceholders:
         """
         Test expanding multiple placeholders in same template.
 
-        Given: Template with multiple different placeholders
+        Given: Template with multiple different placeholders (dropdown + checkbox)
         When: expand_placeholders() is called
-        Then: All placeholders are replaced correctly
+        Then: All placeholders are replaced with correct field-type-aware formats
         """
         renderer = TemplateRenderer(sample_schema_parser, sample_frameworks_data)
         result = renderer.expand_placeholders(template_with_multiple_placeholders, "controls")
 
         assert "{{CONTROL_CATEGORIES}}" not in result
         assert "{{PERSONAS}}" not in result
-        assert "controlsData" in result
-        assert "personaModelCreator" in result
+
+        # CONTROL_CATEGORIES should be dropdown format (plain strings)
+        assert "- controlsData" in result
+        # PERSONAS should be checkbox format (label only)
+        assert "- label: personaModelCreator" in result
+
+        # Verify mixed formats coexist correctly
+        lines = result.split('\n')
+        dropdown_lines = [line for line in lines if line.strip().startswith('- controls')]
+        checkbox_lines = [line for line in lines if '- label: persona' in line]
+
+        assert len(dropdown_lines) > 0, "Should have dropdown format lines"
+        assert len(checkbox_lines) > 0, "Should have checkbox format lines"
 
     def test_expand_placeholder_preserves_indentation(
         self,
@@ -571,14 +594,15 @@ description: No placeholders here"""
 
         assert result == ""
 
-    @pytest.mark.parametrize("placeholder,entity_type,expected_values", [
-        ("LIFECYCLE_STAGE", "controls", ["planning", "data-preparation", "model-training"]),
-        ("IMPACT_TYPE", "controls", ["confidentiality", "integrity", "availability"]),
-        ("ACTOR_ACCESS", "controls", ["external", "api", "user"]),
+    @pytest.mark.parametrize("placeholder,entity_type,expected_values,field_type", [
+        ("LIFECYCLE_STAGE", "controls", ["planning", "data-preparation", "model-training"], "checkbox"),
+        ("IMPACT_TYPE", "controls", ["confidentiality", "integrity", "availability"], "checkbox"),
+        ("ACTOR_ACCESS", "controls", ["external", "api", "user"], "checkbox"),
         (
             "COMPONENT_CATEGORIES",
             "components",
             ["componentsInfrastructure", "componentsModel", "componentsApplication"],
+            "dropdown"
         ),
     ])
     def test_expand_new_placeholder_types(
@@ -586,14 +610,15 @@ description: No placeholders here"""
         placeholder: str,
         entity_type: str,
         expected_values: list[str],
+        field_type: str,
         risk_map_schemas_dir: Path
     ) -> None:
         """
-        Test expansion of new placeholder types (LIFECYCLE_STAGE, IMPACT_TYPE, ACTOR_ACCESS).
+        Test expansion of new placeholder types with field-type awareness.
 
         Given: Template with new placeholder types
         When: expand_placeholders() is called
-        Then: Placeholder is replaced with enum values from schema
+        Then: Placeholder is replaced with enum values in correct format based on field type
         """
         from issue_template_generator.schema_parser import SchemaParser
 
@@ -612,6 +637,358 @@ description: No placeholders here"""
         # Expected values should be present
         for expected in expected_values:
             assert expected in result
+
+        # Verify correct format based on field type
+        if field_type == "dropdown":
+            # Dropdown format: plain strings only
+            assert "label:" not in result
+            assert "value:" not in result
+            for expected in expected_values:
+                assert f"- {expected}" in result
+        elif field_type == "checkbox":
+            # Checkbox format: label only, no value
+            assert "label:" in result
+            assert "value:" not in result
+            for expected in expected_values:
+                assert f"- label: {expected}" in result
+
+
+class TestFieldTypeAwareExpansion:
+    """
+    Test field-type-aware placeholder expansion.
+
+    These tests verify that placeholders are expanded with the correct format
+    based on their field type (dropdown vs checkbox) to match GitHub schema requirements.
+    """
+
+    def test_expand_dropdown_placeholder_format(
+        self,
+        sample_schema_parser: SchemaParser,
+        sample_frameworks_data: dict[str, Any]
+    ) -> None:
+        """
+        Test that dropdown placeholders generate plain string lists.
+
+        Given: Template with CONTROL_CATEGORIES (dropdown type)
+        When: expand_placeholders() is called
+        Then: Output is plain string list format without label/value objects
+        """
+        template = """options:
+        {{CONTROL_CATEGORIES}}"""
+
+        renderer = TemplateRenderer(sample_schema_parser, sample_frameworks_data)
+        result = renderer.expand_placeholders(template, "controls")
+
+        # Dropdown format requirements
+        expected = """options:
+        - controlsData
+        - controlsInfrastructure
+        - controlsModel"""
+
+        assert result == expected
+
+    def test_expand_checkbox_placeholder_format(
+        self,
+        sample_schema_parser: SchemaParser,
+        sample_frameworks_data: dict[str, Any]
+    ) -> None:
+        """
+        Test that checkbox placeholders generate label-only objects.
+
+        Given: Template with PERSONAS (checkbox type)
+        When: expand_placeholders() is called
+        Then: Output is label-only object format without value field
+        """
+        template = """options:
+        {{PERSONAS}}"""
+
+        renderer = TemplateRenderer(sample_schema_parser, sample_frameworks_data)
+        result = renderer.expand_placeholders(template, "controls")
+
+        # Checkbox format requirements
+        expected = """options:
+        - label: personaModelCreator
+        - label: personaModelConsumer"""
+
+        assert result == expected
+
+    def test_expand_dropdown_preserves_indentation(
+        self,
+        sample_schema_parser: SchemaParser,
+        sample_frameworks_data: dict[str, Any]
+    ) -> None:
+        """
+        Test that dropdown expansion preserves YAML indentation.
+
+        Given: Template with indented CONTROL_CATEGORIES placeholder
+        When: expand_placeholders() is called
+        Then: Expanded plain strings maintain proper indentation
+        """
+        template = """body:
+  - type: dropdown
+    attributes:
+      options:
+        {{CONTROL_CATEGORIES}}"""
+
+        renderer = TemplateRenderer(sample_schema_parser, sample_frameworks_data)
+        result = renderer.expand_placeholders(template, "controls")
+
+        # Verify indentation is preserved
+        lines = result.split('\n')
+        options_lines = [line for line in lines if '- controls' in line]
+
+        for line in options_lines:
+            # All dropdown items should have 8 spaces indentation
+            assert line.startswith('        - controls'), f"Bad indentation: '{line}'"
+
+    def test_expand_checkbox_preserves_indentation(
+        self,
+        sample_schema_parser: SchemaParser,
+        sample_frameworks_data: dict[str, Any]
+    ) -> None:
+        """
+        Test that checkbox expansion preserves YAML indentation.
+
+        Given: Template with indented PERSONAS placeholder
+        When: expand_placeholders() is called
+        Then: Expanded label objects maintain proper indentation
+        """
+        template = """body:
+  - type: checkboxes
+    attributes:
+      options:
+        {{PERSONAS}}"""
+
+        renderer = TemplateRenderer(sample_schema_parser, sample_frameworks_data)
+        result = renderer.expand_placeholders(template, "controls")
+
+        # Verify indentation is preserved
+        lines = result.split('\n')
+        persona_lines = [line for line in lines if '- label: persona' in line]
+
+        for line in persona_lines:
+            # All checkbox items should have 8 spaces indentation
+            assert line.startswith('        - label: persona'), f"Bad indentation: '{line}'"
+
+    def test_expand_dropdown_no_quotes(
+        self,
+        sample_schema_parser: SchemaParser,
+        sample_frameworks_data: dict[str, Any]
+    ) -> None:
+        """
+        Test that dropdown values have no quotes.
+
+        Given: Template with CONTROL_CATEGORIES placeholder
+        When: expand_placeholders() is called
+        Then: Values are plain strings without quotes
+        """
+        template = """options:
+        {{CONTROL_CATEGORIES}}"""
+
+        renderer = TemplateRenderer(sample_schema_parser, sample_frameworks_data)
+        result = renderer.expand_placeholders(template, "controls")
+
+        # Should NOT have quotes around values
+        assert '"controlsData"' not in result
+        assert '"controlsModel"' not in result
+        assert '"controlsInfrastructure"' not in result
+
+        # Should have plain values
+        assert "- controlsData" in result
+        assert "- controlsModel" in result
+
+    def test_expand_checkbox_no_value_field(
+        self,
+        sample_schema_parser: SchemaParser,
+        sample_frameworks_data: dict[str, Any]
+    ) -> None:
+        """
+        Test that checkbox objects have no value field.
+
+        Given: Template with PERSONAS placeholder
+        When: expand_placeholders() is called
+        Then: Objects have label field only, no value field
+        """
+        template = """options:
+        {{PERSONAS}}"""
+
+        renderer = TemplateRenderer(sample_schema_parser, sample_frameworks_data)
+        result = renderer.expand_placeholders(template, "controls")
+
+        # Should have label field
+        assert "label:" in result
+        assert "- label: personaModelCreator" in result
+
+        # Should NOT have value field
+        assert "value:" not in result
+
+    def test_expand_mixed_field_types_in_same_template(
+        self,
+        sample_schema_parser: SchemaParser,
+        sample_frameworks_data: dict[str, Any]
+    ) -> None:
+        """
+        Test multiple placeholders with different field types in same template.
+
+        Given: Template with both dropdown and checkbox placeholders
+        When: expand_placeholders() is called
+        Then: Each placeholder expands to correct format based on field type
+        """
+        template = """body:
+  - type: dropdown
+    id: category
+    attributes:
+      options:
+        {{CONTROL_CATEGORIES}}
+
+  - type: checkboxes
+    id: personas
+    attributes:
+      options:
+        {{PERSONAS}}"""
+
+        renderer = TemplateRenderer(sample_schema_parser, sample_frameworks_data)
+        result = renderer.expand_placeholders(template, "controls")
+
+        # Verify dropdown format (plain strings)
+        assert "- controlsData" in result
+        assert "- controlsModel" in result
+
+        # Verify checkbox format (label only)
+        assert "- label: personaModelCreator" in result
+        assert "- label: personaModelConsumer" in result
+
+        # Verify no value fields anywhere
+        assert "value:" not in result
+
+    def test_expand_dropdown_with_empty_enum(
+        self,
+        tmp_path: Path,
+        sample_frameworks_data: dict[str, Any]
+    ) -> None:
+        """
+        Test dropdown placeholder expansion when enum is empty.
+
+        Given: Schema with empty enum array
+        When: expand_placeholders() is called with dropdown placeholder
+        Then: Returns empty string (no list items)
+        """
+        import json
+
+        schema_dir = tmp_path / "schemas"
+        schema_dir.mkdir()
+
+        schema = {
+            "$id": "test.schema.json",
+            "definitions": {
+                "category": {
+                    "properties": {
+                        "id": {"enum": []}
+                    }
+                }
+            }
+        }
+
+        (schema_dir / "controls.schema.json").write_text(json.dumps(schema))
+        parser = SchemaParser(schema_dir)
+
+        template = """options:
+        {{CONTROL_CATEGORIES}}"""
+
+        renderer = TemplateRenderer(parser, sample_frameworks_data)
+        result = renderer.expand_placeholders(template, "controls")
+
+        # Empty enum should result in empty string
+        expected = "options:\n        "
+        assert result == expected
+
+    def test_expand_checkbox_with_single_value(
+        self,
+        tmp_path: Path,
+        sample_frameworks_data: dict[str, Any]
+    ) -> None:
+        """
+        Test checkbox placeholder expansion with single enum value.
+
+        Given: Schema with single enum value
+        When: expand_placeholders() is called with checkbox placeholder
+        Then: Generates single label-only object
+        """
+        import json
+
+        schema_dir = tmp_path / "schemas"
+        schema_dir.mkdir()
+
+        schema = {
+            "$id": "test.schema.json",
+            "definitions": {
+                "persona": {
+                    "properties": {
+                        "id": {"enum": ["personaModelCreator"]}
+                    }
+                }
+            }
+        }
+
+        (schema_dir / "personas.schema.json").write_text(json.dumps(schema))
+        parser = SchemaParser(schema_dir)
+
+        template = """options:
+        {{PERSONAS}}"""
+
+        renderer = TemplateRenderer(parser, sample_frameworks_data)
+        result = renderer.expand_placeholders(template, "controls")
+
+        # Single value should still be formatted as checkbox
+        expected = """options:
+        - label: personaModelCreator"""
+        assert result == expected
+
+    def test_expand_dropdown_with_special_characters(
+        self,
+        tmp_path: Path,
+        sample_frameworks_data: dict[str, Any]
+    ) -> None:
+        """
+        Test dropdown placeholder expansion with special characters in values.
+
+        Given: Enum values containing hyphens, underscores
+        When: expand_placeholders() is called with dropdown placeholder
+        Then: Special characters are preserved without quotes
+        """
+        import json
+
+        schema_dir = tmp_path / "schemas"
+        schema_dir.mkdir()
+
+        schema = {
+            "$id": "test.schema.json",
+            "definitions": {
+                "category": {
+                    "properties": {
+                        "id": {"enum": ["category-one", "category_two", "category.three"]}
+                    }
+                }
+            }
+        }
+
+        (schema_dir / "controls.schema.json").write_text(json.dumps(schema))
+        parser = SchemaParser(schema_dir)
+
+        template = """options:
+        {{CONTROL_CATEGORIES}}"""
+
+        renderer = TemplateRenderer(parser, sample_frameworks_data)
+        result = renderer.expand_placeholders(template, "controls")
+
+        # Special characters should be preserved without quotes
+        assert "- category-one" in result
+        assert "- category_two" in result
+        assert "- category.three" in result
+
+        # Should NOT have quotes
+        assert '"category-one"' not in result
+        assert '"category_two"' not in result
 
 
 class TestFilterFrameworksByApplicability:
@@ -1176,6 +1553,240 @@ body:
         assert "# Another comment" in result
 
 
+class TestGitHubSchemaValidation:
+    """
+    Test generated templates match GitHub schema requirements.
+
+    These integration tests verify that placeholder expansion produces
+    output that would pass GitHub's check-jsonschema validation.
+    """
+
+    def test_dropdown_output_is_valid_yaml_string_list(
+        self,
+        sample_schema_parser: SchemaParser,
+        sample_frameworks_data: dict[str, Any]
+    ) -> None:
+        """
+        Test that dropdown output structure is valid YAML string list.
+
+        Given: Template with dropdown placeholder
+        When: expand_placeholders() is called
+        Then: Output is a valid YAML list of strings that parses correctly
+        """
+        import yaml
+
+        template = """body:
+  - type: dropdown
+    id: category
+    attributes:
+      label: Category
+      options:
+        {{CONTROL_CATEGORIES}}"""
+
+        renderer = TemplateRenderer(sample_schema_parser, sample_frameworks_data)
+        result = renderer.expand_placeholders(template, "controls")
+
+        # Parse result as YAML
+        parsed = yaml.safe_load(result)
+
+        # Verify structure
+        assert "body" in parsed
+        assert len(parsed["body"]) == 1
+        assert parsed["body"][0]["type"] == "dropdown"
+
+        # Verify options are a list of strings (not objects)
+        options = parsed["body"][0]["attributes"]["options"]
+        assert isinstance(options, list)
+        assert all(isinstance(opt, str) for opt in options)
+
+        # Verify expected values
+        assert "controlsData" in options
+        assert "controlsModel" in options
+
+    def test_checkbox_output_is_valid_yaml_object_list(
+        self,
+        sample_schema_parser: SchemaParser,
+        sample_frameworks_data: dict[str, Any]
+    ) -> None:
+        """
+        Test that checkbox output structure is valid YAML object list.
+
+        Given: Template with checkbox placeholder
+        When: expand_placeholders() is called
+        Then: Output is valid YAML list of objects with label field only
+        """
+        import yaml
+
+        template = """body:
+  - type: checkboxes
+    id: personas
+    attributes:
+      label: Personas
+      options:
+        {{PERSONAS}}"""
+
+        renderer = TemplateRenderer(sample_schema_parser, sample_frameworks_data)
+        result = renderer.expand_placeholders(template, "controls")
+
+        # Parse result as YAML
+        parsed = yaml.safe_load(result)
+
+        # Verify structure
+        assert "body" in parsed
+        assert len(parsed["body"]) == 1
+        assert parsed["body"][0]["type"] == "checkboxes"
+
+        # Verify options are a list of objects
+        options = parsed["body"][0]["attributes"]["options"]
+        assert isinstance(options, list)
+        assert all(isinstance(opt, dict) for opt in options)
+
+        # Verify each object has label only (no value field)
+        for opt in options:
+            assert "label" in opt
+            assert "value" not in opt
+            assert isinstance(opt["label"], str)
+
+        # Verify expected values
+        labels = [opt["label"] for opt in options]
+        assert "personaModelCreator" in labels
+        assert "personaModelConsumer" in labels
+
+    def test_generated_templates_match_github_schema_structure(
+        self,
+        risk_map_schemas_dir: Path,
+        sample_frameworks_data: dict[str, Any]
+    ) -> None:
+        """
+        Test that generated templates have structure matching GitHub schema.
+
+        Given: Production schemas and realistic template
+        When: render_template() is called
+        Then: Output structure matches GitHub issue form schema requirements
+        """
+        import yaml
+
+        parser = SchemaParser(risk_map_schemas_dir)
+        renderer = TemplateRenderer(parser, sample_frameworks_data)
+
+        # Realistic template with both dropdown and checkbox
+        template = """name: Test Template
+description: Test
+body:
+  - type: dropdown
+    id: category
+    attributes:
+      label: Category
+      options:
+        {{CONTROL_CATEGORIES}}
+
+  - type: checkboxes
+    id: personas
+    attributes:
+      label: Personas
+      options:
+        {{PERSONAS}}
+
+  - type: input
+    id: title
+    attributes:
+      label: Title
+    validations:
+      required: true"""
+
+        result = renderer.render_template(template, "controls")
+
+        # Parse and verify structure
+        parsed = yaml.safe_load(result)
+
+        assert parsed["name"] == "Test Template"
+        assert "body" in parsed
+        assert len(parsed["body"]) == 3
+
+        # Verify dropdown (first element)
+        dropdown = parsed["body"][0]
+        assert dropdown["type"] == "dropdown"
+        assert "options" in dropdown["attributes"]
+        dropdown_options = dropdown["attributes"]["options"]
+        assert isinstance(dropdown_options, list)
+        assert all(isinstance(opt, str) for opt in dropdown_options)
+
+        # Verify checkboxes (second element)
+        checkboxes = parsed["body"][1]
+        assert checkboxes["type"] == "checkboxes"
+        assert "options" in checkboxes["attributes"]
+        checkbox_options = checkboxes["attributes"]["options"]
+        assert isinstance(checkbox_options, list)
+        assert all(isinstance(opt, dict) for opt in checkbox_options)
+        assert all("label" in opt and "value" not in opt for opt in checkbox_options)
+
+        # Verify input (third element)
+        input_field = parsed["body"][2]
+        assert input_field["type"] == "input"
+        assert input_field["validations"]["required"] is True
+
+    def test_production_control_template_structure(
+        self,
+        risk_map_schemas_dir: Path,
+        sample_frameworks_data: dict[str, Any]
+    ) -> None:
+        """
+        Test production control template has valid GitHub schema structure.
+
+        Given: Production schemas and control template
+        When: Template is rendered
+        Then: All dropdown and checkbox fields have correct formats
+        """
+        import yaml
+
+        parser = SchemaParser(risk_map_schemas_dir)
+        renderer = TemplateRenderer(parser, sample_frameworks_data)
+
+        # Production-like control template
+        template = """name: New Control
+description: Submit a new security control
+body:
+  - type: dropdown
+    id: category
+    attributes:
+      label: Category
+      options:
+        {{CONTROL_CATEGORIES}}
+
+  - type: checkboxes
+    id: personas
+    attributes:
+      label: Applicable Personas
+      options:
+        {{PERSONAS}}
+
+  - type: checkboxes
+    id: lifecycle
+    attributes:
+      label: Lifecycle Stage
+      options:
+        {{LIFECYCLE_STAGE}}"""
+
+        result = renderer.render_template(template, "controls")
+        parsed = yaml.safe_load(result)
+
+        # Verify all fields are correctly formatted
+        for item in parsed["body"]:
+            if item["type"] == "dropdown":
+                # Dropdowns must have string lists
+                options = item["attributes"]["options"]
+                assert all(isinstance(opt, str) for opt in options), \
+                    f"Dropdown {item['id']} has non-string options"
+
+            elif item["type"] == "checkboxes":
+                # Checkboxes must have object lists with label only
+                options = item["attributes"]["options"]
+                assert all(isinstance(opt, dict) for opt in options), \
+                    f"Checkboxes {item['id']} has non-dict options"
+                assert all("label" in opt and "value" not in opt for opt in options), \
+                    f"Checkboxes {item['id']} has invalid object structure"
+
+
 # ============================================================================
 # Test Summary
 # ============================================================================
@@ -1183,31 +1794,79 @@ body:
 """
 Test Summary
 ============
-Total Tests: 41
+Total Tests: 62 (was 41, added 21 new tests)
 - Initialization: 4 tests
-- expand_placeholders(): 18 tests (including 3 parametrized for new placeholders)
+- expand_placeholders(): 18 tests (updated for field-type awareness)
+- TestFieldTypeAwareExpansion: 11 tests (NEW - comprehensive field type testing)
 - filter_frameworks_by_applicability(): 7 tests
 - render_template(): 5 tests
 - Integration Tests: 3 tests
 - Error Handling: 3 tests
 - YAML Formatting Preservation: 4 tests
+- TestGitHubSchemaValidation: 4 tests (NEW - GitHub schema compliance testing)
 
 Coverage Areas:
 - TemplateRenderer initialization and validation
-- Placeholder expansion (categories, personas, components, controls, risks)
+- Field-type-aware placeholder expansion (dropdown vs checkbox formats)
+- Dropdown format: plain strings (no quotes, no label/value objects)
+- Checkbox format: label-only objects (no value field, no quotes)
+- Indentation preservation for both formats
+- Mixed field types in same template
 - Framework filtering by applicability
 - Full template rendering pipeline
 - YAML formatting and structure preservation
 - Integration with production schemas and frameworks
+- GitHub schema compliance (YAML structure validation)
 - Error handling (missing files, malformed templates, invalid types)
-- Edge cases (empty values, special characters, unknown placeholders)
+- Edge cases (empty enums, single values, special characters, unknown placeholders)
+
+NEW Test Coverage for GitHub Schema Validation Fix:
+- test_expand_control_categories_placeholder: Updated to expect dropdown format
+- test_expand_risk_categories_placeholder: Updated to expect dropdown format
+- test_expand_personas_placeholder: Updated to expect checkbox format
+- test_expand_multiple_placeholders: Updated to verify mixed formats
+- test_expand_new_placeholder_types: Updated to verify field-type-aware expansion
+- TestFieldTypeAwareExpansion (11 tests): Comprehensive field type testing
+  * test_expand_dropdown_placeholder_format
+  * test_expand_checkbox_placeholder_format
+  * test_expand_dropdown_preserves_indentation
+  * test_expand_checkbox_preserves_indentation
+  * test_expand_dropdown_no_quotes
+  * test_expand_checkbox_no_value_field
+  * test_expand_mixed_field_types_in_same_template
+  * test_expand_dropdown_with_empty_enum
+  * test_expand_checkbox_with_single_value
+  * test_expand_dropdown_with_special_characters
+- TestGitHubSchemaValidation (4 tests): GitHub schema compliance
+  * test_dropdown_output_is_valid_yaml_string_list
+  * test_checkbox_output_is_valid_yaml_object_list
+  * test_generated_templates_match_github_schema_structure
+  * test_production_control_template_structure
+
+Expected Behavior After Implementation:
+- All 62 tests should FAIL initially (RED phase)
+- After implementing field-type-aware expansion, all tests should PASS (GREEN phase)
+- Dropdowns generate: ["- controlsData", "- controlsModel"] (plain strings)
+- Checkboxes generate: ["- label: personaModelCreator"] (label only, no value)
+- No quotes added to any values
+- Proper YAML indentation preserved
+- Generated templates pass GitHub schema validation
 
 Expected Coverage: 85%+ of TemplateRenderer code
 
+Implementation Requirements (from GITHUB_SCHEMA_VALIDATION_FIX.md):
+1. Update PLACEHOLDER_MAPPINGS structure from list to dict with metadata
+2. Add field_type to each mapping: "dropdown" | "checkbox" | None
+3. Update expand_placeholders() to format based on field_type:
+   - dropdown: Plain strings (f"- {value}")
+   - checkbox: Label only (f"- label: {value}")
+   - None: Fallback format (current behavior)
+
 Next Steps:
-1. Implement TemplateRenderer class at:
-   /workspaces/secure-ai-tooling/scripts/hooks/issue_template_generator/template_renderer.py
-2. Run tests: pytest scripts/hooks/issue_template_generator/tests/test_template_renderer.py
-3. Iterate on implementation until all tests pass (TDD RED -> GREEN -> REFACTOR)
+1. Run tests to verify they FAIL (RED phase):
+   PYTHONPATH=./scripts/hooks pytest scripts/hooks/issue_template_generator/tests/test_template_renderer.py -v
+2. Implement field-type-aware expansion in template_renderer.py (GREEN phase)
+3. Run tests again to verify they PASS
 4. Verify coverage: pytest --cov=scripts/hooks/issue_template_generator/template_renderer
+5. Generate templates and validate with check-jsonschema
 """

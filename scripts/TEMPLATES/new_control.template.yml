@@ -46,8 +46,6 @@ body:
       description: Which personas should implement this control?
       options:
         {{PERSONAS}}
-    validations:
-      required: true
 
   - type: textarea
     id: components

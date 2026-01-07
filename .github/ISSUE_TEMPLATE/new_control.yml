@@ -35,12 +35,12 @@ body:
       label: Control Category*
       description: Primary category this control belongs to
       options:
-        - controlsData (Data Controls)
-        - controlsInfrastructure (Infrastructure Controls)
-        - controlsModel (Model Controls)
-        - controlsApplication (Application Controls)
-        - controlsAssurance (Assurance Controls)
-        - controlsGovernance (Governance Controls)
+        - controlsData
+        - controlsInfrastructure
+        - controlsModel
+        - controlsApplication
+        - controlsAssurance
+        - controlsGovernance
     validations:
       required: true
 
@@ -50,8 +50,8 @@ body:
       label: Applicable Personas*
       description: Which personas should implement this control?
       options:
-        - label: Model Creator (personaModelCreator)
-        - label: Model Consumer (personaModelConsumer)
+        - label: personaModelCreator
+        - label: personaModelConsumer
 
   - type: textarea
     id: components
@@ -126,14 +126,14 @@ body:
       label: Lifecycle Stages (Optional)
       description: Which AI system lifecycle phases does this control apply to?
       options:
-        - label: Planning
-        - label: Data Preparation
-        - label: Model Training
-        - label: Development
-        - label: Evaluation
-        - label: Deployment
-        - label: Runtime
-        - label: Maintenance
+        - label: planning
+        - label: data-preparation
+        - label: model-training
+        - label: development
+        - label: evaluation
+        - label: deployment
+        - label: runtime
+        - label: maintenance
 
   - type: checkboxes
     id: impact-type
@@ -141,16 +141,16 @@ body:
       label: Impact Types (Optional)
       description: What types of security/safety impacts does this control address?
       options:
-        - label: Confidentiality
-        - label: Integrity
-        - label: Availability
-        - label: Privacy
-        - label: Safety
-        - label: Compliance
-        - label: Fairness
-        - label: Accountability
-        - label: Reliability
-        - label: Transparency
+        - label: confidentiality
+        - label: integrity
+        - label: availability
+        - label: privacy
+        - label: safety
+        - label: compliance
+        - label: fairness
+        - label: accountability
+        - label: reliability
+        - label: transparency
 
   - type: checkboxes
     id: actor-access
@@ -158,15 +158,15 @@ body:
       label: Actor Access Levels (Optional)
       description: What threat actor access levels does this control defend against?
       options:
-        - label: External (no system access)
-        - label: API (API-level access)
-        - label: User (authenticated user)
-        - label: Privileged (admin/elevated access)
-        - label: Agent (autonomous agent)
-        - label: Supply Chain
-        - label: Infrastructure Provider
-        - label: Service Provider
-        - label: Physical (physical access)
+        - label: external
+        - label: api
+        - label: user
+        - label: privileged
+        - label: agent
+        - label: supply-chain
+        - label: infrastructure-provider
+        - label: service-provider
+        - label: physical
 
   - type: textarea
     id: additional-context
