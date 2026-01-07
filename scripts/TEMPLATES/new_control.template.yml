@@ -1,0 +1,163 @@
+name: New Control Proposal
+description: Propose a new security control for the CoSAI Risk Map
+title: '[Control]: '
+labels: ['control', 'new-control']
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## Propose a New Control
+        Use this template to suggest a new security control for the AI risk framework.
+
+        **Required fields** are marked with an asterisk (*).
+
+  - type: input
+    id: control-title
+    attributes:
+      label: Control Title*
+      description: A concise, descriptive name for the control
+      placeholder: 'e.g., Privacy Enhancing Technologies'
+    validations:
+      required: true
+
+  - type: textarea
+    id: control-description
+    attributes:
+      label: Control Description*
+      description: Detailed explanation of what the control does and how it mitigates risks
+      placeholder: "Describe the control's purpose, implementation approach, and expected outcomes..."
+    validations:
+      required: true
+
+  - type: dropdown
+    id: control-category
+    attributes:
+      label: Control Category*
+      description: Primary category this control belongs to
+      options:
+        {{CONTROL_CATEGORIES}}
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: personas
+    attributes:
+      label: Applicable Personas*
+      description: Which personas should implement this control?
+      options:
+        {{PERSONAS}}
+    validations:
+      required: true
+
+  - type: textarea
+    id: components
+    attributes:
+      label: Applicable Components*
+      description: |
+        List component IDs this control applies to (one per line), or use "all" or "none"
+
+        📋 [View full component list](../../risk-map/tables/components-summary.md)
+
+        Common components: componentDataSources, componentTrainingData, componentModelServing, componentModelStorage, componentOutputHandling, etc.
+      placeholder: |
+        componentDataSources
+        componentTrainingData
+    validations:
+      required: true
+
+  - type: textarea
+    id: risks
+    attributes:
+      label: Mitigated Risks*
+      description: |
+        List risk IDs this control addresses (one per line), or use "all"
+
+        ✨ **Automatic Cross-Mapping**: When you map this control to risks, the reverse mappings are automatically created. Each risk you list here will automatically get this control added to its applicable controls.
+
+        📋 [View full risk list](../../risk-map/tables/risks-summary.md)
+
+        Common risks: DP (Data Poisoning), MST (Model Theft), PIJ (Prompt Injection), SDD (Sensitive Data Disclosure), etc.
+      placeholder: |
+        DP
+        UTD
+    validations:
+      required: true
+
+  - type: markdown
+    attributes:
+      value: |
+        ---
+        ## Framework Mappings (Optional)
+
+        Map this control to external security frameworks by listing relevant mitigation or control IDs.
+        Enter one ID per line (no special formatting needed).
+
+  - type: textarea
+    id: mapping-mitre-atlas
+    attributes:
+      label: MITRE ATLAS
+      description: |
+        [MITRE Adversarial Threat Landscape for AI Systems](https://atlas.mitre.org)
+
+        List MITRE ATLAS mitigation IDs (e.g., AML.M0007, AML.M0013)
+      placeholder: |
+        AML.M0007
+        AML.M0013
+
+  - type: textarea
+    id: mapping-nist-ai-rmf
+    attributes:
+      label: NIST AI RMF
+      description: |
+        [NIST AI Risk Management Framework](https://www.nist.gov/itl/ai-risk-management-framework)
+
+        List relevant NIST AI RMF subcategories (e.g., MS-2.3, GV-6.2)
+      placeholder: |
+        MS-2.3
+        GV-6.2
+
+  - type: checkboxes
+    id: lifecycle-stage
+    attributes:
+      label: Lifecycle Stages (Optional)
+      description: Which AI system lifecycle phases does this control apply to?
+      options:
+        {{LIFECYCLE_STAGE}}
+
+  - type: checkboxes
+    id: impact-type
+    attributes:
+      label: Impact Types (Optional)
+      description: What types of security/safety impacts does this control address?
+      options:
+        {{IMPACT_TYPE}}
+
+  - type: checkboxes
+    id: actor-access
+    attributes:
+      label: Actor Access Levels (Optional)
+      description: What threat actor access levels does this control defend against?
+      options:
+        {{ACTOR_ACCESS}}
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional Context
+      description: Any additional information, use cases, or implementation considerations
+      placeholder: 'Provide examples, related standards, implementation challenges, etc.'
+
+  - type: checkboxes
+    id: terms
+    attributes:
+      label: Submission Checklist
+      description: Please confirm the following
+      options:
+        - label: I have reviewed existing controls to ensure this is not a duplicate
+          required: true
+        - label: I understand that reverse risk-to-control mappings will be automatically created
+          required: true
+        - label: I have provided all required fields marked with (*)
+          required: true
+        - label: The control aligns with the CoSAI Risk Map framework objectives
+          required: true

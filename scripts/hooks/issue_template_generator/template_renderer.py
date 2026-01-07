@@ -41,6 +41,10 @@ class TemplateRenderer:
         "COMPONENTS": [("components.schema.json", "definitions.component.properties.id")],
         "CONTROLS": [("controls.schema.json", "definitions.control.properties.id")],
         "RISKS": [("risks.schema.json", "definitions.risk.properties.id")],
+        "LIFECYCLE_STAGE": [("lifecycle-stage.schema.json", "definitions.lifecycleStage.properties.id")],
+        "IMPACT_TYPE": [("impact-type.schema.json", "definitions.impactType.properties.id")],
+        "ACTOR_ACCESS": [("actor-access.schema.json", "definitions.actorAccessLevel.properties.id")],
+        "COMPONENT_CATEGORIES": [("components.schema.json", "definitions.category.properties.id")],
     }
 
     def __init__(self, schema_parser: SchemaParser, frameworks_data: dict[str, Any]) -> None:

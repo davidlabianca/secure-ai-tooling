@@ -571,6 +571,48 @@ description: No placeholders here"""
 
         assert result == ""
 
+    @pytest.mark.parametrize("placeholder,entity_type,expected_values", [
+        ("LIFECYCLE_STAGE", "controls", ["planning", "data-preparation", "model-training"]),
+        ("IMPACT_TYPE", "controls", ["confidentiality", "integrity", "availability"]),
+        ("ACTOR_ACCESS", "controls", ["external", "api", "user"]),
+        (
+            "COMPONENT_CATEGORIES",
+            "components",
+            ["componentsInfrastructure", "componentsModel", "componentsApplication"],
+        ),
+    ])
+    def test_expand_new_placeholder_types(
+        self,
+        placeholder: str,
+        entity_type: str,
+        expected_values: list[str],
+        risk_map_schemas_dir: Path
+    ) -> None:
+        """
+        Test expansion of new placeholder types (LIFECYCLE_STAGE, IMPACT_TYPE, ACTOR_ACCESS).
+
+        Given: Template with new placeholder types
+        When: expand_placeholders() is called
+        Then: Placeholder is replaced with enum values from schema
+        """
+        from issue_template_generator.schema_parser import SchemaParser
+
+        schema_parser = SchemaParser(risk_map_schemas_dir)
+        frameworks_data = {"frameworks": []}
+
+        template = f"""options:
+        {{{{{placeholder}}}}}"""
+
+        renderer = TemplateRenderer(schema_parser, frameworks_data)
+        result = renderer.expand_placeholders(template, entity_type)
+
+        # Placeholder should be removed
+        assert f"{{{{{placeholder}}}}}" not in result
+
+        # Expected values should be present
+        for expected in expected_values:
+            assert expected in result
+
 
 class TestFilterFrameworksByApplicability:
     """Test filter_frameworks_by_applicability() method."""
@@ -1141,9 +1183,9 @@ body:
 """
 Test Summary
 ============
-Total Tests: 38
+Total Tests: 41
 - Initialization: 4 tests
-- expand_placeholders(): 15 tests
+- expand_placeholders(): 18 tests (including 3 parametrized for new placeholders)
 - filter_frameworks_by_applicability(): 7 tests
 - render_template(): 5 tests
 - Integration Tests: 3 tests
