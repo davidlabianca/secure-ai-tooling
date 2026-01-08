@@ -207,6 +207,7 @@ case $1 in
         echo "  - Component edge validation"
         echo "  - Control-to-risk reference validation"
         echo "  - Framework reference validation"
+        echo "  - Issue template validation (GitHub schemas)"
         echo "  - Mermaid SVG generation (when .mmd/.mermaid files change)"
         echo ""
         echo "Automatic generation:"
@@ -453,6 +454,21 @@ FRAMEWORK_VALIDATOR=".git/hooks/validate_framework_references.py"
 # Run the framework reference validation
 # Uses same EDGE_ARGS since both validators support --force flag
 run_validator "$FRAMEWORK_VALIDATOR" "framework reference validation" "$EDGE_ARGS"
+if [[ $? -ne 0 ]]; then
+    VALIDATION_FAILED=1
+fi
+
+echo  # Add blank line for readability
+
+# =============================================================================
+# Issue Template Validation
+# =============================================================================
+echo "🔗 Running issue template validation..."
+
+# Path to the issue template validation script
+ISSUE_TEMPLATE_VALIDATOR="scripts/hooks/validate_issue_templates.py"
+
+run_validator "$ISSUE_TEMPLATE_VALIDATOR" "issue template validation" "$EDGE_ARGS"
 if [[ $? -ne 0 ]]; then
     VALIDATION_FAILED=1
 fi
@@ -722,6 +738,7 @@ echo "   ✅ Ruff linting"
 echo "   ✅ Component edge validation"
 echo "   ✅ Control-to-risk reference validation"
 echo "   ✅ Framework reference validation"
+echo "   ✅ Issue template validation"
 echo "   ✅ Mermaid SVG generation"
 
 # Check if component graph was generated and add to summary
