@@ -58,6 +58,29 @@ DIAGRAMS_DIR="risk-map/diagrams"
 TABLES_DIR="risk-map/tables"
 SVG_DIR="risk-map/svg"
 
+# =============================================================================
+# Source Utility Functions
+# =============================================================================
+
+# Get the directory where this script is located
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+HOOKS_DIR="$(cd "${SCRIPT_DIR}/../../scripts/hooks" && pwd)"
+
+# Source git utility functions
+if [[ -f "${HOOKS_DIR}/git_utils.sh" ]]; then
+    source "${HOOKS_DIR}/git_utils.sh"
+else
+    echo "Error: git_utils.sh not found at ${HOOKS_DIR}/git_utils.sh"
+    exit 1
+fi
+
+# Source validator runner utility
+if [[ -f "${HOOKS_DIR}/run_validator.sh" ]]; then
+    source "${HOOKS_DIR}/run_validator.sh"
+else
+    echo "Error: run_validator.sh not found at ${HOOKS_DIR}/run_validator.sh"
+    exit 1
+fi
 
 # =============================================================================
 # Global Variables and Flags
@@ -282,8 +305,8 @@ format_yaml_files() {
             else
                 echo "   ✅ Formatted $file"
                 # Add formatted file back to staging area (only in normal mode)
-                if [[ $FORCE_VALIDATE -eq 0 ]] && ! git add "$file"; then
-                    echo "   ⚠️  Warning: Could not stage formatted file $file"
+                if [[ $FORCE_VALIDATE -eq 0 ]]; then
+                    stage_files "$file" "Formatted $(basename "$file")"
                 fi
             fi
         done
@@ -371,15 +394,10 @@ echo "🔗 Running component edge validation..."
 # Path to the component edge validation script
 EDGE_VALIDATOR=".git/hooks/validate_riskmap.py"
 
-# Check if validator exists before attempting to run it
-if [[ ! -f "$EDGE_VALIDATOR" ]]; then
-    echo "   Warning: Component edge validator not found at $EDGE_VALIDATOR"
-    echo "   Skipping edge validation..."
-else
-    # Run the component edge validation with appropriate args based on passed flags
-    if ! python3 "$EDGE_VALIDATOR" $EDGE_ARGS; then
-        VALIDATION_FAILED=1 # Mark as failed if edge validation fails
-    fi
+# Run the component edge validation with appropriate args based on passed flags
+run_validator "$EDGE_VALIDATOR" "component edge validation" "$EDGE_ARGS"
+if [[ $? -ne 0 ]]; then
+    VALIDATION_FAILED=1
 fi
 
 # =============================================================================
@@ -398,11 +416,7 @@ if [[ $FORCE_VALIDATE -eq 0 ]] && git diff --cached --name-only | grep -q "risk-
         echo "   ✅ Graph generated at ${DIAGRAMS_DIR}/risk-map-graph.md"
 
         # Add the generated graph files to staging area
-        if git add "${DIAGRAMS_DIR}/risk-map-graph.md" "${DIAGRAMS_DIR}/risk-map-graph.mermaid"; then
-            echo "   ✅ Risk Map Graph files (.md and .mermaid) added to staged files"
-        else
-            echo "   ⚠️  Warning: Could not stage generated graph files"
-        fi
+        stage_files "${DIAGRAMS_DIR}/risk-map-graph.md ${DIAGRAMS_DIR}/risk-map-graph.mermaid" "Risk Map Graph"
     else
         echo "   ❌ Risk Map Graph generation failed"
         VALIDATION_FAILED=1
@@ -419,16 +433,11 @@ echo "🔗 Running control-to-risk reference validation..."
 # Path to the control-risk reference validation script
 REF_VALIDATOR=".git/hooks/validate_control_risk_references.py"
 
-# Check if validator exists before attempting to run it
-if [[ ! -f "$REF_VALIDATOR" ]]; then
-    echo "   Warning: Control-to-risk reference validator not found at $REF_VALIDATOR"
-    echo "   Skipping reference validation..."
-else
-    # Run the control-risk reference validation
-    # Uses same EDGE_ARGS since both validators support --force flag
-    if ! python3 "$REF_VALIDATOR" $EDGE_ARGS; then
-        VALIDATION_FAILED=1 # Mark as failed if reference validation fails
-    fi
+# Run the control-risk reference validation
+# Uses same EDGE_ARGS since both validators support --force flag
+run_validator "$REF_VALIDATOR" "control-to-risk reference validation" "$EDGE_ARGS"
+if [[ $? -ne 0 ]]; then
+    VALIDATION_FAILED=1
 fi
 
 echo  # Add blank line for readability
@@ -441,16 +450,11 @@ echo "🔗 Running framework reference validation..."
 # Path to the framework reference validation script
 FRAMEWORK_VALIDATOR=".git/hooks/validate_framework_references.py"
 
-# Check if validator exists before attempting to run it
-if [[ ! -f "$FRAMEWORK_VALIDATOR" ]]; then
-    echo "   Warning: Framework reference validator not found at $FRAMEWORK_VALIDATOR"
-    echo "   Skipping framework reference validation..."
-else
-    # Run the framework reference validation
-    # Uses same EDGE_ARGS since both validators support --force flag
-    if ! python3 "$FRAMEWORK_VALIDATOR" $EDGE_ARGS; then
-        VALIDATION_FAILED=1 # Mark as failed if reference validation fails
-    fi
+# Run the framework reference validation
+# Uses same EDGE_ARGS since both validators support --force flag
+run_validator "$FRAMEWORK_VALIDATOR" "framework reference validation" "$EDGE_ARGS"
+if [[ $? -ne 0 ]]; then
+    VALIDATION_FAILED=1
 fi
 
 echo  # Add blank line for readability
@@ -472,11 +476,7 @@ if [[ $FORCE_VALIDATE -eq 0 ]] && git diff --cached --name-only | grep -q "risk-
         echo "   ✅ Control graph generated at ${DIAGRAMS_DIR}/controls-graph.md"
 
         # Add the generated graph files to staging area
-        if git add "${DIAGRAMS_DIR}/controls-graph.md" "${DIAGRAMS_DIR}/controls-graph.mermaid"; then
-            echo "   ✅ Controls Graph files (.md and .mermaid) added to staged files"
-        else
-            echo "   ⚠️  Warning: Could not stage generated control graph files"
-        fi
+        stage_files "${DIAGRAMS_DIR}/controls-graph.md ${DIAGRAMS_DIR}/controls-graph.mermaid" "Controls Graph"
     else
         echo "   ❌ Control Graph generation failed"
         VALIDATION_FAILED=1
@@ -514,7 +514,7 @@ if [[ $FORCE_VALIDATE -eq 0 ]]; then
                 echo "   📐 Generating tables for components..."
                 if python3 "$TABLE_GENERATOR" components --all-formats --quiet; then
                     echo "   ✅ Components tables generated (full, summary)"
-                    git add risk-map/tables/components-*.md 2>/dev/null || true
+                    stage_files "risk-map/tables/components-*.md" "Components tables" || true
                 else
                     echo "   ❌ Components table generation failed"
                     VALIDATION_FAILED=1
@@ -524,7 +524,7 @@ if [[ $FORCE_VALIDATE -eq 0 ]]; then
                 echo "   📐 Regenerating controls-xref-components (component data changed)..."
                 if python3 "$TABLE_GENERATOR" controls --format xref-components --quiet; then
                     echo "   ✅ Controls xref-components table regenerated"
-                    git add risk-map/tables/controls-xref-components.md 2>/dev/null || true
+                    stage_files "risk-map/tables/controls-xref-components.md" "Controls xref-components table" || true
                 else
                     echo "   ❌ Controls xref-components regeneration failed"
                     VALIDATION_FAILED=1
@@ -536,7 +536,7 @@ if [[ $FORCE_VALIDATE -eq 0 ]]; then
                 echo "   📐 Generating tables for risks..."
                 if python3 "$TABLE_GENERATOR" risks --all-formats --quiet; then
                     echo "   ✅ Risks tables generated (full, summary)"
-                    git add risk-map/tables/risks-*.md 2>/dev/null || true
+                    stage_files "risk-map/tables/risks-*.md" "Risks tables" || true
                 else
                     echo "   ❌ Risks table generation failed"
                     VALIDATION_FAILED=1
@@ -546,7 +546,7 @@ if [[ $FORCE_VALIDATE -eq 0 ]]; then
                 echo "   📐 Regenerating controls-xref-risks (risk data changed)..."
                 if python3 "$TABLE_GENERATOR" controls --format xref-risks --quiet; then
                     echo "   ✅ Controls xref-risks table regenerated"
-                    git add risk-map/tables/controls-xref-risks.md 2>/dev/null || true
+                    stage_files "risk-map/tables/controls-xref-risks.md" "Controls xref-risks table" || true
                 else
                     echo "   ❌ Controls xref-risks regeneration failed"
                     VALIDATION_FAILED=1
@@ -558,7 +558,7 @@ if [[ $FORCE_VALIDATE -eq 0 ]]; then
                 echo "   📐 Generating all tables for controls..."
                 if python3 "$TABLE_GENERATOR" controls --all-formats --quiet; then
                     echo "   ✅ All controls tables generated (4 formats)"
-                    git add risk-map/tables/controls-*.md 2>/dev/null || true
+                    stage_files "risk-map/tables/controls-*.md" "Controls tables" || true
                 else
                     echo "   ❌ Controls table generation failed"
                     VALIDATION_FAILED=1
@@ -647,8 +647,8 @@ generate_mermaid_svgs() {
             if npx mmdc -i "$file" -o "$output_file" -t "${MERMAID_THEME}" -b "${MERMAID_BACKGROUND}" -p "${PUPPETEER_CONFIG_FILE}"; then
                 echo "   ✅ Generated SVG: $(basename "$output_file")"
                 # Add generated SVG to staging area (only in normal mode)
-                if [[ $FORCE_VALIDATE -eq 0 ]] && ! git add "$output_file"; then
-                    echo "   ⚠️  Warning: Could not stage generated SVG $output_file"
+                if [[ $FORCE_VALIDATE -eq 0 ]]; then
+                    stage_files "$output_file" "Generated SVG $(basename "$output_file")"
                 fi
             else
                 echo "   ❌ Failed to convert $(basename "$file")"
@@ -686,11 +686,7 @@ if [[ $FORCE_VALIDATE -eq 0 ]] && git diff --cached --name-only | grep -q "risk-
         echo "   ✅ Risk-to-Control graph generated at ${DIAGRAMS_DIR}/controls-to-risk-graph.md"
 
         # Add the generated graph files to staging area
-        if git add "${DIAGRAMS_DIR}/controls-to-risk-graph.md" "${DIAGRAMS_DIR}/controls-to-risk-graph.mermaid"; then
-            echo "   ✅ Risk-to-Control Graph files (.md and .mermaid) added to staged files"
-        else
-            echo "   ⚠️  Warning: Could not stage generated control graph files"
-        fi
+        stage_files "${DIAGRAMS_DIR}/controls-to-risk-graph.md ${DIAGRAMS_DIR}/controls-to-risk-graph.mermaid" "Risk-to-Control Graph"
     else
         echo "   ❌ Risk-to-Controls Graph generation failed"
         VALIDATION_FAILED=1
