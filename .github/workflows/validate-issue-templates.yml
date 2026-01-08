@@ -1,0 +1,201 @@
+name: Issue Template Validation
+
+on:
+  pull_request:
+    paths:
+      - '.github/ISSUE_TEMPLATE/**'
+      - 'risk-map/schemas/**'
+      - 'scripts/hooks/validate_issue_templates.py'
+      - 'scripts/generate_issue_templates.py'
+      - 'scripts/hooks/issue_template_generator/**'
+  push:
+    branches:
+      - main
+      - develop
+    paths:
+      - '.github/ISSUE_TEMPLATE/**'
+      - 'risk-map/schemas/**'
+
+jobs:
+  # Setup job to install dependencies
+  setup:
+    runs-on: ubuntu-latest
+    name: Setup Environment
+    outputs:
+      cache-key: ${{ steps.cache-key.outputs.key }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+      - name: Install dependencies
+        run: |
+          pip install -r requirements-dev.txt
+          pip install check-jsonschema
+      - name: Generate cache key
+        id: cache-key
+        run: |
+          echo "key=deps-${{ hashFiles('requirements-dev.txt') }}" >> $GITHUB_OUTPUT
+
+  # Validate templates against GitHub schemas
+  validate-templates:
+    runs-on: ubuntu-latest
+    name: GitHub Schema Validation
+    needs: setup
+    outputs:
+      validation_status: ${{ steps.validate.outputs.status }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+      - name: Install dependencies
+        run: pip install check-jsonschema
+      - name: Validate issue templates
+        id: validate
+        run: |
+          echo "🔍 Validating GitHub issue templates..."
+          if python scripts/hooks/validate_issue_templates.py --force; then
+            echo "✅ All issue templates passed GitHub schema validation"
+            echo "status=success" >> $GITHUB_OUTPUT
+          else
+            echo "❌ Issue template validation failed"
+            echo "::error::GitHub schema validation failed"
+            echo "status=failed" >> $GITHUB_OUTPUT
+            exit 1
+          fi
+
+  # Check for template drift (schemas changed but templates not regenerated)
+  check-template-drift:
+    runs-on: ubuntu-latest
+    name: Template Drift Detection
+    needs: setup
+    if: github.event_name == 'pull_request'
+    outputs:
+      drift_status: ${{ steps.drift.outputs.status }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+      - name: Install dependencies
+        run: pip install -r requirements-dev.txt
+      - name: Check for template drift
+        id: drift
+        run: |
+          echo "🔍 Checking for template drift..."
+
+          # Run generator in dry-run mode
+          python scripts/generate_issue_templates.py --dry-run
+
+          # Check if any templates would be changed
+          if ! git diff --exit-code .github/ISSUE_TEMPLATE/*.yml; then
+            echo "❌ Issue templates are out of sync with schemas"
+            echo "::error::Templates need regeneration"
+            echo "::error::Run: python scripts/generate_issue_templates.py"
+            echo "::error::Then commit the updated templates"
+            echo "status=failed" >> $GITHUB_OUTPUT
+            exit 1
+          else
+            echo "✅ Templates are synchronized with schemas"
+            echo "status=success" >> $GITHUB_OUTPUT
+          fi
+
+  # Test the template generator and validator
+  test-template-tools:
+    runs-on: ubuntu-latest
+    name: Template Tool Tests
+    needs: setup
+    outputs:
+      test_status: ${{ steps.test.outputs.status }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+      - name: Install dependencies
+        run: pip install -r requirements-dev.txt
+      - name: Run validator tests
+        id: test
+        run: |
+          echo "🧪 Running template validator tests..."
+          if PYTHONPATH=./scripts/hooks pytest scripts/hooks/tests/test_validate_issue_templates.py -v --junitxml=junit/test-results.xml; then
+            echo "✅ All tests passed"
+            echo "status=success" >> $GITHUB_OUTPUT
+          else
+            echo "❌ Tests failed"
+            echo "::error::Template tool tests failed"
+            echo "status=failed" >> $GITHUB_OUTPUT
+            exit 1
+          fi
+
+  # Summary job that aggregates all results
+  validation-summary:
+    runs-on: ubuntu-latest
+    name: Validation Summary
+    needs: [validate-templates, check-template-drift, test-template-tools]
+    if: always()
+    steps:
+      - name: Generate Summary
+        run: |
+          echo "# 📋 Issue Template Validation Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          # Check individual job results
+          schema_result="${{ needs.validate-templates.result }}"
+          drift_result="${{ needs.check-template-drift.result }}"
+          test_result="${{ needs.test-template-tools.result }}"
+          overall_success=true
+
+          echo "## Individual Job Results:" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if [ "$schema_result" = "success" ]; then
+            echo "- ✅ **GitHub Schema Validation**: Passed" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "- ❌ **GitHub Schema Validation**: $schema_result" >> $GITHUB_STEP_SUMMARY
+            overall_success=false
+          fi
+
+          # Drift check only runs on PRs
+          if [ "$drift_result" = "skipped" ]; then
+            echo "- ⏭️ **Template Drift Detection**: Skipped (not a PR)" >> $GITHUB_STEP_SUMMARY
+          elif [ "$drift_result" = "success" ]; then
+            echo "- ✅ **Template Drift Detection**: Passed" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "- ❌ **Template Drift Detection**: $drift_result" >> $GITHUB_STEP_SUMMARY
+            overall_success=false
+          fi
+
+          if [ "$test_result" = "success" ]; then
+            echo "- ✅ **Template Tool Tests**: Passed" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "- ❌ **Template Tool Tests**: $test_result" >> $GITHUB_STEP_SUMMARY
+            overall_success=false
+          fi
+
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if [ "$overall_success" = "true" ]; then
+            echo "## ✅ Overall Status: Success" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "🎉 All issue template validations passed!" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "## ❌ Overall Status: Failed" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "💥 Some validations failed. Check individual job details above." >> $GITHUB_STEP_SUMMARY
+            echo "::error::Some issue template validations failed"
+            exit 1
+          fi
