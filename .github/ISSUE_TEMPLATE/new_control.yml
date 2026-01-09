@@ -90,10 +90,8 @@ body:
   - type: textarea
     id: external-mapping
     attributes:
-      value: |
-        ---
-        ## Framework Mappings (Optional)
-
+      label: Framework Mappings (Optional)
+      description: |
         Map this control to external security frameworks by listing relevant mitigation or control IDs.
         Enter one ID per line (no special formatting needed).
 
