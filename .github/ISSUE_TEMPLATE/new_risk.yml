@@ -128,7 +128,8 @@ body:
         What access controls are in place for model storage?
         Are there monitoring systems to detect anomalous behavior?
 
-  - type: markdown
+  - type: textarea
+    id: external-mapping
     attributes:
       value: |
         ---
@@ -137,17 +138,10 @@ body:
         Map this risk to external security frameworks by listing relevant technique/attack IDs.
         Enter one ID per line (no special formatting needed).
 
-  - type: textarea
-    id: mapping-mitre-atlas
-    attributes:
-      label: MITRE ATLAS
-      description: |
-        [MITRE Adversarial Threat Landscape for AI Systems](https://atlas.mitre.org)
-
-        List MITRE ATLAS technique IDs (e.g., AML.T0043, AML.T0020)
+        Valid frameworks for risks include: mitre-atlas, stride, owasp-top10-llm
       placeholder: |
-        AML.T0043
-        AML.T0020
+        mitre-atlas AML.M0007
+        nist-airmf GV-6.2
 
   - type: textarea
     id: mapping-stride

@@ -87,7 +87,8 @@ body:
     validations:
       required: true
 
-  - type: markdown
+  - type: textarea
+    id: external-mapping
     attributes:
       value: |
         ---
@@ -96,29 +97,10 @@ body:
         Map this control to external security frameworks by listing relevant mitigation or control IDs.
         Enter one ID per line (no special formatting needed).
 
-  - type: textarea
-    id: mapping-mitre-atlas
-    attributes:
-      label: MITRE ATLAS
-      description: |
-        [MITRE Adversarial Threat Landscape for AI Systems](https://atlas.mitre.org)
-
-        List MITRE ATLAS mitigation IDs (e.g., AML.M0007, AML.M0013)
+        Valid frameworks for controls include: mitre-atlas, nist-ai-rmf, owasp-top10-llm
       placeholder: |
-        AML.M0007
-        AML.M0013
-
-  - type: textarea
-    id: mapping-nist-ai-rmf
-    attributes:
-      label: NIST AI RMF
-      description: |
-        [NIST AI Risk Management Framework](https://www.nist.gov/itl/ai-risk-management-framework)
-
-        List relevant NIST AI RMF subcategories (e.g., MS-2.3, GV-6.2)
-      placeholder: |
-        MS-2.3
-        GV-6.2
+        mitre-atlas AML.M0007
+        nist-airmf GV-6.2
 
   - type: checkboxes
     id: lifecycle-stage
