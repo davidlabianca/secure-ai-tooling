@@ -122,9 +122,3 @@ body:
       options:
         - label: I have reviewed existing components to ensure this is not a duplicate
           required: true
-        - label: I understand that reverse edges will be automatically created for connected components
-          required: true
-        - label: I have provided all required fields marked with (*)
-          required: true
-        - label: The component aligns with the CoSAI Risk Map framework architecture
-          required: true

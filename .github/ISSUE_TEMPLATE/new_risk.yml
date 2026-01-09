@@ -139,31 +139,7 @@ body:
         Valid frameworks for risks include: mitre-atlas, stride, owasp-top10-llm
       placeholder: |
         mitre-atlas AML.M0007
-        nist-airmf GV-6.2
-
-  - type: textarea
-    id: mapping-stride
-    attributes:
-      label: STRIDE Threat Model
-      description: |
-        [Microsoft STRIDE Threat Modeling](https://learn.microsoft.com/en-us/azure/security/develop/threat-modeling-tool-threats)
-
-        List STRIDE threat categories this risk represents
-      placeholder: |
-        information-disclosure
-        tampering
-
-  - type: textarea
-    id: mapping-owasp-top10-llm
-    attributes:
-      label: OWASP Top 10 for LLM
-      description: |
-        [OWASP Top 10 for Large Language Model Applications](https://owasp.org/www-project-top-10-for-large-language-model-applications)
-
-        List OWASP LLM vulnerability IDs (e.g., LLM01, LLM02)
-      placeholder: |
-        LLM01
-        LLM03
+        nist-ai-rmf GV-6.2
 
   - type: checkboxes
     id: lifecycle-stage
@@ -227,10 +203,4 @@ body:
       description: Please confirm the following
       options:
         - label: I have reviewed existing risks to ensure this is not a duplicate
-          required: true
-        - label: I understand that reverse control-to-risk mappings will be automatically created
-          required: true
-        - label: I have provided all required fields marked with (*)
-          required: true
-        - label: The risk aligns with the CoSAI Risk Map framework objectives
           required: true

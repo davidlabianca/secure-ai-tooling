@@ -123,9 +123,3 @@ body:
       options:
         - label: I have provided a valid GitHub permalink to the component
           required: true
-        - label: I have clearly described the proposed changes and rationale
-          required: true
-        - label: I understand that reverse edges will be automatically updated in connected components
-          required: true
-        - label: This change improves the accuracy of the component architecture
-          required: true

@@ -120,9 +120,3 @@ body:
       options:
         - label: I have provided a valid GitHub permalink to the persona
           required: true
-        - label: I have clearly described the proposed changes and rationale
-          required: true
-        - label: I have considered the impact on existing control and risk mappings
-          required: true
-        - label: This change improves clarity or accuracy of the persona definition
-          required: true

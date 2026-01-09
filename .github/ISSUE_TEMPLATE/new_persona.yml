@@ -148,9 +148,3 @@ body:
       options:
         - label: I have reviewed existing personas to ensure this is not redundant
           required: true
-        - label: I have clearly explained why existing personas cannot cover this role
-          required: true
-        - label: I have provided all required fields marked with (*)
-          required: true
-        - label: I understand that adding a persona requires significant updates to controls and risks
-          required: true
