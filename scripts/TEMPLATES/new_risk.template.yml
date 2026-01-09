@@ -129,7 +129,7 @@ body:
       label: Framework Mappings (Optional)
       description: |
         Map this risk to external security frameworks by listing relevant technique/attack IDs.
-        Enter one ID per line (no special formatting needed).
+        Enter one ID per line. Format: `framework-id: mapping-value`
 
         Valid frameworks for risks include: {{RISK_FRAMEWORKS_LIST}}
       placeholder: |

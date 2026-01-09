@@ -93,7 +93,7 @@ body:
       label: Framework Mappings (Optional)
       description: |
         Map this control to external security frameworks by listing relevant mitigation or control IDs.
-        Enter one ID per line (no special formatting needed).
+        Enter one ID per line. Format: `framework-id: mapping-value`
 
         Valid frameworks for controls include: mitre-atlas, nist-ai-rmf, owasp-top10-llm
       placeholder: |
