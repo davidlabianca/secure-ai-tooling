@@ -57,6 +57,7 @@ CHROMIUM_PATH=MUST_BE_SET
 DIAGRAMS_DIR="risk-map/diagrams"
 TABLES_DIR="risk-map/tables"
 SVG_DIR="risk-map/svg"
+TEMPLATE_DIR=".github/ISSUE_TEMPLATE"
 
 # =============================================================================
 # Source Utility Functions
@@ -461,6 +462,31 @@ fi
 echo  # Add blank line for readability
 
 # =============================================================================
+# Generate Issue Templates
+# =============================================================================
+if [[ $FORCE_VALIDATE -eq 0 ]] && git diff --cached --name-only | grep -q "scripts/TEMPLATES/.*.yml$"; then
+
+    echo "🔗 Github issue template changes - regenerating issue templates..."
+
+    ISSUE_TEMPLATE_GENERATOR="scripts/generate_issue_templates.py"
+
+    # ensure template dir exists
+    mkdir -p "${TEMPLATE_DIR}"
+
+    python3 "$ISSUE_TEMPLATE_GENERATOR" >/dev/null
+    if [[$? -ne 0 ]]; then 
+        VALIDATION_FAILED=1
+        echo "   ❌ Github Issue Template generation failed"
+    fi 
+
+    echo "   ✅ Github Issue Templates generated at ${TEMPLATE_DIR}"
+
+    # Add the generated graph files to staging area
+    stage_files "${TEMPLATE_DIR}" "Issue Templates"
+fi
+
+
+# =============================================================================
 # Issue Template Validation
 # =============================================================================
 echo "🔗 Running issue template validation..."
@@ -759,6 +785,11 @@ fi
 # Check if SVGs were generated and add to summary
 if [[ $FORCE_VALIDATE -eq 0 ]] && git diff --cached --name-only | grep -q '\.svg$'; then
     echo "   🎨 SVG files generated and staged"
+fi
+
+# Check if SVGs were generated and add to summary
+if [[ $FORCE_VALIDATE -eq 0 ]] && git diff --cached --name-only | grep -q '.github/ISSUE_TEMPLATE'; then
+    echo "   ✅ Github Issue Template files generated and staged"
 fi
 
 echo "Ready to commit! 🚀"
