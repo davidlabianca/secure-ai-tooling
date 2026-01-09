@@ -52,17 +52,23 @@ body:
       label: Component Category*
       description: Primary category this component belongs to
       options:
-        - componentsInfrastructure
-        - componentsModel
-        - componentsApplication
+        - componentsInfrastructure (Infrastructure)
+        - componentsModel (Model)
+        - componentsApplication (Application)
     validations:
       required: true
 
-  - type: input
+  - type: dropdown
     id: component-subcategory
     attributes:
       label: Component Subcategory (Optional)
       description: Subcategory if applicable
+      options:
+        - N/A - No subcategory
+        - componentsData (Data components)
+        - componentsModelTraining (Model training components)
+        - componentsAgent (Agent components)
+        - componentsOrchestration (Orchestration components)
 
   - type: markdown
     attributes:

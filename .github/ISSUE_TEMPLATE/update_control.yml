@@ -101,7 +101,7 @@ body:
         Add or remove framework mappings. Use `+` to add, `-` to remove.
         Format: `+/- framework-id: mapping-value`
 
-        Valid frameworks for controls: mitre-atlas, nist-ai-rmf, owasp-top10-llm
+        Valid frameworks for controls: mitre-atlas, nist-ai-rmf
       placeholder: |
         + mitre-atlas: AML.M0015
         + nist-ai-rmf: GV-4.1

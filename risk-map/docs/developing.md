@@ -13,7 +13,6 @@ This guide outlines how you can contribute to the Coalition for Secure AI (CoSAI
 ### Getting Started
 
 **[Setup & Prerequisites](setup.md)**
-
 - Installing dependencies and pre-commit hooks
 - Setting up Python, Node.js, and validation tools
 - Platform-specific configuration for SVG generation
@@ -21,7 +20,6 @@ This guide outlines how you can contribute to the Coalition for Secure AI (CoSAI
 ### Development Tools
 
 **[Validation Tools](validation.md)**
-
 - Manual edge validation and graph generation
 - Markdown table documentation
 - Control-to-risk reference validation
@@ -29,7 +27,6 @@ This guide outlines how you can contribute to the Coalition for Secure AI (CoSAI
 - Command reference for all validation tools
 
 **[Graph Customization](graph-customization.md)**
-
 - Customizing Mermaid graph appearance
 - Foundation design tokens and color schemes
 - Graph layout and spacing configuration
@@ -37,7 +34,6 @@ This guide outlines how you can contribute to the Coalition for Secure AI (CoSAI
 - Common customization examples
 
 **[CI/CD Validation](ci-cd.md)**
-
 - GitHub Actions automated validation
 - Graph validation in pull requests
 - SVG generation from Mermaid diagrams
@@ -46,27 +42,11 @@ This guide outlines how you can contribute to the Coalition for Secure AI (CoSAI
 ### Contributing Content
 
 **[General Contribution Workflow](workflow.md)**
-
 - Overall process for contributing content
 - Using validation tools during development
 - Creating pull requests
 
-**[Issue Templates Guide](contributing/issue-templates-guide.md)**
-
-- Using GitHub issue templates to propose new content or updates
-- Complete guide for all 9 available templates
-- Examples, required fields, and automatic bidirectionality
-- Framework applicability and schema evolution guidance
-
-**[Template Sync Procedures](contributing/template-sync-procedures.md)** _(For Maintainers)_
-
-- How templates stay synchronized with schemas
-- Manual synchronization procedures
-- Two-week sync lag explanation
-- Automation roadmap and troubleshooting
-
 **Content Addition Guides:**
-
 - **[Adding a Component](guide-components.md)** - Add new components to the AI system architecture
 - **[Adding a Control](guide-controls.md)** - Add new security controls and map them to components/risks
 - **[Adding a Risk](guide-risks.md)** - Add new security risks with proper categorization
@@ -76,20 +56,17 @@ This guide outlines how you can contribute to the Coalition for Secure AI (CoSAI
 ### Reference
 
 **[Troubleshooting](troubleshooting.md)**
-
 - Edge validation errors
 - Graph generation issues
 - Common problems and solutions
 
 **[Best Practices](best-practices.md)**
-
 - Development workflow recommendations
 - Validation strategies
 - Documentation standards
 - Graph preview techniques
 
 **[Writing Documentation](writing-documentation.md)**
-
 - How to write testable Python code examples
 - Skip markers for documentation-only code
 - Working directory and file path guidelines

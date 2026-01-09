@@ -202,7 +202,9 @@ def compare_control_maps(controls: dict[str, str | list[str]], risks: dict[str, 
 
     # Identify universal controls (those with risks="all")
     universal_controls = {
-        control_id for control_id, risks_value in controls.items() if is_universal_control(risks_value)
+        control_id
+        for control_id, risks_value in controls.items()
+        if is_universal_control(risks_value)
     }
 
     # Check if any risks explicitly list universal controls

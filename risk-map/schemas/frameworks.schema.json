@@ -63,18 +63,9 @@
           "type": "string",
           "format": "uri",
           "description": "Direct URI to framework document or specification"
-        },
-        "applicableTo": {
-          "type": "array",
-          "description": "Entity types that can map to this framework",
-          "items": {
-            "type": "string",
-            "enum": ["controls", "risks", "components", "personas"]
-          },
-          "minItems": 1
         }
       },
-      "required": ["id", "name", "fullName", "description", "baseUri", "applicableTo"]
+      "required": ["id", "name", "fullName", "description", "baseUri"]
     }
   }
 }

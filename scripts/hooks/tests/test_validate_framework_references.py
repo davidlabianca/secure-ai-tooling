@@ -806,7 +806,7 @@ controls:
 
         assert result is True
         captured = capsys.readouterr()
-        assert "✅ Framework references and applicability are consistent" in captured.out
+        assert "✅ Framework references are consistent" in captured.out
         assert "mitre-atlas" in captured.out
 
     def test_failure_frameworks_yaml_load_error(self, tmp_path, monkeypatch, capsys):

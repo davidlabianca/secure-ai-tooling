@@ -1395,7 +1395,9 @@ class TestCompareControlMapsUniversalValidation:
 
         # CRITICAL: Bug check - should not contain ['a', 'l'] from sorted("all")
         all_errors_text = " ".join(errors)
-        assert "['a', 'l']" not in all_errors_text, f"BUG: sorted('all') produced ['a', 'l']. Errors: {errors}"
+        assert "['a', 'l']" not in all_errors_text, (
+            f"BUG: sorted('all') produced ['a', 'l']. Errors: {errors}"
+        )
 
     def test_compare_errors_for_multiple_risks_listing_universal_control(self):
         """
@@ -1513,7 +1515,8 @@ class TestUniversalControlsEdgeCases:
             all_errors_text = " ".join(errors)
             # This assertion will FAIL with current buggy code
             assert "['a', 'l']" not in all_errors_text, (
-                f"BUG DETECTED: sorted('all') was called, producing ['a', 'l']. Errors: {errors}"
+                f"BUG DETECTED: sorted('all') was called, producing ['a', 'l']. "
+                f"Errors: {errors}"
             )
 
     def test_all_special_keyword_combinations(self):
@@ -1637,7 +1640,9 @@ class TestUniversalControlsEdgeCases:
         )
 
         # CRITICAL: Bug check - should not contain ['a', 'l'] from sorted("all")
-        assert "['a', 'l']" not in all_errors_text, f"BUG: sorted('all') produced ['a', 'l']. Errors: {errors}"
+        assert "['a', 'l']" not in all_errors_text, (
+            f"BUG: sorted('all') produced ['a', 'l']. Errors: {errors}"
+        )
 
 
 class TestMain:

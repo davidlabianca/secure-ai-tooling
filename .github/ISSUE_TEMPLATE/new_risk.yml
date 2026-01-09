@@ -71,11 +71,11 @@ body:
       label: Risk Category*
       description: Primary category this risk belongs to
       options:
-        - risksSupplyChainAndDevelopment
-        - risksDeploymentAndInfrastructure
-        - risksRuntimeInputSecurity
-        - risksRuntimeDataSecurity
-        - risksRuntimeOutputSecurity
+        - risksSupplyChainAndDevelopment (Supply Chain & Development)
+        - risksDeploymentAndInfrastructure (Deployment & Infrastructure)
+        - risksRuntimeInputSecurity (Runtime Input Security)
+        - risksRuntimeDataSecurity (Runtime Data Security)
+        - risksRuntimeOutputSecurity (Runtime Output Security)
     validations:
       required: true
 
@@ -85,8 +85,10 @@ body:
       label: Applicable Personas*
       description: Which personas need to mitigate this risk?
       options:
-        - label: personaModelCreator
-        - label: personaModelConsumer
+        - label: Model Creator (personaModelCreator)
+        - label: Model Consumer (personaModelConsumer)
+    validations:
+      required: true
 
   - type: textarea
     id: controls
@@ -179,14 +181,14 @@ body:
       label: Lifecycle Stages (Optional)
       description: Which AI system lifecycle phases does this risk apply to?
       options:
-        - label: planning
-        - label: data-preparation
-        - label: model-training
-        - label: development
-        - label: evaluation
-        - label: deployment
-        - label: runtime
-        - label: maintenance
+        - label: Planning
+        - label: Data Preparation
+        - label: Model Training
+        - label: Development
+        - label: Evaluation
+        - label: Deployment
+        - label: Runtime
+        - label: Maintenance
 
   - type: checkboxes
     id: impact-type
@@ -194,16 +196,16 @@ body:
       label: Impact Types (Optional)
       description: What types of security/safety impacts does this risk create?
       options:
-        - label: confidentiality
-        - label: integrity
-        - label: availability
-        - label: privacy
-        - label: safety
-        - label: compliance
-        - label: fairness
-        - label: accountability
-        - label: reliability
-        - label: transparency
+        - label: Confidentiality
+        - label: Integrity
+        - label: Availability
+        - label: Privacy
+        - label: Safety
+        - label: Compliance
+        - label: Fairness
+        - label: Accountability
+        - label: Reliability
+        - label: Transparency
 
   - type: checkboxes
     id: actor-access
@@ -211,15 +213,15 @@ body:
       label: Actor Access Levels (Optional)
       description: What threat actor access levels can exploit this risk?
       options:
-        - label: external
-        - label: api
-        - label: user
-        - label: privileged
-        - label: agent
-        - label: supply-chain
-        - label: infrastructure-provider
-        - label: service-provider
-        - label: physical
+        - label: External (no system access)
+        - label: API (API-level access)
+        - label: User (authenticated user)
+        - label: Privileged (admin/elevated access)
+        - label: Agent (autonomous agent)
+        - label: Supply Chain
+        - label: Infrastructure Provider
+        - label: Service Provider
+        - label: Physical (physical access)
 
   - type: textarea
     id: additional-context
