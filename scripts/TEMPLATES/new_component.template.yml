@@ -52,9 +52,7 @@ body:
       label: Component Category*
       description: Primary category this component belongs to
       options:
-        - componentsInfrastructure
-        - componentsModel
-        - componentsApplication
+        {{COMPONENT_CATEGORIES}}
     validations:
       required: true
 

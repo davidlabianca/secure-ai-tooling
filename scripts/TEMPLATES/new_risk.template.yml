@@ -71,11 +71,7 @@ body:
       label: Risk Category*
       description: Primary category this risk belongs to
       options:
-        - risksSupplyChainAndDevelopment
-        - risksDeploymentAndInfrastructure
-        - risksRuntimeInputSecurity
-        - risksRuntimeDataSecurity
-        - risksRuntimeOutputSecurity
+        {{RISK_CATEGORIES}}
     validations:
       required: true
 
@@ -85,8 +81,7 @@ body:
       label: Applicable Personas*
       description: Which personas need to mitigate this risk?
       options:
-        - label: personaModelCreator
-        - label: personaModelConsumer
+        {{PERSONAS}}
 
   - type: textarea
     id: controls
@@ -179,14 +174,7 @@ body:
       label: Lifecycle Stages (Optional)
       description: Which AI system lifecycle phases does this risk apply to?
       options:
-        - label: planning
-        - label: data-preparation
-        - label: model-training
-        - label: development
-        - label: evaluation
-        - label: deployment
-        - label: runtime
-        - label: maintenance
+        {{LIFECYCLE_STAGE}}
 
   - type: checkboxes
     id: impact-type
@@ -194,16 +182,7 @@ body:
       label: Impact Types (Optional)
       description: What types of security/safety impacts does this risk create?
       options:
-        - label: confidentiality
-        - label: integrity
-        - label: availability
-        - label: privacy
-        - label: safety
-        - label: compliance
-        - label: fairness
-        - label: accountability
-        - label: reliability
-        - label: transparency
+        {{IMPACT_TYPE}}
 
   - type: checkboxes
     id: actor-access
@@ -211,15 +190,7 @@ body:
       label: Actor Access Levels (Optional)
       description: What threat actor access levels can exploit this risk?
       options:
-        - label: external
-        - label: api
-        - label: user
-        - label: privileged
-        - label: agent
-        - label: supply-chain
-        - label: infrastructure-provider
-        - label: service-provider
-        - label: physical
+        {{ACTOR_ACCESS}}
 
   - type: textarea
     id: additional-context

@@ -1,17 +1,18 @@
-# Contributing 
+# Contributing
 
 ## How to contribute?
 
 The [Coalition for Secure AI (CoSAI)](https://www.coalitionforsecureai.org/) is an open-source project that is actively seeking contributions from any willing participants. Here are some guidelines for people that would like to contribute to the project.
 
 In general, a CoSAI Contributor is expected to:
-* be knowledgeable in one or more fields related to the project
-* contribute to the developing and finalizing the workstream deliverables
-* be reliable in completing issues to which they have been assigned
-* show commitment over time with one or more PRs merged
-* follow the project style and testing guidelines
-* follow branch, PR, and code style conventions
-* contribute in ways that substantially improve the quality of the project and the experience of people who use it
+
+- be knowledgeable in one or more fields related to the project
+- contribute to the developing and finalizing the workstream deliverables
+- be reliable in completing issues to which they have been assigned
+- show commitment over time with one or more PRs merged
+- follow the project style and testing guidelines
+- follow branch, PR, and code style conventions
+- contribute in ways that substantially improve the quality of the project and the experience of people who use it
 
 When contributing to any CoSAI repository, please first discuss the change you wish to make via a Github Issue, or in an email to the specific Workstream mailing list.
 
@@ -24,8 +25,9 @@ CoSAI uses a two-stage governance process for content updates to our risk, contr
 ### What Constitutes a Content Update
 
 Content updates include changes to:
+
 - Risk framework definitions and categories
-- Security control specifications and mappings  
+- Security control specifications and mappings
 - Component framework elements and relationships
 - Framework documentation and guidance materials
 
@@ -45,6 +47,7 @@ feature-branch  →  develop    →    main
 ### Non-Content Changes
 
 The following types of changes are **not covered** by the two-stage content update process and continue to follow existing workflows:
+
 - **Bug fixes** - Technical corrections and error resolution
 - **Implementation changes** - Updates to code logic, algorithms, or system functionality
 - **Infrastructure updates** - CI/CD, build processes, deployment configurations
@@ -60,7 +63,22 @@ If you are new to the CoSAI project and are looking for an entry-point to make y
 
 ## Submitting a new issue
 
-If you want to create a new issue that doesn't exist already, just open a new one. See [here how to do that](https://github.com/cosai-oasis/cosai-tsc/blob/main/.github/ISSUE_TEMPLATE/issue.md) and follow the guidelines in one of our [issue templates](https://github.com/cosai-oasis/cosai-tsc/blob/main/.github/ISSUE_TEMPLATE/issue.md).
+If you want to create a new issue that doesn't exist already, just open a new one.
+
+### Using Issue Templates
+
+This repository provides structured GitHub issue templates to streamline content proposals:
+
+- **[Issue Templates Guide](risk-map/docs/contributing/issue-templates-guide.md)** - Complete guide for all 9 issue templates
+  - Control templates (new/update)
+  - Risk templates (new/update)
+  - Component templates (new/update)
+  - Persona templates (new/update)
+  - Infrastructure template
+
+The templates capture required information, reduce clarification cycles, and maintain consistency across proposals. They include automatic bidirectional mapping support, reference documentation links, and clear examples.
+
+For framework content changes (controls, risks, components, personas), please use the appropriate issue template to ensure all necessary details are captured.
 
 ## Submitting a new pull request and review process
 
@@ -91,10 +109,11 @@ Follow these steps when submitting non-content changes (bug fixes, implementatio
 4. Submit a pull request against the `main` branch.
 
 #### Non-Content PR Review
+
 1. PR will be reviewed by the maintainers and approved by workstream leads or their delegates (maintainers)
 2. Responses are due in 3 business days
 
-### General Review Guidelines 
+### General Review Guidelines
 
 The workstream maintainers are responsible for reviewing pull requests and issues in a timely manner (3 business days).
 
@@ -106,12 +125,12 @@ Major changes on Github or to a WS document using any other official project pla
 
 ### Branch naming
 
-* `main` – main development branch and authoritative source; updated only after community approval for content changes
-* `develop` - staging area for community review of content updates; feature branches for content changes target this branch
-* `feature` – feature/this-is-a-new-feature-branch (target `develop` for content updates, `main` for non-content changes)
-* `codebugfix` – codebugfix/name-of-the-bug (typically targets `main`)
-* `languagefix` - languagefix/fix-details (typically targets `main`)
-* `release` – release/1.0.0 - cut from main when ready
+- `main` – main development branch and authoritative source; updated only after community approval for content changes
+- `develop` - staging area for community review of content updates; feature branches for content changes target this branch
+- `feature` – feature/this-is-a-new-feature-branch (target `develop` for content updates, `main` for non-content changes)
+- `codebugfix` – codebugfix/name-of-the-bug (typically targets `main`)
+- `languagefix` - languagefix/fix-details (typically targets `main`)
+- `release` – release/1.0.0 - cut from main when ready
 
 ### Rebasing note
 
