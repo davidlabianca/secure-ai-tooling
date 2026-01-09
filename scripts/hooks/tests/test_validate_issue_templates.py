@@ -756,9 +756,7 @@ class TestStagedFileDetection:
 
         with patch("subprocess.run") as mock_run:
             # Return empty output (no staged files)
-            mock_run.return_value = subprocess.CompletedProcess(
-                args=[], returncode=0, stdout="", stderr=""
-            )
+            mock_run.return_value = subprocess.CompletedProcess(args=[], returncode=0, stdout="", stderr="")
 
             files = get_staged_files()
 
@@ -776,9 +774,7 @@ class TestStagedFileDetection:
 
         with patch("subprocess.run") as mock_run:
             # Empty staging area - git returns empty output
-            mock_run.return_value = subprocess.CompletedProcess(
-                args=[], returncode=0, stdout="", stderr=""
-            )
+            mock_run.return_value = subprocess.CompletedProcess(args=[], returncode=0, stdout="", stderr="")
 
             files = get_staged_files()
 
@@ -823,9 +819,7 @@ class TestStagedFileDetection:
         with patch("subprocess.run") as mock_run:
             # Deletions are filtered out by --diff-filter=ACM (no D)
             # So git returns only added/copied/modified, not deleted
-            mock_run.return_value = subprocess.CompletedProcess(
-                args=[], returncode=0, stdout="", stderr=""
-            )
+            mock_run.return_value = subprocess.CompletedProcess(args=[], returncode=0, stdout="", stderr="")
 
             files = get_staged_files()
 
@@ -877,9 +871,7 @@ class TestOutputMessaging:
         test_file.write_text("name: Test")
 
         with patch("subprocess.run") as mock_run:
-            mock_run.return_value = subprocess.CompletedProcess(
-                args=[], returncode=0, stdout="ok", stderr=""
-            )
+            mock_run.return_value = subprocess.CompletedProcess(args=[], returncode=0, stdout="ok", stderr="")
 
             validate_with_schema(test_file, "vendor.github-issue-forms", quiet=False)
 
@@ -923,9 +915,7 @@ class TestOutputMessaging:
         test_file.write_text("name: Test")
 
         with patch("subprocess.run") as mock_run:
-            mock_run.return_value = subprocess.CompletedProcess(
-                args=[], returncode=0, stdout="ok", stderr=""
-            )
+            mock_run.return_value = subprocess.CompletedProcess(args=[], returncode=0, stdout="ok", stderr="")
 
             validate_with_schema(test_file, "vendor.github-issue-forms", quiet=False)
 
@@ -946,9 +936,7 @@ class TestOutputMessaging:
         test_file.write_text("name: Test")
 
         with patch("subprocess.run") as mock_run:
-            mock_run.return_value = subprocess.CompletedProcess(
-                args=[], returncode=0, stdout="ok", stderr=""
-            )
+            mock_run.return_value = subprocess.CompletedProcess(args=[], returncode=0, stdout="ok", stderr="")
 
             validate_with_schema(test_file, "vendor.github-issue-forms", quiet=False)
 
@@ -972,9 +960,7 @@ class TestOutputMessaging:
         file2.write_text("name: Test2")
 
         with patch("subprocess.run") as mock_run:
-            mock_run.return_value = subprocess.CompletedProcess(
-                args=[], returncode=0, stdout="ok", stderr=""
-            )
+            mock_run.return_value = subprocess.CompletedProcess(args=[], returncode=0, stdout="ok", stderr="")
 
             validate_with_schema(file1, "vendor.github-issue-forms", quiet=False)
             validate_with_schema(file2, "vendor.github-issue-forms", quiet=False)
@@ -998,9 +984,7 @@ class TestOutputMessaging:
         test_file.write_text("name: Test")
 
         with patch("subprocess.run") as mock_run:
-            mock_run.return_value = subprocess.CompletedProcess(
-                args=[], returncode=0, stdout="ok", stderr=""
-            )
+            mock_run.return_value = subprocess.CompletedProcess(args=[], returncode=0, stdout="ok", stderr="")
 
             validate_with_schema(test_file, "vendor.github-issue-forms", quiet=True)
 
@@ -1032,9 +1016,7 @@ class TestExitCodes:
 
         with patch("sys.argv", ["script.py", "--force"]):
             with patch("subprocess.run") as mock_run:
-                mock_run.return_value = subprocess.CompletedProcess(
-                    args=[], returncode=0, stdout="ok", stderr=""
-                )
+                mock_run.return_value = subprocess.CompletedProcess(args=[], returncode=0, stdout="ok", stderr="")
 
                 exit_code = main()
 
@@ -1187,9 +1169,7 @@ class TestCheckJsonSchemaIntegration:
         test_file.write_text("name: Test")
 
         with patch("subprocess.run") as mock_run:
-            mock_run.return_value = subprocess.CompletedProcess(
-                args=[], returncode=0, stdout="ok", stderr=""
-            )
+            mock_run.return_value = subprocess.CompletedProcess(args=[], returncode=0, stdout="ok", stderr="")
 
             validate_with_schema(test_file, "vendor.github-issue-forms", quiet=True)
 
@@ -1210,9 +1190,7 @@ class TestCheckJsonSchemaIntegration:
         config_file.write_text("blank_issues_enabled: false")
 
         with patch("subprocess.run") as mock_run:
-            mock_run.return_value = subprocess.CompletedProcess(
-                args=[], returncode=0, stdout="ok", stderr=""
-            )
+            mock_run.return_value = subprocess.CompletedProcess(args=[], returncode=0, stdout="ok", stderr="")
 
             validate_with_schema(config_file, "vendor.github-issue-config", quiet=True)
 
@@ -1280,9 +1258,7 @@ class TestCheckJsonSchemaIntegration:
         template_file.write_text("name: Test")
 
         with patch("subprocess.run") as mock_run:
-            mock_run.return_value = subprocess.CompletedProcess(
-                args=[], returncode=0, stdout="ok", stderr=""
-            )
+            mock_run.return_value = subprocess.CompletedProcess(args=[], returncode=0, stdout="ok", stderr="")
 
             validate_with_schema(template_file, "vendor.github-issue-forms", quiet=True)
 
@@ -1377,9 +1353,7 @@ class TestEdgeCases:
         test_file.write_text(large_content)
 
         with patch("subprocess.run") as mock_run:
-            mock_run.return_value = subprocess.CompletedProcess(
-                args=[], returncode=0, stdout="ok", stderr=""
-            )
+            mock_run.return_value = subprocess.CompletedProcess(args=[], returncode=0, stdout="ok", stderr="")
 
             result = validate_with_schema(test_file, "vendor.github-issue-forms", quiet=True)
 

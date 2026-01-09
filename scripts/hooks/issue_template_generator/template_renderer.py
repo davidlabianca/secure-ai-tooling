@@ -3,12 +3,12 @@ TemplateRenderer for GitHub issue template generation.
 
 This module provides the TemplateRenderer class which renders GitHub issue
 templates by expanding placeholders and filtering frameworks based on applicability.
-
-Part of the IssueTemplateGenerator system (Phase 3, Week 5).
 """
 
 import re
 from typing import Any
+
+import yaml
 
 from .schema_parser import SchemaParser
 
@@ -148,6 +148,40 @@ class TemplateRenderer:
             line = template_content[line_start:match_start]
             indentation = line  # Use the existing indentation before the placeholder
 
+            # Handle framework-related placeholders specially
+            if placeholder_name == "FRAMEWORK_MAPPINGS":
+                # Generate framework mapping sections as YAML
+                sections = self.expand_framework_mappings(entity_type)
+                if not sections:
+                    return ""
+
+                # Convert sections to YAML format
+                yaml_lines = []
+                for i, section in enumerate(sections):
+                    # Serialize section to YAML
+                    section_yaml = yaml.dump(section, default_flow_style=False, sort_keys=False)
+                    # Split into lines and add indentation
+                    section_lines = section_yaml.strip().split("\n")
+
+                    if i == 0:
+                        # First section - no leading indentation (replaces placeholder inline)
+                        yaml_lines.append(f"- {section_lines[0]}")
+                        yaml_lines.extend(f"{indentation}  {line}" for line in section_lines[1:])
+                    else:
+                        # Subsequent sections - add indentation
+                        yaml_lines.append(f"\n{indentation}- {section_lines[0]}")
+                        yaml_lines.extend(f"{indentation}  {line}" for line in section_lines[1:])
+
+                return "\n".join(yaml_lines)
+
+            elif placeholder_name == "CONTROL_FRAMEWORKS_LIST":
+                # Return comma-separated list of frameworks for controls
+                return self.get_frameworks_list("controls")
+
+            elif placeholder_name == "RISK_FRAMEWORKS_LIST":
+                # Return comma-separated list of frameworks for risks
+                return self.get_frameworks_list("risks")
+
             # Check if we have a mapping for this placeholder
             if placeholder_name not in self.PLACEHOLDER_MAPPINGS:
                 # Unknown placeholder - leave as-is
@@ -246,6 +280,91 @@ class TemplateRenderer:
                 result.append(framework["id"])
 
         return result
+
+    def get_frameworks_list(self, entity_type: str) -> str:
+        """
+        Get comma-separated list of framework IDs applicable to entity type.
+
+        Used for {{CONTROL_FRAMEWORKS_LIST}} and {{RISK_FRAMEWORKS_LIST}} placeholders
+        in "update" template descriptions.
+
+        Args:
+            entity_type: Entity type ("controls", "risks", "components", "personas")
+
+        Returns:
+            Comma-separated string of framework IDs (e.g., "mitre-atlas, nist-ai-rmf")
+
+        Raises:
+            ValueError: If entity_type is invalid
+        """
+        # Use existing filter_frameworks_by_applicability method
+        framework_ids = self.filter_frameworks_by_applicability(entity_type)
+
+        # Return comma-separated string
+        return ", ".join(framework_ids)
+
+    def expand_framework_mappings(self, entity_type: str) -> list[dict[str, Any]]:
+        """
+        Expand {{FRAMEWORK_MAPPINGS}} placeholder into framework textarea sections.
+
+        Generates full GitHub issue form textarea fields for each applicable framework.
+        Used in "new" templates (new_control.yml, new_risk.yml).
+
+        Args:
+            entity_type: Entity type ("controls", "risks", etc.)
+
+        Returns:
+            List of dictionaries, each representing a textarea section with structure:
+            - type: textarea
+            - id: mapping-{framework-id}
+            - attributes: label, description, placeholder
+            - validations: required: false
+
+        Raises:
+            ValueError: If entity_type is invalid
+        """
+        # Validate entity type
+        if entity_type not in self.VALID_ENTITY_TYPES:
+            raise ValueError(f"Invalid entity type: {entity_type}. Must be one of {self.VALID_ENTITY_TYPES}")
+
+        # Get frameworks applicable to this entity type
+        applicable_framework_ids = self.filter_frameworks_by_applicability(entity_type)
+
+        # Build list of framework sections
+        sections = []
+        frameworks = self.frameworks_data.get("frameworks", [])
+
+        for framework in frameworks:
+            framework_id = framework["id"]
+
+            # Skip frameworks not applicable to this entity type
+            if framework_id not in applicable_framework_ids:
+                continue
+
+            # Extract framework details
+            framework_name = framework.get("name", framework_id)
+            base_uri = framework.get("baseUri", "")
+
+            # Build description with framework details
+            description = f"Mapping to {framework_name}"
+            if base_uri:
+                description += f" ({base_uri})"
+
+            # Create textarea section
+            section = {
+                "type": "textarea",
+                "id": f"mapping-{framework_id}",
+                "attributes": {
+                    "label": framework_name,
+                    "description": description,
+                    "placeholder": f"Enter {framework_name} reference(s)",
+                },
+                "validations": {"required": False},
+            }
+
+            sections.append(section)
+
+        return sections
 
     def render_template(self, template_content: str, entity_type: str) -> str:
         """

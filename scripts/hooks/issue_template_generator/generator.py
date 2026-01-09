@@ -4,8 +4,6 @@ IssueTemplateGenerator orchestrator for GitHub issue template generation.
 This module provides the IssueTemplateGenerator class that combines
 SchemaParser and TemplateRenderer to generate GitHub issue templates
 from template sources with dynamic placeholder expansion.
-
-Part of the IssueTemplateGenerator system (Phase 3, Week 6).
 """
 
 import difflib

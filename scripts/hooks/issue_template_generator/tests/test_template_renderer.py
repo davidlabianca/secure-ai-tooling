@@ -39,23 +39,31 @@ def sample_frameworks_data() -> dict[str, Any]:
             {
                 "id": "mitre-atlas",
                 "name": "MITRE ATLAS",
-                "applicableTo": ["controls", "risks"]
+                "fullName": "Adversarial Threat Landscape for Artificial-Intelligence Systems",
+                "baseUri": "https://atlas.mitre.org",
+                "applicableTo": ["controls", "risks"],
             },
             {
                 "id": "nist-ai-rmf",
                 "name": "NIST AI RMF",
-                "applicableTo": ["controls"]
+                "fullName": "NIST Artificial Intelligence Risk Management Framework",
+                "baseUri": "https://www.nist.gov/itl/ai-risk-management-framework",
+                "applicableTo": ["controls"],
             },
             {
                 "id": "stride",
                 "name": "STRIDE",
-                "applicableTo": ["risks"]
+                "fullName": "STRIDE Threat Model",
+                "baseUri": "https://learn.microsoft.com/en-us/azure/security/develop/threat-modeling-tool-threats",
+                "applicableTo": ["risks"],
             },
             {
                 "id": "owasp-top10-llm",
                 "name": "OWASP Top 10 for LLM",
-                "applicableTo": ["risks"]
-            }
+                "fullName": "OWASP Top 10 for Large Language Model Applications",
+                "baseUri": "https://owasp.org/www-project-top-10-for-large-language-model-applications",
+                "applicableTo": ["controls", "risks"],
+            },
         ]
     }
 
@@ -78,22 +86,10 @@ def sample_schema_parser(tmp_path: Path) -> SchemaParser:
         "$id": "controls.schema.json",
         "definitions": {
             "category": {
-                "properties": {
-                    "id": {
-                        "enum": [
-                            "controlsData",
-                            "controlsInfrastructure",
-                            "controlsModel"
-                        ]
-                    }
-                }
+                "properties": {"id": {"enum": ["controlsData", "controlsInfrastructure", "controlsModel"]}}
             },
-            "control": {
-                "properties": {
-                    "id": {"enum": ["control1", "control2", "control3"]}
-                }
-            }
-        }
+            "control": {"properties": {"id": {"enum": ["control1", "control2", "control3"]}}},
+        },
     }
 
     # Create risks schema
@@ -102,32 +98,19 @@ def sample_schema_parser(tmp_path: Path) -> SchemaParser:
         "definitions": {
             "category": {
                 "properties": {
-                    "id": {
-                        "enum": [
-                            "risksSupplyChainAndDevelopment",
-                            "risksDeploymentAndInfrastructure"
-                        ]
-                    }
+                    "id": {"enum": ["risksSupplyChainAndDevelopment", "risksDeploymentAndInfrastructure"]}
                 }
             },
-            "risk": {
-                "properties": {
-                    "id": {"enum": ["DP", "MST", "PIJ"]}
-                }
-            }
-        }
+            "risk": {"properties": {"id": {"enum": ["DP", "MST", "PIJ"]}}},
+        },
     }
 
     # Create personas schema
     personas_schema = {
         "$id": "personas.schema.json",
         "definitions": {
-            "persona": {
-                "properties": {
-                    "id": {"enum": ["personaModelCreator", "personaModelConsumer"]}
-                }
-            }
-        }
+            "persona": {"properties": {"id": {"enum": ["personaModelCreator", "personaModelConsumer"]}}}
+        },
     }
 
     # Create components schema
@@ -139,7 +122,7 @@ def sample_schema_parser(tmp_path: Path) -> SchemaParser:
                     "id": {"enum": ["componentDataSources", "componentTrainingData", "componentModelServing"]}
                 }
             }
-        }
+        },
     }
 
     # Write schema files
@@ -197,9 +180,7 @@ class TestTemplateRendererInit:
     """Test TemplateRenderer initialization."""
 
     def test_init_with_valid_inputs(
-        self,
-        sample_schema_parser: SchemaParser,
-        sample_frameworks_data: dict[str, Any]
+        self, sample_schema_parser: SchemaParser, sample_frameworks_data: dict[str, Any]
     ) -> None:
         """
         Test TemplateRenderer initialization with valid inputs.
@@ -213,10 +194,7 @@ class TestTemplateRendererInit:
         assert renderer.schema_parser == sample_schema_parser
         assert renderer.frameworks_data == sample_frameworks_data
 
-    def test_init_with_none_schema_parser(
-        self,
-        sample_frameworks_data: dict[str, Any]
-    ) -> None:
+    def test_init_with_none_schema_parser(self, sample_frameworks_data: dict[str, Any]) -> None:
         """
         Test initialization with None schema_parser.
 
@@ -227,10 +205,7 @@ class TestTemplateRendererInit:
         with pytest.raises(TypeError, match="schema_parser.*required|cannot be None"):
             TemplateRenderer(None, sample_frameworks_data)
 
-    def test_init_with_none_frameworks_data(
-        self,
-        sample_schema_parser: SchemaParser
-    ) -> None:
+    def test_init_with_none_frameworks_data(self, sample_schema_parser: SchemaParser) -> None:
         """
         Test initialization with None frameworks_data.
 
@@ -241,10 +216,7 @@ class TestTemplateRendererInit:
         with pytest.raises(TypeError, match="frameworks_data.*required|cannot be None"):
             TemplateRenderer(sample_schema_parser, None)
 
-    def test_init_with_invalid_frameworks_data_structure(
-        self,
-        sample_schema_parser: SchemaParser
-    ) -> None:
+    def test_init_with_invalid_frameworks_data_structure(self, sample_schema_parser: SchemaParser) -> None:
         """
         Test initialization with invalid frameworks data structure.
 
@@ -265,7 +237,7 @@ class TestExpandPlaceholders:
         self,
         sample_schema_parser: SchemaParser,
         sample_frameworks_data: dict[str, Any],
-        simple_template_content: str
+        simple_template_content: str,
     ) -> None:
         """
         Test expanding CONTROL_CATEGORIES placeholder.
@@ -288,9 +260,7 @@ class TestExpandPlaceholders:
         assert "value: controlsData" not in result  # Options should not have value field
 
     def test_expand_risk_categories_placeholder(
-        self,
-        sample_schema_parser: SchemaParser,
-        sample_frameworks_data: dict[str, Any]
+        self, sample_schema_parser: SchemaParser, sample_frameworks_data: dict[str, Any]
     ) -> None:
         """
         Test expanding RISK_CATEGORIES placeholder.
@@ -314,9 +284,7 @@ class TestExpandPlaceholders:
         assert "value:" not in result
 
     def test_expand_personas_placeholder(
-        self,
-        sample_schema_parser: SchemaParser,
-        sample_frameworks_data: dict[str, Any]
+        self, sample_schema_parser: SchemaParser, sample_frameworks_data: dict[str, Any]
     ) -> None:
         """
         Test expanding PERSONAS placeholder.
@@ -339,9 +307,7 @@ class TestExpandPlaceholders:
         assert "value:" not in result
 
     def test_expand_components_placeholder(
-        self,
-        sample_schema_parser: SchemaParser,
-        sample_frameworks_data: dict[str, Any]
+        self, sample_schema_parser: SchemaParser, sample_frameworks_data: dict[str, Any]
     ) -> None:
         """
         Test expanding COMPONENTS placeholder.
@@ -363,7 +329,7 @@ class TestExpandPlaceholders:
         self,
         sample_schema_parser: SchemaParser,
         sample_frameworks_data: dict[str, Any],
-        template_with_multiple_placeholders: str
+        template_with_multiple_placeholders: str,
     ) -> None:
         """
         Test expanding multiple placeholders in same template.
@@ -384,17 +350,15 @@ class TestExpandPlaceholders:
         assert "- label: personaModelCreator" in result
 
         # Verify mixed formats coexist correctly
-        lines = result.split('\n')
-        dropdown_lines = [line for line in lines if line.strip().startswith('- controls')]
-        checkbox_lines = [line for line in lines if '- label: persona' in line]
+        lines = result.split("\n")
+        dropdown_lines = [line for line in lines if line.strip().startswith("- controls")]
+        checkbox_lines = [line for line in lines if "- label: persona" in line]
 
         assert len(dropdown_lines) > 0, "Should have dropdown format lines"
         assert len(checkbox_lines) > 0, "Should have checkbox format lines"
 
     def test_expand_placeholder_preserves_indentation(
-        self,
-        sample_schema_parser: SchemaParser,
-        sample_frameworks_data: dict[str, Any]
+        self, sample_schema_parser: SchemaParser, sample_frameworks_data: dict[str, Any]
     ) -> None:
         """
         Test that placeholder expansion preserves YAML indentation.
@@ -410,14 +374,12 @@ class TestExpandPlaceholders:
         result = renderer.expand_placeholders(template, "controls")
 
         # Check that expanded values are properly indented
-        lines = result.split('\n')
+        lines = result.split("\n")
         # At least one expanded line should have proper indentation
-        assert any(line.startswith('        -') for line in lines)
+        assert any(line.startswith("        -") for line in lines)
 
     def test_expand_placeholder_case_insensitive(
-        self,
-        sample_schema_parser: SchemaParser,
-        sample_frameworks_data: dict[str, Any]
+        self, sample_schema_parser: SchemaParser, sample_frameworks_data: dict[str, Any]
     ) -> None:
         """
         Test placeholder expansion with different cases.
@@ -436,9 +398,7 @@ class TestExpandPlaceholders:
         assert "{{control_categories}}" not in result or "controlsData" in result
 
     def test_expand_placeholder_with_no_matching_placeholder(
-        self,
-        sample_schema_parser: SchemaParser,
-        sample_frameworks_data: dict[str, Any]
+        self, sample_schema_parser: SchemaParser, sample_frameworks_data: dict[str, Any]
     ) -> None:
         """
         Test template with no placeholders.
@@ -456,9 +416,7 @@ description: No placeholders here"""
         assert result == template
 
     def test_expand_placeholder_with_unknown_placeholder(
-        self,
-        sample_schema_parser: SchemaParser,
-        sample_frameworks_data: dict[str, Any]
+        self, sample_schema_parser: SchemaParser, sample_frameworks_data: dict[str, Any]
     ) -> None:
         """
         Test template with unknown placeholder.
@@ -477,9 +435,7 @@ description: No placeholders here"""
         assert "{{UNKNOWN_PLACEHOLDER}}" in result or result == template
 
     def test_expand_placeholder_with_empty_enum(
-        self,
-        tmp_path: Path,
-        sample_frameworks_data: dict[str, Any]
+        self, tmp_path: Path, sample_frameworks_data: dict[str, Any]
     ) -> None:
         """
         Test placeholder expansion when enum is empty.
@@ -493,16 +449,7 @@ description: No placeholders here"""
         schema_dir = tmp_path / "schemas"
         schema_dir.mkdir()
 
-        schema = {
-            "$id": "test.schema.json",
-            "definitions": {
-                "category": {
-                    "properties": {
-                        "id": {"enum": []}
-                    }
-                }
-            }
-        }
+        schema = {"$id": "test.schema.json", "definitions": {"category": {"properties": {"id": {"enum": []}}}}}
 
         (schema_dir / "controls.schema.json").write_text(json.dumps(schema))
         parser = SchemaParser(schema_dir)
@@ -517,9 +464,7 @@ description: No placeholders here"""
         assert isinstance(result, str)
 
     def test_expand_placeholder_with_special_characters_in_values(
-        self,
-        tmp_path: Path,
-        sample_frameworks_data: dict[str, Any]
+        self, tmp_path: Path, sample_frameworks_data: dict[str, Any]
     ) -> None:
         """
         Test placeholder expansion with special characters in enum values.
@@ -536,12 +481,8 @@ description: No placeholders here"""
         schema = {
             "$id": "test.schema.json",
             "definitions": {
-                "category": {
-                    "properties": {
-                        "id": {"enum": ["category-one", "category_two", "category.three"]}
-                    }
-                }
-            }
+                "category": {"properties": {"id": {"enum": ["category-one", "category_two", "category.three"]}}}
+            },
         }
 
         (schema_dir / "controls.schema.json").write_text(json.dumps(schema))
@@ -558,9 +499,7 @@ description: No placeholders here"""
         assert "category.three" in result
 
     def test_expand_placeholder_invalid_entity_type(
-        self,
-        sample_schema_parser: SchemaParser,
-        sample_frameworks_data: dict[str, Any]
+        self, sample_schema_parser: SchemaParser, sample_frameworks_data: dict[str, Any]
     ) -> None:
         """
         Test placeholder expansion with invalid entity type.
@@ -578,9 +517,7 @@ description: No placeholders here"""
             renderer.expand_placeholders(template, "invalid_type")
 
     def test_expand_placeholder_empty_template(
-        self,
-        sample_schema_parser: SchemaParser,
-        sample_frameworks_data: dict[str, Any]
+        self, sample_schema_parser: SchemaParser, sample_frameworks_data: dict[str, Any]
     ) -> None:
         """
         Test placeholder expansion with empty template.
@@ -594,24 +531,27 @@ description: No placeholders here"""
 
         assert result == ""
 
-    @pytest.mark.parametrize("placeholder,entity_type,expected_values,field_type", [
-        ("LIFECYCLE_STAGE", "controls", ["planning", "data-preparation", "model-training"], "checkbox"),
-        ("IMPACT_TYPE", "controls", ["confidentiality", "integrity", "availability"], "checkbox"),
-        ("ACTOR_ACCESS", "controls", ["external", "api", "user"], "checkbox"),
-        (
-            "COMPONENT_CATEGORIES",
-            "components",
-            ["componentsInfrastructure", "componentsModel", "componentsApplication"],
-            "dropdown"
-        ),
-    ])
+    @pytest.mark.parametrize(
+        "placeholder,entity_type,expected_values,field_type",
+        [
+            ("LIFECYCLE_STAGE", "controls", ["planning", "data-preparation", "model-training"], "checkbox"),
+            ("IMPACT_TYPE", "controls", ["confidentiality", "integrity", "availability"], "checkbox"),
+            ("ACTOR_ACCESS", "controls", ["external", "api", "user"], "checkbox"),
+            (
+                "COMPONENT_CATEGORIES",
+                "components",
+                ["componentsInfrastructure", "componentsModel", "componentsApplication"],
+                "dropdown",
+            ),
+        ],
+    )
     def test_expand_new_placeholder_types(
         self,
         placeholder: str,
         entity_type: str,
         expected_values: list[str],
         field_type: str,
-        risk_map_schemas_dir: Path
+        risk_map_schemas_dir: Path,
     ) -> None:
         """
         Test expansion of new placeholder types with field-type awareness.
@@ -662,9 +602,7 @@ class TestFieldTypeAwareExpansion:
     """
 
     def test_expand_dropdown_placeholder_format(
-        self,
-        sample_schema_parser: SchemaParser,
-        sample_frameworks_data: dict[str, Any]
+        self, sample_schema_parser: SchemaParser, sample_frameworks_data: dict[str, Any]
     ) -> None:
         """
         Test that dropdown placeholders generate plain string lists.
@@ -688,9 +626,7 @@ class TestFieldTypeAwareExpansion:
         assert result == expected
 
     def test_expand_checkbox_placeholder_format(
-        self,
-        sample_schema_parser: SchemaParser,
-        sample_frameworks_data: dict[str, Any]
+        self, sample_schema_parser: SchemaParser, sample_frameworks_data: dict[str, Any]
     ) -> None:
         """
         Test that checkbox placeholders generate label-only objects.
@@ -713,9 +649,7 @@ class TestFieldTypeAwareExpansion:
         assert result == expected
 
     def test_expand_dropdown_preserves_indentation(
-        self,
-        sample_schema_parser: SchemaParser,
-        sample_frameworks_data: dict[str, Any]
+        self, sample_schema_parser: SchemaParser, sample_frameworks_data: dict[str, Any]
     ) -> None:
         """
         Test that dropdown expansion preserves YAML indentation.
@@ -734,17 +668,15 @@ class TestFieldTypeAwareExpansion:
         result = renderer.expand_placeholders(template, "controls")
 
         # Verify indentation is preserved
-        lines = result.split('\n')
-        options_lines = [line for line in lines if '- controls' in line]
+        lines = result.split("\n")
+        options_lines = [line for line in lines if "- controls" in line]
 
         for line in options_lines:
             # All dropdown items should have 8 spaces indentation
-            assert line.startswith('        - controls'), f"Bad indentation: '{line}'"
+            assert line.startswith("        - controls"), f"Bad indentation: '{line}'"
 
     def test_expand_checkbox_preserves_indentation(
-        self,
-        sample_schema_parser: SchemaParser,
-        sample_frameworks_data: dict[str, Any]
+        self, sample_schema_parser: SchemaParser, sample_frameworks_data: dict[str, Any]
     ) -> None:
         """
         Test that checkbox expansion preserves YAML indentation.
@@ -763,17 +695,15 @@ class TestFieldTypeAwareExpansion:
         result = renderer.expand_placeholders(template, "controls")
 
         # Verify indentation is preserved
-        lines = result.split('\n')
-        persona_lines = [line for line in lines if '- label: persona' in line]
+        lines = result.split("\n")
+        persona_lines = [line for line in lines if "- label: persona" in line]
 
         for line in persona_lines:
             # All checkbox items should have 8 spaces indentation
-            assert line.startswith('        - label: persona'), f"Bad indentation: '{line}'"
+            assert line.startswith("        - label: persona"), f"Bad indentation: '{line}'"
 
     def test_expand_dropdown_no_quotes(
-        self,
-        sample_schema_parser: SchemaParser,
-        sample_frameworks_data: dict[str, Any]
+        self, sample_schema_parser: SchemaParser, sample_frameworks_data: dict[str, Any]
     ) -> None:
         """
         Test that dropdown values have no quotes.
@@ -798,9 +728,7 @@ class TestFieldTypeAwareExpansion:
         assert "- controlsModel" in result
 
     def test_expand_checkbox_no_value_field(
-        self,
-        sample_schema_parser: SchemaParser,
-        sample_frameworks_data: dict[str, Any]
+        self, sample_schema_parser: SchemaParser, sample_frameworks_data: dict[str, Any]
     ) -> None:
         """
         Test that checkbox objects have no value field.
@@ -823,9 +751,7 @@ class TestFieldTypeAwareExpansion:
         assert "value:" not in result
 
     def test_expand_mixed_field_types_in_same_template(
-        self,
-        sample_schema_parser: SchemaParser,
-        sample_frameworks_data: dict[str, Any]
+        self, sample_schema_parser: SchemaParser, sample_frameworks_data: dict[str, Any]
     ) -> None:
         """
         Test multiple placeholders with different field types in same template.
@@ -861,11 +787,7 @@ class TestFieldTypeAwareExpansion:
         # Verify no value fields anywhere
         assert "value:" not in result
 
-    def test_expand_dropdown_with_empty_enum(
-        self,
-        tmp_path: Path,
-        sample_frameworks_data: dict[str, Any]
-    ) -> None:
+    def test_expand_dropdown_with_empty_enum(self, tmp_path: Path, sample_frameworks_data: dict[str, Any]) -> None:
         """
         Test dropdown placeholder expansion when enum is empty.
 
@@ -878,16 +800,7 @@ class TestFieldTypeAwareExpansion:
         schema_dir = tmp_path / "schemas"
         schema_dir.mkdir()
 
-        schema = {
-            "$id": "test.schema.json",
-            "definitions": {
-                "category": {
-                    "properties": {
-                        "id": {"enum": []}
-                    }
-                }
-            }
-        }
+        schema = {"$id": "test.schema.json", "definitions": {"category": {"properties": {"id": {"enum": []}}}}}
 
         (schema_dir / "controls.schema.json").write_text(json.dumps(schema))
         parser = SchemaParser(schema_dir)
@@ -903,9 +816,7 @@ class TestFieldTypeAwareExpansion:
         assert result == expected
 
     def test_expand_checkbox_with_single_value(
-        self,
-        tmp_path: Path,
-        sample_frameworks_data: dict[str, Any]
+        self, tmp_path: Path, sample_frameworks_data: dict[str, Any]
     ) -> None:
         """
         Test checkbox placeholder expansion with single enum value.
@@ -921,13 +832,7 @@ class TestFieldTypeAwareExpansion:
 
         schema = {
             "$id": "test.schema.json",
-            "definitions": {
-                "persona": {
-                    "properties": {
-                        "id": {"enum": ["personaModelCreator"]}
-                    }
-                }
-            }
+            "definitions": {"persona": {"properties": {"id": {"enum": ["personaModelCreator"]}}}},
         }
 
         (schema_dir / "personas.schema.json").write_text(json.dumps(schema))
@@ -945,9 +850,7 @@ class TestFieldTypeAwareExpansion:
         assert result == expected
 
     def test_expand_dropdown_with_special_characters(
-        self,
-        tmp_path: Path,
-        sample_frameworks_data: dict[str, Any]
+        self, tmp_path: Path, sample_frameworks_data: dict[str, Any]
     ) -> None:
         """
         Test dropdown placeholder expansion with special characters in values.
@@ -964,12 +867,8 @@ class TestFieldTypeAwareExpansion:
         schema = {
             "$id": "test.schema.json",
             "definitions": {
-                "category": {
-                    "properties": {
-                        "id": {"enum": ["category-one", "category_two", "category.three"]}
-                    }
-                }
-            }
+                "category": {"properties": {"id": {"enum": ["category-one", "category_two", "category.three"]}}}
+            },
         }
 
         (schema_dir / "controls.schema.json").write_text(json.dumps(schema))
@@ -995,9 +894,7 @@ class TestFilterFrameworksByApplicability:
     """Test filter_frameworks_by_applicability() method."""
 
     def test_filter_frameworks_for_controls(
-        self,
-        sample_schema_parser: SchemaParser,
-        sample_frameworks_data: dict[str, Any]
+        self, sample_schema_parser: SchemaParser, sample_frameworks_data: dict[str, Any]
     ) -> None:
         """
         Test filtering frameworks applicable to controls.
@@ -1011,13 +908,11 @@ class TestFilterFrameworksByApplicability:
 
         assert "mitre-atlas" in result
         assert "nist-ai-rmf" in result
+        assert "owasp-top10-llm" in result  # Applicable to both controls and risks
         assert "stride" not in result  # Not applicable to controls
-        assert "owasp-top10-llm" not in result
 
     def test_filter_frameworks_for_risks(
-        self,
-        sample_schema_parser: SchemaParser,
-        sample_frameworks_data: dict[str, Any]
+        self, sample_schema_parser: SchemaParser, sample_frameworks_data: dict[str, Any]
     ) -> None:
         """
         Test filtering frameworks applicable to risks.
@@ -1035,9 +930,7 @@ class TestFilterFrameworksByApplicability:
         assert "nist-ai-rmf" not in result  # Not applicable to risks
 
     def test_filter_frameworks_for_components(
-        self,
-        sample_schema_parser: SchemaParser,
-        sample_frameworks_data: dict[str, Any]
+        self, sample_schema_parser: SchemaParser, sample_frameworks_data: dict[str, Any]
     ) -> None:
         """
         Test filtering frameworks applicable to components.
@@ -1052,9 +945,7 @@ class TestFilterFrameworksByApplicability:
         assert result == []
 
     def test_filter_frameworks_for_personas(
-        self,
-        sample_schema_parser: SchemaParser,
-        sample_frameworks_data: dict[str, Any]
+        self, sample_schema_parser: SchemaParser, sample_frameworks_data: dict[str, Any]
     ) -> None:
         """
         Test filtering frameworks applicable to personas.
@@ -1069,9 +960,7 @@ class TestFilterFrameworksByApplicability:
         assert result == []
 
     def test_filter_frameworks_invalid_entity_type(
-        self,
-        sample_schema_parser: SchemaParser,
-        sample_frameworks_data: dict[str, Any]
+        self, sample_schema_parser: SchemaParser, sample_frameworks_data: dict[str, Any]
     ) -> None:
         """
         Test framework filtering with invalid entity type.
@@ -1085,10 +974,7 @@ class TestFilterFrameworksByApplicability:
         with pytest.raises(ValueError, match="Invalid entity type|entity_type"):
             renderer.filter_frameworks_by_applicability("invalid_type")
 
-    def test_filter_frameworks_empty_frameworks_data(
-        self,
-        sample_schema_parser: SchemaParser
-    ) -> None:
+    def test_filter_frameworks_empty_frameworks_data(self, sample_schema_parser: SchemaParser) -> None:
         """
         Test framework filtering with empty frameworks data.
 
@@ -1103,9 +989,7 @@ class TestFilterFrameworksByApplicability:
         assert result == []
 
     def test_filter_frameworks_preserves_order(
-        self,
-        sample_schema_parser: SchemaParser,
-        sample_frameworks_data: dict[str, Any]
+        self, sample_schema_parser: SchemaParser, sample_frameworks_data: dict[str, Any]
     ) -> None:
         """
         Test that framework filtering preserves original order.
@@ -1122,13 +1006,698 @@ class TestFilterFrameworksByApplicability:
         assert result.index("stride") < result.index("owasp-top10-llm")
 
 
+# ============================================================================
+# Phase 2 Tests: Framework List Generation and Mappings Expansion
+# ============================================================================
+
+
+class TestGetFrameworksList:
+    """
+    Test get_frameworks_list() method for comma-separated framework lists.
+
+    This method generates comma-separated lists of framework IDs for use in
+    "update" templates (e.g., {{CONTROL_FRAMEWORKS_LIST}}).
+    """
+
+    def test_get_frameworks_list_for_controls(
+        self, sample_schema_parser: SchemaParser, sample_frameworks_data: dict[str, Any]
+    ) -> None:
+        """
+        Test get_frameworks_list() returns correct frameworks for controls.
+
+        Given: Frameworks with various applicableTo values
+        When: get_frameworks_list() is called with entity_type="controls"
+        Then: Returns comma-separated string "mitre-atlas, nist-ai-rmf, owasp-top10-llm"
+        """
+        renderer = TemplateRenderer(sample_schema_parser, sample_frameworks_data)
+        result = renderer.get_frameworks_list("controls")
+
+        assert result == "mitre-atlas, nist-ai-rmf, owasp-top10-llm"
+
+    def test_get_frameworks_list_for_risks(
+        self, sample_schema_parser: SchemaParser, sample_frameworks_data: dict[str, Any]
+    ) -> None:
+        """
+        Test get_frameworks_list() returns correct frameworks for risks.
+
+        Given: Frameworks with various applicableTo values
+        When: get_frameworks_list() is called with entity_type="risks"
+        Then: Returns comma-separated string "mitre-atlas, stride, owasp-top10-llm"
+        """
+        renderer = TemplateRenderer(sample_schema_parser, sample_frameworks_data)
+        result = renderer.get_frameworks_list("risks")
+
+        assert result == "mitre-atlas, stride, owasp-top10-llm"
+
+    def test_get_frameworks_list_for_components(
+        self, sample_schema_parser: SchemaParser, sample_frameworks_data: dict[str, Any]
+    ) -> None:
+        """
+        Test get_frameworks_list() returns empty string for components.
+
+        Given: No frameworks applicable to components
+        When: get_frameworks_list() is called with entity_type="components"
+        Then: Returns empty string ""
+        """
+        renderer = TemplateRenderer(sample_schema_parser, sample_frameworks_data)
+        result = renderer.get_frameworks_list("components")
+
+        assert result == ""
+
+    def test_get_frameworks_list_preserves_order(
+        self, sample_schema_parser: SchemaParser, sample_frameworks_data: dict[str, Any]
+    ) -> None:
+        """
+        Test that get_frameworks_list() preserves framework order from YAML.
+
+        Given: Frameworks in specific order in frameworks.yaml
+        When: get_frameworks_list() is called
+        Then: Returned string maintains original order
+        """
+        renderer = TemplateRenderer(sample_schema_parser, sample_frameworks_data)
+        result = renderer.get_frameworks_list("controls")
+
+        # mitre-atlas should come before nist-ai-rmf, which comes before owasp-top10-llm
+        parts = result.split(", ")
+        assert parts.index("mitre-atlas") < parts.index("nist-ai-rmf")
+        assert parts.index("nist-ai-rmf") < parts.index("owasp-top10-llm")
+
+    def test_get_frameworks_list_with_single_framework(self, sample_schema_parser: SchemaParser) -> None:
+        """
+        Test get_frameworks_list() with single applicable framework.
+
+        Given: Only one framework applicable to entity type
+        When: get_frameworks_list() is called
+        Then: Returns single framework ID without comma
+        """
+        single_framework_data = {
+            "frameworks": [{"id": "nist-ai-rmf", "name": "NIST AI RMF", "applicableTo": ["controls"]}]
+        }
+
+        renderer = TemplateRenderer(sample_schema_parser, single_framework_data)
+        result = renderer.get_frameworks_list("controls")
+
+        assert result == "nist-ai-rmf"
+
+    def test_get_frameworks_list_empty_frameworks(self, sample_schema_parser: SchemaParser) -> None:
+        """
+        Test get_frameworks_list() with empty frameworks data.
+
+        Given: Empty frameworks list
+        When: get_frameworks_list() is called
+        Then: Returns empty string
+        """
+        empty_frameworks = {"frameworks": []}
+        renderer = TemplateRenderer(sample_schema_parser, empty_frameworks)
+        result = renderer.get_frameworks_list("controls")
+
+        assert result == ""
+
+    def test_get_frameworks_list_invalid_entity_type(
+        self, sample_schema_parser: SchemaParser, sample_frameworks_data: dict[str, Any]
+    ) -> None:
+        """
+        Test get_frameworks_list() with invalid entity type.
+
+        Given: Invalid entity_type parameter
+        When: get_frameworks_list() is called
+        Then: Raises ValueError
+        """
+        renderer = TemplateRenderer(sample_schema_parser, sample_frameworks_data)
+
+        with pytest.raises(ValueError, match="Invalid entity type"):
+            renderer.get_frameworks_list("invalid_type")
+
+
+class TestExpandFrameworkMappings:
+    """
+    Test expand_framework_mappings() method for generating framework mapping sections.
+
+    This method generates full YAML textarea sections for frameworks applicable
+    to the entity type, used in "new" templates (e.g., {{FRAMEWORK_MAPPINGS}}).
+    """
+
+    def test_expand_framework_mappings_for_controls(
+        self, sample_schema_parser: SchemaParser, sample_frameworks_data: dict[str, Any]
+    ) -> None:
+        """
+        Test expand_framework_mappings() generates sections for controls.
+
+        Given: Frameworks with controls in applicableTo
+        When: expand_framework_mappings() is called with entity_type="controls"
+        Then: Generates textarea sections for 3 frameworks (mitre-atlas, nist-ai-rmf, owasp-top10-llm)
+        """
+        renderer = TemplateRenderer(sample_schema_parser, sample_frameworks_data)
+        result = renderer.expand_framework_mappings("controls")
+
+        # Should be a list of framework mapping sections
+        assert isinstance(result, list)
+        assert len(result) == 3
+
+        # Check framework IDs are present
+        framework_ids = [section["id"] for section in result]
+        assert "mapping-mitre-atlas" in framework_ids
+        assert "mapping-nist-ai-rmf" in framework_ids
+        assert "mapping-owasp-top10-llm" in framework_ids
+
+    def test_expand_framework_mappings_for_risks(
+        self, sample_schema_parser: SchemaParser, sample_frameworks_data: dict[str, Any]
+    ) -> None:
+        """
+        Test expand_framework_mappings() generates sections for risks.
+
+        Given: Frameworks with risks in applicableTo
+        When: expand_framework_mappings() is called with entity_type="risks"
+        Then: Generates textarea sections for 3 frameworks (mitre-atlas, stride, owasp-top10-llm)
+        """
+        renderer = TemplateRenderer(sample_schema_parser, sample_frameworks_data)
+        result = renderer.expand_framework_mappings("risks")
+
+        # Should be a list of framework mapping sections
+        assert isinstance(result, list)
+        assert len(result) == 3
+
+        # Check framework IDs are present
+        framework_ids = [section["id"] for section in result]
+        assert "mapping-mitre-atlas" in framework_ids
+        assert "mapping-stride" in framework_ids
+        assert "mapping-owasp-top10-llm" in framework_ids
+
+    def test_expand_framework_mappings_structure(
+        self, sample_schema_parser: SchemaParser, sample_frameworks_data: dict[str, Any]
+    ) -> None:
+        """
+        Test expand_framework_mappings() generates correct YAML structure.
+
+        Given: Frameworks applicable to entity type
+        When: expand_framework_mappings() is called
+        Then: Each section has type=textarea, id=mapping-*, label, description, placeholder
+        """
+        renderer = TemplateRenderer(sample_schema_parser, sample_frameworks_data)
+        result = renderer.expand_framework_mappings("controls")
+
+        for section in result:
+            # Check required fields
+            assert "type" in section
+            assert section["type"] == "textarea"
+
+            assert "id" in section
+            assert section["id"].startswith("mapping-")
+
+            assert "attributes" in section
+            attributes = section["attributes"]
+
+            assert "label" in attributes
+            assert "description" in attributes
+            assert "placeholder" in attributes
+
+            # Validations should be present
+            assert "validations" in section
+            assert "required" in section["validations"]
+            assert section["validations"]["required"] is False
+
+    def test_expand_framework_mappings_excludes_inapplicable(
+        self, sample_schema_parser: SchemaParser, sample_frameworks_data: dict[str, Any]
+    ) -> None:
+        """
+        Test expand_framework_mappings() excludes inapplicable frameworks.
+
+        Given: stride is applicable to risks but NOT controls
+        When: expand_framework_mappings() is called with entity_type="controls"
+        Then: stride should NOT be included in results
+        """
+        renderer = TemplateRenderer(sample_schema_parser, sample_frameworks_data)
+        result = renderer.expand_framework_mappings("controls")
+
+        # Check stride is NOT included
+        framework_ids = [section["id"] for section in result]
+        assert "mapping-stride" not in framework_ids
+
+        # But should include nist-ai-rmf
+        assert "mapping-nist-ai-rmf" in framework_ids
+
+    def test_expand_framework_mappings_includes_framework_details(
+        self, sample_schema_parser: SchemaParser, sample_frameworks_data: dict[str, Any]
+    ) -> None:
+        """
+        Test expand_framework_mappings() includes framework name and baseUri in description.
+
+        Given: Frameworks with name and baseUri fields
+        When: expand_framework_mappings() is called
+        Then: Description includes framework name and baseUri
+        """
+        renderer = TemplateRenderer(sample_schema_parser, sample_frameworks_data)
+        result = renderer.expand_framework_mappings("controls")
+
+        # Find mitre-atlas section
+        mitre_section = next(s for s in result if s["id"] == "mapping-mitre-atlas")
+
+        # Check description includes framework details
+        description = mitre_section["attributes"]["description"]
+        assert "MITRE ATLAS" in description or "mitre-atlas" in description.lower()
+        assert "atlas.mitre.org" in description or "https://atlas.mitre.org" in description
+
+    def test_expand_framework_mappings_empty_frameworks(self, sample_schema_parser: SchemaParser) -> None:
+        """
+        Test expand_framework_mappings() with empty frameworks data.
+
+        Given: Empty frameworks list
+        When: expand_framework_mappings() is called
+        Then: Returns empty list
+        """
+        empty_frameworks = {"frameworks": []}
+        renderer = TemplateRenderer(sample_schema_parser, empty_frameworks)
+        result = renderer.expand_framework_mappings("controls")
+
+        assert result == []
+
+    def test_expand_framework_mappings_preserves_order(
+        self, sample_schema_parser: SchemaParser, sample_frameworks_data: dict[str, Any]
+    ) -> None:
+        """
+        Test expand_framework_mappings() preserves framework order.
+
+        Given: Frameworks in specific order in YAML
+        When: expand_framework_mappings() is called
+        Then: Returned sections maintain original order
+        """
+        renderer = TemplateRenderer(sample_schema_parser, sample_frameworks_data)
+        result = renderer.expand_framework_mappings("controls")
+
+        framework_ids = [section["id"] for section in result]
+
+        # Should be in order: mitre-atlas, nist-ai-rmf, owasp-top10-llm
+        assert framework_ids.index("mapping-mitre-atlas") < framework_ids.index("mapping-nist-ai-rmf")
+        assert framework_ids.index("mapping-nist-ai-rmf") < framework_ids.index("mapping-owasp-top10-llm")
+
+    def test_expand_framework_mappings_invalid_entity_type(
+        self, sample_schema_parser: SchemaParser, sample_frameworks_data: dict[str, Any]
+    ) -> None:
+        """
+        Test expand_framework_mappings() with invalid entity type.
+
+        Given: Invalid entity_type parameter
+        When: expand_framework_mappings() is called
+        Then: Raises ValueError
+        """
+        renderer = TemplateRenderer(sample_schema_parser, sample_frameworks_data)
+
+        with pytest.raises(ValueError, match="Invalid entity type"):
+            renderer.expand_framework_mappings("invalid_type")
+
+
+class TestFrameworkPlaceholderExpansion:
+    """
+    Test placeholder expansion for framework-related placeholders.
+
+    Tests the integration of framework filtering with placeholder expansion
+    for {{FRAMEWORK_MAPPINGS}}, {{CONTROL_FRAMEWORKS_LIST}}, {{RISK_FRAMEWORKS_LIST}}.
+    """
+
+    def test_expand_framework_mappings_placeholder(
+        self, sample_schema_parser: SchemaParser, sample_frameworks_data: dict[str, Any]
+    ) -> None:
+        """
+        Test {{FRAMEWORK_MAPPINGS}} placeholder expansion.
+
+        Given: Template with {{FRAMEWORK_MAPPINGS}} placeholder
+        When: expand_placeholders() is called
+        Then: Placeholder is replaced with framework mapping sections in YAML format
+        """
+        template = """body:
+  - type: markdown
+    attributes:
+      value: "## Framework Mappings"
+
+  {{FRAMEWORK_MAPPINGS}}"""
+
+        renderer = TemplateRenderer(sample_schema_parser, sample_frameworks_data)
+        result = renderer.expand_placeholders(template, "controls")
+
+        # Placeholder should be removed
+        assert "{{FRAMEWORK_MAPPINGS}}" not in result
+
+        # Should contain framework sections
+        assert "mapping-mitre-atlas" in result
+        assert "mapping-nist-ai-rmf" in result
+        assert "mapping-owasp-top10-llm" in result
+
+        # Should NOT contain stride (not applicable to controls)
+        assert "mapping-stride" not in result
+
+    def test_expand_control_frameworks_list_placeholder(
+        self, sample_schema_parser: SchemaParser, sample_frameworks_data: dict[str, Any]
+    ) -> None:
+        """
+        Test {{CONTROL_FRAMEWORKS_LIST}} placeholder expansion.
+
+        Given: Template with {{CONTROL_FRAMEWORKS_LIST}} placeholder
+        When: expand_placeholders() is called with entity_type="controls"
+        Then: Placeholder is replaced with comma-separated framework IDs
+        """
+        template = """  - type: textarea
+    id: mappings
+    attributes:
+      description: |
+        Update mappings to external frameworks: {{CONTROL_FRAMEWORKS_LIST}}"""
+
+        renderer = TemplateRenderer(sample_schema_parser, sample_frameworks_data)
+        result = renderer.expand_placeholders(template, "controls")
+
+        # Placeholder should be removed
+        assert "{{CONTROL_FRAMEWORKS_LIST}}" not in result
+
+        # Should contain comma-separated list
+        assert "mitre-atlas, nist-ai-rmf, owasp-top10-llm" in result
+
+    def test_expand_risk_frameworks_list_placeholder(
+        self, sample_schema_parser: SchemaParser, sample_frameworks_data: dict[str, Any]
+    ) -> None:
+        """
+        Test {{RISK_FRAMEWORKS_LIST}} placeholder expansion.
+
+        Given: Template with {{RISK_FRAMEWORKS_LIST}} placeholder
+        When: expand_placeholders() is called with entity_type="risks"
+        Then: Placeholder is replaced with comma-separated framework IDs for risks
+        """
+        template = """  - type: textarea
+    id: mappings
+    attributes:
+      description: |
+        Update mappings to external frameworks: {{RISK_FRAMEWORKS_LIST}}"""
+
+        renderer = TemplateRenderer(sample_schema_parser, sample_frameworks_data)
+        result = renderer.expand_placeholders(template, "risks")
+
+        # Placeholder should be removed
+        assert "{{RISK_FRAMEWORKS_LIST}}" not in result
+
+        # Should contain comma-separated list for risks
+        assert "mitre-atlas, stride, owasp-top10-llm" in result
+
+    def test_framework_mappings_preserves_indentation(
+        self, sample_schema_parser: SchemaParser, sample_frameworks_data: dict[str, Any]
+    ) -> None:
+        """
+        Test {{FRAMEWORK_MAPPINGS}} preserves YAML indentation.
+
+        Given: Template with indented {{FRAMEWORK_MAPPINGS}} placeholder
+        When: expand_placeholders() is called
+        Then: Expanded sections maintain proper YAML indentation
+        """
+        template = """body:
+  - type: markdown
+    attributes:
+      value: "## Mappings"
+
+  {{FRAMEWORK_MAPPINGS}}"""
+
+        renderer = TemplateRenderer(sample_schema_parser, sample_frameworks_data)
+        result = renderer.expand_placeholders(template, "controls")
+
+        # Check that framework sections are indented at same level as placeholder
+        lines = result.split("\n")
+
+        # Find lines with "- type: textarea" (framework sections)
+        textarea_lines = [line for line in lines if "- type: textarea" in line]
+
+        # All should start with 2-space indentation (body level)
+        for line in textarea_lines:
+            assert line.startswith("  - type: textarea"), f"Bad indentation: '{line}'"
+
+
+class TestFrameworkMappingsIntegration:
+    """
+    Integration tests for framework mappings in generated templates.
+
+    Tests the complete flow from template rendering to final output
+    with framework-specific placeholders.
+    """
+
+    def test_generated_new_control_has_dynamic_frameworks(
+        self, sample_schema_parser: SchemaParser, sample_frameworks_data: dict[str, Any]
+    ) -> None:
+        """
+        Test generated "new control" template has correct framework sections.
+
+        Given: New control template with {{FRAMEWORK_MAPPINGS}}
+        When: Template is rendered
+        Then: Generated template has framework sections for mitre-atlas, nist-ai-rmf, owasp-top10-llm
+        """
+        template = """name: New Control
+description: Submit a new control
+body:
+  - type: input
+    id: title
+    attributes:
+      label: Title
+
+  - type: markdown
+    attributes:
+      value: "## Framework Mappings"
+
+  {{FRAMEWORK_MAPPINGS}}"""
+
+        renderer = TemplateRenderer(sample_schema_parser, sample_frameworks_data)
+        result = renderer.render_template(template, "controls")
+
+        import yaml
+
+        parsed = yaml.safe_load(result)
+
+        # Find framework mapping sections in body
+        framework_sections = [
+            item
+            for item in parsed["body"]
+            if item.get("type") == "textarea" and item.get("id", "").startswith("mapping-")
+        ]
+
+        # Should have 3 framework sections
+        assert len(framework_sections) == 3
+
+        framework_ids = [section["id"] for section in framework_sections]
+        assert "mapping-mitre-atlas" in framework_ids
+        assert "mapping-nist-ai-rmf" in framework_ids
+        assert "mapping-owasp-top10-llm" in framework_ids
+
+    def test_generated_new_risk_has_dynamic_frameworks(
+        self, sample_schema_parser: SchemaParser, sample_frameworks_data: dict[str, Any]
+    ) -> None:
+        """
+        Test generated "new risk" template has correct framework sections.
+
+        Given: New risk template with {{FRAMEWORK_MAPPINGS}}
+        When: Template is rendered
+        Then: Generated template has framework sections for mitre-atlas, stride, owasp-top10-llm
+        """
+        template = """name: New Risk
+description: Submit a new risk
+body:
+  - type: input
+    id: title
+    attributes:
+      label: Title
+
+  - type: markdown
+    attributes:
+      value: "## Framework Mappings"
+
+  {{FRAMEWORK_MAPPINGS}}"""
+
+        renderer = TemplateRenderer(sample_schema_parser, sample_frameworks_data)
+        result = renderer.render_template(template, "risks")
+
+        import yaml
+
+        parsed = yaml.safe_load(result)
+
+        # Find framework mapping sections in body
+        framework_sections = [
+            item
+            for item in parsed["body"]
+            if item.get("type") == "textarea" and item.get("id", "").startswith("mapping-")
+        ]
+
+        # Should have 3 framework sections
+        assert len(framework_sections) == 3
+
+        framework_ids = [section["id"] for section in framework_sections]
+        assert "mapping-mitre-atlas" in framework_ids
+        assert "mapping-stride" in framework_ids
+        assert "mapping-owasp-top10-llm" in framework_ids
+
+        # Should NOT have nist-ai-rmf (not applicable to risks)
+        assert "mapping-nist-ai-rmf" not in framework_ids
+
+    def test_generated_update_control_has_framework_list(
+        self, sample_schema_parser: SchemaParser, sample_frameworks_data: dict[str, Any]
+    ) -> None:
+        """
+        Test generated "update control" template has framework list in description.
+
+        Given: Update control template with {{CONTROL_FRAMEWORKS_LIST}}
+        When: Template is rendered
+        Then: Description contains comma-separated list "mitre-atlas, nist-ai-rmf, owasp-top10-llm"
+        """
+        template = """name: Update Control
+description: Update an existing control
+body:
+  - type: textarea
+    id: mappings
+    attributes:
+      label: Framework Mappings
+      description: |
+        Update mappings to: {{CONTROL_FRAMEWORKS_LIST}}"""
+
+        renderer = TemplateRenderer(sample_schema_parser, sample_frameworks_data)
+        result = renderer.render_template(template, "controls")
+
+        import yaml
+
+        parsed = yaml.safe_load(result)
+
+        # Find mappings textarea
+        mappings_section = next(item for item in parsed["body"] if item["id"] == "mappings")
+
+        description = mappings_section["attributes"]["description"]
+        assert "mitre-atlas, nist-ai-rmf, owasp-top10-llm" in description
+
+    def test_generated_update_risk_has_framework_list(
+        self, sample_schema_parser: SchemaParser, sample_frameworks_data: dict[str, Any]
+    ) -> None:
+        """
+        Test generated "update risk" template has framework list in description.
+
+        Given: Update risk template with {{RISK_FRAMEWORKS_LIST}}
+        When: Template is rendered
+        Then: Description contains comma-separated list "mitre-atlas, stride, owasp-top10-llm"
+        """
+        template = """name: Update Risk
+description: Update an existing risk
+body:
+  - type: textarea
+    id: mappings
+    attributes:
+      label: Framework Mappings
+      description: |
+        Update mappings to: {{RISK_FRAMEWORKS_LIST}}"""
+
+        renderer = TemplateRenderer(sample_schema_parser, sample_frameworks_data)
+        result = renderer.render_template(template, "risks")
+
+        import yaml
+
+        parsed = yaml.safe_load(result)
+
+        # Find mappings textarea
+        mappings_section = next(item for item in parsed["body"] if item["id"] == "mappings")
+
+        description = mappings_section["attributes"]["description"]
+        assert "mitre-atlas, stride, owasp-top10-llm" in description
+
+
+class TestFrameworkMappingsEdgeCases:
+    """
+    Test edge cases for framework mappings functionality.
+
+    Tests error handling, missing data, and boundary conditions.
+    """
+
+    def test_framework_mappings_handles_empty_applicable_to(self, sample_schema_parser: SchemaParser) -> None:
+        """
+        Test expand_framework_mappings() handles frameworks with empty applicableTo.
+
+        Given: Framework with empty applicableTo array
+        When: expand_framework_mappings() is called
+        Then: Framework is excluded from results
+        """
+        frameworks_with_empty = {
+            "frameworks": [
+                {"id": "empty-framework", "name": "Empty Framework", "applicableTo": []},
+                {"id": "nist-ai-rmf", "name": "NIST AI RMF", "applicableTo": ["controls"]},
+            ]
+        }
+
+        renderer = TemplateRenderer(sample_schema_parser, frameworks_with_empty)
+        result = renderer.expand_framework_mappings("controls")
+
+        # Should only have nist-ai-rmf
+        assert len(result) == 1
+        assert result[0]["id"] == "mapping-nist-ai-rmf"
+
+    def test_framework_mappings_handles_missing_framework_data(self, sample_schema_parser: SchemaParser) -> None:
+        """
+        Test expand_framework_mappings() handles missing framework fields gracefully.
+
+        Given: Framework with missing optional fields (baseUri, fullName)
+        When: expand_framework_mappings() is called
+        Then: Handles gracefully without crashing
+        """
+        minimal_framework_data = {
+            "frameworks": [
+                {
+                    "id": "minimal-framework",
+                    "name": "Minimal Framework",
+                    "applicableTo": ["controls"],
+                    # Missing baseUri, fullName
+                }
+            ]
+        }
+
+        renderer = TemplateRenderer(sample_schema_parser, minimal_framework_data)
+        result = renderer.expand_framework_mappings("controls")
+
+        # Should still generate section
+        assert len(result) == 1
+        assert result[0]["id"] == "mapping-minimal-framework"
+        assert "attributes" in result[0]
+
+    def test_framework_list_handles_missing_applicable_to(self, sample_schema_parser: SchemaParser) -> None:
+        """
+        Test get_frameworks_list() handles frameworks missing applicableTo field.
+
+        Given: Framework without applicableTo field
+        When: get_frameworks_list() is called
+        Then: Treats framework as not applicable to any entity type
+        """
+        frameworks_no_applicable = {
+            "frameworks": [
+                {
+                    "id": "no-applicable",
+                    "name": "No Applicable",
+                    # Missing applicableTo field
+                },
+                {"id": "nist-ai-rmf", "name": "NIST AI RMF", "applicableTo": ["controls"]},
+            ]
+        }
+
+        renderer = TemplateRenderer(sample_schema_parser, frameworks_no_applicable)
+        result = renderer.get_frameworks_list("controls")
+
+        # Should only include nist-ai-rmf
+        assert result == "nist-ai-rmf"
+
+    def test_framework_mappings_handles_none_entity_type(
+        self, sample_schema_parser: SchemaParser, sample_frameworks_data: dict[str, Any]
+    ) -> None:
+        """
+        Test expand_framework_mappings() with None entity_type.
+
+        Given: None as entity_type parameter
+        When: expand_framework_mappings() is called
+        Then: Raises TypeError or ValueError
+        """
+        renderer = TemplateRenderer(sample_schema_parser, sample_frameworks_data)
+
+        with pytest.raises((TypeError, ValueError)):
+            renderer.expand_framework_mappings(None)
+
+
 class TestRenderTemplate:
     """Test render_template() main method."""
 
     def test_render_template_expands_placeholders(
-        self,
-        sample_schema_parser: SchemaParser,
-        sample_frameworks_data: dict[str, Any]
+        self, sample_schema_parser: SchemaParser, sample_frameworks_data: dict[str, Any]
     ) -> None:
         """
         Test full template rendering with placeholder expansion.
@@ -1160,9 +1729,7 @@ body:
         assert "controlsData" in result
 
     def test_render_template_preserves_yaml_structure(
-        self,
-        sample_schema_parser: SchemaParser,
-        sample_frameworks_data: dict[str, Any]
+        self, sample_schema_parser: SchemaParser, sample_frameworks_data: dict[str, Any]
     ) -> None:
         """
         Test that full rendering preserves YAML structure.
@@ -1186,14 +1753,13 @@ body:
 
         # Should parse as valid YAML
         import yaml
+
         parsed = yaml.safe_load(result)
         assert parsed["name"] == "Test Template"
         assert "body" in parsed
 
     def test_render_template_handles_complex_template(
-        self,
-        sample_schema_parser: SchemaParser,
-        sample_frameworks_data: dict[str, Any]
+        self, sample_schema_parser: SchemaParser, sample_frameworks_data: dict[str, Any]
     ) -> None:
         """
         Test rendering complex template with multiple features.
@@ -1236,9 +1802,7 @@ body:
         assert "personaModelCreator" in result
 
     def test_render_template_empty_template(
-        self,
-        sample_schema_parser: SchemaParser,
-        sample_frameworks_data: dict[str, Any]
+        self, sample_schema_parser: SchemaParser, sample_frameworks_data: dict[str, Any]
     ) -> None:
         """
         Test rendering empty template.
@@ -1253,9 +1817,7 @@ body:
         assert result == ""
 
     def test_render_template_no_changes_needed(
-        self,
-        sample_schema_parser: SchemaParser,
-        sample_frameworks_data: dict[str, Any]
+        self, sample_schema_parser: SchemaParser, sample_frameworks_data: dict[str, Any]
     ) -> None:
         """
         Test rendering template that needs no changes.
@@ -1280,9 +1842,7 @@ class TestTemplateRendererIntegration:
     """Integration tests with production data."""
 
     def test_render_production_control_template(
-        self,
-        risk_map_schemas_dir: Path,
-        sample_frameworks_data: dict[str, Any]
+        self, risk_map_schemas_dir: Path, sample_frameworks_data: dict[str, Any]
     ) -> None:
         """
         Test rendering actual control template with production schemas.
@@ -1316,9 +1876,7 @@ body:
         assert "controlsApplication" in result
 
     def test_render_production_risk_template(
-        self,
-        risk_map_schemas_dir: Path,
-        sample_frameworks_data: dict[str, Any]
+        self, risk_map_schemas_dir: Path, sample_frameworks_data: dict[str, Any]
     ) -> None:
         """
         Test rendering actual risk template with production schemas.
@@ -1349,9 +1907,7 @@ body:
         assert "risksSupplyChainAndDevelopment" in result or "risksDeployment" in result
 
     def test_integration_with_production_frameworks_yaml(
-        self,
-        risk_map_schemas_dir: Path,
-        repo_root: Path
+        self, risk_map_schemas_dir: Path, repo_root: Path
     ) -> None:
         """
         Test integration with actual frameworks.yaml file.
@@ -1363,7 +1919,7 @@ body:
         import yaml
 
         frameworks_path = repo_root / "risk-map" / "yaml" / "frameworks.yaml"
-        with open(frameworks_path, 'r', encoding='utf-8') as f:
+        with open(frameworks_path, "r", encoding="utf-8") as f:
             frameworks_data = yaml.safe_load(f)
 
         parser = SchemaParser(risk_map_schemas_dir)
@@ -1381,11 +1937,7 @@ body:
 class TestTemplateRendererErrorHandling:
     """Test error handling in TemplateRenderer."""
 
-    def test_render_with_missing_schema_file(
-        self,
-        tmp_path: Path,
-        sample_frameworks_data: dict[str, Any]
-    ) -> None:
+    def test_render_with_missing_schema_file(self, tmp_path: Path, sample_frameworks_data: dict[str, Any]) -> None:
         """
         Test rendering when schema file is missing.
 
@@ -1406,9 +1958,7 @@ class TestTemplateRendererErrorHandling:
             renderer.render_template(template, "controls")
 
     def test_render_with_malformed_yaml_template(
-        self,
-        sample_schema_parser: SchemaParser,
-        sample_frameworks_data: dict[str, Any]
+        self, sample_schema_parser: SchemaParser, sample_frameworks_data: dict[str, Any]
     ) -> None:
         """
         Test rendering malformed YAML template.
@@ -1430,9 +1980,7 @@ body:
         assert isinstance(result, str)
 
     def test_render_with_circular_placeholder_reference(
-        self,
-        sample_schema_parser: SchemaParser,
-        sample_frameworks_data: dict[str, Any]
+        self, sample_schema_parser: SchemaParser, sample_frameworks_data: dict[str, Any]
     ) -> None:
         """
         Test handling of circular placeholder references.
@@ -1456,9 +2004,7 @@ class TestYAMLFormattingPreservation:
     """Test YAML formatting and structure preservation."""
 
     def test_preserve_multiline_strings(
-        self,
-        sample_schema_parser: SchemaParser,
-        sample_frameworks_data: dict[str, Any]
+        self, sample_schema_parser: SchemaParser, sample_frameworks_data: dict[str, Any]
     ) -> None:
         """
         Test preservation of multiline strings.
@@ -1482,9 +2028,7 @@ class TestYAMLFormattingPreservation:
         assert "Line 2" in result
 
     def test_preserve_markdown_sections(
-        self,
-        sample_schema_parser: SchemaParser,
-        sample_frameworks_data: dict[str, Any]
+        self, sample_schema_parser: SchemaParser, sample_frameworks_data: dict[str, Any]
     ) -> None:
         """
         Test preservation of markdown sections.
@@ -1507,9 +2051,7 @@ class TestYAMLFormattingPreservation:
         assert "**Note**:" in result
 
     def test_preserve_reference_links(
-        self,
-        sample_schema_parser: SchemaParser,
-        sample_frameworks_data: dict[str, Any]
+        self, sample_schema_parser: SchemaParser, sample_frameworks_data: dict[str, Any]
     ) -> None:
         """
         Test preservation of reference links.
@@ -1528,9 +2070,7 @@ class TestYAMLFormattingPreservation:
         assert "../../risk-map/tables/controls-summary.md" in result
 
     def test_preserve_comment_sections(
-        self,
-        sample_schema_parser: SchemaParser,
-        sample_frameworks_data: dict[str, Any]
+        self, sample_schema_parser: SchemaParser, sample_frameworks_data: dict[str, Any]
     ) -> None:
         """
         Test preservation of YAML comments.
@@ -1562,9 +2102,7 @@ class TestGitHubSchemaValidation:
     """
 
     def test_dropdown_output_is_valid_yaml_string_list(
-        self,
-        sample_schema_parser: SchemaParser,
-        sample_frameworks_data: dict[str, Any]
+        self, sample_schema_parser: SchemaParser, sample_frameworks_data: dict[str, Any]
     ) -> None:
         """
         Test that dropdown output structure is valid YAML string list.
@@ -1604,9 +2142,7 @@ class TestGitHubSchemaValidation:
         assert "controlsModel" in options
 
     def test_checkbox_output_is_valid_yaml_object_list(
-        self,
-        sample_schema_parser: SchemaParser,
-        sample_frameworks_data: dict[str, Any]
+        self, sample_schema_parser: SchemaParser, sample_frameworks_data: dict[str, Any]
     ) -> None:
         """
         Test that checkbox output structure is valid YAML object list.
@@ -1653,9 +2189,7 @@ class TestGitHubSchemaValidation:
         assert "personaModelConsumer" in labels
 
     def test_generated_templates_match_github_schema_structure(
-        self,
-        risk_map_schemas_dir: Path,
-        sample_frameworks_data: dict[str, Any]
+        self, risk_map_schemas_dir: Path, sample_frameworks_data: dict[str, Any]
     ) -> None:
         """
         Test that generated templates have structure matching GitHub schema.
@@ -1726,9 +2260,7 @@ body:
         assert input_field["validations"]["required"] is True
 
     def test_production_control_template_structure(
-        self,
-        risk_map_schemas_dir: Path,
-        sample_frameworks_data: dict[str, Any]
+        self, risk_map_schemas_dir: Path, sample_frameworks_data: dict[str, Any]
     ) -> None:
         """
         Test production control template has valid GitHub schema structure.
@@ -1775,98 +2307,17 @@ body:
             if item["type"] == "dropdown":
                 # Dropdowns must have string lists
                 options = item["attributes"]["options"]
-                assert all(isinstance(opt, str) for opt in options), \
+                assert all(isinstance(opt, str) for opt in options), (
                     f"Dropdown {item['id']} has non-string options"
+                )
 
             elif item["type"] == "checkboxes":
                 # Checkboxes must have object lists with label only
                 options = item["attributes"]["options"]
-                assert all(isinstance(opt, dict) for opt in options), \
+                assert all(isinstance(opt, dict) for opt in options), (
                     f"Checkboxes {item['id']} has non-dict options"
-                assert all("label" in opt and "value" not in opt for opt in options), \
+                )
+                assert all("label" in opt and "value" not in opt for opt in options), (
                     f"Checkboxes {item['id']} has invalid object structure"
+                )
 
-
-# ============================================================================
-# Test Summary
-# ============================================================================
-
-"""
-Test Summary
-============
-Total Tests: 62 (was 41, added 21 new tests)
-- Initialization: 4 tests
-- expand_placeholders(): 18 tests (updated for field-type awareness)
-- TestFieldTypeAwareExpansion: 11 tests (NEW - comprehensive field type testing)
-- filter_frameworks_by_applicability(): 7 tests
-- render_template(): 5 tests
-- Integration Tests: 3 tests
-- Error Handling: 3 tests
-- YAML Formatting Preservation: 4 tests
-- TestGitHubSchemaValidation: 4 tests (NEW - GitHub schema compliance testing)
-
-Coverage Areas:
-- TemplateRenderer initialization and validation
-- Field-type-aware placeholder expansion (dropdown vs checkbox formats)
-- Dropdown format: plain strings (no quotes, no label/value objects)
-- Checkbox format: label-only objects (no value field, no quotes)
-- Indentation preservation for both formats
-- Mixed field types in same template
-- Framework filtering by applicability
-- Full template rendering pipeline
-- YAML formatting and structure preservation
-- Integration with production schemas and frameworks
-- GitHub schema compliance (YAML structure validation)
-- Error handling (missing files, malformed templates, invalid types)
-- Edge cases (empty enums, single values, special characters, unknown placeholders)
-
-NEW Test Coverage for GitHub Schema Validation Fix:
-- test_expand_control_categories_placeholder: Updated to expect dropdown format
-- test_expand_risk_categories_placeholder: Updated to expect dropdown format
-- test_expand_personas_placeholder: Updated to expect checkbox format
-- test_expand_multiple_placeholders: Updated to verify mixed formats
-- test_expand_new_placeholder_types: Updated to verify field-type-aware expansion
-- TestFieldTypeAwareExpansion (11 tests): Comprehensive field type testing
-  * test_expand_dropdown_placeholder_format
-  * test_expand_checkbox_placeholder_format
-  * test_expand_dropdown_preserves_indentation
-  * test_expand_checkbox_preserves_indentation
-  * test_expand_dropdown_no_quotes
-  * test_expand_checkbox_no_value_field
-  * test_expand_mixed_field_types_in_same_template
-  * test_expand_dropdown_with_empty_enum
-  * test_expand_checkbox_with_single_value
-  * test_expand_dropdown_with_special_characters
-- TestGitHubSchemaValidation (4 tests): GitHub schema compliance
-  * test_dropdown_output_is_valid_yaml_string_list
-  * test_checkbox_output_is_valid_yaml_object_list
-  * test_generated_templates_match_github_schema_structure
-  * test_production_control_template_structure
-
-Expected Behavior After Implementation:
-- All 62 tests should FAIL initially (RED phase)
-- After implementing field-type-aware expansion, all tests should PASS (GREEN phase)
-- Dropdowns generate: ["- controlsData", "- controlsModel"] (plain strings)
-- Checkboxes generate: ["- label: personaModelCreator"] (label only, no value)
-- No quotes added to any values
-- Proper YAML indentation preserved
-- Generated templates pass GitHub schema validation
-
-Expected Coverage: 85%+ of TemplateRenderer code
-
-Implementation Requirements (from GITHUB_SCHEMA_VALIDATION_FIX.md):
-1. Update PLACEHOLDER_MAPPINGS structure from list to dict with metadata
-2. Add field_type to each mapping: "dropdown" | "checkbox" | None
-3. Update expand_placeholders() to format based on field_type:
-   - dropdown: Plain strings (f"- {value}")
-   - checkbox: Label only (f"- label: {value}")
-   - None: Fallback format (current behavior)
-
-Next Steps:
-1. Run tests to verify they FAIL (RED phase):
-   PYTHONPATH=./scripts/hooks pytest scripts/hooks/issue_template_generator/tests/test_template_renderer.py -v
-2. Implement field-type-aware expansion in template_renderer.py (GREEN phase)
-3. Run tests again to verify they PASS
-4. Verify coverage: pytest --cov=scripts/hooks/issue_template_generator/template_renderer
-5. Generate templates and validate with check-jsonschema
-"""

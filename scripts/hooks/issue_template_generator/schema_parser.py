@@ -3,8 +3,6 @@ SchemaParser for extracting enum values and required fields from JSON schemas.
 
 This module provides the SchemaParser class which reads JSON schema files
 and extracts information needed for GitHub issue template generation.
-
-Part of the IssueTemplateGenerator system (Phase 3, Week 4).
 """
 
 import json
