@@ -97,8 +97,8 @@ body:
 
         Valid frameworks for controls include: mitre-atlas, nist-ai-rmf, owasp-top10-llm
       placeholder: |
-        mitre-atlas AML.M0007
-        nist-airmf GV-6.2
+        mitre-atlas: AML.M0007
+        nist-ai-rmf: GV-6.2
 
   - type: checkboxes
     id: lifecycle-stage

@@ -133,8 +133,8 @@ body:
 
         Valid frameworks for risks include: {{RISK_FRAMEWORKS_LIST}}
       placeholder: |
-        mitre-atlas AML.M0007
-        nist-ai-rmf GV-6.2
+        mitre-atlas: AML.M0007
+        nist-ai-rmf: GV-6.2
 
   - type: checkboxes
     id: lifecycle-stage
