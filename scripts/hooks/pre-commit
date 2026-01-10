@@ -49,9 +49,10 @@ SCHEMA_SUFFIX=".schema.json"
 # List of YAML|schema files to validate without extensions
 SOURCE_FILES=("controls" "components" "personas" "risks" "self-assessment" "mermaid-styles" "frameworks" "lifecycle-stage" "impact-type" "actor-access")
 
-# Path to Chrome, Chromium, Chrome for testing...
-#CHROMIUM_PATH="/ms-playwright/chromium_headless_shell-1187/chrome-linux/headless_shell"
-CHROMIUM_PATH=MUST_BE_SET
+# Path to Chrome/Chromium for SVG generation
+# Leave empty for automatic Chrome detection, or set to specific path for CI/CD
+# Example: CHROMIUM_PATH="/ms-playwright/chromium_headless_shell-1187/chrome-linux/headless_shell"
+CHROMIUM_PATH=""  # Empty = auto-detect
 
 # Output directories for generated files
 DIAGRAMS_DIR="risk-map/diagrams"
@@ -474,7 +475,7 @@ if [[ $FORCE_VALIDATE -eq 0 ]] && git diff --cached --name-only | grep -q "scrip
     mkdir -p "${TEMPLATE_DIR}"
 
     python3 "$ISSUE_TEMPLATE_GENERATOR" >/dev/null
-    if [[$? -ne 0 ]]; then 
+    if [[ $? -ne 0 ]]; then 
         VALIDATION_FAILED=1
         echo "   ❌ Github Issue Template generation failed"
     fi 

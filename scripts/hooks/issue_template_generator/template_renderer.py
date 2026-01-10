@@ -30,9 +30,9 @@ class TemplateRenderer:
     VALID_ENTITY_TYPES = {"controls", "risks", "components", "personas"}
 
     # Placeholder mappings to schema paths with field type metadata
-    # Field types determine output format:
-    # - "dropdown": Plain strings for GitHub dropdown fields (e.g., "- controlsData")
-    # - "checkbox": Label-only objects for GitHub checkbox fields (e.g., "- label: personaModelCreator")
+    # Field types match GitHub form input requirements:
+    # - "dropdown": Plain string lists (e.g., ["controlsData", "controlsModel"])
+    # - "checkbox": Label-only objects (e.g., [{"label": "personaModelCreator"}])
     # - None: Fallback format with label and value (for textarea/markdown context)
     PLACEHOLDER_MAPPINGS = {
         # Dropdowns - plain string format required
@@ -236,8 +236,9 @@ class TemplateRenderer:
                         yaml_lines.append(f"{indentation}- label: {value}")
 
             else:
-                # Fallback for field_type=None (textarea context)
-                # Keep current behavior for backwards compatibility
+                # Fallback for field_type=None (not used in dropdowns/checkboxes)
+                # Maintains backward compatibility for textarea content where both
+                # human-readable label and machine-readable value may be useful
                 for i, value in enumerate(enum_values):
                     if i == 0:
                         # First item - no leading indentation (replaces placeholder inline)

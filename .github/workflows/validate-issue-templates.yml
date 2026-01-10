@@ -76,6 +76,7 @@ jobs:
     runs-on: ubuntu-latest
     name: Template Drift Detection
     needs: setup
+    # Only check drift on PRs where reviewers need to verify synchronization
     if: github.event_name == 'pull_request'
     outputs:
       drift_status: ${{ steps.drift.outputs.status }}

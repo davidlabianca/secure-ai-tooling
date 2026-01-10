@@ -93,9 +93,9 @@ body:
     attributes:
       label: Applicable Controls*
       description: |
-        Control IDs that mitigate this risk (one per line)
+        ⚠️ **IMPORTANT - Automatic Bidirectional Mapping**: When you list controls here, those controls will automatically have this risk added to their mitigated risks. No need to update both sides manually.
 
-        ✨ **Automatic Cross-Mapping**: When you map this risk to controls, the reverse mappings are automatically created. Each control you list here will automatically get this risk added to its mitigated risks.
+        Control IDs that mitigate this risk (one per line)
 
         📋 [View control list](../../risk-map/tables/controls-summary.md)
       placeholder: |

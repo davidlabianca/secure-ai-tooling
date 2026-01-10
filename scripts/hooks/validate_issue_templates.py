@@ -85,7 +85,7 @@ def get_staged_files() -> list[Path]:
             capture_output=True,
             text=True,
             check=True,
-            timeout=10,
+            timeout=10,  # 10s timeout sufficient for git operations
         )
 
         # Parse output into Path objects, filtering empty lines
@@ -160,7 +160,7 @@ def validate_with_schema(file_path: Path, schema: str, quiet: bool = False) -> b
             ["check-jsonschema", "--builtin-schema", schema, str(file_path)],
             capture_output=True,
             text=True,
-            timeout=30,
+            timeout=30,  # 30s timeout allows for schema download and validation
         )
 
         if result.returncode == 0:

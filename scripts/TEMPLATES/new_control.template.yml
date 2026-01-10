@@ -68,9 +68,9 @@ body:
     attributes:
       label: Mitigated Risks*
       description: |
-        List risk IDs this control addresses (one per line), or use "all"
+        ⚠️ **IMPORTANT - Automatic Bidirectional Mapping**: When you list risks here, those risks will automatically have this control added to their applicable controls. No need to update both sides manually.
 
-        ✨ **Automatic Cross-Mapping**: When you map this control to risks, the reverse mappings are automatically created. Each risk you list here will automatically get this control added to its applicable controls.
+        List risk IDs this control addresses (one per line), or use "all"
 
         📋 [View full risk list](../../risk-map/tables/risks-summary.md)
 
