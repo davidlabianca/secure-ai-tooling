@@ -1,6 +1,6 @@
 # Pre-commit Hook Validations
 
-The pre-commit hook runs seven validations before allowing commits:
+The pre-commit hook runs ten validations and generation steps before allowing commits:
 
 ## 1. YAML Schema Validation
 
@@ -114,7 +114,140 @@ risks:
       - CTRL-001 # ✅ Bidirectional consistency maintained
 ```
 
-## 6. Mermaid SVG Generation
+## 6. Framework Reference Validation
+
+Validates that framework mappings (MITRE ATLAS, NIST AI RMF, STRIDE, OWASP Top 10 for LLM) reference valid framework techniques and that frameworks are correctly applied to appropriate entity types:
+
+**Validation Features:**
+
+- **Framework applicability**: Ensures frameworks are only mapped to entity types listed in their `applicableTo` configuration
+- **Valid technique references**: Verifies framework technique IDs exist in the framework definitions
+- **Bidirectional consistency**: Checks that framework mappings are consistent across entities
+
+**Validates:**
+
+- `controls.yaml` framework mappings (MITRE ATLAS, NIST AI RMF, OWASP Top 10 for LLM)
+- `risks.yaml` framework mappings (MITRE ATLAS, STRIDE, OWASP Top 10 for LLM)
+- `frameworks.yaml` configuration and structure
+
+**Example validation:**
+
+```yaml
+# controls.yaml
+controls:
+  - id: controlModelValidation
+    frameworks:
+      mitre-atlas: AML.M0015  # ✅ Valid MITRE ATLAS mitigation
+      nist-ai-rmf: GV-6.2     # ✅ Valid NIST AI RMF subcategory
+      owasp-top10-llm: LLM01  # ✅ Valid OWASP mapping
+
+# risks.yaml
+risks:
+  - id: PIJ
+    frameworks:
+      mitre-atlas: AML.T0051  # ✅ Valid MITRE ATLAS technique
+      stride: Tampering       # ✅ Valid STRIDE category
+      owasp-top10-llm: LLM01  # ✅ Valid OWASP mapping
+```
+
+## 7. Issue Template Generation
+
+Automatically generates GitHub issue templates when template dependencies change:
+
+**Features:**
+
+- **Source-driven generation**: Templates generated from `.template.yml` source files
+- **Dynamic placeholder expansion**: Schema enums automatically populate dropdowns and checkboxes
+- **Framework filtering**: Only shows applicable frameworks for each entity type
+- **Automatic staging**: Generated templates added to commit automatically
+
+**Generation triggers:**
+
+- Template sources: `scripts/TEMPLATES/*.template.yml` changed
+- Schema files: `risk-map/schemas/*.schema.json` changed (enum values used in dropdowns)
+- Framework configuration: `risk-map/yaml/frameworks.yaml` changed (framework applicability)
+
+**Generated templates:**
+
+- `new_control.yml`, `update_control.yml`
+- `new_risk.yml`, `update_risk.yml`
+- `new_component.yml`, `update_component.yml`
+- `new_persona.yml`, `update_persona.yml`
+- `infrastructure.yml`
+
+**Example workflow:**
+
+```bash
+# Add new control category to schema
+vim risk-map/schemas/controls.schema.json
+
+# Stage and commit
+git add risk-map/schemas/controls.schema.json
+git commit -m "Add new control category"
+
+# Pre-commit hook automatically:
+# 1. Detects schema change
+# 2. Regenerates all issue templates
+# 3. new_control.yml dropdown now includes new category
+# 4. Stages updated templates for commit
+```
+
+**Behavior:**
+
+- **Normal mode**: Regenerates templates when dependencies change
+- **Force mode**: Skips generation (only runs for actual commits)
+- **Error handling**: Fails commit if generation errors occur
+
+## 8. Issue Template Validation
+
+Validates GitHub issue templates against official GitHub schemas to ensure they render correctly:
+
+**Features:**
+
+- **Schema validation**: Uses `check-jsonschema` with GitHub's built-in schemas
+- **Issue form validation**: Validates against `vendor.github-issue-forms` schema
+- **Config validation**: Validates `config.yml` against `vendor.github-issue-config` schema
+- **Comprehensive checks**: Ensures field types, validation rules, and structure are correct
+
+**Files validated:**
+
+- All `.yml` files in `.github/ISSUE_TEMPLATE/` (issue forms)
+- `.github/ISSUE_TEMPLATE/config.yml` (configuration)
+
+**Example validation:**
+
+```yaml
+# Valid issue form structure
+- type: dropdown
+  id: category
+  attributes:
+    label: Category*
+    options:
+      - controlsData
+      - controlsModel
+  validations:
+    required: true  # ✅ Valid - dropdown supports validations
+
+# Invalid structure (caught by validator)
+- type: checkboxes
+  id: personas
+  validations:
+    required: true  # ❌ Invalid - checkboxes don't support top-level validations
+```
+
+**Behavior:**
+
+- **Normal mode**: Validates only staged template files
+- **Force mode**: Validates all templates in `.github/ISSUE_TEMPLATE/`
+- **Strict enforcement**: Commit fails if any template is invalid
+- **Clear errors**: Provides detailed error messages with remediation steps
+
+**Dependencies:**
+
+- `check-jsonschema` (installed via `pip install check-jsonschema`)
+- Internet connection (for downloading GitHub schemas on first use)
+
+## 9. Mermaid SVG Generation
 
 Automatically generates SVG files from Mermaid diagrams when `.mmd` or `.mermaid` files are staged for commit:
 
@@ -155,7 +288,7 @@ git commit -m "Add component flow diagram"
 - **Force mode**: Skips SVG generation (generation only runs for actual commits)
 - **Error handling**: Gracefully handles missing Chrome/Chromium with clear error messages
 
-## 7. Markdown Table Generation
+## 10. Markdown Table Generation
 
 Automatically generates markdown tables from YAML files when staged for commit:
 
