@@ -1,0 +1,267 @@
+name: Infrastructure / Enhancement
+description: Propose infrastructure improvements, tooling enhancements, or framework changes
+title: '[infra]: '
+labels: ['infrastructure', 'enhancement']
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## Infrastructure Enhancement Proposal
+
+        Use this template for proposing changes to the repository infrastructure, tooling, schemas, automation, or framework architecture.
+
+        **This template is intentionally flexible** - fill out only the sections relevant to your proposal.
+
+  - type: input
+    id: title
+    attributes:
+      label: Enhancement Title*
+      description: Concise name for this enhancement
+      placeholder: 'e.g., Add Extended Metadata Fields to Risks and Controls'
+    validations:
+      required: true
+
+  - type: dropdown
+    id: category
+    attributes:
+      label: Enhancement Category*
+      description: What type of infrastructure change is this?
+      options:
+        - Schema / Data Model Changes
+        - Automation / Workflow / CI/CD
+        - Tooling / Scripts / Validation
+        - Documentation / Templates
+        - Visualization / Diagrams
+        - Repository Structure
+        - Framework Architecture
+        - Other (describe below)
+    validations:
+      required: true
+
+  - type: textarea
+    id: overview
+    attributes:
+      label: Overview*
+      description: |
+        High-level summary of what this enhancement does
+
+        **What** is being changed/added and **why** it matters
+      placeholder: |
+        This enhancement proposes...
+
+        The goal is to...
+    validations:
+      required: true
+
+  - type: textarea
+    id: rationale
+    attributes:
+      label: Rationale & Justification*
+      description: |
+        Why is this enhancement needed? What problem does it solve?
+
+        Include:
+        - Current pain points or limitations
+        - Benefits of this change
+        - Impact on users/maintainers/contributors
+      placeholder: |
+        Current state: [what's limiting or problematic now]
+
+        Proposed improvement: [how this addresses the issue]
+
+        Benefits:
+        - Benefit 1
+        - Benefit 2
+    validations:
+      required: true
+
+  - type: dropdown
+    id: scope
+    attributes:
+      label: Scope*
+      description: How extensive is this change?
+      options:
+        - Small (single file, minimal impact)
+        - Medium (multiple files, moderate complexity)
+        - Large (multi-component, significant changes)
+        - Epic (requires phased implementation, multiple sub-issues)
+    validations:
+      required: true
+
+  - type: textarea
+    id: implementation
+    attributes:
+      label: Implementation Approach
+      description: |
+        How will this be implemented? What are the technical details?
+
+        For phased approaches, describe each phase. For complex changes, outline the strategy.
+      placeholder: |
+        ## Phase 1: [Phase name]
+        - Task 1
+        - Task 2
+
+        ## Phase 2: [Phase name]
+        - Task 3
+        - Task 4
+
+        OR
+
+        Implementation steps:
+        1. Step 1
+        2. Step 2
+
+  - type: textarea
+    id: tasks
+    attributes:
+      label: Task List / Subtasks
+      description: |
+        Checklist of tasks to complete this enhancement
+
+        Use `- [ ]` for incomplete tasks, `- [x]` for completed tasks
+
+        For sub-issues, reference them with #issue-number
+      placeholder: |
+        - [ ] Task 1: Update schema
+        - [ ] Task 2: Modify validation scripts
+        - [ ] Task 3: Update documentation
+        - [ ] Sub-issue: #123 - Specific component work
+        - [ ] Sub-issue: #124 - Follow-up enhancement
+
+  - type: textarea
+    id: affected-components
+    attributes:
+      label: Affected Components / Files
+      description: |
+        What parts of the codebase will be modified?
+
+        List files, directories, schemas, or components
+      placeholder: |
+        - `risk-map/schemas/risks.schema.json`
+        - `scripts/hooks/validate_riskmap.py`
+        - `.github/workflows/validate.yml`
+
+  - type: dropdown
+    id: breaking-changes
+    attributes:
+      label: Breaking Changes*
+      description: Will this change break existing functionality or require updates from users?
+      options:
+        - 'No - Fully backward compatible'
+        - 'Minor - Requires documentation updates only'
+        - 'Yes - Requires user action or migration'
+    validations:
+      required: true
+
+  - type: textarea
+    id: migration-plan
+    attributes:
+      label: Migration / Update Plan
+      description: |
+        If this introduces breaking changes, how will existing data/code be migrated?
+
+        What do maintainers or users need to do?
+      placeholder: |
+        Migration steps:
+        1. Run migration script: `python scripts/migrate_xyz.py`
+        2. Update local YAML files to new schema
+        3. Regenerate documentation: `npm run docs`
+
+  - type: textarea
+    id: dependencies
+    attributes:
+      label: Dependencies & Prerequisites
+      description: |
+        Does this enhancement depend on other issues, PRs, or external changes?
+
+        List any blockers or requirements
+      placeholder: |
+        Depends on:
+        - Issue #123 must be completed first
+        - Requires approval of schema changes
+        - Needs new npm package: xyz
+
+        Blocked by:
+        - Pending decision on framework approach
+
+  - type: textarea
+    id: testing-validation
+    attributes:
+      label: Testing & Validation
+      description: |
+        How will this enhancement be tested and validated?
+
+        Include test strategy, validation steps, or acceptance criteria
+      placeholder: |
+        Testing approach:
+        - [ ] Unit tests for new validation logic
+        - [ ] Integration tests for workflow
+        - [ ] Manual testing of schema changes
+        - [ ] Validate against existing YAML files
+
+        Acceptance criteria:
+        - All tests pass
+        - Documentation updated
+        - No regressions in existing functionality
+
+  - type: textarea
+    id: examples
+    attributes:
+      label: Examples / Mockups
+      description: |
+        Provide examples, code snippets, mockups, or sample output
+
+        Can include YAML examples, CLI output, diagram sketches, etc.
+      placeholder: |
+        Example YAML after this change:
+
+        ```yaml
+        riskModelExfiltration:
+          id: MEX
+          title: Model Exfiltration
+          lifecycleStage: [runtime, deployment]
+          impactType: [confidentiality, integrity]
+        ```
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives Considered
+      description: |
+        What other approaches were considered? Why was this approach chosen?
+      placeholder: |
+        Alternative 1: [approach]
+        - Pros: ...
+        - Cons: ...
+        - Why not chosen: ...
+
+        Alternative 2: [approach]
+        - Pros: ...
+        - Cons: ...
+        - Why not chosen: ...
+
+  - type: textarea
+    id: related-issues
+    attributes:
+      label: Related Issues / Sub-Issues
+      description: |
+        Link to related issues, sub-issues, or PRs
+
+        Use #issue-number for GitHub issues
+      placeholder: |
+        Parent issue: #123
+        Related to: #124, #125
+        Sub-issues:
+        - #126 - Subtask 1
+        - #127 - Subtask 2
+        Blocks: #128
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional Context
+      description: Any other relevant information, links, or considerations
+      placeholder: |
+        - Reference documentation: https://...
+        - Discussion in Slack/Discord: [link]
+        - Stakeholder feedback: ...

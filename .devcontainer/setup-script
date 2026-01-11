@@ -1,14 +1,6 @@
 #!/bin/bash
 set -e
 
-# Install Python dependencies
-if [ -f requirements.txt ]; then
-    echo "Installing Python dependencies..."
-    pip install -r requirements.txt
-else
-    echo "Warning: requirements.txt not found"
-fi
-
 # Install act for github workflow testing
 echo "Installing act..."
 wget -q https://raw.githubusercontent.com/nektos/act/master/install.sh -O install.sh

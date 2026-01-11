@@ -1,0 +1,141 @@
+name: Update Existing Risk
+description: Propose updates to an existing AI security risk in the CoSAI Risk Map
+title: '[Update Risk]: '
+labels: ['risk', 'update-risk']
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## Update an Existing Risk
+
+        Use this template to propose changes to an existing risk. Only fill out the sections relevant to your proposed changes.
+
+  - type: input
+    id: risk-permalink
+    attributes:
+      label: Risk Permalink*
+      description: |
+        GitHub permalink to the risk in risks.yaml (right-click line number → Copy permalink)
+
+        📋 [Browse risks.yaml](../../risk-map/yaml/risks.yaml)
+      placeholder: 'https://github.com/org/repo/blob/abc123/risk-map/yaml/risks.yaml#L45-L90'
+    validations:
+      required: true
+
+  - type: dropdown
+    id: change-type
+    attributes:
+      label: Change Type*
+      description: What type of change are you proposing?
+      options:
+        - Update descriptions (short/long description, clarification)
+        - Add mappings (controls, frameworks)
+        - Remove mappings (controls, frameworks)
+        - Update examples or relevant questions
+        - Add metadata (lifecycle, impact type, actor access)
+        - Update tourContent
+        - Other (describe below)
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposed-changes
+    attributes:
+      label: Proposed Changes*
+      description: |
+        Describe what you want to change and why. Be specific about what should be added, removed, or modified.
+
+        **Examples:**
+        - "Update long description to include recent research on this attack vector"
+        - "Add controlThreatDetection to controls list - this control effectively mitigates this risk"
+        - "Remove controlRedTeaming from controls - not directly applicable to this risk type"
+        - "Add MITRE ATLAS mapping AML.T0051 - new technique relevant to this risk"
+        - "Update examples section with recent CVE demonstrating this risk"
+      placeholder: |
+        Current state: [what it says now]
+        Proposed change: [what it should say]
+        Rationale: [why this change improves the risk definition]
+    validations:
+      required: true
+
+  - type: markdown
+    attributes:
+      value: |
+        ---
+        ## Quick Add/Remove (Optional)
+
+        Use these fields for quick additions or removals. Use `+` to add, `-` to remove.
+        Leave blank if not applicable.
+
+  - type: textarea
+    id: controls
+    attributes:
+      label: Control Changes
+      description: |
+        Add or remove control IDs. Use `+` to add, `-` to remove (one per line)
+
+        ✨ **Automatic Cross-Mapping**: Control mappings are automatically bidirectional. When you add/remove controls here, the reverse risk mappings are automatically updated in those controls.
+
+        📋 [View control list](../../risk-map/tables/controls-summary.md)
+      placeholder: |
+        + controlThreatDetection
+        + controlVulnerabilityManagement
+        - controlRedTeaming
+
+  - type: textarea
+    id: framework-mappings
+    attributes:
+      label: Framework Mapping Changes
+      description: |
+        Add or remove framework mappings. Use `+` to add, `-` to remove.
+        Format: `+/- framework-id: mapping-value`
+
+        Valid frameworks for risks: {{RISK_FRAMEWORKS_LIST}}
+      placeholder: |
+        + mitre-atlas: AML.T0051
+        + stride: information-disclosure
+        - owasp-top10-llm: LLM01
+
+  - type: textarea
+    id: examples
+    attributes:
+      label: Update Examples
+      description: |
+        Add new examples or update existing ones
+
+        Can include HTML links: <a href="URL">description</a>
+      placeholder: |
+        Add example: Recent CVE-2024-XXXXX demonstrated this risk in production...
+
+        <a href="https://nvd.nist.gov/..." target="_blank" rel="noopener">CVE details</a>
+
+  - type: textarea
+    id: relevant-questions
+    attributes:
+      label: Update Relevant Questions
+      description: |
+        Add or update assessment questions organizations should ask
+      placeholder: |
+        + Are there rate limits on API access to prevent abuse?
+        + Is there monitoring for unusual query patterns?
+
+  - type: textarea
+    id: supporting-evidence
+    attributes:
+      label: Supporting Evidence
+      description: |
+        Links to research, discussions, CVEs, or other evidence supporting this change
+      placeholder: |
+        - Research paper: https://arxiv.org/...
+        - Discussion in issue #123
+        - Related CVE: CVE-2024-XXXXX
+        - NIST guidance: https://nvlpubs.nist.gov/...
+
+  - type: checkboxes
+    id: terms
+    attributes:
+      label: Submission Checklist
+      description: Please confirm the following
+      options:
+        - label: I have provided a valid GitHub permalink to the risk
+          required: true

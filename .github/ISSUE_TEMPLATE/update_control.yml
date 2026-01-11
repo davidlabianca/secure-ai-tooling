@@ -1,0 +1,128 @@
+name: Update Existing Control
+description: Propose updates to an existing security control in the CoSAI Risk Map
+title: '[Update Control]: '
+labels: ['control', 'update-control']
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## Update an Existing Control
+
+        Use this template to propose changes to an existing control. Only fill out the sections relevant to your proposed changes.
+
+  - type: input
+    id: control-permalink
+    attributes:
+      label: Control Permalink*
+      description: |
+        GitHub permalink to the control in controls.yaml (right-click line number → Copy permalink)
+
+        📋 [Browse controls.yaml](../../risk-map/yaml/controls.yaml)
+      placeholder: 'https://github.com/org/repo/blob/abc123/risk-map/yaml/controls.yaml#L45-L52'
+    validations:
+      required: true
+
+  - type: dropdown
+    id: change-type
+    attributes:
+      label: Change Type*
+      description: What type of change are you proposing?
+      options:
+        - Update description/title (clarification or correction)
+        - Add mappings (components, risks, frameworks)
+        - Remove mappings (components, risks, frameworks)
+        - Change category or personas
+        - Add metadata (lifecycle, impact type, actor access)
+        - Other (describe below)
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposed-changes
+    attributes:
+      label: Proposed Changes*
+      description: |
+        Describe what you want to change and why. Be specific about what should be added, removed, or modified.
+
+        **Examples:**
+        - "Update description to clarify that this control also applies to fine-tuning scenarios"
+        - "Add componentModelEvaluation to components list - this control is relevant during evaluation phase"
+        - "Remove PIJ from risks - this control doesn't effectively mitigate prompt injection"
+        - "Add MITRE ATLAS mapping AML.M0015 (Adversarial Input Detection)"
+      placeholder: |
+        Current state: [what it says now]
+        Proposed change: [what it should say]
+        Rationale: [why this change improves the control]
+    validations:
+      required: true
+
+  - type: markdown
+    attributes:
+      value: |
+        ---
+        ## Quick Add/Remove (Optional)
+
+        Use these fields for quick additions or removals. Prefix with `+` to add, `-` to remove.
+        Leave blank if not applicable.
+
+  - type: textarea
+    id: components
+    attributes:
+      label: Component Changes
+      description: |
+        Add or remove component IDs. Use `+` to add, `-` to remove (one per line)
+
+        📋 [View component list](../../risk-map/tables/components-summary.md)
+      placeholder: |
+        + componentModelEvaluation
+        + componentOutputHandling
+        - componentDataSources
+
+  - type: textarea
+    id: risks
+    attributes:
+      label: Risk Changes
+      description: |
+        Add or remove risk IDs. Use `+` to add, `-` to remove (one per line)
+
+        ✨ **Automatic Cross-Mapping**: Risk mappings are automatically bidirectional. When you add/remove risks here, the reverse control mappings are automatically updated in those risks.
+
+        📋 [View risk list](../../risk-map/tables/risks-summary.md)
+      placeholder: |
+        + MEV
+        + IIC
+        - PIJ
+
+  - type: textarea
+    id: framework-mappings
+    attributes:
+      label: Framework Mapping Changes
+      description: |
+        Add or remove framework mappings. Use `+` to add, `-` to remove.
+        Format: `+/- framework-id: mapping-value`
+
+        Valid frameworks for controls: mitre-atlas, nist-ai-rmf, owasp-top10-llm
+      placeholder: |
+        + mitre-atlas: AML.M0015
+        + nist-ai-rmf: GV-4.1
+        - mitre-atlas: AML.M0007
+
+  - type: textarea
+    id: supporting-evidence
+    attributes:
+      label: Supporting Evidence
+      description: |
+        Links to discussions, references, standards, or other evidence supporting this change
+      placeholder: |
+        - NIST AI RMF section 3.2.1 describes this mitigation approach
+        - Discussion in issue #123
+        - Reference implementation: https://example.com/control-impl
+
+  - type: checkboxes
+    id: terms
+    attributes:
+      label: Submission Checklist
+      description: Please confirm the following
+      options:
+        - label: I have provided a valid GitHub permalink to the control
+          required: true
