@@ -100,20 +100,21 @@ class TestPersonaIdEnumUpdates:
         for persona_id in legacy_personas:
             assert persona_id in id_enum, f"Legacy {persona_id} must remain in enum"
 
-    def test_persona_id_enum_has_exactly_9_values(self, personas_schema_path):
+    def test_persona_id_enum_has_minimum_required_values(self, personas_schema_path):
         """
-        Test that persona ID enum has exactly 9 values (7 new + 2 legacy).
+        Test that persona ID enum has at least 9 values (7 new + 2 legacy).
 
         Given: personas.schema.json persona definition
         When: ID enum values are counted
-        Then: Enum contains exactly 9 persona IDs
+        Then: Enum contains at least 9 persona IDs
         """
         with open(personas_schema_path) as f:
             schema = json.load(f)
 
         id_enum = schema["definitions"]["persona"]["properties"]["id"]["enum"]
 
-        assert len(id_enum) == 9, f"Expected exactly 9 persona IDs, found {len(id_enum)}"
+        # Uses minimum check to avoid breaking when new personas are added
+        assert len(id_enum) >= 9, f"Expected at least 9 persona IDs, found {len(id_enum)}"
 
 
 # ============================================================================
@@ -933,7 +934,7 @@ Schema Structure Tests - Persona ID Enum (4):
 - Persona ID enum exists in schema
 - Enum contains all 7 new persona IDs
 - Enum contains 2 legacy persona IDs
-- Enum has exactly 9 values total
+- Enum has at least 9 values (minimum check)
 
 Schema Structure Tests - Optional Fields (8):
 - deprecated field exists and is boolean type
