@@ -40,7 +40,7 @@
         },
         "mappings": {
           "type": "object",
-          "description": "Maps this persona to equivalent roles in external frameworks. Keys must match valid framework IDs defined in frameworks.schema.json.",
+          "description": "Maps this persona to equivalent actors in external frameworks. Keys must match valid framework IDs defined in frameworks.schema.json.",
           "propertyNames": {
             "$ref": "frameworks.schema.json#/definitions/framework/properties/id"
           },
@@ -48,7 +48,7 @@
             "type": "array",
             "items": {
               "type": "string",
-              "description": "Framework-specific role or actor identifier"
+              "description": "Framework-specific actor identifier"
             }
           },
           "examples": [
@@ -64,7 +64,7 @@
         },
         "identificationQuestions": {
           "type": "array",
-          "description": "Questions to help organizations identify if this persona applies to them",
+          "description": "Questions to help identify if this persona applies",
           "items": { "type": "string", "minLength": 1 }
         }
       },
