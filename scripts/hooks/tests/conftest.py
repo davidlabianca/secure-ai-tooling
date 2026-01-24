@@ -138,6 +138,34 @@ def frameworks_schema_path(risk_map_schemas_dir: Path) -> Path:
 
 
 @pytest.fixture(scope="session")
+def personas_yaml_path(risk_map_yaml_dir: Path) -> Path:
+    """
+    Path to personas.yaml file.
+
+    Args:
+        risk_map_yaml_dir: YAML directory path fixture
+
+    Returns:
+        Path: Absolute path to personas.yaml
+    """
+    return risk_map_yaml_dir / "personas.yaml"
+
+
+@pytest.fixture(scope="session")
+def personas_schema_path(risk_map_schemas_dir: Path) -> Path:
+    """
+    Path to personas.schema.json file.
+
+    Args:
+        risk_map_schemas_dir: Schemas directory path fixture
+
+    Returns:
+        Path: Absolute path to personas.schema.json
+    """
+    return risk_map_schemas_dir / "personas.schema.json"
+
+
+@pytest.fixture(scope="session")
 def base_uri(risk_map_schemas_dir: Path) -> str:
     """
     Base URI for schema validation with check-jsonschema.
