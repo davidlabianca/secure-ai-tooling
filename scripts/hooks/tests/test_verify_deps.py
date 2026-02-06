@@ -132,10 +132,7 @@ for each test scenario.
 import os
 import stat
 import subprocess
-import sys
 from pathlib import Path
-
-import pytest
 
 # Path to the script under test (relative to repo root)
 REPO_ROOT = Path(__file__).parent.parent.parent.parent
@@ -326,10 +323,7 @@ class TestMissingNode:
             timeout=30,
         )
 
-        assert result.returncode == 1, (
-            f"Script should exit 1 when node missing.\n"
-            f"Exit code: {result.returncode}"
-        )
+        assert result.returncode == 1, f"Script should exit 1 when node missing.\nExit code: {result.returncode}"
 
 
 class TestWrongNodeVersion:
@@ -374,8 +368,7 @@ class TestWrongNodeVersion:
         )
 
         assert result.returncode == 1, (
-            f"Script should exit 1 when node version < 22.\n"
-            f"Exit code: {result.returncode}"
+            f"Script should exit 1 when node version < 22.\nExit code: {result.returncode}"
         )
 
 
@@ -408,10 +401,7 @@ class TestMissingNpm:
             timeout=30,
         )
 
-        assert result.returncode == 1, (
-            f"Script should exit 1 when npm missing.\n"
-            f"Exit code: {result.returncode}"
-        )
+        assert result.returncode == 1, f"Script should exit 1 when npm missing.\nExit code: {result.returncode}"
 
 
 class TestMissingGit:
@@ -443,10 +433,7 @@ class TestMissingGit:
             timeout=30,
         )
 
-        assert result.returncode == 1, (
-            f"Script should exit 1 when git missing.\n"
-            f"Exit code: {result.returncode}"
-        )
+        assert result.returncode == 1, f"Script should exit 1 when git missing.\nExit code: {result.returncode}"
 
 
 class TestMissingPipPackage:
@@ -494,8 +481,7 @@ class TestMissingPipPackage:
         )
 
         assert result.returncode == 1, (
-            f"Script should exit 1 when pip package missing.\n"
-            f"Exit code: {result.returncode}"
+            f"Script should exit 1 when pip package missing.\nExit code: {result.returncode}"
         )
 
 
@@ -520,12 +506,7 @@ class TestMissingPrettier:
 
         # Create stub npx that fails for prettier
         stub_npx = stub_bin / "npx"
-        stub_npx.write_text(
-            "#!/bin/bash\n"
-            'if [[ "$1" == "prettier" ]]; then\n'
-            "    exit 1\n"
-            "fi\n"
-        )
+        stub_npx.write_text('#!/bin/bash\nif [[ "$1" == "prettier" ]]; then\n    exit 1\nfi\n')
         stub_npx.chmod(0o755)
 
         env = os.environ.copy()
@@ -540,8 +521,7 @@ class TestMissingPrettier:
         )
 
         assert result.returncode == 1, (
-            f"Script should exit 1 when prettier missing.\n"
-            f"Exit code: {result.returncode}"
+            f"Script should exit 1 when prettier missing.\nExit code: {result.returncode}"
         )
 
 
@@ -567,10 +547,7 @@ class TestMissingMmdc:
         # Create stub npx that fails for mmdc
         stub_npx = stub_bin / "npx"
         stub_npx.write_text(
-            "#!/bin/bash\n"
-            'if [[ "$1" == "mmdc" || "$1" == "@mermaid-js/mermaid-cli" ]]; then\n'
-            "    exit 1\n"
-            "fi\n"
+            '#!/bin/bash\nif [[ "$1" == "mmdc" || "$1" == "@mermaid-js/mermaid-cli" ]]; then\n    exit 1\nfi\n'
         )
         stub_npx.chmod(0o755)
 
@@ -585,10 +562,7 @@ class TestMissingMmdc:
             timeout=30,
         )
 
-        assert result.returncode == 1, (
-            f"Script should exit 1 when mmdc missing.\n"
-            f"Exit code: {result.returncode}"
-        )
+        assert result.returncode == 1, f"Script should exit 1 when mmdc missing.\nExit code: {result.returncode}"
 
 
 class TestMissingRuff:
@@ -620,10 +594,7 @@ class TestMissingRuff:
             timeout=30,
         )
 
-        assert result.returncode == 1, (
-            f"Script should exit 1 when ruff missing.\n"
-            f"Exit code: {result.returncode}"
-        )
+        assert result.returncode == 1, f"Script should exit 1 when ruff missing.\nExit code: {result.returncode}"
 
 
 class TestMissingCheckJsonschema:
@@ -656,8 +627,7 @@ class TestMissingCheckJsonschema:
         )
 
         assert result.returncode == 1, (
-            f"Script should exit 1 when check-jsonschema missing.\n"
-            f"Exit code: {result.returncode}"
+            f"Script should exit 1 when check-jsonschema missing.\nExit code: {result.returncode}"
         )
 
 
@@ -697,8 +667,7 @@ class TestMissingChromium:
         )
 
         assert result.returncode == 1, (
-            f"Script should exit 1 when Chromium missing everywhere.\n"
-            f"Exit code: {result.returncode}"
+            f"Script should exit 1 when Chromium missing everywhere.\nExit code: {result.returncode}"
         )
 
 
@@ -732,7 +701,7 @@ class TestChromiumInPlaywrightCache:
         # Still need other tools in PATH for full test, but this tests Chromium detection
         # For isolation, we'll just check that the Chromium check component works
 
-        result = subprocess.run(
+        subprocess.run(
             [str(SCRIPT_PATH)],
             capture_output=True,
             text=True,
@@ -798,10 +767,7 @@ class TestMissingAct:
             timeout=30,
         )
 
-        assert result.returncode == 1, (
-            f"Script should exit 1 when act missing.\n"
-            f"Exit code: {result.returncode}"
-        )
+        assert result.returncode == 1, f"Script should exit 1 when act missing.\nExit code: {result.returncode}"
 
 
 class TestQuietFlag:
@@ -836,8 +802,7 @@ class TestQuietFlag:
         )
 
         assert result.returncode == 1, (
-            f"Script should exit 1 when deps missing even with --quiet.\n"
-            f"Exit code: {result.returncode}"
+            f"Script should exit 1 when deps missing even with --quiet.\nExit code: {result.returncode}"
         )
         # When implemented, verify no PASS in output but FAIL is present
 
@@ -876,10 +841,7 @@ class TestPartialFailure:
         stub_python.chmod(0o755)
 
         stub_git = stub_bin / "git"
-        stub_git.write_text(
-            "#!/bin/bash\n"
-            'echo "git version 2.40.0"\n'
-        )
+        stub_git.write_text('#!/bin/bash\necho "git version 2.40.0"\n')
         stub_git.chmod(0o755)
 
         # But leave out node, npm, etc.

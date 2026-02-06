@@ -69,9 +69,7 @@ class TestMiseConfigExists:
         When: Checking for .mise.toml file
         Then: File exists at REPO_ROOT/.mise.toml
         """
-        assert MISE_CONFIG_PATH.exists(), (
-            f".mise.toml not found at {MISE_CONFIG_PATH}"
-        )
+        assert MISE_CONFIG_PATH.exists(), f".mise.toml not found at {MISE_CONFIG_PATH}"
 
     def test_mise_toml_is_regular_file(self):
         """
@@ -81,12 +79,8 @@ class TestMiseConfigExists:
         When: Checking file type
         Then: Path is a regular file (not a directory or symlink)
         """
-        assert MISE_CONFIG_PATH.exists(), (
-            f".mise.toml not found at {MISE_CONFIG_PATH}"
-        )
-        assert MISE_CONFIG_PATH.is_file(), (
-            f".mise.toml at {MISE_CONFIG_PATH} is not a regular file"
-        )
+        assert MISE_CONFIG_PATH.exists(), f".mise.toml not found at {MISE_CONFIG_PATH}"
+        assert MISE_CONFIG_PATH.is_file(), f".mise.toml at {MISE_CONFIG_PATH} is not a regular file"
         assert not MISE_CONFIG_PATH.is_symlink(), (
             f".mise.toml at {MISE_CONFIG_PATH} is a symlink; expected a regular file"
         )
@@ -108,14 +102,10 @@ class TestMiseConfigValidToml:
         When: Parsing the file with tomllib
         Then: File parses without errors and returns a dict
         """
-        assert MISE_CONFIG_PATH.exists(), (
-            f".mise.toml not found at {MISE_CONFIG_PATH}"
-        )
+        assert MISE_CONFIG_PATH.exists(), f".mise.toml not found at {MISE_CONFIG_PATH}"
         with open(MISE_CONFIG_PATH, "rb") as f:
             config = tomllib.load(f)
-        assert isinstance(config, dict), (
-            ".mise.toml did not parse to a dict"
-        )
+        assert isinstance(config, dict), ".mise.toml did not parse to a dict"
 
     def test_mise_toml_has_tools_section(self):
         """
@@ -127,12 +117,8 @@ class TestMiseConfigValidToml:
         """
         with open(MISE_CONFIG_PATH, "rb") as f:
             config = tomllib.load(f)
-        assert "tools" in config, (
-            ".mise.toml is missing the [tools] section"
-        )
-        assert isinstance(config["tools"], dict), (
-            ".mise.toml [tools] section is not a table/dict"
-        )
+        assert "tools" in config, ".mise.toml is missing the [tools] section"
+        assert isinstance(config["tools"], dict), ".mise.toml [tools] section is not a table/dict"
 
 
 class TestMiseConfigPython:
@@ -159,9 +145,7 @@ class TestMiseConfigPython:
         When: Checking for the python key
         Then: The python key exists under [tools]
         """
-        assert "python" in tools, (
-            ".mise.toml [tools] section is missing the 'python' key"
-        )
+        assert "python" in tools, ".mise.toml [tools] section is missing the 'python' key"
 
     def test_python_version_is_3_14(self, tools):
         """
@@ -187,15 +171,11 @@ class TestMiseConfigPython:
         """
         python_version = str(tools.get("python", "0.0"))
         parts = python_version.split(".")
-        assert len(parts) >= 2, (
-            f"Python version '{python_version}' does not have major.minor format"
-        )
+        assert len(parts) >= 2, f"Python version '{python_version}' does not have major.minor format"
         major = int(parts[0])
         minor = int(parts[1])
         satisfies = (major > 3) or (major == 3 and minor >= 14)
-        assert satisfies, (
-            f"Python version {python_version} does not satisfy >= 3.14 requirement"
-        )
+        assert satisfies, f"Python version {python_version} does not satisfy >= 3.14 requirement"
 
 
 class TestMiseConfigNode:
@@ -222,9 +202,7 @@ class TestMiseConfigNode:
         When: Checking for the node key
         Then: The node key exists under [tools]
         """
-        assert "node" in tools, (
-            ".mise.toml [tools] section is missing the 'node' key"
-        )
+        assert "node" in tools, ".mise.toml [tools] section is missing the 'node' key"
 
     def test_node_version_is_22(self, tools):
         """
@@ -236,8 +214,7 @@ class TestMiseConfigNode:
         """
         node_version = str(tools.get("node", ""))
         assert node_version == "22", (
-            f"Expected tools.node = '22', got '{node_version}'. "
-            f"Must match install-deps.sh: mise install node@22"
+            f"Expected tools.node = '22', got '{node_version}'. Must match install-deps.sh: mise install node@22"
         )
 
     def test_node_version_satisfies_minimum(self, tools):
@@ -251,9 +228,7 @@ class TestMiseConfigNode:
         node_version = str(tools.get("node", "0"))
         # Handle dotted versions (e.g., "22.1") and plain major (e.g., "22")
         major = int(node_version.split(".")[0])
-        assert major >= 22, (
-            f"Node.js version {node_version} does not satisfy >= 22 requirement"
-        )
+        assert major >= 22, f"Node.js version {node_version} does not satisfy >= 22 requirement"
 
 
 class TestMiseConfigConsistency:
@@ -276,14 +251,10 @@ class TestMiseConfigConsistency:
     @pytest.fixture()
     def verify_deps_content(self):
         """Read and return verify-deps.sh content as a string."""
-        assert VERIFY_DEPS_PATH.exists(), (
-            f"verify-deps.sh not found at {VERIFY_DEPS_PATH}"
-        )
+        assert VERIFY_DEPS_PATH.exists(), f"verify-deps.sh not found at {VERIFY_DEPS_PATH}"
         return VERIFY_DEPS_PATH.read_text()
 
-    def test_python_version_matches_verify_deps(
-        self, tools, verify_deps_content
-    ):
+    def test_python_version_matches_verify_deps(self, tools, verify_deps_content):
         """
         Test that .mise.toml Python version satisfies verify-deps.sh threshold.
 
@@ -295,12 +266,8 @@ class TestMiseConfigConsistency:
         """
         # Extract the minor version threshold from verify-deps.sh
         # Pattern: PYTHON_MINOR -ge <number>
-        match = re.search(
-            r'PYTHON_MINOR.*-ge\s+(\d+)', verify_deps_content
-        )
-        assert match is not None, (
-            "Could not find Python minor version threshold in verify-deps.sh"
-        )
+        match = re.search(r"PYTHON_MINOR.*-ge\s+(\d+)", verify_deps_content)
+        assert match is not None, "Could not find Python minor version threshold in verify-deps.sh"
         required_minor = int(match.group(1))
 
         python_version = str(tools.get("python", "0.0"))
@@ -309,17 +276,12 @@ class TestMiseConfigConsistency:
         mise_minor = int(parts[1])
 
         # mise version must satisfy the same check verify-deps.sh uses
-        satisfies = (mise_major > 3) or (
-            mise_major == 3 and mise_minor >= required_minor
-        )
+        satisfies = (mise_major > 3) or (mise_major == 3 and mise_minor >= required_minor)
         assert satisfies, (
-            f".mise.toml Python {python_version} does not satisfy "
-            f"verify-deps.sh threshold >= 3.{required_minor}"
+            f".mise.toml Python {python_version} does not satisfy verify-deps.sh threshold >= 3.{required_minor}"
         )
 
-    def test_node_version_matches_verify_deps(
-        self, tools, verify_deps_content
-    ):
+    def test_node_version_matches_verify_deps(self, tools, verify_deps_content):
         """
         Test that .mise.toml Node version satisfies verify-deps.sh threshold.
 
@@ -331,20 +293,15 @@ class TestMiseConfigConsistency:
         """
         # Extract the major version threshold from verify-deps.sh
         # Pattern: NODE_MAJOR -ge <number>
-        match = re.search(
-            r'NODE_MAJOR.*-ge\s+(\d+)', verify_deps_content
-        )
-        assert match is not None, (
-            "Could not find Node major version threshold in verify-deps.sh"
-        )
+        match = re.search(r"NODE_MAJOR.*-ge\s+(\d+)", verify_deps_content)
+        assert match is not None, "Could not find Node major version threshold in verify-deps.sh"
         required_major = int(match.group(1))
 
         node_version = str(tools.get("node", "0"))
         mise_major = int(node_version.split(".")[0])
 
         assert mise_major >= required_major, (
-            f".mise.toml Node {node_version} does not satisfy "
-            f"verify-deps.sh threshold >= {required_major}"
+            f".mise.toml Node {node_version} does not satisfy verify-deps.sh threshold >= {required_major}"
         )
 
 

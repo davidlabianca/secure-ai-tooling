@@ -9,11 +9,13 @@ installation from devcontainer features to install-deps.sh with mise.
 Test Coverage:
 ==============
 Total Test Classes: 6
-Total Test Methods: 15
+Total Test Methods: 20
 
 1. TestDevcontainerJsonExists (2): file exists, parses as valid JSON
-2. TestDevcontainerJsonFeatures (3): no Python feature, no Node feature,
-   Docker-in-Docker feature present
+2. TestDevcontainerJsonFeatures (8): no Python feature, no Node feature,
+   Docker-in-Docker feature present, common-utils feature present,
+   common-utils username vscode, common-utils automatic uid,
+   common-utils automatic gid, common-utils no zsh
 3. TestDevcontainerJsonCommands (3): no onCreateCommand, postCreateCommand exists,
    postCreateCommand references install-deps.sh
 4. TestDevcontainerJsonPythonConfig (3): interpreter path exists, uses mise shims,
@@ -52,25 +54,23 @@ def strip_jsonc_comments(content: str) -> str:
     contain such cases, so this simple approach is sufficient).
     """
     # Remove block comments /* ... */
-    content = re.sub(r'/\*.*?\*/', '', content, flags=re.DOTALL)
+    content = re.sub(r"/\*.*?\*/", "", content, flags=re.DOTALL)
     # Remove line comments //
     lines = content.splitlines()
     cleaned_lines = []
     for line in lines:
         # Find // outside of quoted strings (simple heuristic)
-        comment_idx = line.find('//')
+        comment_idx = line.find("//")
         if comment_idx != -1:
             line = line[:comment_idx]
         cleaned_lines.append(line)
-    return '\n'.join(cleaned_lines)
+    return "\n".join(cleaned_lines)
 
 
 @pytest.fixture(scope="module")
 def devcontainer_json():
     """Load and parse devcontainer.json once per test module."""
-    assert DEVCONTAINER_JSON_PATH.exists(), (
-        f"devcontainer.json not found at {DEVCONTAINER_JSON_PATH}"
-    )
+    assert DEVCONTAINER_JSON_PATH.exists(), f"devcontainer.json not found at {DEVCONTAINER_JSON_PATH}"
     content = DEVCONTAINER_JSON_PATH.read_text()
     # Strip JSONC comments before parsing
     cleaned = strip_jsonc_comments(content)
@@ -93,9 +93,7 @@ class TestDevcontainerJsonExists:
         When: Checking for devcontainer.json
         Then: File exists at .devcontainer/devcontainer.json
         """
-        assert DEVCONTAINER_JSON_PATH.exists(), (
-            f"devcontainer.json not found at {DEVCONTAINER_JSON_PATH}"
-        )
+        assert DEVCONTAINER_JSON_PATH.exists(), f"devcontainer.json not found at {DEVCONTAINER_JSON_PATH}"
 
     def test_devcontainer_json_parses_as_valid_json(self):
         """
@@ -103,15 +101,11 @@ class TestDevcontainerJsonExists:
         When: Parsing with comment stripping and json.loads
         Then: File parses without errors and returns a dict
         """
-        assert DEVCONTAINER_JSON_PATH.exists(), (
-            f"devcontainer.json not found at {DEVCONTAINER_JSON_PATH}"
-        )
+        assert DEVCONTAINER_JSON_PATH.exists(), f"devcontainer.json not found at {DEVCONTAINER_JSON_PATH}"
         content = DEVCONTAINER_JSON_PATH.read_text()
         cleaned = strip_jsonc_comments(content)
         config = json.loads(cleaned)
-        assert isinstance(config, dict), (
-            "devcontainer.json did not parse to a dict"
-        )
+        assert isinstance(config, dict), "devcontainer.json did not parse to a dict"
 
 
 # =============================================================================
@@ -141,8 +135,7 @@ class TestDevcontainerJsonFeatures:
         features = devcontainer_json.get("features", {})
         for feature_key in features.keys():
             assert "features/python" not in feature_key.lower(), (
-                f"devcontainer.json should not use Python feature, "
-                f"found: {feature_key}"
+                f"devcontainer.json should not use Python feature, found: {feature_key}"
             )
 
     def test_no_node_feature(self, devcontainer_json):
@@ -157,8 +150,7 @@ class TestDevcontainerJsonFeatures:
         features = devcontainer_json.get("features", {})
         for feature_key in features.keys():
             assert "features/node" not in feature_key.lower(), (
-                f"devcontainer.json should not use Node feature, "
-                f"found: {feature_key}"
+                f"devcontainer.json should not use Node feature, found: {feature_key}"
             )
 
     def test_docker_in_docker_feature_present(self, devcontainer_json):
@@ -171,12 +163,103 @@ class TestDevcontainerJsonFeatures:
         locally), so this feature should remain.
         """
         features = devcontainer_json.get("features", {})
-        found_docker = any(
-            "docker-in-docker" in key.lower()
-            for key in features.keys()
+        found_docker = any("docker-in-docker" in key.lower() for key in features.keys())
+        assert found_docker, "devcontainer.json should include Docker-in-Docker feature"
+
+    def test_common_utils_feature_present(self, devcontainer_json):
+        """
+        Given: The devcontainer.json config
+        When: Checking for common-utils feature
+        Then: Feature key contains "common-utils"
+
+        common-utils handles user creation with automatic UID/GID detection,
+        replacing manual groupadd/useradd in the Dockerfile.
+        """
+        features = devcontainer_json.get("features", {})
+        found_common_utils = any("common-utils" in key.lower() for key in features.keys())
+        assert found_common_utils, "devcontainer.json should include common-utils feature"
+
+    def test_common_utils_username_vscode(self, devcontainer_json):
+        """
+        Given: The devcontainer.json config
+        When: Checking common-utils feature username setting
+        Then: username is set to "vscode"
+
+        This replaces the old ARG USERNAME=vscode in the Dockerfile.
+        The common-utils feature creates this user at feature-install time.
+        """
+        features = devcontainer_json.get("features", {})
+        common_utils_config = None
+        for key, config in features.items():
+            if "common-utils" in key.lower():
+                common_utils_config = config
+                break
+        assert common_utils_config is not None, "common-utils feature not found"
+        assert common_utils_config.get("username") == "vscode", (
+            f"common-utils username should be 'vscode', got: {common_utils_config.get('username')}"
         )
-        assert found_docker, (
-            "devcontainer.json should include Docker-in-Docker feature"
+
+    def test_common_utils_automatic_uid(self, devcontainer_json):
+        """
+        Given: The devcontainer.json config
+        When: Checking common-utils feature uid setting
+        Then: uid is set to "automatic"
+
+        Automatic UID detection resolves Mac Docker Desktop UID/GID
+        mismatches by detecting the host UID from the workspace mount.
+        """
+        features = devcontainer_json.get("features", {})
+        common_utils_config = None
+        for key, config in features.items():
+            if "common-utils" in key.lower():
+                common_utils_config = config
+                break
+        assert common_utils_config is not None, "common-utils feature not found"
+        assert common_utils_config.get("uid") == "automatic", (
+            f"common-utils uid should be 'automatic', got: {common_utils_config.get('uid')}"
+        )
+
+    def test_common_utils_automatic_gid(self, devcontainer_json):
+        """
+        Given: The devcontainer.json config
+        When: Checking common-utils feature gid setting
+        Then: gid is set to "automatic"
+
+        Automatic GID detection resolves Mac Docker Desktop UID/GID
+        mismatches by detecting the host GID from the workspace mount.
+        """
+        features = devcontainer_json.get("features", {})
+        common_utils_config = None
+        for key, config in features.items():
+            if "common-utils" in key.lower():
+                common_utils_config = config
+                break
+        assert common_utils_config is not None, "common-utils feature not found"
+        assert common_utils_config.get("gid") == "automatic", (
+            f"common-utils gid should be 'automatic', got: {common_utils_config.get('gid')}"
+        )
+
+    def test_common_utils_no_zsh(self, devcontainer_json):
+        """
+        Given: The devcontainer.json config
+        When: Checking common-utils feature zsh settings
+        Then: installZsh and installOhMyZsh are both false
+
+        The project uses bash. Disabling Zsh/Oh My Zsh avoids unnecessary
+        image bloat from the common-utils defaults.
+        """
+        features = devcontainer_json.get("features", {})
+        common_utils_config = None
+        for key, config in features.items():
+            if "common-utils" in key.lower():
+                common_utils_config = config
+                break
+        assert common_utils_config is not None, "common-utils feature not found"
+        assert common_utils_config.get("installZsh") is False, (
+            f"common-utils installZsh should be false, got: {common_utils_config.get('installZsh')}"
+        )
+        assert common_utils_config.get("installOhMyZsh") is False, (
+            f"common-utils installOhMyZsh should be false, got: {common_utils_config.get('installOhMyZsh')}"
         )
 
 
@@ -210,12 +293,8 @@ class TestDevcontainerJsonCommands:
 
         # If onCreateCommand exists, check it doesn't do pip/npm install
         on_create_str = json.dumps(on_create).lower()
-        assert "pip install" not in on_create_str, (
-            "devcontainer.json onCreateCommand should not run pip install"
-        )
-        assert "npm install" not in on_create_str, (
-            "devcontainer.json onCreateCommand should not run npm install"
-        )
+        assert "pip install" not in on_create_str, "devcontainer.json onCreateCommand should not run pip install"
+        assert "npm install" not in on_create_str, "devcontainer.json onCreateCommand should not run npm install"
 
     def test_postcreate_command_exists(self, devcontainer_json):
         """
@@ -226,12 +305,8 @@ class TestDevcontainerJsonCommands:
         postCreateCommand now runs install-deps.sh to set up the environment.
         """
         post_create = devcontainer_json.get("postCreateCommand")
-        assert post_create is not None, (
-            "devcontainer.json should have a postCreateCommand"
-        )
-        assert post_create != "", (
-            "devcontainer.json postCreateCommand should be non-empty"
-        )
+        assert post_create is not None, "devcontainer.json should have a postCreateCommand"
+        assert post_create != "", "devcontainer.json postCreateCommand should be non-empty"
 
     def test_postcreate_command_references_install_deps(self, devcontainer_json):
         """
@@ -275,12 +350,9 @@ class TestDevcontainerJsonPythonConfig:
         VSCode needs to know where to find the Python interpreter. With mise,
         this is in the mise shims directory.
         """
-        vscode_settings = devcontainer_json.get("customizations", {}).get(
-            "vscode", {}
-        ).get("settings", {})
+        vscode_settings = devcontainer_json.get("customizations", {}).get("vscode", {}).get("settings", {})
         assert "python.defaultInterpreterPath" in vscode_settings, (
-            "devcontainer.json vscode settings should include "
-            "python.defaultInterpreterPath"
+            "devcontainer.json vscode settings should include python.defaultInterpreterPath"
         )
 
     def test_python_interpreter_uses_mise_shims(self, devcontainer_json):
@@ -292,18 +364,12 @@ class TestDevcontainerJsonPythonConfig:
         mise installs Python to ~/.local/share/mise/installs/python/... and
         creates shims in ~/.local/share/mise/shims/python.
         """
-        vscode_settings = devcontainer_json.get("customizations", {}).get(
-            "vscode", {}
-        ).get("settings", {})
+        vscode_settings = devcontainer_json.get("customizations", {}).get("vscode", {}).get("settings", {})
         interpreter_path = vscode_settings.get("python.defaultInterpreterPath", "")
         # Check for mise shims path pattern
-        has_mise_shims = (
-            "mise/shims" in interpreter_path or
-            ".local/share/mise" in interpreter_path
-        )
+        has_mise_shims = "mise/shims" in interpreter_path or ".local/share/mise" in interpreter_path
         assert has_mise_shims, (
-            f"python.defaultInterpreterPath should reference mise shims, "
-            f"got: {interpreter_path}"
+            f"python.defaultInterpreterPath should reference mise shims, got: {interpreter_path}"
         )
 
     def test_python_interpreter_not_usr_local(self, devcontainer_json):
@@ -315,9 +381,7 @@ class TestDevcontainerJsonPythonConfig:
         The old devcontainer Python feature installed to /usr/local/python/current.
         The refactor uses mise instead.
         """
-        vscode_settings = devcontainer_json.get("customizations", {}).get(
-            "vscode", {}
-        ).get("settings", {})
+        vscode_settings = devcontainer_json.get("customizations", {}).get("vscode", {}).get("settings", {})
         interpreter_path = vscode_settings.get("python.defaultInterpreterPath", "")
         assert "/usr/local/python/current" not in interpreter_path, (
             f"python.defaultInterpreterPath should not use "
@@ -349,15 +413,9 @@ class TestDevcontainerJsonVscodeExtensions:
 
         The devcontainer should specify required extensions for the project.
         """
-        extensions = devcontainer_json.get("customizations", {}).get(
-            "vscode", {}
-        ).get("extensions", [])
-        assert isinstance(extensions, list), (
-            "devcontainer.json vscode extensions should be a list"
-        )
-        assert len(extensions) > 0, (
-            "devcontainer.json vscode extensions should be non-empty"
-        )
+        extensions = devcontainer_json.get("customizations", {}).get("vscode", {}).get("extensions", [])
+        assert isinstance(extensions, list), "devcontainer.json vscode extensions should be a list"
+        assert len(extensions) > 0, "devcontainer.json vscode extensions should be non-empty"
 
     def test_required_extensions_present(self, devcontainer_json):
         """
@@ -370,18 +428,14 @@ class TestDevcontainerJsonVscodeExtensions:
         - charliermarsh.ruff (Python linting/formatting)
         - redhat.vscode-yaml (YAML validation)
         """
-        extensions = devcontainer_json.get("customizations", {}).get(
-            "vscode", {}
-        ).get("extensions", [])
+        extensions = devcontainer_json.get("customizations", {}).get("vscode", {}).get("extensions", [])
         required = [
             "bierner.markdown-mermaid",
             "charliermarsh.ruff",
             "redhat.vscode-yaml",
         ]
         for ext in required:
-            assert ext in extensions, (
-                f"devcontainer.json vscode extensions should include {ext}"
-            )
+            assert ext in extensions, f"devcontainer.json vscode extensions should include {ext}"
 
 
 # =============================================================================
@@ -404,13 +458,11 @@ class TestDevcontainerJsonBuildConfig:
         When: Checking remoteUser setting
         Then: remoteUser is "vscode"
 
-        The Dockerfile creates a vscode user, and the devcontainer should
-        run as that user.
+        The common-utils feature creates a vscode user, and the devcontainer
+        should run as that user.
         """
         remote_user = devcontainer_json.get("remoteUser", "")
-        assert remote_user == "vscode", (
-            f"devcontainer.json remoteUser should be 'vscode', got: {remote_user}"
-        )
+        assert remote_user == "vscode", f"devcontainer.json remoteUser should be 'vscode', got: {remote_user}"
 
     def test_build_args_contain_workspace(self, devcontainer_json):
         """
@@ -422,23 +474,20 @@ class TestDevcontainerJsonBuildConfig:
         structure.
         """
         build_args = devcontainer_json.get("build", {}).get("args", {})
-        assert "WORKSPACE" in build_args, (
-            "devcontainer.json build.args should include WORKSPACE"
-        )
-        assert "WORKSPACE_REPO" in build_args, (
-            "devcontainer.json build.args should include WORKSPACE_REPO"
-        )
+        assert "WORKSPACE" in build_args, "devcontainer.json build.args should include WORKSPACE"
+        assert "WORKSPACE_REPO" in build_args, "devcontainer.json build.args should include WORKSPACE_REPO"
 
 
 """
 Test Summary
 ============
 Total Test Classes: 6
-Total Test Methods: 15
+Total Test Methods: 20
 
 1. TestDevcontainerJsonExists (2): file exists, parses as valid JSON
-2. TestDevcontainerJsonFeatures (3): no Python feature, no Node feature,
-   Docker-in-Docker present
+2. TestDevcontainerJsonFeatures (8): no Python feature, no Node feature,
+   Docker-in-Docker present, common-utils present, username vscode,
+   automatic uid, automatic gid, no zsh
 3. TestDevcontainerJsonCommands (3): no onCreateCommand pip/npm,
    postCreateCommand exists, references install-deps.sh
 4. TestDevcontainerJsonPythonConfig (3): interpreter path exists, uses mise shims,
@@ -450,7 +499,7 @@ Total Test Methods: 15
 
 Coverage Areas:
 - File existence and JSON validity
-- Feature configuration (Python/Node removed, Docker-in-Docker kept)
+- Feature configuration (Python/Node removed, Docker-in-Docker kept, common-utils added)
 - Lifecycle commands (onCreateCommand removed, postCreateCommand uses install-deps.sh)
 - Python interpreter configuration (mise shims path)
 - VSCode extensions (markdown-mermaid, ruff, yaml)
@@ -458,6 +507,7 @@ Coverage Areas:
 
 Refactor Changes Validated:
 - Python/Node devcontainer features removed (now handled by mise)
+- common-utils feature added (handles user creation with automatic UID/GID)
 - onCreateCommand pip/npm install removed (now in install-deps.sh)
 - postCreateCommand runs install-deps.sh (not old setup-script)
 - Python interpreter path uses mise shims (not /usr/local/python/current)

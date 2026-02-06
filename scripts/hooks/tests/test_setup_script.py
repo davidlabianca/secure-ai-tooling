@@ -89,9 +89,7 @@ class TestSetupScriptDelegates:
         When: Checking for delegation logic
         Then: File references install-deps.sh
         """
-        assert "install-deps.sh" in setup_script_content, (
-            "setup-script should reference install-deps.sh"
-        )
+        assert "install-deps.sh" in setup_script_content, "setup-script should reference install-deps.sh"
 
     def test_is_bash_script(self, setup_script_lines):
         """
@@ -103,12 +101,8 @@ class TestSetupScriptDelegates:
             pytest.fail("setup-script should not be empty")
 
         first_line = setup_script_lines[0].strip()
-        assert first_line.startswith("#!"), (
-            f"setup-script should start with shebang, got: {first_line}"
-        )
-        assert "bash" in first_line.lower(), (
-            f"setup-script should be a bash script, got: {first_line}"
-        )
+        assert first_line.startswith("#!"), f"setup-script should start with shebang, got: {first_line}"
+        assert "bash" in first_line.lower(), f"setup-script should be a bash script, got: {first_line}"
 
 
 # =============================================================================
@@ -136,9 +130,7 @@ class TestSetupScriptNoOldLogic:
             lower = stripped.lower()
             # Check for ln command with python reference
             if "ln" in lower and "python" in lower:
-                pytest.fail(
-                    f"setup-script should not contain Python symlink logic: {stripped}"
-                )
+                pytest.fail(f"setup-script should not contain Python symlink logic: {stripped}")
 
     def test_no_usr_local_python(self, setup_script_content):
         """
@@ -165,15 +157,12 @@ class TestSetupScriptNoOldLogic:
             lower = stripped.lower()
             # Check for act-specific installation patterns
             if "nektos/act" in lower:
-                pytest.fail(
-                    f"setup-script should not contain act download logic: {stripped}"
-                )
+                pytest.fail(f"setup-script should not contain act download logic: {stripped}")
             # Check for wget/curl of install.sh in context with act
             if ("wget" in lower or "curl" in lower) and "install.sh" in lower:
                 # This is suspicious -- likely the old act install pattern
                 pytest.fail(
-                    f"setup-script should not download install.sh -- "
-                    f"act is handled by install-deps.sh: {stripped}"
+                    f"setup-script should not download install.sh -- act is handled by install-deps.sh: {stripped}"
                 )
 
     def test_no_set_e(self, setup_script_content):
@@ -213,12 +202,10 @@ class TestSetupScriptMinimal:
         """
         # Count non-empty, non-comment lines
         significant_lines = [
-            line for line in setup_script_lines
-            if line.strip() and not line.strip().startswith("#")
+            line for line in setup_script_lines if line.strip() and not line.strip().startswith("#")
         ]
         assert len(significant_lines) < 15, (
-            f"setup-script should be a thin wrapper (<15 non-comment lines), "
-            f"got {len(significant_lines)} lines"
+            f"setup-script should be a thin wrapper (<15 non-comment lines), got {len(significant_lines)} lines"
         )
 
     def test_no_sudo_commands(self, setup_script_content):

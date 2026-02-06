@@ -71,8 +71,6 @@ import stat
 import subprocess
 from pathlib import Path
 
-import pytest
-
 # Path to the script under test (relative to repo root)
 REPO_ROOT = Path(__file__).parent.parent.parent.parent
 SCRIPT_PATH = REPO_ROOT / "scripts" / "tools" / "install-deps.sh"
@@ -146,7 +144,7 @@ def create_full_stub_env(tmp_path, overrides=None):
             'elif [[ "$1" == "-m" && "$2" == "pip" && "$3" == "show" ]]; then\n'
             '    echo "Name: $4"\n'
             '    echo "Version: 1.0.0"\n'
-            '    exit 0\n'
+            "    exit 0\n"
             'elif [[ "$1" == "-m" && "$2" == "pip" && "$3" == "install" ]]; then\n'
             "    exit 0\n"
             "else\n"
@@ -179,10 +177,10 @@ def create_full_stub_env(tmp_path, overrides=None):
             "#!/bin/bash\n"
             'if [[ "$1" == "prettier" && "$2" == "--version" ]]; then\n'
             '    echo "3.8.1"\n'
-            '    exit 0\n'
+            "    exit 0\n"
             'elif [[ "$1" == "mmdc" && "$2" == "--version" ]]; then\n'
             '    echo "11.12.0"\n'
-            '    exit 0\n'
+            "    exit 0\n"
             'elif [[ "$1" == "playwright" && "$2" == "install" ]]; then\n'
             "    exit 0\n"
             "else\n"
@@ -201,10 +199,7 @@ def create_full_stub_env(tmp_path, overrides=None):
             "    exit 0\n"
             "fi\n"
         ),
-        "git": (
-            "#!/bin/bash\n"
-            'echo "git version 2.45.0"\n'
-        ),
+        "git": ('#!/bin/bash\necho "git version 2.45.0"\n'),
         "act": (
             "#!/bin/bash\n"
             'if [[ "$1" == "--version" ]]; then\n'
@@ -213,28 +208,11 @@ def create_full_stub_env(tmp_path, overrides=None):
             "    exit 0\n"
             "fi\n"
         ),
-        "ruff": (
-            "#!/bin/bash\n"
-            'echo "ruff 0.13.0"\n'
-        ),
-        "check-jsonschema": (
-            "#!/bin/bash\n"
-            'echo "check-jsonschema 0.35.0"\n'
-        ),
-        "curl": (
-            "#!/bin/bash\n"
-            "# Stub curl that does nothing successfully\n"
-            "exit 0\n"
-        ),
-        "sudo": (
-            "#!/bin/bash\n"
-            "# Stub sudo that runs the command without privileges\n"
-            '"$@"\n'
-        ),
-        "wget": (
-            "#!/bin/bash\n"
-            "exit 0\n"
-        ),
+        "ruff": ('#!/bin/bash\necho "ruff 0.13.0"\n'),
+        "check-jsonschema": ('#!/bin/bash\necho "check-jsonschema 0.35.0"\n'),
+        "curl": ("#!/bin/bash\n# Stub curl that does nothing successfully\nexit 0\n"),
+        "sudo": ('#!/bin/bash\n# Stub sudo that runs the command without privileges\n"$@"\n'),
+        "wget": ("#!/bin/bash\nexit 0\n"),
     }
 
     # Apply overrides: None removes the tool, string replaces the stub
@@ -386,18 +364,12 @@ class TestArgumentParsing:
             timeout=30,
         )
         assert result.returncode == 0, (
-            f"Script should exit 0 with --help.\n"
-            f"Exit code: {result.returncode}\n"
-            f"STDERR:\n{result.stderr}"
+            f"Script should exit 0 with --help.\nExit code: {result.returncode}\nSTDERR:\n{result.stderr}"
         )
         combined_output = result.stdout + result.stderr
         # --help should produce usage text containing at least one of these keywords
-        assert any(
-            keyword in combined_output.lower()
-            for keyword in ["usage", "help", "dry-run", "quiet"]
-        ), (
-            f"--help output should contain usage information.\n"
-            f"Output:\n{combined_output}"
+        assert any(keyword in combined_output.lower() for keyword in ["usage", "help", "dry-run", "quiet"]), (
+            f"--help output should contain usage information.\nOutput:\n{combined_output}"
         )
 
     def test_unknown_flag_errors(self, tmp_path):
@@ -446,7 +418,7 @@ class TestDryRunNoSideEffects:
         for p in tmp_path.rglob("*"):
             before_files.add((str(p.relative_to(tmp_path)), p.stat().st_size if p.is_file() else -1))
 
-        result = subprocess.run(
+        subprocess.run(
             [str(SCRIPT_PATH), "--dry-run"],
             capture_output=True,
             text=True,
@@ -469,8 +441,7 @@ class TestDryRunNoSideEffects:
                 new_in_repo.add(rel)
 
         assert len(new_in_repo) == 0, (
-            f"Dry-run should not create new files in repo root.\n"
-            f"New files: {new_in_repo}"
+            f"Dry-run should not create new files in repo root.\nNew files: {new_in_repo}"
         )
 
 
@@ -505,13 +476,11 @@ class TestDryRunMiseInstall:
         )
         combined_output = result.stdout + result.stderr
         assert "DRY-RUN" in combined_output, (
-            f"Output should contain [DRY-RUN] tag when mise is missing.\n"
-            f"Output:\n{combined_output}"
+            f"Output should contain [DRY-RUN] tag when mise is missing.\nOutput:\n{combined_output}"
         )
         # Should mention curl or mise.run for the install command
         assert "curl" in combined_output.lower() or "mise" in combined_output.lower(), (
-            f"Dry-run output should reference curl/mise install command.\n"
-            f"Output:\n{combined_output}"
+            f"Dry-run output should reference curl/mise install command.\nOutput:\n{combined_output}"
         )
 
 
@@ -540,17 +509,14 @@ class TestDryRunMiseSkip:
         )
         combined_output = result.stdout + result.stderr
         assert "SKIP" in combined_output, (
-            f"Output should contain [SKIP] when mise is present.\n"
-            f"Output:\n{combined_output}"
+            f"Output should contain [SKIP] when mise is present.\nOutput:\n{combined_output}"
         )
         # Verify mise is mentioned in a skip context
         lines_with_skip = [
-            line for line in combined_output.splitlines()
-            if "SKIP" in line and "mise" in line.lower()
+            line for line in combined_output.splitlines() if "SKIP" in line and "mise" in line.lower()
         ]
         assert len(lines_with_skip) > 0, (
-            f"Output should have a [SKIP] line mentioning mise.\n"
-            f"Output:\n{combined_output}"
+            f"Output should have a [SKIP] line mentioning mise.\nOutput:\n{combined_output}"
         )
 
 
@@ -580,13 +546,11 @@ class TestDryRunPythonInstall:
         )
         combined_output = result.stdout + result.stderr
         assert "DRY-RUN" in combined_output, (
-            f"Output should contain [DRY-RUN] when python3 is missing.\n"
-            f"Output:\n{combined_output}"
+            f"Output should contain [DRY-RUN] when python3 is missing.\nOutput:\n{combined_output}"
         )
         # Should mention python in the install command
         assert "python" in combined_output.lower(), (
-            f"Dry-run output should reference python installation.\n"
-            f"Output:\n{combined_output}"
+            f"Dry-run output should reference python installation.\nOutput:\n{combined_output}"
         )
 
 
@@ -616,12 +580,10 @@ class TestDryRunNodeInstall:
         )
         combined_output = result.stdout + result.stderr
         assert "DRY-RUN" in combined_output, (
-            f"Output should contain [DRY-RUN] when node is missing.\n"
-            f"Output:\n{combined_output}"
+            f"Output should contain [DRY-RUN] when node is missing.\nOutput:\n{combined_output}"
         )
         assert "node" in combined_output.lower(), (
-            f"Dry-run output should reference node installation.\n"
-            f"Output:\n{combined_output}"
+            f"Dry-run output should reference node installation.\nOutput:\n{combined_output}"
         )
 
 
@@ -654,9 +616,7 @@ class TestDryRunPipInstall:
             "    exit 0\n"
             "fi\n"
         )
-        env_info = create_full_stub_env(
-            tmp_path, overrides={"python3": python_stub_missing_pkgs}
-        )
+        env_info = create_full_stub_env(tmp_path, overrides={"python3": python_stub_missing_pkgs})
         result = subprocess.run(
             [str(SCRIPT_PATH), "--dry-run"],
             capture_output=True,
@@ -666,12 +626,10 @@ class TestDryRunPipInstall:
         )
         combined_output = result.stdout + result.stderr
         assert "DRY-RUN" in combined_output, (
-            f"Output should contain [DRY-RUN] when pip packages are missing.\n"
-            f"Output:\n{combined_output}"
+            f"Output should contain [DRY-RUN] when pip packages are missing.\nOutput:\n{combined_output}"
         )
         assert "pip" in combined_output.lower() or "requirements" in combined_output.lower(), (
-            f"Dry-run output should reference pip install or requirements.txt.\n"
-            f"Output:\n{combined_output}"
+            f"Dry-run output should reference pip install or requirements.txt.\nOutput:\n{combined_output}"
         )
 
 
@@ -714,12 +672,10 @@ class TestDryRunNpmInstall:
         )
         combined_output = result.stdout + result.stderr
         assert "DRY-RUN" in combined_output, (
-            f"Output should contain [DRY-RUN] when npm packages are missing.\n"
-            f"Output:\n{combined_output}"
+            f"Output should contain [DRY-RUN] when npm packages are missing.\nOutput:\n{combined_output}"
         )
         assert "npm" in combined_output.lower(), (
-            f"Dry-run output should reference npm install.\n"
-            f"Output:\n{combined_output}"
+            f"Dry-run output should reference npm install.\nOutput:\n{combined_output}"
         )
 
 
@@ -749,12 +705,10 @@ class TestDryRunActInstall:
         )
         combined_output = result.stdout + result.stderr
         assert "DRY-RUN" in combined_output, (
-            f"Output should contain [DRY-RUN] when act is missing.\n"
-            f"Output:\n{combined_output}"
+            f"Output should contain [DRY-RUN] when act is missing.\nOutput:\n{combined_output}"
         )
         assert "act" in combined_output.lower(), (
-            f"Dry-run output should reference act installation.\n"
-            f"Output:\n{combined_output}"
+            f"Dry-run output should reference act installation.\nOutput:\n{combined_output}"
         )
 
 
@@ -791,12 +745,10 @@ class TestSkipMiseWhenPresent:
         combined_output = result.stdout + result.stderr
         # Find lines that mention mise and SKIP
         mise_skip_lines = [
-            line for line in combined_output.splitlines()
-            if "SKIP" in line and "mise" in line.lower()
+            line for line in combined_output.splitlines() if "SKIP" in line and "mise" in line.lower()
         ]
         assert len(mise_skip_lines) > 0, (
-            f"Output should have [SKIP] line for mise when already present.\n"
-            f"Output:\n{combined_output}"
+            f"Output should have [SKIP] line for mise when already present.\nOutput:\n{combined_output}"
         )
 
 
@@ -825,12 +777,10 @@ class TestSkipPythonWhenPresent:
         )
         combined_output = result.stdout + result.stderr
         python_skip_lines = [
-            line for line in combined_output.splitlines()
-            if "SKIP" in line and "python" in line.lower()
+            line for line in combined_output.splitlines() if "SKIP" in line and "python" in line.lower()
         ]
         assert len(python_skip_lines) > 0, (
-            f"Output should have [SKIP] line for python when correct version present.\n"
-            f"Output:\n{combined_output}"
+            f"Output should have [SKIP] line for python when correct version present.\nOutput:\n{combined_output}"
         )
 
 
@@ -859,12 +809,10 @@ class TestSkipNodeWhenPresent:
         )
         combined_output = result.stdout + result.stderr
         node_skip_lines = [
-            line for line in combined_output.splitlines()
-            if "SKIP" in line and "node" in line.lower()
+            line for line in combined_output.splitlines() if "SKIP" in line and "node" in line.lower()
         ]
         assert len(node_skip_lines) > 0, (
-            f"Output should have [SKIP] line for node when correct version present.\n"
-            f"Output:\n{combined_output}"
+            f"Output should have [SKIP] line for node when correct version present.\nOutput:\n{combined_output}"
         )
 
 
@@ -893,12 +841,10 @@ class TestSkipActWhenPresent:
         )
         combined_output = result.stdout + result.stderr
         act_skip_lines = [
-            line for line in combined_output.splitlines()
-            if "SKIP" in line and "act" in line.lower()
+            line for line in combined_output.splitlines() if "SKIP" in line and "act" in line.lower()
         ]
         assert len(act_skip_lines) > 0, (
-            f"Output should have [SKIP] line for act when already present.\n"
-            f"Output:\n{combined_output}"
+            f"Output should have [SKIP] line for act when already present.\nOutput:\n{combined_output}"
         )
 
 
@@ -928,13 +874,12 @@ class TestSkipChromiumWhenPresent:
         )
         combined_output = result.stdout + result.stderr
         chromium_skip_lines = [
-            line for line in combined_output.splitlines()
-            if "SKIP" in line
-            and ("chromium" in line.lower() or "playwright" in line.lower())
+            line
+            for line in combined_output.splitlines()
+            if "SKIP" in line and ("chromium" in line.lower() or "playwright" in line.lower())
         ]
         assert len(chromium_skip_lines) > 0, (
-            f"Output should have [SKIP] line for Chromium/Playwright when in cache.\n"
-            f"Output:\n{combined_output}"
+            f"Output should have [SKIP] line for Chromium/Playwright when in cache.\nOutput:\n{combined_output}"
         )
 
 
@@ -962,10 +907,7 @@ class TestMiseInstallFailure:
         And: Script continues to check remaining tools (does not abort)
         """
         # curl stub that fails for mise install
-        curl_fail = (
-            "#!/bin/bash\n"
-            "exit 1\n"
-        )
+        curl_fail = "#!/bin/bash\nexit 1\n"
         env_info = create_full_stub_env(
             tmp_path,
             overrides={"mise": None, "curl": curl_fail},
@@ -979,14 +921,12 @@ class TestMiseInstallFailure:
         )
         combined_output = result.stdout + result.stderr
         assert "FAIL" in combined_output, (
-            f"Output should contain [FAIL] when mise install fails.\n"
-            f"Output:\n{combined_output}"
+            f"Output should contain [FAIL] when mise install fails.\nOutput:\n{combined_output}"
         )
         # Script should not abort -- it should continue and mention other tools
         # (e.g., python, node, act, etc.)
         assert result.returncode != 0, (
-            f"Script should exit non-zero when mise install fails.\n"
-            f"Exit code: {result.returncode}"
+            f"Script should exit non-zero when mise install fails.\nExit code: {result.returncode}"
         )
 
 
@@ -1020,9 +960,7 @@ class TestPipInstallFailure:
             "    exit 0\n"
             "fi\n"
         )
-        env_info = create_full_stub_env(
-            tmp_path, overrides={"python3": python_pip_fail}
-        )
+        env_info = create_full_stub_env(tmp_path, overrides={"python3": python_pip_fail})
         result = subprocess.run(
             [str(SCRIPT_PATH)],
             capture_output=True,
@@ -1032,15 +970,13 @@ class TestPipInstallFailure:
         )
         combined_output = result.stdout + result.stderr
         assert "FAIL" in combined_output, (
-            f"Output should contain [FAIL] when pip install fails.\n"
-            f"Output:\n{combined_output}"
+            f"Output should contain [FAIL] when pip install fails.\nOutput:\n{combined_output}"
         )
         # Verify script did not abort early -- it should mention npm or act
         # (subsequent steps after pip)
         lower_output = combined_output.lower()
         assert "npm" in lower_output or "act" in lower_output or "node" in lower_output, (
-            f"Script should continue after pip failure and mention subsequent steps.\n"
-            f"Output:\n{combined_output}"
+            f"Script should continue after pip failure and mention subsequent steps.\nOutput:\n{combined_output}"
         )
 
 
@@ -1084,14 +1020,12 @@ class TestNpmInstallFailure:
         )
         combined_output = result.stdout + result.stderr
         assert "FAIL" in combined_output, (
-            f"Output should contain [FAIL] when npm install fails.\n"
-            f"Output:\n{combined_output}"
+            f"Output should contain [FAIL] when npm install fails.\nOutput:\n{combined_output}"
         )
         # Script should continue past npm failure to act/chromium/verification
         lower_output = combined_output.lower()
         assert "act" in lower_output or "chromium" in lower_output or "verif" in lower_output, (
-            f"Script should continue after npm failure and mention subsequent steps.\n"
-            f"Output:\n{combined_output}"
+            f"Script should continue after npm failure and mention subsequent steps.\nOutput:\n{combined_output}"
         )
 
 
@@ -1112,9 +1046,7 @@ class TestVerificationFailure:
         Then: install-deps.sh exits with non-zero code
         """
         verify_fail = "#!/bin/bash\nexit 1\n"
-        env_info = create_full_stub_env(
-            tmp_path, overrides={"verify-deps": verify_fail}
-        )
+        env_info = create_full_stub_env(tmp_path, overrides={"verify-deps": verify_fail})
         result = subprocess.run(
             [str(SCRIPT_PATH)],
             capture_output=True,
@@ -1164,8 +1096,7 @@ class TestOutputColors:
         combined_output = result.stdout + result.stderr
         # Check for ANSI escape code prefix \033[ (appears as \x1b[ in Python)
         assert "\x1b[" in combined_output, (
-            f"Output should contain ANSI color escape sequences.\n"
-            f"Output (repr):\n{repr(combined_output[:500])}"
+            f"Output should contain ANSI color escape sequences.\nOutput (repr):\n{repr(combined_output[:500])}"
         )
 
     def test_pass_or_skip_uses_green(self, tmp_path):
@@ -1215,8 +1146,7 @@ class TestOutputColors:
         combined_output = result.stdout + result.stderr
         red_code = "\x1b[0;31m"
         assert red_code in combined_output, (
-            f"Output should contain red ANSI code for [FAIL] tags.\n"
-            f"Output (repr):\n{repr(combined_output[:500])}"
+            f"Output should contain red ANSI code for [FAIL] tags.\nOutput (repr):\n{repr(combined_output[:500])}"
         )
 
 
@@ -1247,10 +1177,7 @@ class TestQuietModeSuppression:
         combined_output = result.stdout + result.stderr
         # In quiet mode with all tools present, there should be no PASS/SKIP/INFO
         for tag in ["[PASS]", "[SKIP]", "[INFO]"]:
-            assert tag not in combined_output, (
-                f"--quiet should suppress {tag} output.\n"
-                f"Output:\n{combined_output}"
-            )
+            assert tag not in combined_output, f"--quiet should suppress {tag} output.\nOutput:\n{combined_output}"
 
     def test_quiet_still_shows_fail(self, tmp_path):
         """
@@ -1273,10 +1200,7 @@ class TestQuietModeSuppression:
             timeout=30,
         )
         combined_output = result.stdout + result.stderr
-        assert "FAIL" in combined_output, (
-            f"--quiet should still show [FAIL] messages.\n"
-            f"Output:\n{combined_output}"
-        )
+        assert "FAIL" in combined_output, f"--quiet should still show [FAIL] messages.\nOutput:\n{combined_output}"
 
 
 # =============================================================================
@@ -1321,13 +1245,11 @@ class TestFullInstallDryRun:
         )
 
         assert "FAIL" not in combined_output, (
-            f"Output should not contain [FAIL] when all tools present.\n"
-            f"Output:\n{combined_output}"
+            f"Output should not contain [FAIL] when all tools present.\nOutput:\n{combined_output}"
         )
 
         assert "SKIP" in combined_output, (
-            f"Output should contain [SKIP] tags for present tools.\n"
-            f"Output:\n{combined_output}"
+            f"Output should contain [SKIP] tags for present tools.\nOutput:\n{combined_output}"
         )
 
     def test_all_tools_present_dry_run_mentions_all_categories(self, tmp_path):
@@ -1349,9 +1271,7 @@ class TestFullInstallDryRun:
         combined_output = (result.stdout + result.stderr).lower()
 
         expected_tools = ["mise", "python", "node", "pip", "npm", "act", "chromium"]
-        missing_mentions = [
-            tool for tool in expected_tools if tool not in combined_output
-        ]
+        missing_mentions = [tool for tool in expected_tools if tool not in combined_output]
         assert len(missing_mentions) == 0, (
             f"Dry-run output should mention all tool categories.\n"
             f"Missing: {missing_mentions}\n"

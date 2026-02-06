@@ -9,6 +9,13 @@
 	},
 
 	"features": {
+		"ghcr.io/devcontainers/features/common-utils:2": {
+			"username": "vscode",
+			"uid": "automatic",
+			"gid": "automatic",
+			"installZsh": false,
+			"installOhMyZsh": false
+		},
 		"ghcr.io/devcontainers/features/docker-in-docker:2": {}
 	},
 
@@ -28,10 +35,10 @@
 				"redhat.vscode-yaml"
 			],
 			"settings": {
-		        "python.globalModuleInstallation": true,
+				"python.globalModuleInstallation": true,
 				"python.defaultInterpreterPath": "~/.local/share/mise/shims/python",
-		        "python.testing.pytestEnabled": true,
- 		        "python.testing.unittestEnabled": false
+				"python.testing.pytestEnabled": true,
+				"python.testing.unittestEnabled": false
 			}
 		}
 	},

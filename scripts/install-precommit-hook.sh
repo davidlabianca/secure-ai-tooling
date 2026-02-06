@@ -89,14 +89,14 @@ configure_chromium_path() {
             case "$arm_choice" in
                 1)
                     echo "📦 Checking for Playwright Chromium..."
-                    if ! npx  --version &>/dev/null; then
+                    if ! npx  --version </dev/null &>/dev/null; then
                         echo "❌ npx not found. Please install Node.js first."
                         exit 1
                     fi
 
-                    if ! npx playwright -V &> /dev/null && [[ "$INSTALL_PLAYWRIGHT" == "true" ]]; then
+                    if ! npx playwright -V </dev/null &> /dev/null && [[ "$INSTALL_PLAYWRIGHT" == "true" ]]; then
                         echo "   Playwright Chromium not found. Installing..."
-                        if ! npx playwright install chromium --with-deps; then
+                        if ! npx playwright install chromium --with-deps </dev/null; then
                             echo "❌ Failed to install Playwright Chromium"
                             echo "   Exiting..."
                             exit 1

@@ -1,16 +1,13 @@
 FROM ubuntu:noble
 
-ARG USERNAME=vscode
-ARG USER_UID=1000
-ARG USER_GID=${USER_UID}
 ARG WORKSPACE=/workspaces
 ARG WORKSPACE_REPO=secure-ai-tooling
 
 # Install system packages: core utilities + Playwright Chromium system dependencies
-# Core: sudo, build-essential, bash-completion, vim, curl, wget, git, ca-certificates
+# Core: build-essential, bash-completion, vim, curl, wget, git, ca-certificates
+# Note: sudo is provided by the common-utils devcontainer feature, not installed here
 # Playwright deps: 31 packages needed by Chromium on Ubuntu Noble (with t64 suffixes)
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    sudo \
     build-essential \
     bash-completion \
     vim \
@@ -51,14 +48,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libharfbuzz0b \
     && rm -rf /var/lib/apt/lists/*
 
-# Create vscode user with configurable UID/GID
-RUN groupadd --gid ${USER_GID} ${USERNAME} && \
-    useradd --uid ${USER_UID} --gid ${USER_GID} --shell /bin/bash --create-home ${USERNAME} \
-    && echo ${USERNAME} ALL=\(root\) NOPASSWD:ALL > /etc/sudoers.d/${USERNAME} \
-    && chmod 0440 /etc/sudoers.d/${USERNAME}
+# Create workspace directory (user creation handled by common-utils feature)
+RUN mkdir -p ${WORKSPACE}/${WORKSPACE_REPO}
 
-# Create workspace directory with proper permissions
-RUN mkdir -p ${WORKSPACE}/${WORKSPACE_REPO} && chown -R ${USERNAME}:${USERNAME} ${WORKSPACE}
-
-USER ${USERNAME}
 WORKDIR ${WORKSPACE}/${WORKSPACE_REPO}

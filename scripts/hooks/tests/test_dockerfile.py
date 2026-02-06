@@ -4,19 +4,19 @@ Tests for .devcontainer/Dockerfile structure.
 
 Static analysis tests that read the Dockerfile as text and validate its
 structure. No Docker build required -- these tests parse Dockerfile content
-to ensure it matches the Phase 3 devcontainer refactor spec.
+to ensure it matches the devcontainer refactor spec.
 
 Test Coverage:
 ==============
 Total Test Classes: 6
-Total Test Methods: 16
+Total Test Methods: 18
 
 1. TestDockerfileExists (2): file exists, non-empty
 2. TestDockerfileBaseImage (2): uses ubuntu:noble, no playwright reference
 3. TestDockerfileSystemPackages (4): core packages, Playwright deps,
    --no-install-recommends, apt cache cleanup
-4. TestDockerfileUserSetup (3): configurable UID/GID ARGs, passwordless sudo,
-   non-root USER
+4. TestDockerfileNoUserManagement (5): no UID/GID ARGs, no USERNAME ARG,
+   no useradd/groupadd, no sudoers, no USER directive
 5. TestDockerfileWorkspace (2): creates workspace dir, sets WORKDIR
 6. TestDockerfileNoRuntimeInstalls (3): no Python install, no Node.js install,
    no playwright install
@@ -95,14 +95,10 @@ class TestDockerfileBaseImage:
         """
         # Find FROM lines (ignore comments)
         from_lines = [
-            line.strip()
-            for line in dockerfile_content.splitlines()
-            if line.strip().upper().startswith("FROM")
+            line.strip() for line in dockerfile_content.splitlines() if line.strip().upper().startswith("FROM")
         ]
         assert len(from_lines) >= 1, "Dockerfile should have at least one FROM instruction"
-        assert "ubuntu:noble" in from_lines[0], (
-            f"Base image should be ubuntu:noble, got: {from_lines[0]}"
-        )
+        assert "ubuntu:noble" in from_lines[0], f"Base image should be ubuntu:noble, got: {from_lines[0]}"
 
     def test_no_playwright_base_image(self, dockerfile_content):
         """
@@ -111,14 +107,10 @@ class TestDockerfileBaseImage:
         Then: No playwright base image is referenced
         """
         from_lines = [
-            line.strip()
-            for line in dockerfile_content.splitlines()
-            if line.strip().upper().startswith("FROM")
+            line.strip() for line in dockerfile_content.splitlines() if line.strip().upper().startswith("FROM")
         ]
         for line in from_lines:
-            assert "playwright" not in line.lower(), (
-                f"Dockerfile should not use a Playwright base image: {line}"
-            )
+            assert "playwright" not in line.lower(), f"Dockerfile should not use a Playwright base image: {line}"
 
 
 # =============================================================================
@@ -136,10 +128,9 @@ class TestDockerfileSystemPackages:
         """
         Given: The Dockerfile content
         When: Checking for core system packages
-        Then: sudo, build-essential, curl, wget, git, ca-certificates are present
+        Then: build-essential, curl, wget, git, ca-certificates are present
         """
         core_packages = [
-            "sudo",
             "build-essential",
             "curl",
             "wget",
@@ -147,9 +138,7 @@ class TestDockerfileSystemPackages:
             "ca-certificates",
         ]
         for pkg in core_packages:
-            assert pkg in dockerfile_content, (
-                f"Core package '{pkg}' should be in Dockerfile"
-            )
+            assert pkg in dockerfile_content, f"Core package '{pkg}' should be in Dockerfile"
 
     def test_playwright_system_deps_present(self, dockerfile_content):
         """
@@ -169,9 +158,7 @@ class TestDockerfileSystemPackages:
             "fonts-noto-color-emoji",
         ]
         for pkg in playwright_deps:
-            assert pkg in dockerfile_content, (
-                f"Playwright system dep '{pkg}' should be in Dockerfile"
-            )
+            assert pkg in dockerfile_content, f"Playwright system dep '{pkg}' should be in Dockerfile"
 
     def test_no_install_recommends(self, dockerfile_content):
         """
@@ -195,55 +182,77 @@ class TestDockerfileSystemPackages:
 
 
 # =============================================================================
-# TestDockerfileUserSetup
+# TestDockerfileNoUserManagement
 # =============================================================================
 
 
-class TestDockerfileUserSetup:
+class TestDockerfileNoUserManagement:
     """
-    Validate user creation with configurable UID/GID, passwordless sudo,
-    and non-root USER directive.
+    Validate that the Dockerfile does NOT manage users.
+
+    User creation is handled by the common-utils devcontainer feature with
+    uid/gid: "automatic", not by manual groupadd/useradd in the Dockerfile.
+    remoteUser in devcontainer.json sets the runtime user.
     """
 
-    def test_configurable_uid_gid_args(self, dockerfile_content):
+    def test_no_uid_gid_args(self, dockerfile_content):
         """
         Given: The Dockerfile content
-        When: Checking for ARG declarations
-        Then: USER_UID and USER_GID ARGs are declared
+        When: Checking for UID/GID ARG declarations
+        Then: ARG USER_UID and ARG USER_GID are NOT present
         """
-        assert "ARG USER_UID" in dockerfile_content, (
-            "Dockerfile should declare ARG USER_UID"
+        assert "ARG USER_UID" not in dockerfile_content, (
+            "Dockerfile should not declare ARG USER_UID -- common-utils handles this"
         )
-        assert "ARG USER_GID" in dockerfile_content, (
-            "Dockerfile should declare ARG USER_GID"
+        assert "ARG USER_GID" not in dockerfile_content, (
+            "Dockerfile should not declare ARG USER_GID -- common-utils handles this"
         )
 
-    def test_passwordless_sudo(self, dockerfile_content):
+    def test_no_username_arg(self, dockerfile_content):
         """
         Given: The Dockerfile content
-        When: Checking sudoers configuration
-        Then: NOPASSWD is configured for the user
+        When: Checking for USERNAME ARG declaration
+        Then: ARG USERNAME is NOT present
         """
-        assert "NOPASSWD" in dockerfile_content, (
-            "Dockerfile should configure passwordless sudo with NOPASSWD"
+        assert "ARG USERNAME" not in dockerfile_content, (
+            "Dockerfile should not declare ARG USERNAME -- common-utils handles this"
         )
 
-    def test_non_root_user(self, dockerfile_lines):
+    def test_no_useradd_groupadd(self, dockerfile_content):
+        """
+        Given: The Dockerfile content
+        When: Checking for user creation commands
+        Then: useradd and groupadd are NOT present
+        """
+        assert "useradd" not in dockerfile_content, (
+            "Dockerfile should not use useradd -- common-utils handles user creation"
+        )
+        assert "groupadd" not in dockerfile_content, (
+            "Dockerfile should not use groupadd -- common-utils handles group creation"
+        )
+
+    def test_no_sudoers_setup(self, dockerfile_content):
+        """
+        Given: The Dockerfile content
+        When: Checking for sudoers configuration
+        Then: NOPASSWD and sudoers are NOT present
+        """
+        assert "NOPASSWD" not in dockerfile_content, (
+            "Dockerfile should not configure sudoers -- common-utils handles this"
+        )
+        assert "sudoers" not in dockerfile_content, (
+            "Dockerfile should not reference sudoers -- common-utils handles this"
+        )
+
+    def test_no_user_directive(self, dockerfile_lines):
         """
         Given: The Dockerfile lines
         When: Checking for USER directive
-        Then: A non-root USER directive exists (not USER root)
+        Then: No USER directive exists (remoteUser in devcontainer.json handles this)
         """
-        user_lines = [
-            line.strip()
-            for line in dockerfile_lines
-            if line.strip().startswith("USER ")
-        ]
-        assert len(user_lines) > 0, "Dockerfile should have a USER directive"
-        # The last USER directive determines the runtime user
-        last_user = user_lines[-1]
-        assert "root" not in last_user.lower() or "${" in last_user, (
-            f"Final USER directive should not be root: {last_user}"
+        user_lines = [line.strip() for line in dockerfile_lines if line.strip().startswith("USER ")]
+        assert len(user_lines) == 0, (
+            "Dockerfile should not have a USER directive -- remoteUser in devcontainer.json handles this"
         )
 
 
@@ -263,9 +272,7 @@ class TestDockerfileWorkspace:
         When: Checking for workspace directory creation
         Then: mkdir command creates the workspace path
         """
-        assert "mkdir" in dockerfile_content, (
-            "Dockerfile should create workspace directory with mkdir"
-        )
+        assert "mkdir" in dockerfile_content, "Dockerfile should create workspace directory with mkdir"
         # Check that it references the WORKSPACE ARG or a /workspaces path
         assert "WORKSPACE" in dockerfile_content or "/workspaces" in dockerfile_content, (
             "Dockerfile should reference WORKSPACE ARG or /workspaces path"
@@ -277,11 +284,7 @@ class TestDockerfileWorkspace:
         When: Checking for WORKDIR directive
         Then: WORKDIR is set to workspace path
         """
-        workdir_lines = [
-            line.strip()
-            for line in dockerfile_lines
-            if line.strip().startswith("WORKDIR ")
-        ]
+        workdir_lines = [line.strip() for line in dockerfile_lines if line.strip().startswith("WORKDIR ")]
         assert len(workdir_lines) > 0, "Dockerfile should have a WORKDIR directive"
 
 
@@ -316,9 +319,7 @@ class TestDockerfileNoRuntimeInstalls:
                 continue
             # Flag if we see "apt-get install" + "python3" but not "python3-" prefix packages
             if "apt-get install" in stripped.lower() and "python3 " in stripped.lower():
-                pytest.fail(
-                    f"Dockerfile should not install python3 interpreter via apt: {stripped}"
-                )
+                pytest.fail(f"Dockerfile should not install python3 interpreter via apt: {stripped}")
 
     def test_no_node_install(self, dockerfile_content):
         """
@@ -330,17 +331,13 @@ class TestDockerfileNoRuntimeInstalls:
         assert "mise install node" not in lower, (
             "Dockerfile should not install Node.js -- handled by install-deps.sh"
         )
-        assert "nvm install" not in lower, (
-            "Dockerfile should not install Node.js via nvm"
-        )
+        assert "nvm install" not in lower, "Dockerfile should not install Node.js via nvm"
         for line in dockerfile_content.splitlines():
             stripped = line.strip()
             if stripped.startswith("#"):
                 continue
             if "apt-get install" in stripped.lower() and "nodejs" in stripped.lower():
-                pytest.fail(
-                    f"Dockerfile should not install nodejs via apt: {stripped}"
-                )
+                pytest.fail(f"Dockerfile should not install nodejs via apt: {stripped}")
 
     def test_no_playwright_chromium_install(self, dockerfile_content):
         """
@@ -361,8 +358,7 @@ class TestDockerfileNoRuntimeInstalls:
                 if "install-deps" in lower_line:
                     continue
                 pytest.fail(
-                    f"Dockerfile should not run 'playwright install' -- "
-                    f"handled by install-deps.sh: {stripped}"
+                    f"Dockerfile should not run 'playwright install' -- handled by install-deps.sh: {stripped}"
                 )
 
 
@@ -370,24 +366,24 @@ class TestDockerfileNoRuntimeInstalls:
 Test Summary
 ============
 Total Test Classes: 6
-Total Test Methods: 16
+Total Test Methods: 18
 
 1. TestDockerfileExists (2): file exists, non-empty
 2. TestDockerfileBaseImage (2): uses ubuntu:noble, no playwright reference
 3. TestDockerfileSystemPackages (4): core packages, Playwright deps,
    --no-install-recommends, apt cache cleanup
-4. TestDockerfileUserSetup (3): configurable UID/GID ARGs, passwordless sudo,
-   non-root USER
+4. TestDockerfileNoUserManagement (5): no UID/GID ARGs, no USERNAME ARG,
+   no useradd/groupadd, no sudoers, no USER directive
 5. TestDockerfileWorkspace (2): creates workspace dir, sets WORKDIR
 6. TestDockerfileNoRuntimeInstalls (3): no Python install, no Node.js install,
    no playwright install
 
 Coverage Areas:
 - Base image selection (ubuntu:noble, no Playwright)
-- Core system packages (sudo, build-essential, curl, wget, git, ca-certificates)
+- Core system packages (build-essential, curl, wget, git, ca-certificates)
 - Playwright Chromium system dependencies (representative subset)
 - Image optimization (--no-install-recommends, apt cache cleanup)
-- User setup (configurable UID/GID, passwordless sudo, non-root USER)
+- No user management (common-utils feature handles user creation)
 - Workspace setup (mkdir, WORKDIR)
 - No runtime tool installs (Python, Node.js, Playwright Chromium binary)
 """
