@@ -16,7 +16,7 @@ The repository includes a VS Code Dev Container configuration that provides a pr
 
 1. **Open the repository in VS Code**
 2. **Reopen in Container**: When prompted (or use Command Palette: "Dev Containers: Reopen in Container")
-3. **Wait for container build**: The first build installs Python 3.11, Node.js, Chrome/Chromium, and all project dependencies
+3. **Wait for container build**: The first build creates the base image, then `install-deps.sh` runs automatically to install all runtime tools via mise
 4. **Install pre-commit hooks** (one-time setup):
 
    ```bash
@@ -26,11 +26,13 @@ The repository includes a VS Code Dev Container configuration that provides a pr
 
 The Dev Container automatically provides:
 
-- Python 3.11 with all requirements.txt dependencies
-- Node.js 18+ with npm packages (prettier, mermaid-cli)
-- Chrome/Chromium browser pre-installed for SVG generation
+- Python 3.14 with all requirements.txt dependencies (via mise)
+- Node.js 22 with npm packages (prettier, mermaid-cli) (via mise)
+- Playwright Chromium browser for SVG generation
 - act tool for local GitHub Actions testing
 - VS Code extensions: Mermaid preview, YAML validation, Ruff linting
+
+Tool versions are managed by [mise](https://mise.jdx.dev/) and declared in `.mise.toml` at the repo root. The `install-deps.sh` script handles all runtime tool installation.
 
 ## Option 2: Manual Setup
 
@@ -38,8 +40,8 @@ If you prefer not to use the Dev Container or need to set up your environment ma
 
 **Prerequisites:**
 
-- Python 3.10 or higher
-- Node.js 18+ and npm
+- Python 3.14 or higher
+- Node.js 22+ and npm
 - Chrome/Chromium browser (for SVG generation from Mermaid diagrams)
 
 1. **Install dependencies and pre-commit hook (one-time setup)**:

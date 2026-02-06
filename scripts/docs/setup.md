@@ -4,8 +4,8 @@
 
 **Prerequisites:**
 
-- Python 3.10 or higher
-- Node.js 18+ and npm
+- Python 3.14 or higher
+- Node.js 22+ and npm
 - Chrome/Chromium browser (for SVG generation from Mermaid diagrams)
 
 Install dependencies and pre-commit hook (one-time setup):

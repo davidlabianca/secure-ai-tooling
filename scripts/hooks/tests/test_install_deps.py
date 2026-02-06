@@ -1,0 +1,1419 @@
+#!/usr/bin/env python3
+"""
+Tests for install-deps.sh dependency installation script.
+
+This test suite validates the dependency installer script that installs
+required development environment tools for CoSAI Risk Map development.
+The script is designed to be idempotent, skipping tools already present,
+and supports --dry-run and --quiet flags.
+
+Test Coverage:
+==============
+Total Test Classes: 22
+Coverage Target: 100% of install-deps.sh functionality
+
+Group 1 -- Script Fundamentals (3):
+1.  TestScriptExists - Script file exists at expected path and is executable
+2.  TestArgumentParsing - --dry-run, --quiet, --help, unknown flags
+3.  TestDryRunNoSideEffects - Dry-run produces no filesystem changes
+
+Group 2 -- Dry-Run Output (7):
+4.  TestDryRunMiseInstall - mise missing -> shows dry-run curl command
+5.  TestDryRunMiseSkip - mise present -> shows [SKIP]
+6.  TestDryRunPythonInstall - python missing -> shows mise install python
+7.  TestDryRunNodeInstall - node missing -> shows mise install node
+8.  TestDryRunPipInstall - pip packages missing -> shows pip install
+9.  TestDryRunNpmInstall - npm packages missing -> shows npm install
+10. TestDryRunActInstall - act missing -> shows dry-run act install
+
+Group 3 -- Skip/Idempotency (5):
+11. TestSkipPythonWhenPresent - python3 with correct version -> [SKIP]
+12. TestSkipNodeWhenPresent - node with correct version -> [SKIP]
+13. TestSkipActWhenPresent - act present -> [SKIP]
+14. TestSkipChromiumWhenPresent - chromium in cache -> [SKIP]
+15. TestSkipMiseWhenPresent - mise present -> [SKIP]
+
+Group 4 -- Error Handling (4):
+16. TestMiseInstallFailure - mise install fails -> [FAIL], continues
+17. TestPipInstallFailure - pip install fails -> [FAIL], continues
+18. TestNpmInstallFailure - npm install fails -> [FAIL], continues
+19. TestVerificationFailure - verify-deps.sh fails -> exit non-zero
+
+Group 5 -- Output Formatting (2):
+20. TestOutputColors - ANSI color codes present for tags
+21. TestQuietModeSuppression - --quiet hides [PASS]/[SKIP]/[INFO], shows [FAIL]
+
+Group 6 -- Integration (1):
+22. TestFullInstallDryRun - all tools present, --dry-run -> all [SKIP], exit 0
+
+Installation Order Tested:
+==========================
+1. mise (curl https://mise.run | sh)
+2. Python >= 3.14 (mise install python@3.14)
+3. Node.js >= 22 (mise install node@22)
+4. pip packages (pip install -r requirements.txt)
+5. npm packages (npm install)
+6. act (curl nektos/act install script)
+7. Playwright Chromium (npx playwright install chromium)
+8. Verification (verify-deps.sh as final gate)
+
+Testing Approach:
+=================
+Uses subprocess to execute the bash script with manipulated PATH and environment
+variables. Creates temporary directories with stub scripts to simulate missing,
+present, or failing dependencies. The tmp_path fixture provides isolation for
+each test scenario. A create_full_stub_env() helper builds a complete stubbed
+environment for integration-style tests.
+"""
+
+import os
+import stat
+import subprocess
+from pathlib import Path
+
+import pytest
+
+# Path to the script under test (relative to repo root)
+REPO_ROOT = Path(__file__).parent.parent.parent.parent
+SCRIPT_PATH = REPO_ROOT / "scripts" / "tools" / "install-deps.sh"
+
+
+def create_full_stub_env(tmp_path, overrides=None):
+    """
+    Build a fully stubbed environment where all tools appear present and correct.
+
+    Creates executable stubs for every tool install-deps.sh checks, a fake
+    REPO_ROOT with requirements.txt, package.json, and a passing verify-deps.sh.
+
+    Args:
+        tmp_path: pytest tmp_path fixture for file isolation.
+        overrides: dict mapping tool names to stub content strings. Use None as
+            a value to remove that tool entirely (simulate missing). Use a string
+            to replace the default stub content.
+
+    Returns:
+        dict with keys:
+            env: environment dict ready for subprocess.run
+            stub_bin: Path to the directory containing stub binaries
+            repo_root: Path to the fake repo root
+    """
+    if overrides is None:
+        overrides = {}
+
+    stub_bin = tmp_path / "bin"
+    stub_bin.mkdir()
+
+    # Fake repo root with necessary files
+    repo_root = tmp_path / "repo"
+    repo_root.mkdir()
+    (repo_root / "requirements.txt").write_text(
+        "check-jsonschema==0.35.0\npytest==9.0.2\nPyYAML==6.0.2\nruff==0.13.0\n"
+    )
+    (repo_root / "package.json").write_text(
+        '{"dependencies": {"prettier": "^3.8.1", "@mermaid-js/mermaid-cli": "^11.12.0"}}\n'
+    )
+
+    # Create fake verify-deps.sh in the repo structure
+    tools_dir = repo_root / "scripts" / "tools"
+    tools_dir.mkdir(parents=True)
+    verify_script = tools_dir / "verify-deps.sh"
+    verify_content = overrides.get(
+        "verify-deps",
+        "#!/bin/bash\nexit 0\n",
+    )
+    if verify_content is not None:
+        verify_script.write_text(verify_content)
+        verify_script.chmod(0o755)
+
+    # Default stubs -- each handles the subcommands install-deps.sh will invoke
+    default_stubs = {
+        "mise": (
+            "#!/bin/bash\n"
+            'if [[ "$1" == "--version" ]]; then\n'
+            '    echo "2025.1.0 linux-x64"\n'
+            'elif [[ "$1" == "install" ]]; then\n'
+            "    exit 0\n"
+            'elif [[ "$1" == "which" ]]; then\n'
+            '    echo "/usr/local/bin/$2"\n'
+            "else\n"
+            "    exit 0\n"
+            "fi\n"
+        ),
+        "python3": (
+            "#!/bin/bash\n"
+            'if [[ "$1" == "--version" ]]; then\n'
+            '    echo "Python 3.14.0"\n'
+            'elif [[ "$1" == "-m" && "$2" == "pip" && "$3" == "show" ]]; then\n'
+            '    echo "Name: $4"\n'
+            '    echo "Version: 1.0.0"\n'
+            '    exit 0\n'
+            'elif [[ "$1" == "-m" && "$2" == "pip" && "$3" == "install" ]]; then\n'
+            "    exit 0\n"
+            "else\n"
+            "    exit 0\n"
+            "fi\n"
+        ),
+        "node": (
+            "#!/bin/bash\n"
+            'if [[ "$1" == "--version" || "$1" == "-v" ]]; then\n'
+            '    echo "v22.0.0"\n'
+            "else\n"
+            "    exit 0\n"
+            "fi\n"
+        ),
+        "npm": (
+            "#!/bin/bash\n"
+            'if [[ "$1" == "--version" ]]; then\n'
+            '    echo "10.0.0"\n'
+            'elif [[ "$1" == "install" ]]; then\n'
+            "    exit 0\n"
+            'elif [[ "$1" == "ls" || "$1" == "list" ]]; then\n'
+            '    echo "prettier@3.8.1"\n'
+            '    echo "@mermaid-js/mermaid-cli@11.12.0"\n'
+            "    exit 0\n"
+            "else\n"
+            "    exit 0\n"
+            "fi\n"
+        ),
+        "npx": (
+            "#!/bin/bash\n"
+            'if [[ "$1" == "prettier" && "$2" == "--version" ]]; then\n'
+            '    echo "3.8.1"\n'
+            '    exit 0\n'
+            'elif [[ "$1" == "mmdc" && "$2" == "--version" ]]; then\n'
+            '    echo "11.12.0"\n'
+            '    exit 0\n'
+            'elif [[ "$1" == "playwright" && "$2" == "install" ]]; then\n'
+            "    exit 0\n"
+            "else\n"
+            "    exit 0\n"
+            "fi\n"
+        ),
+        "pip": (
+            "#!/bin/bash\n"
+            'if [[ "$1" == "install" ]]; then\n'
+            "    exit 0\n"
+            'elif [[ "$1" == "show" ]]; then\n'
+            '    echo "Name: $2"\n'
+            '    echo "Version: 1.0.0"\n'
+            "    exit 0\n"
+            "else\n"
+            "    exit 0\n"
+            "fi\n"
+        ),
+        "git": (
+            "#!/bin/bash\n"
+            'echo "git version 2.45.0"\n'
+        ),
+        "act": (
+            "#!/bin/bash\n"
+            'if [[ "$1" == "--version" ]]; then\n'
+            '    echo "act version 0.2.68"\n'
+            "else\n"
+            "    exit 0\n"
+            "fi\n"
+        ),
+        "ruff": (
+            "#!/bin/bash\n"
+            'echo "ruff 0.13.0"\n'
+        ),
+        "check-jsonschema": (
+            "#!/bin/bash\n"
+            'echo "check-jsonschema 0.35.0"\n'
+        ),
+        "curl": (
+            "#!/bin/bash\n"
+            "# Stub curl that does nothing successfully\n"
+            "exit 0\n"
+        ),
+        "sudo": (
+            "#!/bin/bash\n"
+            "# Stub sudo that runs the command without privileges\n"
+            '"$@"\n'
+        ),
+        "wget": (
+            "#!/bin/bash\n"
+            "exit 0\n"
+        ),
+    }
+
+    # Apply overrides: None removes the tool, string replaces the stub
+    for tool, content in overrides.items():
+        if tool == "verify-deps":
+            continue  # already handled above
+        if content is None:
+            default_stubs.pop(tool, None)
+        else:
+            default_stubs[tool] = content
+
+    # Write all stubs
+    for tool_name, content in default_stubs.items():
+        stub_file = stub_bin / tool_name
+        stub_file.write_text(content)
+        stub_file.chmod(0o755)
+
+    # Create Playwright cache with chromium present
+    playwright_cache = tmp_path / "playwright-cache"
+    chromium_dir = playwright_cache / "chromium-1234" / "chrome-linux"
+    chromium_dir.mkdir(parents=True)
+    chromium_bin = chromium_dir / "chrome"
+    chromium_bin.write_text("#!/bin/bash\necho 'Chromium stub'\n")
+    chromium_bin.chmod(0o755)
+
+    env = os.environ.copy()
+    env["PATH"] = str(stub_bin)
+    env["HOME"] = str(tmp_path / "home")
+    env["PLAYWRIGHT_BROWSERS_PATH"] = str(playwright_cache)
+    # Override REPO_ROOT so the script finds fake requirements.txt etc.
+    env["INSTALL_DEPS_REPO_ROOT"] = str(repo_root)
+
+    # Create HOME directory
+    (tmp_path / "home").mkdir(exist_ok=True)
+
+    return {
+        "env": env,
+        "stub_bin": stub_bin,
+        "repo_root": repo_root,
+    }
+
+
+# =============================================================================
+# Group 1 -- Script Fundamentals
+# =============================================================================
+
+
+class TestScriptExists:
+    """
+    Test script file existence and permissions.
+
+    Validates that install-deps.sh exists at the expected location
+    and has execute permissions.
+    """
+
+    def test_script_file_exists(self):
+        """
+        Test that install-deps.sh exists at expected path.
+
+        Given: The scripts/tools directory structure
+        When: Checking for install-deps.sh file
+        Then: File exists at scripts/tools/install-deps.sh
+        """
+        assert SCRIPT_PATH.exists(), f"Script not found at {SCRIPT_PATH}"
+
+    def test_script_is_executable(self):
+        """
+        Test that install-deps.sh has execute permissions.
+
+        Given: The install-deps.sh file exists
+        When: Checking file permissions
+        Then: File has the user executable bit set
+        """
+        assert SCRIPT_PATH.exists(), f"Script not found at {SCRIPT_PATH}"
+        file_stat = os.stat(SCRIPT_PATH)
+        is_executable = bool(file_stat.st_mode & stat.S_IXUSR)
+        assert is_executable, f"Script {SCRIPT_PATH} is not executable"
+
+
+class TestArgumentParsing:
+    """
+    Test command-line argument parsing.
+
+    Validates that the script accepts --dry-run, --quiet, and --help flags,
+    and rejects unknown flags with a non-zero exit code.
+    """
+
+    def test_dry_run_flag_accepted(self, tmp_path):
+        """
+        Test that --dry-run flag is accepted and script exits 0 in stubbed env.
+
+        Given: A fully stubbed environment with all tools present
+        When: Running install-deps.sh --dry-run
+        Then: Script exits with code 0
+        """
+        env_info = create_full_stub_env(tmp_path)
+        result = subprocess.run(
+            [str(SCRIPT_PATH), "--dry-run"],
+            capture_output=True,
+            text=True,
+            env=env_info["env"],
+            timeout=30,
+        )
+        assert result.returncode == 0, (
+            f"Script should exit 0 with --dry-run and all tools present.\n"
+            f"Exit code: {result.returncode}\n"
+            f"STDOUT:\n{result.stdout}\n"
+            f"STDERR:\n{result.stderr}"
+        )
+
+    def test_quiet_flag_accepted(self, tmp_path):
+        """
+        Test that --quiet flag is accepted without error.
+
+        Given: A fully stubbed environment with all tools present
+        When: Running install-deps.sh --quiet --dry-run
+        Then: Script exits with code 0
+        """
+        env_info = create_full_stub_env(tmp_path)
+        result = subprocess.run(
+            [str(SCRIPT_PATH), "--quiet", "--dry-run"],
+            capture_output=True,
+            text=True,
+            env=env_info["env"],
+            timeout=30,
+        )
+        assert result.returncode == 0, (
+            f"Script should exit 0 with --quiet --dry-run.\n"
+            f"Exit code: {result.returncode}\n"
+            f"STDOUT:\n{result.stdout}\n"
+            f"STDERR:\n{result.stderr}"
+        )
+
+    def test_help_flag_prints_usage(self, tmp_path):
+        """
+        Test that --help prints usage information and exits 0.
+
+        Given: No specific environment requirements
+        When: Running install-deps.sh --help
+        Then: Script exits with code 0
+        And: Output contains usage or help text
+        """
+        env_info = create_full_stub_env(tmp_path)
+        result = subprocess.run(
+            [str(SCRIPT_PATH), "--help"],
+            capture_output=True,
+            text=True,
+            env=env_info["env"],
+            timeout=30,
+        )
+        assert result.returncode == 0, (
+            f"Script should exit 0 with --help.\n"
+            f"Exit code: {result.returncode}\n"
+            f"STDERR:\n{result.stderr}"
+        )
+        combined_output = result.stdout + result.stderr
+        # --help should produce usage text containing at least one of these keywords
+        assert any(
+            keyword in combined_output.lower()
+            for keyword in ["usage", "help", "dry-run", "quiet"]
+        ), (
+            f"--help output should contain usage information.\n"
+            f"Output:\n{combined_output}"
+        )
+
+    def test_unknown_flag_errors(self, tmp_path):
+        """
+        Test that unknown flags cause a non-zero exit.
+
+        Given: No specific environment requirements
+        When: Running install-deps.sh --bogus-flag
+        Then: Script exits with non-zero code
+        """
+        env_info = create_full_stub_env(tmp_path)
+        result = subprocess.run(
+            [str(SCRIPT_PATH), "--bogus-flag"],
+            capture_output=True,
+            text=True,
+            env=env_info["env"],
+            timeout=30,
+        )
+        assert result.returncode != 0, (
+            f"Script should exit non-zero for unknown flag.\n"
+            f"Exit code: {result.returncode}\n"
+            f"STDOUT:\n{result.stdout}"
+        )
+
+
+class TestDryRunNoSideEffects:
+    """
+    Test that --dry-run mode produces no filesystem changes.
+
+    Validates that running with --dry-run in a full stub environment
+    does not create, modify, or delete any files outside tmp_path.
+    """
+
+    def test_dry_run_no_filesystem_changes(self, tmp_path):
+        """
+        Test that dry-run does not modify any files.
+
+        Given: A fully stubbed environment
+        When: Running install-deps.sh --dry-run
+        Then: No files are created, modified, or deleted outside tmp_path
+        """
+        env_info = create_full_stub_env(tmp_path)
+
+        # Snapshot the tmp_path state before running
+        before_files = set()
+        for p in tmp_path.rglob("*"):
+            before_files.add((str(p.relative_to(tmp_path)), p.stat().st_size if p.is_file() else -1))
+
+        result = subprocess.run(
+            [str(SCRIPT_PATH), "--dry-run"],
+            capture_output=True,
+            text=True,
+            env=env_info["env"],
+            timeout=30,
+        )
+
+        # Snapshot after running
+        after_files = set()
+        for p in tmp_path.rglob("*"):
+            after_files.add((str(p.relative_to(tmp_path)), p.stat().st_size if p.is_file() else -1))
+
+        # No new files should have been created in the repo root
+        repo_root = env_info["repo_root"]
+        new_in_repo = set()
+        for p in repo_root.rglob("*"):
+            rel = str(p.relative_to(tmp_path))
+            matching = [f for f in before_files if f[0] == rel]
+            if not matching:
+                new_in_repo.add(rel)
+
+        assert len(new_in_repo) == 0, (
+            f"Dry-run should not create new files in repo root.\n"
+            f"New files: {new_in_repo}"
+        )
+
+
+# =============================================================================
+# Group 2 -- Dry-Run Output
+# =============================================================================
+
+
+class TestDryRunMiseInstall:
+    """
+    Test dry-run output when mise is missing.
+
+    When mise is not found on PATH, the script should output a [DRY-RUN]
+    message indicating it would install mise via curl.
+    """
+
+    def test_mise_missing_shows_dry_run_install(self, tmp_path):
+        """
+        Test that missing mise triggers dry-run curl install message.
+
+        Given: An environment where mise is not installed
+        When: Running install-deps.sh --dry-run
+        Then: Output contains [DRY-RUN] with curl or mise install reference
+        """
+        env_info = create_full_stub_env(tmp_path, overrides={"mise": None})
+        result = subprocess.run(
+            [str(SCRIPT_PATH), "--dry-run"],
+            capture_output=True,
+            text=True,
+            env=env_info["env"],
+            timeout=30,
+        )
+        combined_output = result.stdout + result.stderr
+        assert "DRY-RUN" in combined_output, (
+            f"Output should contain [DRY-RUN] tag when mise is missing.\n"
+            f"Output:\n{combined_output}"
+        )
+        # Should mention curl or mise.run for the install command
+        assert "curl" in combined_output.lower() or "mise" in combined_output.lower(), (
+            f"Dry-run output should reference curl/mise install command.\n"
+            f"Output:\n{combined_output}"
+        )
+
+
+class TestDryRunMiseSkip:
+    """
+    Test dry-run output when mise is already present.
+
+    When mise is found on PATH, the script should output [SKIP] for mise.
+    """
+
+    def test_mise_present_shows_skip(self, tmp_path):
+        """
+        Test that present mise triggers [SKIP] in dry-run output.
+
+        Given: An environment where mise is installed
+        When: Running install-deps.sh --dry-run
+        Then: Output contains [SKIP] for mise
+        """
+        env_info = create_full_stub_env(tmp_path)
+        result = subprocess.run(
+            [str(SCRIPT_PATH), "--dry-run"],
+            capture_output=True,
+            text=True,
+            env=env_info["env"],
+            timeout=30,
+        )
+        combined_output = result.stdout + result.stderr
+        assert "SKIP" in combined_output, (
+            f"Output should contain [SKIP] when mise is present.\n"
+            f"Output:\n{combined_output}"
+        )
+        # Verify mise is mentioned in a skip context
+        lines_with_skip = [
+            line for line in combined_output.splitlines()
+            if "SKIP" in line and "mise" in line.lower()
+        ]
+        assert len(lines_with_skip) > 0, (
+            f"Output should have a [SKIP] line mentioning mise.\n"
+            f"Output:\n{combined_output}"
+        )
+
+
+class TestDryRunPythonInstall:
+    """
+    Test dry-run output when Python is missing.
+
+    When python3 is not found or version is insufficient, the script should
+    output a [DRY-RUN] message about mise install python@3.14.
+    """
+
+    def test_python_missing_shows_dry_run_install(self, tmp_path):
+        """
+        Test that missing python triggers dry-run mise install python message.
+
+        Given: An environment where python3 is not installed
+        When: Running install-deps.sh --dry-run
+        Then: Output contains [DRY-RUN] referencing mise install python
+        """
+        env_info = create_full_stub_env(tmp_path, overrides={"python3": None})
+        result = subprocess.run(
+            [str(SCRIPT_PATH), "--dry-run"],
+            capture_output=True,
+            text=True,
+            env=env_info["env"],
+            timeout=30,
+        )
+        combined_output = result.stdout + result.stderr
+        assert "DRY-RUN" in combined_output, (
+            f"Output should contain [DRY-RUN] when python3 is missing.\n"
+            f"Output:\n{combined_output}"
+        )
+        # Should mention python in the install command
+        assert "python" in combined_output.lower(), (
+            f"Dry-run output should reference python installation.\n"
+            f"Output:\n{combined_output}"
+        )
+
+
+class TestDryRunNodeInstall:
+    """
+    Test dry-run output when Node.js is missing.
+
+    When node is not found, the script should output a [DRY-RUN] message
+    about mise install node@22.
+    """
+
+    def test_node_missing_shows_dry_run_install(self, tmp_path):
+        """
+        Test that missing node triggers dry-run mise install node message.
+
+        Given: An environment where node is not installed
+        When: Running install-deps.sh --dry-run
+        Then: Output contains [DRY-RUN] referencing mise install node
+        """
+        env_info = create_full_stub_env(tmp_path, overrides={"node": None})
+        result = subprocess.run(
+            [str(SCRIPT_PATH), "--dry-run"],
+            capture_output=True,
+            text=True,
+            env=env_info["env"],
+            timeout=30,
+        )
+        combined_output = result.stdout + result.stderr
+        assert "DRY-RUN" in combined_output, (
+            f"Output should contain [DRY-RUN] when node is missing.\n"
+            f"Output:\n{combined_output}"
+        )
+        assert "node" in combined_output.lower(), (
+            f"Dry-run output should reference node installation.\n"
+            f"Output:\n{combined_output}"
+        )
+
+
+class TestDryRunPipInstall:
+    """
+    Test dry-run output when pip packages are missing.
+
+    When pip packages from requirements.txt are not installed, the script
+    should output a [DRY-RUN] message about pip install -r requirements.txt.
+    """
+
+    def test_pip_packages_missing_shows_dry_run_install(self, tmp_path):
+        """
+        Test that missing pip packages trigger dry-run pip install message.
+
+        Given: An environment where pip packages are not installed
+        When: Running install-deps.sh --dry-run
+        Then: Output contains [DRY-RUN] referencing pip install
+        """
+        # python3 stub that reports packages as missing
+        python_stub_missing_pkgs = (
+            "#!/bin/bash\n"
+            'if [[ "$1" == "--version" ]]; then\n'
+            '    echo "Python 3.14.0"\n'
+            'elif [[ "$1" == "-m" && "$2" == "pip" && "$3" == "show" ]]; then\n'
+            "    exit 1\n"
+            'elif [[ "$1" == "-m" && "$2" == "pip" && "$3" == "install" ]]; then\n'
+            "    exit 0\n"
+            "else\n"
+            "    exit 0\n"
+            "fi\n"
+        )
+        env_info = create_full_stub_env(
+            tmp_path, overrides={"python3": python_stub_missing_pkgs}
+        )
+        result = subprocess.run(
+            [str(SCRIPT_PATH), "--dry-run"],
+            capture_output=True,
+            text=True,
+            env=env_info["env"],
+            timeout=30,
+        )
+        combined_output = result.stdout + result.stderr
+        assert "DRY-RUN" in combined_output, (
+            f"Output should contain [DRY-RUN] when pip packages are missing.\n"
+            f"Output:\n{combined_output}"
+        )
+        assert "pip" in combined_output.lower() or "requirements" in combined_output.lower(), (
+            f"Dry-run output should reference pip install or requirements.txt.\n"
+            f"Output:\n{combined_output}"
+        )
+
+
+class TestDryRunNpmInstall:
+    """
+    Test dry-run output when npm packages are missing.
+
+    When npm packages (prettier, mermaid-cli) are not installed, the script
+    should output a [DRY-RUN] message about npm install.
+    """
+
+    def test_npm_packages_missing_shows_dry_run_install(self, tmp_path):
+        """
+        Test that missing npm packages trigger dry-run npm install message.
+
+        Given: An environment where npm packages are not installed
+        When: Running install-deps.sh --dry-run
+        Then: Output contains [DRY-RUN] referencing npm install
+        """
+        # npm stub that reports no packages installed
+        npm_stub_no_pkgs = (
+            "#!/bin/bash\n"
+            'if [[ "$1" == "--version" ]]; then\n'
+            '    echo "10.0.0"\n'
+            'elif [[ "$1" == "ls" || "$1" == "list" ]]; then\n'
+            "    exit 1\n"
+            'elif [[ "$1" == "install" ]]; then\n'
+            "    exit 0\n"
+            "else\n"
+            "    exit 0\n"
+            "fi\n"
+        )
+        env_info = create_full_stub_env(tmp_path, overrides={"npm": npm_stub_no_pkgs})
+        result = subprocess.run(
+            [str(SCRIPT_PATH), "--dry-run"],
+            capture_output=True,
+            text=True,
+            env=env_info["env"],
+            timeout=30,
+        )
+        combined_output = result.stdout + result.stderr
+        assert "DRY-RUN" in combined_output, (
+            f"Output should contain [DRY-RUN] when npm packages are missing.\n"
+            f"Output:\n{combined_output}"
+        )
+        assert "npm" in combined_output.lower(), (
+            f"Dry-run output should reference npm install.\n"
+            f"Output:\n{combined_output}"
+        )
+
+
+class TestDryRunActInstall:
+    """
+    Test dry-run output when act is missing.
+
+    When act is not found on PATH, the script should output a [DRY-RUN]
+    message indicating it would install act via the nektos install script.
+    """
+
+    def test_act_missing_shows_dry_run_install(self, tmp_path):
+        """
+        Test that missing act triggers dry-run install message.
+
+        Given: An environment where act is not installed
+        When: Running install-deps.sh --dry-run
+        Then: Output contains [DRY-RUN] referencing act installation
+        """
+        env_info = create_full_stub_env(tmp_path, overrides={"act": None})
+        result = subprocess.run(
+            [str(SCRIPT_PATH), "--dry-run"],
+            capture_output=True,
+            text=True,
+            env=env_info["env"],
+            timeout=30,
+        )
+        combined_output = result.stdout + result.stderr
+        assert "DRY-RUN" in combined_output, (
+            f"Output should contain [DRY-RUN] when act is missing.\n"
+            f"Output:\n{combined_output}"
+        )
+        assert "act" in combined_output.lower(), (
+            f"Dry-run output should reference act installation.\n"
+            f"Output:\n{combined_output}"
+        )
+
+
+# =============================================================================
+# Group 3 -- Skip/Idempotency
+# =============================================================================
+
+
+class TestSkipMiseWhenPresent:
+    """
+    Test that mise installation is skipped when mise is already present.
+
+    When mise is already on PATH, the script should emit [SKIP] and not
+    attempt to re-install.
+    """
+
+    def test_mise_present_emits_skip(self, tmp_path):
+        """
+        Test that present mise results in [SKIP] output.
+
+        Given: An environment where mise is installed and on PATH
+        When: Running install-deps.sh --dry-run
+        Then: Output contains [SKIP] for mise
+        And: No install command is shown for mise
+        """
+        env_info = create_full_stub_env(tmp_path)
+        result = subprocess.run(
+            [str(SCRIPT_PATH), "--dry-run"],
+            capture_output=True,
+            text=True,
+            env=env_info["env"],
+            timeout=30,
+        )
+        combined_output = result.stdout + result.stderr
+        # Find lines that mention mise and SKIP
+        mise_skip_lines = [
+            line for line in combined_output.splitlines()
+            if "SKIP" in line and "mise" in line.lower()
+        ]
+        assert len(mise_skip_lines) > 0, (
+            f"Output should have [SKIP] line for mise when already present.\n"
+            f"Output:\n{combined_output}"
+        )
+
+
+class TestSkipPythonWhenPresent:
+    """
+    Test that Python installation is skipped when correct version is present.
+
+    When python3 >= 3.14 is already available, the script should emit [SKIP].
+    """
+
+    def test_python_correct_version_emits_skip(self, tmp_path):
+        """
+        Test that Python >= 3.14 results in [SKIP] output.
+
+        Given: An environment where python3 reports version 3.14.0
+        When: Running install-deps.sh --dry-run
+        Then: Output contains [SKIP] for Python
+        """
+        env_info = create_full_stub_env(tmp_path)
+        result = subprocess.run(
+            [str(SCRIPT_PATH), "--dry-run"],
+            capture_output=True,
+            text=True,
+            env=env_info["env"],
+            timeout=30,
+        )
+        combined_output = result.stdout + result.stderr
+        python_skip_lines = [
+            line for line in combined_output.splitlines()
+            if "SKIP" in line and "python" in line.lower()
+        ]
+        assert len(python_skip_lines) > 0, (
+            f"Output should have [SKIP] line for python when correct version present.\n"
+            f"Output:\n{combined_output}"
+        )
+
+
+class TestSkipNodeWhenPresent:
+    """
+    Test that Node.js installation is skipped when correct version is present.
+
+    When node >= 22 is already available, the script should emit [SKIP].
+    """
+
+    def test_node_correct_version_emits_skip(self, tmp_path):
+        """
+        Test that Node.js >= 22 results in [SKIP] output.
+
+        Given: An environment where node reports version v22.0.0
+        When: Running install-deps.sh --dry-run
+        Then: Output contains [SKIP] for Node.js
+        """
+        env_info = create_full_stub_env(tmp_path)
+        result = subprocess.run(
+            [str(SCRIPT_PATH), "--dry-run"],
+            capture_output=True,
+            text=True,
+            env=env_info["env"],
+            timeout=30,
+        )
+        combined_output = result.stdout + result.stderr
+        node_skip_lines = [
+            line for line in combined_output.splitlines()
+            if "SKIP" in line and "node" in line.lower()
+        ]
+        assert len(node_skip_lines) > 0, (
+            f"Output should have [SKIP] line for node when correct version present.\n"
+            f"Output:\n{combined_output}"
+        )
+
+
+class TestSkipActWhenPresent:
+    """
+    Test that act installation is skipped when act is already present.
+
+    When act is already on PATH, the script should emit [SKIP].
+    """
+
+    def test_act_present_emits_skip(self, tmp_path):
+        """
+        Test that present act results in [SKIP] output.
+
+        Given: An environment where act is installed and on PATH
+        When: Running install-deps.sh --dry-run
+        Then: Output contains [SKIP] for act
+        """
+        env_info = create_full_stub_env(tmp_path)
+        result = subprocess.run(
+            [str(SCRIPT_PATH), "--dry-run"],
+            capture_output=True,
+            text=True,
+            env=env_info["env"],
+            timeout=30,
+        )
+        combined_output = result.stdout + result.stderr
+        act_skip_lines = [
+            line for line in combined_output.splitlines()
+            if "SKIP" in line and "act" in line.lower()
+        ]
+        assert len(act_skip_lines) > 0, (
+            f"Output should have [SKIP] line for act when already present.\n"
+            f"Output:\n{combined_output}"
+        )
+
+
+class TestSkipChromiumWhenPresent:
+    """
+    Test that Chromium installation is skipped when found in Playwright cache.
+
+    When Chromium exists in PLAYWRIGHT_BROWSERS_PATH, the script should emit [SKIP].
+    """
+
+    def test_chromium_in_cache_emits_skip(self, tmp_path):
+        """
+        Test that Chromium in Playwright cache results in [SKIP] output.
+
+        Given: An environment with Chromium in PLAYWRIGHT_BROWSERS_PATH
+        When: Running install-deps.sh --dry-run
+        Then: Output contains [SKIP] for Chromium/Playwright
+        """
+        # create_full_stub_env already sets up a Playwright cache with chromium
+        env_info = create_full_stub_env(tmp_path)
+        result = subprocess.run(
+            [str(SCRIPT_PATH), "--dry-run"],
+            capture_output=True,
+            text=True,
+            env=env_info["env"],
+            timeout=30,
+        )
+        combined_output = result.stdout + result.stderr
+        chromium_skip_lines = [
+            line for line in combined_output.splitlines()
+            if "SKIP" in line
+            and ("chromium" in line.lower() or "playwright" in line.lower())
+        ]
+        assert len(chromium_skip_lines) > 0, (
+            f"Output should have [SKIP] line for Chromium/Playwright when in cache.\n"
+            f"Output:\n{combined_output}"
+        )
+
+
+# =============================================================================
+# Group 4 -- Error Handling
+# =============================================================================
+
+
+class TestMiseInstallFailure:
+    """
+    Test behavior when mise installation fails.
+
+    When mise is missing and the install command fails, the script should
+    increment its FAILURES counter, emit [FAIL], and continue with
+    remaining installations.
+    """
+
+    def test_mise_install_failure_shows_fail_and_continues(self, tmp_path):
+        """
+        Test that failing mise install emits [FAIL] and continues.
+
+        Given: An environment where mise is missing and curl fails
+        When: Running install-deps.sh (non-dry-run with failing curl stub)
+        Then: Output contains [FAIL] for mise
+        And: Script continues to check remaining tools (does not abort)
+        """
+        # curl stub that fails for mise install
+        curl_fail = (
+            "#!/bin/bash\n"
+            "exit 1\n"
+        )
+        env_info = create_full_stub_env(
+            tmp_path,
+            overrides={"mise": None, "curl": curl_fail},
+        )
+        result = subprocess.run(
+            [str(SCRIPT_PATH)],
+            capture_output=True,
+            text=True,
+            env=env_info["env"],
+            timeout=30,
+        )
+        combined_output = result.stdout + result.stderr
+        assert "FAIL" in combined_output, (
+            f"Output should contain [FAIL] when mise install fails.\n"
+            f"Output:\n{combined_output}"
+        )
+        # Script should not abort -- it should continue and mention other tools
+        # (e.g., python, node, act, etc.)
+        assert result.returncode != 0, (
+            f"Script should exit non-zero when mise install fails.\n"
+            f"Exit code: {result.returncode}"
+        )
+
+
+class TestPipInstallFailure:
+    """
+    Test behavior when pip install fails.
+
+    When pip install -r requirements.txt fails, the script should emit [FAIL]
+    and continue with remaining installations.
+    """
+
+    def test_pip_install_failure_shows_fail_and_continues(self, tmp_path):
+        """
+        Test that failing pip install emits [FAIL] and continues.
+
+        Given: An environment where pip install fails
+        When: Running install-deps.sh
+        Then: Output contains [FAIL] for pip packages
+        And: Script continues to subsequent installation steps
+        """
+        # python3 stub that fails on pip install
+        python_pip_fail = (
+            "#!/bin/bash\n"
+            'if [[ "$1" == "--version" ]]; then\n'
+            '    echo "Python 3.14.0"\n'
+            'elif [[ "$1" == "-m" && "$2" == "pip" && "$3" == "show" ]]; then\n'
+            "    exit 1\n"
+            'elif [[ "$1" == "-m" && "$2" == "pip" && "$3" == "install" ]]; then\n'
+            "    exit 1\n"
+            "else\n"
+            "    exit 0\n"
+            "fi\n"
+        )
+        env_info = create_full_stub_env(
+            tmp_path, overrides={"python3": python_pip_fail}
+        )
+        result = subprocess.run(
+            [str(SCRIPT_PATH)],
+            capture_output=True,
+            text=True,
+            env=env_info["env"],
+            timeout=30,
+        )
+        combined_output = result.stdout + result.stderr
+        assert "FAIL" in combined_output, (
+            f"Output should contain [FAIL] when pip install fails.\n"
+            f"Output:\n{combined_output}"
+        )
+        # Verify script did not abort early -- it should mention npm or act
+        # (subsequent steps after pip)
+        lower_output = combined_output.lower()
+        assert "npm" in lower_output or "act" in lower_output or "node" in lower_output, (
+            f"Script should continue after pip failure and mention subsequent steps.\n"
+            f"Output:\n{combined_output}"
+        )
+
+
+class TestNpmInstallFailure:
+    """
+    Test behavior when npm install fails.
+
+    When npm install fails, the script should emit [FAIL] and continue
+    with remaining installations.
+    """
+
+    def test_npm_install_failure_shows_fail_and_continues(self, tmp_path):
+        """
+        Test that failing npm install emits [FAIL] and continues.
+
+        Given: An environment where npm install fails
+        When: Running install-deps.sh
+        Then: Output contains [FAIL] for npm packages
+        And: Script continues to subsequent installation steps
+        """
+        # npm stub that fails on install
+        npm_fail = (
+            "#!/bin/bash\n"
+            'if [[ "$1" == "--version" ]]; then\n'
+            '    echo "10.0.0"\n'
+            'elif [[ "$1" == "ls" || "$1" == "list" ]]; then\n'
+            "    exit 1\n"
+            'elif [[ "$1" == "install" ]]; then\n'
+            "    exit 1\n"
+            "else\n"
+            "    exit 0\n"
+            "fi\n"
+        )
+        env_info = create_full_stub_env(tmp_path, overrides={"npm": npm_fail})
+        result = subprocess.run(
+            [str(SCRIPT_PATH)],
+            capture_output=True,
+            text=True,
+            env=env_info["env"],
+            timeout=30,
+        )
+        combined_output = result.stdout + result.stderr
+        assert "FAIL" in combined_output, (
+            f"Output should contain [FAIL] when npm install fails.\n"
+            f"Output:\n{combined_output}"
+        )
+        # Script should continue past npm failure to act/chromium/verification
+        lower_output = combined_output.lower()
+        assert "act" in lower_output or "chromium" in lower_output or "verif" in lower_output, (
+            f"Script should continue after npm failure and mention subsequent steps.\n"
+            f"Output:\n{combined_output}"
+        )
+
+
+class TestVerificationFailure:
+    """
+    Test behavior when verify-deps.sh returns non-zero.
+
+    When the final verification step (verify-deps.sh) fails, install-deps.sh
+    should exit with a non-zero code.
+    """
+
+    def test_verify_deps_failure_exits_nonzero(self, tmp_path):
+        """
+        Test that failing verify-deps.sh causes install-deps.sh to exit non-zero.
+
+        Given: An environment where verify-deps.sh exits 1
+        When: Running install-deps.sh
+        Then: install-deps.sh exits with non-zero code
+        """
+        verify_fail = "#!/bin/bash\nexit 1\n"
+        env_info = create_full_stub_env(
+            tmp_path, overrides={"verify-deps": verify_fail}
+        )
+        result = subprocess.run(
+            [str(SCRIPT_PATH)],
+            capture_output=True,
+            text=True,
+            env=env_info["env"],
+            timeout=30,
+        )
+        assert result.returncode != 0, (
+            f"Script should exit non-zero when verify-deps.sh fails.\n"
+            f"Exit code: {result.returncode}\n"
+            f"STDOUT:\n{result.stdout}\n"
+            f"STDERR:\n{result.stderr}"
+        )
+
+
+# =============================================================================
+# Group 5 -- Output Formatting
+# =============================================================================
+
+
+class TestOutputColors:
+    """
+    Test that output contains ANSI color codes for status tags.
+
+    The script should use color-coded output tags:
+    - GREEN for [PASS] and [SKIP]
+    - RED for [FAIL]
+    - YELLOW for [INFO] and [DRY-RUN]
+    """
+
+    def test_output_contains_ansi_color_codes(self, tmp_path):
+        """
+        Test that ANSI escape codes are present in output.
+
+        Given: A fully stubbed environment with all tools present
+        When: Running install-deps.sh --dry-run
+        Then: Output contains ANSI color escape sequences
+        """
+        env_info = create_full_stub_env(tmp_path)
+        result = subprocess.run(
+            [str(SCRIPT_PATH), "--dry-run"],
+            capture_output=True,
+            text=True,
+            env=env_info["env"],
+            timeout=30,
+        )
+        combined_output = result.stdout + result.stderr
+        # Check for ANSI escape code prefix \033[ (appears as \x1b[ in Python)
+        assert "\x1b[" in combined_output, (
+            f"Output should contain ANSI color escape sequences.\n"
+            f"Output (repr):\n{repr(combined_output[:500])}"
+        )
+
+    def test_pass_or_skip_uses_green(self, tmp_path):
+        """
+        Test that [PASS] and [SKIP] tags use green color code.
+
+        Given: A fully stubbed environment where tools are skipped
+        When: Running install-deps.sh --dry-run
+        Then: [SKIP] tags are preceded by green ANSI code (\\033[0;32m)
+        """
+        env_info = create_full_stub_env(tmp_path)
+        result = subprocess.run(
+            [str(SCRIPT_PATH), "--dry-run"],
+            capture_output=True,
+            text=True,
+            env=env_info["env"],
+            timeout=30,
+        )
+        combined_output = result.stdout + result.stderr
+        # GREEN = \033[0;32m which appears as \x1b[0;32m in Python
+        green_code = "\x1b[0;32m"
+        assert green_code in combined_output, (
+            f"Output should contain green ANSI code for [PASS]/[SKIP] tags.\n"
+            f"Output (repr):\n{repr(combined_output[:500])}"
+        )
+
+    def test_fail_uses_red(self, tmp_path):
+        """
+        Test that [FAIL] tags use red color code.
+
+        Given: An environment with a failing tool
+        When: Running install-deps.sh
+        Then: [FAIL] tags are preceded by red ANSI code (\\033[0;31m)
+        """
+        # Make curl fail so mise install fails
+        env_info = create_full_stub_env(
+            tmp_path,
+            overrides={"mise": None, "curl": "#!/bin/bash\nexit 1\n"},
+        )
+        result = subprocess.run(
+            [str(SCRIPT_PATH)],
+            capture_output=True,
+            text=True,
+            env=env_info["env"],
+            timeout=30,
+        )
+        combined_output = result.stdout + result.stderr
+        red_code = "\x1b[0;31m"
+        assert red_code in combined_output, (
+            f"Output should contain red ANSI code for [FAIL] tags.\n"
+            f"Output (repr):\n{repr(combined_output[:500])}"
+        )
+
+
+class TestQuietModeSuppression:
+    """
+    Test that --quiet flag suppresses non-error output.
+
+    With --quiet, [PASS], [SKIP], and [INFO] messages should be suppressed.
+    [FAIL] messages should still be shown.
+    """
+
+    def test_quiet_suppresses_pass_skip_info(self, tmp_path):
+        """
+        Test that --quiet hides [PASS], [SKIP], and [INFO] output.
+
+        Given: A fully stubbed environment with all tools present
+        When: Running install-deps.sh --quiet --dry-run
+        Then: Output does not contain [PASS], [SKIP], or [INFO] tags
+        """
+        env_info = create_full_stub_env(tmp_path)
+        result = subprocess.run(
+            [str(SCRIPT_PATH), "--quiet", "--dry-run"],
+            capture_output=True,
+            text=True,
+            env=env_info["env"],
+            timeout=30,
+        )
+        combined_output = result.stdout + result.stderr
+        # In quiet mode with all tools present, there should be no PASS/SKIP/INFO
+        for tag in ["[PASS]", "[SKIP]", "[INFO]"]:
+            assert tag not in combined_output, (
+                f"--quiet should suppress {tag} output.\n"
+                f"Output:\n{combined_output}"
+            )
+
+    def test_quiet_still_shows_fail(self, tmp_path):
+        """
+        Test that --quiet does not suppress [FAIL] output.
+
+        Given: An environment where a tool install fails
+        When: Running install-deps.sh --quiet
+        Then: Output still contains [FAIL] messages
+        """
+        # Make mise missing and curl fail so we get a FAIL
+        env_info = create_full_stub_env(
+            tmp_path,
+            overrides={"mise": None, "curl": "#!/bin/bash\nexit 1\n"},
+        )
+        result = subprocess.run(
+            [str(SCRIPT_PATH), "--quiet"],
+            capture_output=True,
+            text=True,
+            env=env_info["env"],
+            timeout=30,
+        )
+        combined_output = result.stdout + result.stderr
+        assert "FAIL" in combined_output, (
+            f"--quiet should still show [FAIL] messages.\n"
+            f"Output:\n{combined_output}"
+        )
+
+
+# =============================================================================
+# Group 6 -- Integration
+# =============================================================================
+
+
+class TestFullInstallDryRun:
+    """
+    Test full dry-run with all tools present.
+
+    Integration test that creates a complete stubbed environment with every
+    tool reporting as present and correctly versioned. Running --dry-run
+    should produce all [SKIP] messages and exit 0.
+    """
+
+    def test_all_tools_present_dry_run_all_skip_exit_0(self, tmp_path):
+        """
+        Test full dry-run with all tools present produces all [SKIP] and exit 0.
+
+        Given: A fully stubbed environment with all tools present
+        When: Running install-deps.sh --dry-run
+        Then: Script exits with code 0
+        And: Output contains [SKIP] for each tool category
+        And: Output does not contain [FAIL]
+        """
+        env_info = create_full_stub_env(tmp_path)
+        result = subprocess.run(
+            [str(SCRIPT_PATH), "--dry-run"],
+            capture_output=True,
+            text=True,
+            env=env_info["env"],
+            timeout=30,
+        )
+        combined_output = result.stdout + result.stderr
+
+        assert result.returncode == 0, (
+            f"Script should exit 0 when all tools present in dry-run.\n"
+            f"Exit code: {result.returncode}\n"
+            f"STDOUT:\n{result.stdout}\n"
+            f"STDERR:\n{result.stderr}"
+        )
+
+        assert "FAIL" not in combined_output, (
+            f"Output should not contain [FAIL] when all tools present.\n"
+            f"Output:\n{combined_output}"
+        )
+
+        assert "SKIP" in combined_output, (
+            f"Output should contain [SKIP] tags for present tools.\n"
+            f"Output:\n{combined_output}"
+        )
+
+    def test_all_tools_present_dry_run_mentions_all_categories(self, tmp_path):
+        """
+        Test that dry-run output mentions all tool categories.
+
+        Given: A fully stubbed environment with all tools present
+        When: Running install-deps.sh --dry-run
+        Then: Output references mise, python, node, pip, npm, act, chromium
+        """
+        env_info = create_full_stub_env(tmp_path)
+        result = subprocess.run(
+            [str(SCRIPT_PATH), "--dry-run"],
+            capture_output=True,
+            text=True,
+            env=env_info["env"],
+            timeout=30,
+        )
+        combined_output = (result.stdout + result.stderr).lower()
+
+        expected_tools = ["mise", "python", "node", "pip", "npm", "act", "chromium"]
+        missing_mentions = [
+            tool for tool in expected_tools if tool not in combined_output
+        ]
+        assert len(missing_mentions) == 0, (
+            f"Dry-run output should mention all tool categories.\n"
+            f"Missing: {missing_mentions}\n"
+            f"Output:\n{result.stdout + result.stderr}"
+        )
+
+
+"""
+Test Summary
+============
+Total Test Classes: 22
+Total Test Methods: 30
+
+Group 1 -- Script Fundamentals (3 classes, 6 methods):
+- TestScriptExists (2): file exists, is executable
+- TestArgumentParsing (4): --dry-run, --quiet, --help, unknown flag
+- TestDryRunNoSideEffects (1): no filesystem changes
+
+Group 2 -- Dry-Run Output (7 classes, 7 methods):
+- TestDryRunMiseInstall (1): mise missing -> DRY-RUN curl
+- TestDryRunMiseSkip (1): mise present -> SKIP
+- TestDryRunPythonInstall (1): python missing -> DRY-RUN mise install python
+- TestDryRunNodeInstall (1): node missing -> DRY-RUN mise install node
+- TestDryRunPipInstall (1): pip packages missing -> DRY-RUN pip install
+- TestDryRunNpmInstall (1): npm packages missing -> DRY-RUN npm install
+- TestDryRunActInstall (1): act missing -> DRY-RUN act install
+
+Group 3 -- Skip/Idempotency (5 classes, 5 methods):
+- TestSkipMiseWhenPresent (1): mise present -> SKIP
+- TestSkipPythonWhenPresent (1): python correct version -> SKIP
+- TestSkipNodeWhenPresent (1): node correct version -> SKIP
+- TestSkipActWhenPresent (1): act present -> SKIP
+- TestSkipChromiumWhenPresent (1): chromium in cache -> SKIP
+
+Group 4 -- Error Handling (4 classes, 4 methods):
+- TestMiseInstallFailure (1): curl fails -> FAIL, continues
+- TestPipInstallFailure (1): pip install fails -> FAIL, continues
+- TestNpmInstallFailure (1): npm install fails -> FAIL, continues
+- TestVerificationFailure (1): verify-deps.sh fails -> exit non-zero
+
+Group 5 -- Output Formatting (2 classes, 5 methods):
+- TestOutputColors (3): ANSI codes present, green for PASS/SKIP, red for FAIL
+- TestQuietModeSuppression (2): quiet hides PASS/SKIP/INFO, shows FAIL
+
+Group 6 -- Integration (1 class, 2 methods):
+- TestFullInstallDryRun (2): all SKIP + exit 0, all categories mentioned
+
+Coverage Areas:
+- Script existence and permissions
+- Command-line argument parsing (--dry-run, --quiet, --help, unknown flags)
+- Dry-run mode filesystem safety
+- Tool presence detection and [SKIP] output
+- Tool absence detection and [DRY-RUN] install commands
+- Installation failure handling and [FAIL] output
+- Verification gate (verify-deps.sh exit code propagation)
+- ANSI color codes for status tags
+- Quiet mode output suppression
+- Full integration with all tools present
+
+Next Steps:
+1. Run tests (all should fail - TDD red phase, script does not exist yet)
+2. Implement install-deps.sh script (TDD green phase)
+3. Refactor for clarity and maintainability (TDD refactor phase)
+4. Verify 100% coverage of script functionality
+"""

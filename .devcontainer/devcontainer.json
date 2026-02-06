@@ -1,5 +1,5 @@
 {
-	"name": "Python-3",
+	"name": "secure-ai-tooling",
 	"dockerFile": "Dockerfile",
 	"build": {
 		"args": {
@@ -9,24 +9,14 @@
 	},
 
 	"features": {
-		"ghcr.io/devcontainers/features/python:1": {
-	      "version": "3.14"
-	    },
-		"ghcr.io/devcontainers/features/node:1": {},
 		"ghcr.io/devcontainers/features/docker-in-docker:2": {}
 	},
 
 	// Use 'forwardPorts' to make a list of ports inside the container available locally.
 	// "forwardPorts": [],
 
-
-	"onCreateCommand": {
-		"pip-install": "pip install -r requirements.txt",
-		"npm-install": "npm install"
-	},
-
 	"postCreateCommand": {
-		"setup-script": "bash .devcontainer/setup-script"
+		"install-deps": "bash scripts/tools/install-deps.sh"
 	},
 
 	// Configure tool-specific properties.
@@ -39,7 +29,7 @@
 			],
 			"settings": {
 		        "python.globalModuleInstallation": true,
-				"python.defaultInterpreterPath": "/usr/local/python/current/bin/python",
+				"python.defaultInterpreterPath": "~/.local/share/mise/shims/python",
 		        "python.testing.pytestEnabled": true,
  		        "python.testing.unittestEnabled": false
 			}
