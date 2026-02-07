@@ -9,7 +9,7 @@ and supports --dry-run and --quiet flags.
 
 Test Coverage:
 ==============
-Total Test Classes: 25
+Total Test Classes: 31
 Coverage Target: 100% of install-deps.sh functionality
 
 Group 1 -- Script Fundamentals (3):
@@ -51,6 +51,16 @@ Group 5 -- Output Formatting (2):
 
 Group 6 -- Integration (1):
 24. TestFullInstallDryRun - all tools present, --dry-run -> all [SKIP], exit 0
+
+Group 7 -- PATH Persistence (4):
+25. TestPathPersistenceBashrcCreated - creates ~/.bashrc with mise shims PATH
+26. TestPathPersistenceIdempotent - no duplicates on rerun, [SKIP] when present
+27. TestPathPersistenceDryRun - --dry-run does not modify bashrc, shows message
+28. TestPathPersistenceContent - correct export line format
+
+Group 8 -- Non-Interactive Execution (2):
+29. TestNonInteractiveCommands - pip --no-input, npm --no-audit flags
+30. TestNonInteractiveSudo - act install uses sudo -n
 
 Installation Order Tested:
 ==========================
@@ -1552,11 +1562,314 @@ class TestFullInstallDryRun:
         )
 
 
+# =============================================================================
+# Group 7 -- PATH Persistence
+# =============================================================================
+
+
+class TestPathPersistenceBashrcCreated:
+    """
+    Test that install-deps.sh creates ~/.bashrc with mise shims PATH export
+    when it doesn't already exist.
+    """
+
+    def test_bashrc_created_with_mise_path(self, tmp_path):
+        """
+        When ~/.bashrc doesn't exist, install-deps.sh creates it with mise shims PATH.
+
+        Given: A fully stubbed environment where $HOME/.bashrc does not exist
+        When: Running install-deps.sh (non-dry-run)
+        Then: $HOME/.bashrc exists and contains 'mise/shims'
+        """
+        env_info = create_full_stub_env(tmp_path)
+        home_dir = tmp_path / "home"
+        bashrc = home_dir / ".bashrc"
+        # Ensure .bashrc does not exist
+        if bashrc.exists():
+            bashrc.unlink()
+
+        subprocess.run(
+            [str(SCRIPT_PATH)],
+            capture_output=True,
+            text=True,
+            env=env_info["env"],
+            timeout=30,
+        )
+
+        assert bashrc.exists(), f"~/.bashrc should have been created at {bashrc}"
+        content = bashrc.read_text()
+        assert "mise/shims" in content, (
+            f"~/.bashrc should contain 'mise/shims' PATH export.\nContent:\n{content}"
+        )
+
+
+class TestPathPersistenceIdempotent:
+    """
+    Test that PATH persistence in ~/.bashrc is idempotent -- no duplicates
+    on re-run, and [SKIP] message when already present.
+    """
+
+    def test_bashrc_not_duplicated_on_rerun(self, tmp_path):
+        """
+        Pre-create ~/.bashrc with mise path line, run script, assert only 1 occurrence.
+
+        Given: ~/.bashrc already contains the mise shims PATH export
+        When: Running install-deps.sh (non-dry-run)
+        Then: ~/.bashrc still contains exactly 1 occurrence of 'mise/shims'
+        """
+        env_info = create_full_stub_env(tmp_path)
+        home_dir = tmp_path / "home"
+        bashrc = home_dir / ".bashrc"
+        # Pre-create with the expected line
+        bashrc.write_text(
+            '# mise shims PATH (added by install-deps.sh)\n'
+            'export PATH="$HOME/.local/share/mise/shims:$HOME/.local/bin:$PATH"\n'
+        )
+
+        subprocess.run(
+            [str(SCRIPT_PATH)],
+            capture_output=True,
+            text=True,
+            env=env_info["env"],
+            timeout=30,
+        )
+
+        content = bashrc.read_text()
+        count = content.count("mise/shims")
+        assert count == 1, (
+            f"~/.bashrc should contain exactly 1 'mise/shims' line, found {count}.\n"
+            f"Content:\n{content}"
+        )
+
+    def test_bashrc_skip_message_when_already_present(self, tmp_path):
+        """
+        When ~/.bashrc already has mise shims PATH, output contains [SKIP].
+
+        Given: ~/.bashrc already contains the mise shims PATH export
+        When: Running install-deps.sh (non-dry-run)
+        Then: Output contains [SKIP] referencing PATH or bashrc
+        """
+        env_info = create_full_stub_env(tmp_path)
+        home_dir = tmp_path / "home"
+        bashrc = home_dir / ".bashrc"
+        bashrc.write_text(
+            '# mise shims PATH (added by install-deps.sh)\n'
+            'export PATH="$HOME/.local/share/mise/shims:$HOME/.local/bin:$PATH"\n'
+        )
+
+        result = subprocess.run(
+            [str(SCRIPT_PATH)],
+            capture_output=True,
+            text=True,
+            env=env_info["env"],
+            timeout=30,
+        )
+
+        combined_output = result.stdout + result.stderr
+        skip_path_lines = [
+            line for line in combined_output.splitlines()
+            if "SKIP" in line and ("PATH" in line or "bashrc" in line.lower())
+        ]
+        assert len(skip_path_lines) > 0, (
+            f"Output should have [SKIP] line for PATH/bashrc when already present.\n"
+            f"Output:\n{combined_output}"
+        )
+
+
+class TestPathPersistenceDryRun:
+    """
+    Test that --dry-run does not modify ~/.bashrc and shows [DRY-RUN] message.
+    """
+
+    def test_dry_run_does_not_write_bashrc(self, tmp_path):
+        """
+        Running with --dry-run should not create or modify ~/.bashrc.
+
+        Given: A fully stubbed environment where $HOME/.bashrc does not exist
+        When: Running install-deps.sh --dry-run
+        Then: $HOME/.bashrc still does not exist
+        """
+        env_info = create_full_stub_env(tmp_path)
+        home_dir = tmp_path / "home"
+        bashrc = home_dir / ".bashrc"
+        if bashrc.exists():
+            bashrc.unlink()
+
+        subprocess.run(
+            [str(SCRIPT_PATH), "--dry-run"],
+            capture_output=True,
+            text=True,
+            env=env_info["env"],
+            timeout=30,
+        )
+
+        assert not bashrc.exists(), (
+            "~/.bashrc should NOT be created in --dry-run mode."
+        )
+
+    def test_dry_run_shows_would_append_message(self, tmp_path):
+        """
+        --dry-run output should contain [DRY-RUN] referencing bashrc.
+
+        Given: A fully stubbed environment where $HOME/.bashrc does not exist
+        When: Running install-deps.sh --dry-run
+        Then: Output contains [DRY-RUN] referencing bashrc
+        """
+        env_info = create_full_stub_env(tmp_path)
+        home_dir = tmp_path / "home"
+        bashrc = home_dir / ".bashrc"
+        if bashrc.exists():
+            bashrc.unlink()
+
+        result = subprocess.run(
+            [str(SCRIPT_PATH), "--dry-run"],
+            capture_output=True,
+            text=True,
+            env=env_info["env"],
+            timeout=30,
+        )
+
+        combined_output = result.stdout + result.stderr
+        dry_run_bashrc_lines = [
+            line for line in combined_output.splitlines()
+            if "DRY-RUN" in line and "bashrc" in line.lower()
+        ]
+        assert len(dry_run_bashrc_lines) > 0, (
+            f"Output should have [DRY-RUN] line referencing bashrc.\n"
+            f"Output:\n{combined_output}"
+        )
+
+
+class TestPathPersistenceContent:
+    """
+    Test that the written export line has the correct format.
+    """
+
+    def test_bashrc_contains_correct_export_line(self, tmp_path):
+        """
+        The written line should be the correct PATH export with mise shims.
+
+        Given: A fully stubbed environment where $HOME/.bashrc does not exist
+        When: Running install-deps.sh (non-dry-run)
+        Then: ~/.bashrc contains: export PATH="$HOME/.local/share/mise/shims:$HOME/.local/bin:$PATH"
+        """
+        env_info = create_full_stub_env(tmp_path)
+        home_dir = tmp_path / "home"
+        bashrc = home_dir / ".bashrc"
+        if bashrc.exists():
+            bashrc.unlink()
+
+        subprocess.run(
+            [str(SCRIPT_PATH)],
+            capture_output=True,
+            text=True,
+            env=env_info["env"],
+            timeout=30,
+        )
+
+        assert bashrc.exists(), f"~/.bashrc should have been created at {bashrc}"
+        content = bashrc.read_text()
+        expected_line = 'export PATH="$HOME/.local/share/mise/shims:$HOME/.local/bin:$PATH"'
+        assert expected_line in content, (
+            f"~/.bashrc should contain the exact export line.\n"
+            f"Expected: {expected_line}\n"
+            f"Content:\n{content}"
+        )
+
+
+# =============================================================================
+# Group 8 -- Non-Interactive Execution
+# =============================================================================
+
+
+class TestNonInteractiveCommands:
+    """
+    Static analysis tests: read script source and verify non-interactive flags
+    are present on commands that can prompt for stdin.
+    """
+
+    def test_pip_install_uses_no_input_flag(self):
+        """
+        The pip install command in install-deps.sh must use --no-input.
+
+        Given: The install-deps.sh source code
+        When: Examining pip install lines
+        Then: The line contains '--no-input'
+        """
+        content = SCRIPT_PATH.read_text()
+        # Find lines containing 'pip install' (the actual install, not dry-run messages)
+        pip_install_lines = [
+            line.strip() for line in content.splitlines()
+            if "pip install" in line and "dry_run_msg" not in line and "fail_msg" not in line
+        ]
+        assert len(pip_install_lines) > 0, (
+            "Script should contain at least one 'pip install' command line."
+        )
+        has_no_input = any("--no-input" in line for line in pip_install_lines)
+        assert has_no_input, (
+            f"pip install command should include '--no-input' flag.\n"
+            f"Found pip install lines: {pip_install_lines}"
+        )
+
+    def test_npm_install_uses_non_interactive_flags(self):
+        """
+        The npm install command in install-deps.sh must use --no-audit.
+
+        Given: The install-deps.sh source code
+        When: Examining npm install lines
+        Then: The line contains '--no-audit'
+        """
+        content = SCRIPT_PATH.read_text()
+        # Find lines containing 'npm install' (the actual install, not dry-run/fail messages)
+        npm_install_lines = [
+            line.strip() for line in content.splitlines()
+            if "npm install" in line and "dry_run_msg" not in line and "fail_msg" not in line
+        ]
+        assert len(npm_install_lines) > 0, (
+            "Script should contain at least one 'npm install' command line."
+        )
+        has_no_audit = any("--no-audit" in line for line in npm_install_lines)
+        assert has_no_audit, (
+            f"npm install command should include '--no-audit' flag.\n"
+            f"Found npm install lines: {npm_install_lines}"
+        )
+
+
+class TestNonInteractiveSudo:
+    """
+    Static analysis test: verify act install uses non-interactive sudo.
+    """
+
+    def test_act_install_uses_sudo_non_interactive(self):
+        """
+        The act install command must use 'sudo -n' (non-interactive).
+
+        Given: The install-deps.sh source code
+        When: Examining the act install line with sudo
+        Then: The line contains 'sudo -n'
+        """
+        content = SCRIPT_PATH.read_text()
+        # Find lines with sudo and act/nektos (the actual install, not dry-run messages)
+        sudo_lines = [
+            line.strip() for line in content.splitlines()
+            if "sudo" in line and ("nektos" in line or "act" in line.lower())
+            and "dry_run_msg" not in line and "fail_msg" not in line
+        ]
+        assert len(sudo_lines) > 0, (
+            "Script should contain at least one sudo line for act install."
+        )
+        has_sudo_n = any("sudo -n" in line for line in sudo_lines)
+        assert has_sudo_n, (
+            f"act install should use 'sudo -n' for non-interactive execution.\n"
+            f"Found sudo lines: {sudo_lines}"
+        )
+
+
 """
 Test Summary
 ============
-Total Test Classes: 25
-Total Test Methods: 37
+Total Test Classes: 31
+Total Test Methods: 46
 
 Group 1 -- Script Fundamentals (3 classes, 6 methods):
 - TestScriptExists (2): file exists, is executable
@@ -1601,6 +1914,16 @@ Group 5 -- Output Formatting (2 classes, 5 methods):
 Group 6 -- Integration (1 class, 2 methods):
 - TestFullInstallDryRun (2): all SKIP + exit 0, all categories mentioned
 
+Group 7 -- PATH Persistence (4 classes, 6 methods):
+- TestPathPersistenceBashrcCreated (1): creates ~/.bashrc with mise shims PATH
+- TestPathPersistenceIdempotent (2): no duplicates on rerun, SKIP when present
+- TestPathPersistenceDryRun (2): dry-run skips bashrc, shows would-append message
+- TestPathPersistenceContent (1): correct export PATH line format
+
+Group 8 -- Non-Interactive Execution (2 classes, 3 methods):
+- TestNonInteractiveCommands (2): pip --no-input, npm --no-audit flags
+- TestNonInteractiveSudo (1): act install uses sudo -n
+
 Coverage Areas:
 - Script existence and permissions
 - Command-line argument parsing (--dry-run, --quiet, --help, unknown flags)
@@ -1612,4 +1935,6 @@ Coverage Areas:
 - ANSI color codes for status tags
 - Quiet mode output suppression
 - Full integration with all tools present
+- PATH persistence in ~/.bashrc (idempotent, dry-run safe)
+- Non-interactive command execution (--no-input, --no-audit, sudo -n)
 """

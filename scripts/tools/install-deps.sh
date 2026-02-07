@@ -211,6 +211,33 @@ fi
 # Add mise paths to PATH regardless (in case mise was already installed there)
 export PATH="$HOME/.local/bin:$HOME/.local/share/mise/shims:$PATH"
 
+# Persist mise shims in ~/.bashrc so interactive shells find tools on PATH.
+# Idempotent: only appends if the marker is not already present.
+BASHRC="$HOME/.bashrc"
+MISE_PATH_MARKER="mise/shims"
+ALREADY_PRESENT=false
+if [[ -f "$BASHRC" ]]; then
+    while IFS= read -r line || [[ -n "$line" ]]; do
+        if [[ "$line" == *"$MISE_PATH_MARKER"* ]]; then
+            ALREADY_PRESENT=true
+            break
+        fi
+    done < "$BASHRC"
+fi
+
+if [[ "$ALREADY_PRESENT" == "false" ]]; then
+    if [[ "$DRY_RUN" == "true" ]]; then
+        dry_run_msg "Would append mise shims PATH to $BASHRC"
+    else
+        echo '' >> "$BASHRC"
+        echo '# mise shims PATH (added by install-deps.sh)' >> "$BASHRC"
+        echo 'export PATH="$HOME/.local/share/mise/shims:$HOME/.local/bin:$PATH"' >> "$BASHRC"
+        pass_msg "mise shims PATH persisted in $BASHRC"
+    fi
+else
+    skip_msg "mise shims PATH already in $BASHRC"
+fi
+
 # Trust .mise.toml so mise reads tool versions from config
 MISE_CONFIG="$REPO_ROOT/.mise.toml"
 if command -v mise &>/dev/null && [[ -f "$MISE_CONFIG" ]]; then
@@ -342,7 +369,7 @@ if command -v python3 &>/dev/null && [[ -f "$REPO_ROOT/requirements.txt" ]]; the
         if [[ "$DRY_RUN" == "true" ]]; then
             dry_run_msg "Would run: pip install -r $REPO_ROOT/requirements.txt"
         else
-            python3 -m pip install -r "$REPO_ROOT/requirements.txt"
+            python3 -m pip install --no-input -r "$REPO_ROOT/requirements.txt" < /dev/null
             if [[ $? -ne 0 ]]; then
                 fail_msg "pip install -r requirements.txt failed"
             else
@@ -381,7 +408,7 @@ if command -v npm &>/dev/null && [[ -f "$REPO_ROOT/package.json" ]]; then
         if [[ "$DRY_RUN" == "true" ]]; then
             dry_run_msg "Would run: npm install (in $REPO_ROOT)"
         else
-            cd "$REPO_ROOT" && npm install
+            cd "$REPO_ROOT" && npm install --no-audit --no-fund < /dev/null
             if [[ $? -ne 0 ]]; then
                 fail_msg "npm install failed"
             else
@@ -410,7 +437,7 @@ else
     if [[ "$DRY_RUN" == "true" ]]; then
         dry_run_msg "Would run: curl nektos/act install script"
     else
-        curl -fsSL https://raw.githubusercontent.com/nektos/act/master/install.sh | sudo bash -s -- -b /usr/local/bin
+        curl -fsSL https://raw.githubusercontent.com/nektos/act/master/install.sh | sudo -n bash -s -- -b /usr/local/bin
         if [[ $? -ne 0 ]]; then
             fail_msg "act installation failed"
         else
@@ -442,7 +469,7 @@ else
     if [[ "$DRY_RUN" == "true" ]]; then
         dry_run_msg "Would run: npx playwright install chromium"
     else
-        npx playwright install chromium
+        npx playwright install chromium < /dev/null
         if [[ $? -ne 0 ]]; then
             fail_msg "Playwright Chromium installation failed"
         else
