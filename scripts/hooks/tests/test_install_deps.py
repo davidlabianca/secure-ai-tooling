@@ -9,7 +9,7 @@ and supports --dry-run and --quiet flags.
 
 Test Coverage:
 ==============
-Total Test Classes: 31
+Total Test Classes: 34
 Coverage Target: 100% of install-deps.sh functionality
 
 Group 1 -- Script Fundamentals (3):
@@ -62,6 +62,11 @@ Group 8 -- Non-Interactive Execution (2):
 29. TestNonInteractiveCommands - pip --no-input, npm --no-audit flags
 30. TestNonInteractiveSudo - act install uses sudo -n
 
+Group 9 -- Pre-commit Hook Installation (3):
+31. TestPrecommitHookInstallStep - step [8/9] banner, TOTAL_STEPS=9
+32. TestPrecommitHookInstallDryRun - dry-run shows pre-commit message
+33. TestPrecommitHookInstallOutcome - PASS on success, FAIL when missing
+
 Installation Order Tested:
 ==========================
 1. mise (curl https://mise.run | sh)
@@ -71,7 +76,8 @@ Installation Order Tested:
 5. npm packages (npm install)
 6. act (curl nektos/act install script)
 7. Playwright Chromium (npx playwright install chromium)
-8. Verification (verify-deps.sh as final gate)
+8. Pre-commit hooks (install-precommit-hook.sh --force --auto --install-playwright)
+9. Verification (verify-deps.sh as final gate)
 
 Testing Approach:
 =================
@@ -239,7 +245,7 @@ def create_full_stub_env(tmp_path, overrides=None):
 
     # Apply overrides: None removes the tool, string replaces the stub
     for tool, content in overrides.items():
-        if tool == "verify-deps":
+        if tool in ("verify-deps", "install-precommit-hook"):
             continue  # already handled above
         if content is None:
             default_stubs.pop(tool, None)
@@ -251,6 +257,22 @@ def create_full_stub_env(tmp_path, overrides=None):
         stub_file = stub_bin / tool_name
         stub_file.write_text(content)
         stub_file.chmod(0o755)
+
+    # Create install-precommit-hook.sh stub in fake repo's scripts/ directory
+    scripts_dir = repo_root / "scripts"
+    scripts_dir.mkdir(exist_ok=True)
+    precommit_script = scripts_dir / "install-precommit-hook.sh"
+    precommit_content = overrides.get(
+        "install-precommit-hook",
+        "#!/bin/bash\nexit 0\n",
+    )
+    if precommit_content is not None:
+        precommit_script.write_text(precommit_content)
+        precommit_script.chmod(0o755)
+
+    # Create .git/hooks directory in fake repo (for pre-commit hook installation)
+    git_hooks_dir = repo_root / ".git" / "hooks"
+    git_hooks_dir.mkdir(parents=True, exist_ok=True)
 
     # Create Playwright cache with chromium present
     playwright_cache = tmp_path / "playwright-cache"
@@ -1865,11 +1887,169 @@ class TestNonInteractiveSudo:
         )
 
 
+# =============================================================================
+# Group 9 -- Pre-commit Hook Installation
+# =============================================================================
+
+
+class TestPrecommitHookInstallStep:
+    """
+    Test that Step 8 installs pre-commit hooks.
+
+    Validates that install-deps.sh includes a step for pre-commit hook
+    installation and that TOTAL_STEPS is updated accordingly.
+    """
+
+    def test_step_8_is_precommit_hooks(self, tmp_path):
+        """
+        Script output contains step banner [8/9] with pre-commit or hook reference.
+
+        Given: A fully stubbed environment with all tools present
+        When: Running install-deps.sh --dry-run
+        Then: Output contains a step banner [8/9] referencing pre-commit or hooks
+        """
+        env_info = create_full_stub_env(tmp_path)
+        result = subprocess.run(
+            [str(SCRIPT_PATH), "--dry-run"],
+            capture_output=True,
+            text=True,
+            env=env_info["env"],
+            timeout=30,
+        )
+        combined_output = result.stdout + result.stderr
+        assert "[8/9]" in combined_output, (
+            f"Output should contain step banner [8/9].\nOutput:\n{combined_output}"
+        )
+        # Find the line with [8/9] and check it references pre-commit or hooks
+        step_8_lines = [
+            line for line in combined_output.splitlines()
+            if "[8/9]" in line
+        ]
+        assert len(step_8_lines) > 0, (
+            f"Should find at least one line with [8/9].\nOutput:\n{combined_output}"
+        )
+        step_8_text = step_8_lines[0].lower()
+        assert "pre-commit" in step_8_text or "hook" in step_8_text, (
+            f"Step [8/9] banner should reference pre-commit or hooks.\n"
+            f"Line: {step_8_lines[0]}"
+        )
+
+    def test_total_steps_is_9(self):
+        """
+        Static analysis: TOTAL_STEPS=9 in script source.
+
+        Given: The install-deps.sh source code
+        When: Examining the TOTAL_STEPS variable
+        Then: TOTAL_STEPS is set to 9
+        """
+        content = SCRIPT_PATH.read_text()
+        assert "TOTAL_STEPS=9" in content, (
+            "install-deps.sh should have TOTAL_STEPS=9 after adding pre-commit step."
+        )
+
+
+class TestPrecommitHookInstallDryRun:
+    """
+    Test that --dry-run shows pre-commit hook installation message.
+    """
+
+    def test_dry_run_shows_precommit_message(self, tmp_path):
+        """
+        With --dry-run, output contains [DRY-RUN] referencing pre-commit hook.
+
+        Given: A fully stubbed environment
+        When: Running install-deps.sh --dry-run
+        Then: Output contains [DRY-RUN] referencing pre-commit or hook install
+        """
+        env_info = create_full_stub_env(tmp_path)
+        result = subprocess.run(
+            [str(SCRIPT_PATH), "--dry-run"],
+            capture_output=True,
+            text=True,
+            env=env_info["env"],
+            timeout=30,
+        )
+        combined_output = result.stdout + result.stderr
+        dry_run_precommit_lines = [
+            line for line in combined_output.splitlines()
+            if "DRY-RUN" in line
+            and ("precommit" in line.lower() or "pre-commit" in line.lower()
+                 or "install-precommit" in line.lower())
+        ]
+        assert len(dry_run_precommit_lines) > 0, (
+            f"Dry-run output should contain [DRY-RUN] referencing pre-commit hook.\n"
+            f"Output:\n{combined_output}"
+        )
+
+
+class TestPrecommitHookInstallOutcome:
+    """
+    Test pre-commit hook installation outcomes (pass/fail).
+    """
+
+    def test_precommit_hook_pass_when_script_succeeds(self, tmp_path):
+        """
+        When install-precommit-hook.sh stub exists and succeeds, output contains [PASS].
+
+        Given: A stubbed environment with a passing install-precommit-hook.sh
+        When: Running install-deps.sh (non-dry-run)
+        Then: Output contains [PASS] referencing pre-commit or hooks
+        """
+        env_info = create_full_stub_env(tmp_path)
+        result = subprocess.run(
+            [str(SCRIPT_PATH)],
+            capture_output=True,
+            text=True,
+            env=env_info["env"],
+            timeout=30,
+        )
+        combined_output = result.stdout + result.stderr
+        pass_hook_lines = [
+            line for line in combined_output.splitlines()
+            if "PASS" in line
+            and ("pre-commit" in line.lower() or "hook" in line.lower())
+        ]
+        assert len(pass_hook_lines) > 0, (
+            f"Output should contain [PASS] for pre-commit hooks when script succeeds.\n"
+            f"Output:\n{combined_output}"
+        )
+
+    def test_precommit_hook_fail_when_script_missing(self, tmp_path):
+        """
+        When install-precommit-hook.sh doesn't exist, output contains [FAIL].
+
+        Given: A stubbed environment without install-precommit-hook.sh
+        When: Running install-deps.sh (non-dry-run)
+        Then: Output contains [FAIL] referencing pre-commit or hook
+        """
+        env_info = create_full_stub_env(
+            tmp_path, overrides={"install-precommit-hook": None}
+        )
+        result = subprocess.run(
+            [str(SCRIPT_PATH)],
+            capture_output=True,
+            text=True,
+            env=env_info["env"],
+            timeout=30,
+        )
+        combined_output = result.stdout + result.stderr
+        fail_hook_lines = [
+            line for line in combined_output.splitlines()
+            if "FAIL" in line
+            and ("pre-commit" in line.lower() or "hook" in line.lower()
+                 or "install-precommit" in line.lower())
+        ]
+        assert len(fail_hook_lines) > 0, (
+            f"Output should contain [FAIL] for pre-commit hooks when script is missing.\n"
+            f"Output:\n{combined_output}"
+        )
+
+
 """
 Test Summary
 ============
-Total Test Classes: 31
-Total Test Methods: 46
+Total Test Classes: 34
+Total Test Methods: 51
 
 Group 1 -- Script Fundamentals (3 classes, 6 methods):
 - TestScriptExists (2): file exists, is executable
@@ -1924,6 +2104,11 @@ Group 8 -- Non-Interactive Execution (2 classes, 3 methods):
 - TestNonInteractiveCommands (2): pip --no-input, npm --no-audit flags
 - TestNonInteractiveSudo (1): act install uses sudo -n
 
+Group 9 -- Pre-commit Hook Installation (3 classes, 5 methods):
+- TestPrecommitHookInstallStep (2): step [8/9] banner, TOTAL_STEPS=9
+- TestPrecommitHookInstallDryRun (1): dry-run shows pre-commit message
+- TestPrecommitHookInstallOutcome (2): PASS on success, FAIL when missing
+
 Coverage Areas:
 - Script existence and permissions
 - Command-line argument parsing (--dry-run, --quiet, --help, unknown flags)
@@ -1937,4 +2122,5 @@ Coverage Areas:
 - Full integration with all tools present
 - PATH persistence in ~/.bashrc (idempotent, dry-run safe)
 - Non-interactive command execution (--no-input, --no-audit, sudo -n)
+- Pre-commit hook installation step (dry-run, pass, fail)
 """

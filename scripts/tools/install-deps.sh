@@ -30,7 +30,7 @@ DRY_RUN=false
 FAILURES=0
 
 # Total number of install steps (for progress banners)
-TOTAL_STEPS=8
+TOTAL_STEPS=9
 
 # Make all mise commands non-interactive (trust, install, etc.)
 # Prevents stdin hangs during container builds
@@ -479,9 +479,39 @@ else
 fi
 
 # =============================================================================
-# Step 8: Verification
+# Step 8: Pre-commit hooks
 # =============================================================================
-step_msg 8 "Verification"
+step_msg 8 "Pre-commit hooks"
+info_msg "Installing pre-commit hooks..."
+PRECOMMIT_SCRIPT="$REPO_ROOT/scripts/install-precommit-hook.sh"
+
+# install-precommit-hook.sh uses 'git rev-parse --show-toplevel' which fails
+# in devcontainers where the workspace is mounted with different ownership.
+# Mark the repo as safe so git commands work for the current user.
+if command -v git &>/dev/null; then
+    RESOLVED_ROOT="$(cd "$REPO_ROOT" && pwd -P)"
+    git config --global --add safe.directory "$RESOLVED_ROOT" 2>/dev/null || true
+fi
+
+if [[ -x "$PRECOMMIT_SCRIPT" ]]; then
+    if [[ "$DRY_RUN" == "true" ]]; then
+        dry_run_msg "Would run: $PRECOMMIT_SCRIPT --force --auto --install-playwright"
+    else
+        bash "$PRECOMMIT_SCRIPT" --force --auto --install-playwright
+        if [[ $? -ne 0 ]]; then
+            fail_msg "Pre-commit hook installation failed"
+        else
+            pass_msg "Pre-commit hooks installed"
+        fi
+    fi
+else
+    fail_msg "install-precommit-hook.sh not found or not executable at $PRECOMMIT_SCRIPT"
+fi
+
+# =============================================================================
+# Step 9: Verification
+# =============================================================================
+step_msg 9 "Verification"
 if [[ "$DRY_RUN" == "true" ]]; then
     info_msg "Skipping verification in dry-run mode"
 else
