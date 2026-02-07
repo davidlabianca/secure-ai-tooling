@@ -9,7 +9,7 @@ and supports --dry-run and --quiet flags.
 
 Test Coverage:
 ==============
-Total Test Classes: 22
+Total Test Classes: 26
 Coverage Target: 100% of install-deps.sh functionality
 
 Group 1 -- Script Fundamentals (3):
@@ -17,34 +17,43 @@ Group 1 -- Script Fundamentals (3):
 2.  TestArgumentParsing - --dry-run, --quiet, --help, unknown flags
 3.  TestDryRunNoSideEffects - Dry-run produces no filesystem changes
 
+Group 1b -- Output Buffering (1):
+4.  TestOutputBuffering - stdbuf re-exec guard and non-TTY detection
+
 Group 2 -- Dry-Run Output (7):
-4.  TestDryRunMiseInstall - mise missing -> shows dry-run curl command
-5.  TestDryRunMiseSkip - mise present -> shows [SKIP]
-6.  TestDryRunPythonInstall - python missing -> shows mise install python
-7.  TestDryRunNodeInstall - node missing -> shows mise install node
-8.  TestDryRunPipInstall - pip packages missing -> shows pip install
-9.  TestDryRunNpmInstall - npm packages missing -> shows npm install
-10. TestDryRunActInstall - act missing -> shows dry-run act install
+5.  TestDryRunMiseInstall - mise missing -> shows dry-run curl command
+6.  TestDryRunMiseSkip - mise present -> shows [SKIP]
+7.  TestDryRunPythonInstall - python missing -> shows mise install python
+8.  TestDryRunNodeInstall - node missing -> shows mise install node
+9.  TestDryRunPipInstall - pip packages missing -> shows pip install
+10. TestDryRunNpmInstall - npm packages missing -> shows npm install
+11. TestDryRunActInstall - act missing -> shows dry-run act install
 
 Group 3 -- Skip/Idempotency (5):
-11. TestSkipPythonWhenPresent - python3 with correct version -> [SKIP]
-12. TestSkipNodeWhenPresent - node with correct version -> [SKIP]
-13. TestSkipActWhenPresent - act present -> [SKIP]
-14. TestSkipChromiumWhenPresent - chromium in cache -> [SKIP]
-15. TestSkipMiseWhenPresent - mise present -> [SKIP]
+12. TestSkipPythonWhenPresent - python3 with correct version -> [SKIP]
+13. TestSkipNodeWhenPresent - node with correct version -> [SKIP]
+14. TestSkipActWhenPresent - act present -> [SKIP]
+15. TestSkipChromiumWhenPresent - chromium in cache -> [SKIP]
+16. TestSkipMiseWhenPresent - mise present -> [SKIP]
+
+Group 3c -- mise install from config (1):
+17. TestMiseInstallFromConfig - bare mise install + reshim after trust
 
 Group 4 -- Error Handling (4):
-16. TestMiseInstallFailure - mise install fails -> [FAIL], continues
-17. TestPipInstallFailure - pip install fails -> [FAIL], continues
-18. TestNpmInstallFailure - npm install fails -> [FAIL], continues
-19. TestVerificationFailure - verify-deps.sh fails -> exit non-zero
+18. TestMiseInstallFailure - mise install fails -> [FAIL], continues
+19. TestPipInstallFailure - pip install fails -> [FAIL], continues
+20. TestNpmInstallFailure - npm install fails -> [FAIL], continues
+21. TestVerificationFailure - verify-deps.sh fails -> exit non-zero
+
+Group 4b -- mise reshim after pip (1):
+22. TestMiseReshimAfterPip - mise reshim after pip install
 
 Group 5 -- Output Formatting (2):
-20. TestOutputColors - ANSI color codes present for tags
-21. TestQuietModeSuppression - --quiet hides [PASS]/[SKIP]/[INFO], shows [FAIL]
+23. TestOutputColors - ANSI color codes present for tags
+24. TestQuietModeSuppression - --quiet hides [PASS]/[SKIP]/[INFO], shows [FAIL]
 
 Group 6 -- Integration (1):
-22. TestFullInstallDryRun - all tools present, --dry-run -> all [SKIP], exit 0
+25. TestFullInstallDryRun - all tools present, --dry-run -> all [SKIP], exit 0
 
 Installation Order Tested:
 ==========================
@@ -110,6 +119,7 @@ def create_full_stub_env(tmp_path, overrides=None):
     (repo_root / "package.json").write_text(
         '{"dependencies": {"prettier": "^3.8.1", "@mermaid-js/mermaid-cli": "^11.12.0"}}\n'
     )
+    (repo_root / ".mise.toml").write_text('[tools]\npython = "3.14"\nnode = "22"\n')
 
     # Create fake verify-deps.sh in the repo structure
     tools_dir = repo_root / "scripts" / "tools"
@@ -127,9 +137,14 @@ def create_full_stub_env(tmp_path, overrides=None):
     default_stubs = {
         "mise": (
             "#!/bin/bash\n"
+            'echo "$@" >> "$HOME/mise-invocations.log"\n'
             'if [[ "$1" == "--version" ]]; then\n'
             '    echo "2025.1.0 linux-x64"\n'
             'elif [[ "$1" == "install" ]]; then\n'
+            "    exit 0\n"
+            'elif [[ "$1" == "trust" ]]; then\n'
+            "    exit 0\n"
+            'elif [[ "$1" == "reshim" ]]; then\n'
             "    exit 0\n"
             'elif [[ "$1" == "which" ]]; then\n'
             '    echo "/usr/local/bin/$2"\n'
@@ -252,6 +267,7 @@ def create_full_stub_env(tmp_path, overrides=None):
         "env": env,
         "stub_bin": stub_bin,
         "repo_root": repo_root,
+        "mise_log": tmp_path / "home" / "mise-invocations.log",
     }
 
 
@@ -442,6 +458,81 @@ class TestDryRunNoSideEffects:
 
         assert len(new_in_repo) == 0, (
             f"Dry-run should not create new files in repo root.\nNew files: {new_in_repo}"
+        )
+
+
+# =============================================================================
+# Group 1b -- Output Buffering
+# =============================================================================
+
+
+class TestOutputBuffering:
+    """
+    Test stdbuf re-exec for line-buffered output in non-TTY execution.
+
+    The script re-execs itself through stdbuf -oL when stdout is not a TTY
+    (e.g., during devcontainer postCreateCommand) to stream output in real-time.
+    A guard variable _INSTALL_DEPS_UNBUFFERED prevents infinite re-exec loops.
+    """
+
+    def test_unbuffered_guard_prevents_infinite_reexec(self, tmp_path):
+        """
+        Test that _INSTALL_DEPS_UNBUFFERED=1 prevents re-exec loop.
+
+        Given: _INSTALL_DEPS_UNBUFFERED=1 is set in the environment
+        When: Running install-deps.sh --dry-run
+        Then: Script exits 0 without attempting stdbuf re-exec
+        """
+        env_info = create_full_stub_env(tmp_path)
+        env_info["env"]["_INSTALL_DEPS_UNBUFFERED"] = "1"
+        result = subprocess.run(
+            [str(SCRIPT_PATH), "--dry-run"],
+            capture_output=True,
+            text=True,
+            env=env_info["env"],
+            timeout=30,
+        )
+        assert result.returncode == 0, (
+            f"Script should exit 0 with _INSTALL_DEPS_UNBUFFERED=1.\n"
+            f"Exit code: {result.returncode}\n"
+            f"STDOUT:\n{result.stdout}\n"
+            f"STDERR:\n{result.stderr}"
+        )
+
+    def test_stdbuf_reexec_only_when_not_tty(self, tmp_path):
+        """
+        Test that stdbuf re-exec fires when stdout is not a TTY.
+
+        Given: A stdbuf stub that logs STDBUF_CALLED then exec's remaining args
+        When: Running install-deps.sh --dry-run via subprocess (non-TTY stdout)
+        Then: The stdbuf stub log file exists (re-exec was attempted)
+        """
+        stdbuf_log = tmp_path / "home" / "stdbuf-calls.log"
+        stdbuf_stub = (
+            "#!/bin/bash\n"
+            f'echo "STDBUF_CALLED" >> "{stdbuf_log}"\n'
+            "# Skip past the -oL flag to find the real command\n"
+            "shift  # skip -oL\n"
+            'exec "$@"\n'
+        )
+        env_info = create_full_stub_env(tmp_path, overrides={"stdbuf": stdbuf_stub})
+        # Ensure guard is NOT set so re-exec fires
+        env_info["env"].pop("_INSTALL_DEPS_UNBUFFERED", None)
+        result = subprocess.run(
+            [str(SCRIPT_PATH), "--dry-run"],
+            capture_output=True,
+            text=True,
+            env=env_info["env"],
+            timeout=30,
+        )
+        assert result.returncode == 0, (
+            f"Script should exit 0 after stdbuf re-exec.\n"
+            f"Exit code: {result.returncode}\n"
+            f"STDOUT:\n{result.stdout}\n"
+            f"STDERR:\n{result.stderr}"
+        )
+        assert stdbuf_log.exists(), (
+            f"stdbuf stub log should exist after re-exec.\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}"
         )
 
 
@@ -884,6 +975,211 @@ class TestSkipChromiumWhenPresent:
 
 
 # =============================================================================
+# Group 3b -- mise trust config
+# =============================================================================
+
+
+class TestMiseTrustConfig:
+    """
+    Test mise trust behavior for .mise.toml configuration.
+
+    Validates that install-deps.sh trusts .mise.toml so mise reads tool
+    versions from config, handles dry-run mode, missing config, and
+    trust failures.
+    """
+
+    def test_mise_trust_dry_run_shows_message(self, tmp_path):
+        """
+        Test that dry-run mode shows mise trust message.
+
+        Given: A fully stubbed environment with .mise.toml present
+        When: Running install-deps.sh --dry-run
+        Then: Output contains [DRY-RUN] referencing mise trust
+        """
+        env_info = create_full_stub_env(tmp_path)
+        result = subprocess.run(
+            [str(SCRIPT_PATH), "--dry-run"],
+            capture_output=True,
+            text=True,
+            env=env_info["env"],
+            timeout=30,
+        )
+        combined_output = result.stdout + result.stderr
+        trust_dry_run_lines = [
+            line for line in combined_output.splitlines() if "DRY-RUN" in line and "mise trust" in line.lower()
+        ]
+        assert len(trust_dry_run_lines) > 0, (
+            f"Dry-run output should contain [DRY-RUN] referencing mise trust.\nOutput:\n{combined_output}"
+        )
+
+    def test_mise_trust_pass_in_full_run(self, tmp_path):
+        """
+        Test that non-dry-run emits [PASS] for mise trust.
+
+        Given: A fully stubbed environment with .mise.toml present
+        When: Running install-deps.sh (non-dry-run)
+        Then: Output contains [PASS] for .mise.toml trusted
+        """
+        env_info = create_full_stub_env(tmp_path)
+        result = subprocess.run(
+            [str(SCRIPT_PATH)],
+            capture_output=True,
+            text=True,
+            env=env_info["env"],
+            timeout=30,
+        )
+        combined_output = result.stdout + result.stderr
+        trust_pass_lines = [
+            line for line in combined_output.splitlines() if "PASS" in line and "mise.toml" in line.lower()
+        ]
+        assert len(trust_pass_lines) > 0, (
+            f"Output should contain [PASS] for .mise.toml trusted.\nOutput:\n{combined_output}"
+        )
+
+    def test_mise_trust_skipped_when_no_config(self, tmp_path):
+        """
+        Test that mise trust is skipped when .mise.toml is absent.
+
+        Given: A fully stubbed environment without .mise.toml
+        When: Running install-deps.sh --dry-run
+        Then: No [FAIL] related to mise trust appears
+        And: Script continues normally
+        """
+        env_info = create_full_stub_env(tmp_path)
+        # Remove .mise.toml from fake repo root
+        mise_config = env_info["repo_root"] / ".mise.toml"
+        if mise_config.exists():
+            mise_config.unlink()
+        result = subprocess.run(
+            [str(SCRIPT_PATH), "--dry-run"],
+            capture_output=True,
+            text=True,
+            env=env_info["env"],
+            timeout=30,
+        )
+        combined_output = result.stdout + result.stderr
+        # Should not contain FAIL for mise trust
+        trust_fail_lines = [
+            line for line in combined_output.splitlines() if "FAIL" in line and "mise trust" in line.lower()
+        ]
+        assert len(trust_fail_lines) == 0, (
+            f"Output should not contain [FAIL] for mise trust when config missing.\nOutput:\n{combined_output}"
+        )
+        assert result.returncode == 0, (
+            f"Script should still exit 0 when .mise.toml is absent.\n"
+            f"Exit code: {result.returncode}\n"
+            f"STDOUT:\n{result.stdout}\n"
+            f"STDERR:\n{result.stderr}"
+        )
+
+    def test_mise_trust_failure_emits_fail(self, tmp_path):
+        """
+        Test that mise trust failure emits [FAIL].
+
+        Given: A fully stubbed environment where mise trust exits 1
+        When: Running install-deps.sh
+        Then: Output contains [FAIL] for mise trust
+        """
+        mise_trust_fail = (
+            "#!/bin/bash\n"
+            'if [[ "$1" == "--version" ]]; then\n'
+            '    echo "2025.1.0 linux-x64"\n'
+            'elif [[ "$1" == "trust" ]]; then\n'
+            "    exit 1\n"
+            'elif [[ "$1" == "install" ]]; then\n'
+            "    exit 0\n"
+            'elif [[ "$1" == "which" ]]; then\n'
+            '    echo "/usr/local/bin/$2"\n'
+            "else\n"
+            "    exit 0\n"
+            "fi\n"
+        )
+        env_info = create_full_stub_env(tmp_path, overrides={"mise": mise_trust_fail})
+        result = subprocess.run(
+            [str(SCRIPT_PATH)],
+            capture_output=True,
+            text=True,
+            env=env_info["env"],
+            timeout=30,
+        )
+        combined_output = result.stdout + result.stderr
+        trust_fail_lines = [
+            line for line in combined_output.splitlines() if "FAIL" in line and "mise trust" in line.lower()
+        ]
+        assert len(trust_fail_lines) > 0, (
+            f"Output should contain [FAIL] for mise trust failure.\nOutput:\n{combined_output}"
+        )
+
+
+# =============================================================================
+# Group 3c -- mise install from config
+# =============================================================================
+
+
+class TestMiseInstallFromConfig:
+    """
+    Test that mise install (no args) is called to activate tools from .mise.toml.
+
+    After trusting .mise.toml, the script should run bare 'mise install' to
+    install and activate all tools declared in the config, followed by
+    'mise reshim' to regenerate shims.
+    """
+
+    def test_mise_install_no_args_called_after_trust(self, tmp_path):
+        """
+        Test that bare 'mise install' (no tool specifier) is called.
+
+        Given: A fully stubbed environment with .mise.toml present
+        When: Running install-deps.sh (non-dry-run)
+        Then: mise invocation log contains a line that is exactly "install"
+        """
+        env_info = create_full_stub_env(tmp_path)
+        subprocess.run(
+            [str(SCRIPT_PATH)],
+            capture_output=True,
+            text=True,
+            env=env_info["env"],
+            timeout=30,
+        )
+        mise_log = env_info["mise_log"]
+        assert mise_log.exists(), "mise invocation log should exist after running install-deps.sh"
+        log_lines = mise_log.read_text().strip().splitlines()
+        assert "install" in log_lines, (
+            f"mise log should contain a bare 'install' line (no tool specifier).\nLog lines: {log_lines}"
+        )
+
+    def test_mise_reshim_called_after_mise_install(self, tmp_path):
+        """
+        Test that 'mise reshim' is called after bare 'mise install'.
+
+        Given: A fully stubbed environment with .mise.toml present
+        When: Running install-deps.sh (non-dry-run)
+        Then: mise invocation log contains "reshim" after the bare "install" line
+        """
+        env_info = create_full_stub_env(tmp_path)
+        subprocess.run(
+            [str(SCRIPT_PATH)],
+            capture_output=True,
+            text=True,
+            env=env_info["env"],
+            timeout=30,
+        )
+        mise_log = env_info["mise_log"]
+        assert mise_log.exists(), "mise invocation log should exist after running install-deps.sh"
+        log_lines = mise_log.read_text().strip().splitlines()
+        # Find positions of bare "install" and "reshim"
+        install_indices = [i for i, line in enumerate(log_lines) if line == "install"]
+        reshim_indices = [i for i, line in enumerate(log_lines) if line == "reshim"]
+        assert len(install_indices) > 0, f"mise log should contain a bare 'install' line.\nLog lines: {log_lines}"
+        assert len(reshim_indices) > 0, f"mise log should contain a 'reshim' line.\nLog lines: {log_lines}"
+        assert reshim_indices[0] > install_indices[0], (
+            f"'reshim' should appear after bare 'install' in mise log.\n"
+            f"install at index {install_indices[0]}, reshim at index {reshim_indices[0]}\n"
+            f"Log lines: {log_lines}"
+        )
+
+
+# =============================================================================
 # Group 4 -- Error Handling
 # =============================================================================
 
@@ -1059,6 +1355,61 @@ class TestVerificationFailure:
             f"Exit code: {result.returncode}\n"
             f"STDOUT:\n{result.stdout}\n"
             f"STDERR:\n{result.stderr}"
+        )
+
+
+# =============================================================================
+# Group 4b -- mise reshim after pip
+# =============================================================================
+
+
+class TestMiseReshimAfterPip:
+    """
+    Test that mise reshim is called after pip install.
+
+    After pip installs packages (ruff, check-jsonschema), mise shims must be
+    regenerated so the new binaries are visible before verify-deps.sh runs.
+    """
+
+    def test_mise_reshim_called_after_pip_install(self, tmp_path):
+        """
+        Test that 'mise reshim' is called after pip install completes.
+
+        Given: An environment where pip packages are missing (triggering pip install)
+        When: Running install-deps.sh (non-dry-run)
+        Then: mise invocation log contains "reshim" after pip install would have run
+        """
+        # python3 stub that reports packages missing (triggers pip install path)
+        python_stub_missing_pkgs = (
+            "#!/bin/bash\n"
+            'if [[ "$1" == "--version" ]]; then\n'
+            '    echo "Python 3.14.0"\n'
+            'elif [[ "$1" == "-m" && "$2" == "pip" && "$3" == "show" ]]; then\n'
+            "    exit 1\n"
+            'elif [[ "$1" == "-m" && "$2" == "pip" && "$3" == "install" ]]; then\n'
+            "    exit 0\n"
+            "else\n"
+            "    exit 0\n"
+            "fi\n"
+        )
+        env_info = create_full_stub_env(tmp_path, overrides={"python3": python_stub_missing_pkgs})
+        subprocess.run(
+            [str(SCRIPT_PATH)],
+            capture_output=True,
+            text=True,
+            env=env_info["env"],
+            timeout=30,
+        )
+        mise_log = env_info["mise_log"]
+        assert mise_log.exists(), "mise invocation log should exist after running install-deps.sh"
+        log_lines = mise_log.read_text().strip().splitlines()
+        # reshim should appear at least twice: once after mise install, once after pip
+        reshim_lines = [line for line in log_lines if line == "reshim"]
+        assert len(reshim_lines) >= 2, (
+            f"mise log should contain at least 2 'reshim' calls "
+            f"(after mise install and after pip install).\n"
+            f"Found {len(reshim_lines)} reshim call(s).\n"
+            f"Log lines: {log_lines}"
         )
 
 
@@ -1282,13 +1633,16 @@ class TestFullInstallDryRun:
 """
 Test Summary
 ============
-Total Test Classes: 22
-Total Test Methods: 30
+Total Test Classes: 26
+Total Test Methods: 39
 
 Group 1 -- Script Fundamentals (3 classes, 6 methods):
 - TestScriptExists (2): file exists, is executable
 - TestArgumentParsing (4): --dry-run, --quiet, --help, unknown flag
 - TestDryRunNoSideEffects (1): no filesystem changes
+
+Group 1b -- Output Buffering (1 class, 2 methods):
+- TestOutputBuffering (2): unbuffered guard, stdbuf re-exec when not TTY
 
 Group 2 -- Dry-Run Output (7 classes, 7 methods):
 - TestDryRunMiseInstall (1): mise missing -> DRY-RUN curl
@@ -1306,11 +1660,20 @@ Group 3 -- Skip/Idempotency (5 classes, 5 methods):
 - TestSkipActWhenPresent (1): act present -> SKIP
 - TestSkipChromiumWhenPresent (1): chromium in cache -> SKIP
 
+Group 3b -- mise trust config (1 class, 4 methods):
+- TestMiseTrustConfig (4): dry-run msg, pass, skip when no config, fail
+
+Group 3c -- mise install from config (1 class, 2 methods):
+- TestMiseInstallFromConfig (2): bare mise install, reshim after install
+
 Group 4 -- Error Handling (4 classes, 4 methods):
 - TestMiseInstallFailure (1): curl fails -> FAIL, continues
 - TestPipInstallFailure (1): pip install fails -> FAIL, continues
 - TestNpmInstallFailure (1): npm install fails -> FAIL, continues
 - TestVerificationFailure (1): verify-deps.sh fails -> exit non-zero
+
+Group 4b -- mise reshim after pip (1 class, 1 method):
+- TestMiseReshimAfterPip (1): reshim called after pip install
 
 Group 5 -- Output Formatting (2 classes, 5 methods):
 - TestOutputColors (3): ANSI codes present, green for PASS/SKIP, red for FAIL

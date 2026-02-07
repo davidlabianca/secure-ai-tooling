@@ -134,6 +134,8 @@ import stat
 import subprocess
 from pathlib import Path
 
+import pytest
+
 # Path to the script under test (relative to repo root)
 REPO_ROOT = Path(__file__).parent.parent.parent.parent
 SCRIPT_PATH = REPO_ROOT / "scripts" / "tools" / "verify-deps.sh"
@@ -179,6 +181,10 @@ class TestAllDepsPresent:
     which should have all required dependencies installed.
     """
 
+    @pytest.mark.skipif(
+        os.getenv("CI") == "true",
+        reason="Requires act and mmdc which are not available in CI",
+    )
     def test_all_dependencies_present_exit_0(self):
         """
         Test that script exits 0 when all dependencies are present.

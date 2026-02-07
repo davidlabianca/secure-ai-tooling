@@ -6,6 +6,13 @@
 # Uses only bash builtins for parsing (no grep/sed/cut/tr/find) to work
 # in restricted PATH environments like test stubs.
 
+# Force line-buffered stdout so output streams in real-time during non-TTY
+# execution (e.g., devcontainer postCreateCommand).
+if [[ -z "${_INSTALL_DEPS_UNBUFFERED:-}" ]] && command -v stdbuf &>/dev/null && [[ ! -t 1 ]]; then
+    export _INSTALL_DEPS_UNBUFFERED=1
+    exec stdbuf -oL "$0" "$@"
+fi
+
 # Color codes for output (match verify-deps.sh conventions)
 GREEN='\033[0;32m'
 RED='\033[0;31m'
@@ -28,6 +35,13 @@ DRY_RUN=false
 
 # Failure counter - no set -e, manual error checking
 FAILURES=0
+
+# Total number of install steps (for progress banners)
+TOTAL_STEPS=8
+
+# Make all mise commands non-interactive (trust, install, etc.)
+# Prevents stdin hangs during container builds
+export MISE_YES=1
 
 # Parse command line arguments
 while [[ $# -gt 0 ]]; do
@@ -87,6 +101,13 @@ dry_run_msg() {
     if [[ "$QUIET" == "false" ]]; then
         echo -e "${YELLOW}[DRY-RUN]${RESET} $1"
     fi
+}
+
+step_msg() {
+    echo ""
+    echo "══════════════════════════════════════════════════════════════"
+    echo "  [$1/$TOTAL_STEPS] $2"
+    echo "══════════════════════════════════════════════════════════════"
 }
 
 # extract_version: extract version string from text using bash builtins only
@@ -170,6 +191,7 @@ strip_version_specifiers() {
 # =============================================================================
 # Step 1: mise
 # =============================================================================
+step_msg 1 "mise"
 info_msg "Checking mise..."
 if command -v mise &>/dev/null; then
     skip_msg "mise already installed"
@@ -196,9 +218,44 @@ fi
 # Add mise paths to PATH regardless (in case mise was already installed there)
 export PATH="$HOME/.local/bin:$HOME/.local/share/mise/shims:$PATH"
 
+# Trust .mise.toml so mise reads tool versions from config
+MISE_CONFIG="$REPO_ROOT/.mise.toml"
+if command -v mise &>/dev/null && [[ -f "$MISE_CONFIG" ]]; then
+    info_msg "Trusting $MISE_CONFIG..."
+    if [[ "$DRY_RUN" == "true" ]]; then
+        dry_run_msg "Would run: mise trust $MISE_CONFIG"
+    else
+        mise trust "$MISE_CONFIG"
+        if [[ $? -ne 0 ]]; then
+            fail_msg "mise trust $MISE_CONFIG failed"
+        else
+            pass_msg ".mise.toml trusted"
+        fi
+    fi
+elif command -v mise &>/dev/null && [[ ! -f "$MISE_CONFIG" ]]; then
+    info_msg ".mise.toml not found at $MISE_CONFIG, skipping mise trust"
+fi
+
+# Install all tools declared in .mise.toml (ensures tools are activated, not just installed)
+if command -v mise &>/dev/null && [[ -f "$MISE_CONFIG" ]]; then
+    info_msg "Installing tools from .mise.toml..."
+    if [[ "$DRY_RUN" == "true" ]]; then
+        dry_run_msg "Would run: mise install"
+    else
+        mise install
+        if [[ $? -ne 0 ]]; then
+            fail_msg "mise install (from .mise.toml) failed"
+        else
+            pass_msg "Tools installed from .mise.toml"
+            mise reshim 2>/dev/null || true
+        fi
+    fi
+fi
+
 # =============================================================================
 # Step 2: Python >= 3.14
 # =============================================================================
+step_msg 2 "Python"
 info_msg "Checking Python..."
 PYTHON_INSTALLED=false
 if command -v python3 &>/dev/null; then
@@ -234,6 +291,7 @@ fi
 # =============================================================================
 # Step 3: Node.js >= 22
 # =============================================================================
+step_msg 3 "Node.js"
 info_msg "Checking Node.js..."
 NODE_INSTALLED=false
 if command -v node &>/dev/null; then
@@ -268,6 +326,7 @@ fi
 # =============================================================================
 # Step 4: pip packages
 # =============================================================================
+step_msg 4 "pip packages"
 info_msg "Checking pip packages..."
 PIP_NEEDS_INSTALL=false
 
@@ -295,6 +354,10 @@ if command -v python3 &>/dev/null && [[ -f "$REPO_ROOT/requirements.txt" ]]; the
                 fail_msg "pip install -r requirements.txt failed"
             else
                 pass_msg "pip packages installed"
+                # Regenerate mise shims so pip-installed binaries (ruff, check-jsonschema) are available
+                if command -v mise &>/dev/null; then
+                    mise reshim 2>/dev/null || true
+                fi
             fi
         fi
     else
@@ -311,6 +374,7 @@ fi
 # =============================================================================
 # Step 5: npm packages
 # =============================================================================
+step_msg 5 "npm packages"
 info_msg "Checking npm packages..."
 NPM_NEEDS_INSTALL=false
 
@@ -345,6 +409,7 @@ fi
 # =============================================================================
 # Step 6: act
 # =============================================================================
+step_msg 6 "act"
 info_msg "Checking act..."
 if command -v act &>/dev/null; then
     skip_msg "act already installed"
@@ -368,6 +433,7 @@ fi
 # =============================================================================
 # Step 7: Playwright Chromium
 # =============================================================================
+step_msg 7 "Playwright Chromium"
 info_msg "Checking Playwright Chromium..."
 PLAYWRIGHT_PATH="${PLAYWRIGHT_BROWSERS_PATH:-$HOME/.cache/ms-playwright}"
 CHROMIUM_FOUND=false
@@ -395,6 +461,7 @@ fi
 # =============================================================================
 # Step 8: Verification
 # =============================================================================
+step_msg 8 "Verification"
 if [[ "$DRY_RUN" == "true" ]]; then
     info_msg "Skipping verification in dry-run mode"
 else
