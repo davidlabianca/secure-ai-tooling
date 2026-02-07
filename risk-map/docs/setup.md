@@ -17,10 +17,9 @@ The repository includes a VS Code Dev Container configuration that provides a pr
 1. **Open the repository in VS Code**
 2. **Reopen in Container**: When prompted (or use Command Palette: "Dev Containers: Reopen in Container")
 3. **Wait for container build**: The first build creates the base image, then `install-deps.sh` runs automatically to install all runtime tools via mise
-4. **Install pre-commit hooks** (one-time setup):
+4. **Pre-commit hooks are installed automatically** as part of the container setup (via `install-deps.sh` Step 8). To re-install manually if needed:
 
    ```bash
-   # From the repository root inside the container
    bash ./scripts/install-precommit-hook.sh
    ```
 
@@ -44,19 +43,17 @@ If you prefer not to use the Dev Container or need to set up your environment ma
 - Node.js 22+ and npm
 - Chrome/Chromium browser (for SVG generation from Mermaid diagrams)
 
-1. **Install dependencies and pre-commit hook (one-time setup)**:
+1. **Install all dependencies (one-time setup)**:
 
    ```bash
-   # From the repository root
-   # Install required Python packages
-   pip install -r requirements.txt
+   # From the repository root — installs everything including pre-commit hooks
+   ./scripts/tools/install-deps.sh
 
-   # Install Node.js dependencies (prettier, mermaid-cli, etc.)
-   npm install
-
-   # Install the pre-commit hook
-   bash ./scripts/install-precommit-hook.sh
+   # Verify all tools are present and correct versions
+   ./scripts/tools/verify-deps.sh
    ```
+
+   The script is idempotent and supports `--dry-run` to preview changes. For individual package installation, see [scripts/docs/setup.md](../../scripts/docs/setup.md).
 
 2. **Verify the hook is working**:
    ```bash
