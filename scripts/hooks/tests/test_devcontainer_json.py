@@ -9,21 +9,23 @@ installation from devcontainer features to install-deps.sh with mise.
 Test Coverage:
 ==============
 Total Test Classes: 6
-Total Test Methods: 20
+Total Test Methods: 23
 
 1. TestDevcontainerJsonExists (2): file exists, parses as valid JSON
 2. TestDevcontainerJsonFeatures (8): no Python feature, no Node feature,
    Docker-in-Docker feature present, common-utils feature present,
    common-utils username vscode, common-utils automatic uid,
    common-utils automatic gid, common-utils no zsh
-3. TestDevcontainerJsonCommands (3): no onCreateCommand, postCreateCommand exists,
-   postCreateCommand references install-deps.sh
+3. TestDevcontainerJsonCommands (4): onCreateCommand exists,
+   onCreateCommand references install-deps.sh, no direct pip/npm in
+   onCreateCommand, no postCreateCommand
 4. TestDevcontainerJsonPythonConfig (3): interpreter path exists, uses mise shims,
    does not use /usr/local/python/current
 5. TestDevcontainerJsonVscodeExtensions (2): extensions array exists,
    required extensions present
-6. TestDevcontainerJsonBuildConfig (2): remoteUser is vscode,
-   build.args contains WORKSPACE and WORKSPACE_REPO
+6. TestDevcontainerJsonBuildConfig (4): remoteUser is vscode,
+   build.args contains WORKSPACE and WORKSPACE_REPO, build.context is "..",
+   build.dockerfile is "Dockerfile"
 
 Testing Approach:
 =================
@@ -273,57 +275,74 @@ class TestDevcontainerJsonCommands:
     Validate devcontainer lifecycle commands.
 
     After refactor:
-    - onCreateCommand should be removed (or not contain pip/npm install)
-    - postCreateCommand should exist and reference install-deps.sh
+    - onCreateCommand should exist and reference install-deps.sh
+    - onCreateCommand should not contain direct pip/npm install commands
+    - postCreateCommand should be absent (replaced by onCreateCommand)
     """
 
-    def test_no_oncreate_command_pip_npm(self, devcontainer_json):
+    def test_oncreate_command_exists(self, devcontainer_json):
         """
         Given: The devcontainer.json config
         When: Checking for onCreateCommand
-        Then: onCreateCommand key is absent, or does not contain pip/npm install
+        Then: onCreateCommand key exists and is non-empty
 
-        pip and npm installs are now handled by install-deps.sh run in
-        postCreateCommand, not in onCreateCommand.
+        onCreateCommand runs install-deps.sh to set up the environment.
+        This runs earlier in the lifecycle than postCreateCommand, before
+        the workspace is fully ready, which is appropriate since install-deps.sh
+        only needs the repo files (available via the widened build context).
         """
         on_create = devcontainer_json.get("onCreateCommand")
-        if on_create is None:
-            # Best case: key is absent
-            return
+        assert on_create is not None, "devcontainer.json should have an onCreateCommand"
+        assert on_create != "", "devcontainer.json onCreateCommand should be non-empty"
 
-        # If onCreateCommand exists, check it doesn't do pip/npm install
-        on_create_str = json.dumps(on_create).lower()
-        assert "pip install" not in on_create_str, "devcontainer.json onCreateCommand should not run pip install"
-        assert "npm install" not in on_create_str, "devcontainer.json onCreateCommand should not run npm install"
-
-    def test_postcreate_command_exists(self, devcontainer_json):
+    def test_oncreate_command_references_install_deps(self, devcontainer_json):
         """
         Given: The devcontainer.json config
-        When: Checking for postCreateCommand
-        Then: postCreateCommand key exists and is non-empty
-
-        postCreateCommand now runs install-deps.sh to set up the environment.
-        """
-        post_create = devcontainer_json.get("postCreateCommand")
-        assert post_create is not None, "devcontainer.json should have a postCreateCommand"
-        assert post_create != "", "devcontainer.json postCreateCommand should be non-empty"
-
-    def test_postcreate_command_references_install_deps(self, devcontainer_json):
-        """
-        Given: The devcontainer.json config
-        When: Checking postCreateCommand content
+        When: Checking onCreateCommand content
         Then: Command references install-deps.sh (not old setup-script)
 
         The refactor moves environment setup from .devcontainer/setup-script
         to scripts/tools/install-deps.sh.
         """
-        post_create = devcontainer_json.get("postCreateCommand", "")
-        post_create_str = json.dumps(post_create).lower()
-        assert "install-deps.sh" in post_create_str, (
-            "devcontainer.json postCreateCommand should reference install-deps.sh"
+        on_create = devcontainer_json.get("onCreateCommand", "")
+        on_create_str = json.dumps(on_create).lower()
+        assert "install-deps.sh" in on_create_str, (
+            "devcontainer.json onCreateCommand should reference install-deps.sh"
         )
-        assert "setup-script" not in post_create_str, (
-            "devcontainer.json postCreateCommand should not reference old setup-script"
+        assert "setup-script" not in on_create_str, (
+            "devcontainer.json onCreateCommand should not reference old setup-script"
+        )
+
+    def test_no_oncreate_command_pip_npm(self, devcontainer_json):
+        """
+        Given: The devcontainer.json config
+        When: Checking onCreateCommand content
+        Then: onCreateCommand does not contain direct pip install or npm install
+
+        pip and npm installs are handled inside install-deps.sh, not as
+        raw commands in onCreateCommand.
+        """
+        on_create = devcontainer_json.get("onCreateCommand", "")
+        on_create_str = json.dumps(on_create).lower()
+        assert "pip install" not in on_create_str, (
+            "devcontainer.json onCreateCommand should not run pip install directly"
+        )
+        assert "npm install" not in on_create_str, (
+            "devcontainer.json onCreateCommand should not run npm install directly"
+        )
+
+    def test_no_postcreate_command(self, devcontainer_json):
+        """
+        Given: The devcontainer.json config
+        When: Checking for postCreateCommand
+        Then: postCreateCommand key is absent
+
+        install-deps.sh has been moved from postCreateCommand to
+        onCreateCommand. postCreateCommand should no longer exist.
+        """
+        assert "postCreateCommand" not in devcontainer_json, (
+            "devcontainer.json should not have postCreateCommand "
+            "(replaced by onCreateCommand)"
         )
 
 
@@ -450,6 +469,8 @@ class TestDevcontainerJsonBuildConfig:
     Checks:
     - remoteUser is "vscode"
     - build.args contains WORKSPACE and WORKSPACE_REPO
+    - build.context is ".." (repo root, not .devcontainer/)
+    - build.dockerfile is "Dockerfile"
     """
 
     def test_remote_user_is_vscode(self, devcontainer_json):
@@ -477,39 +498,71 @@ class TestDevcontainerJsonBuildConfig:
         assert "WORKSPACE" in build_args, "devcontainer.json build.args should include WORKSPACE"
         assert "WORKSPACE_REPO" in build_args, "devcontainer.json build.args should include WORKSPACE_REPO"
 
+    def test_build_context_is_parent(self, devcontainer_json):
+        """
+        Given: The devcontainer.json config
+        When: Checking build.context
+        Then: build.context is ".." (repo root)
+
+        The build context is widened to the repo root so the Dockerfile
+        can COPY .mise.toml and install mise during the build.
+        """
+        build_context = devcontainer_json.get("build", {}).get("context")
+        assert build_context == "..", (
+            f"devcontainer.json build.context should be '..', got: {build_context}"
+        )
+
+    def test_build_dockerfile_path(self, devcontainer_json):
+        """
+        Given: The devcontainer.json config
+        When: Checking build.dockerfile
+        Then: build.dockerfile is "Dockerfile"
+
+        With a widened build context, the dockerfile path is specified
+        explicitly via the build.dockerfile key (not the top-level
+        dockerFile key).
+        """
+        build_dockerfile = devcontainer_json.get("build", {}).get("dockerfile")
+        assert build_dockerfile == "Dockerfile", (
+            f"devcontainer.json build.dockerfile should be 'Dockerfile', got: {build_dockerfile}"
+        )
+
 
 """
 Test Summary
 ============
 Total Test Classes: 6
-Total Test Methods: 20
+Total Test Methods: 23
 
 1. TestDevcontainerJsonExists (2): file exists, parses as valid JSON
 2. TestDevcontainerJsonFeatures (8): no Python feature, no Node feature,
    Docker-in-Docker present, common-utils present, username vscode,
    automatic uid, automatic gid, no zsh
-3. TestDevcontainerJsonCommands (3): no onCreateCommand pip/npm,
-   postCreateCommand exists, references install-deps.sh
+3. TestDevcontainerJsonCommands (4): onCreateCommand exists,
+   onCreateCommand references install-deps.sh, no direct pip/npm,
+   no postCreateCommand
 4. TestDevcontainerJsonPythonConfig (3): interpreter path exists, uses mise shims,
    not /usr/local/python/current
 5. TestDevcontainerJsonVscodeExtensions (2): extensions array exists,
    required extensions present
-6. TestDevcontainerJsonBuildConfig (2): remoteUser is vscode,
-   build.args has WORKSPACE/WORKSPACE_REPO
+6. TestDevcontainerJsonBuildConfig (4): remoteUser is vscode,
+   build.args has WORKSPACE/WORKSPACE_REPO, build.context is "..",
+   build.dockerfile is "Dockerfile"
 
 Coverage Areas:
 - File existence and JSON validity
 - Feature configuration (Python/Node removed, Docker-in-Docker kept, common-utils added)
-- Lifecycle commands (onCreateCommand removed, postCreateCommand uses install-deps.sh)
+- Lifecycle commands (onCreateCommand uses install-deps.sh, postCreateCommand absent)
 - Python interpreter configuration (mise shims path)
 - VSCode extensions (markdown-mermaid, ruff, yaml)
-- Build configuration (remoteUser, build.args)
+- Build configuration (remoteUser, build.args, context, dockerfile)
 
 Refactor Changes Validated:
 - Python/Node devcontainer features removed (now handled by mise)
 - common-utils feature added (handles user creation with automatic UID/GID)
-- onCreateCommand pip/npm install removed (now in install-deps.sh)
-- postCreateCommand runs install-deps.sh (not old setup-script)
+- onCreateCommand runs install-deps.sh (not old setup-script)
+- postCreateCommand removed (replaced by onCreateCommand)
+- Build context widened to repo root for .mise.toml access
 - Python interpreter path uses mise shims (not /usr/local/python/current)
 - Docker-in-Docker feature preserved (needed for act)
 """

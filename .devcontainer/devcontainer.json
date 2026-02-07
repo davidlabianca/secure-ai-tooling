@@ -1,7 +1,8 @@
 {
 	"name": "secure-ai-tooling",
-	"dockerFile": "Dockerfile",
 	"build": {
+		"context": "..",
+		"dockerfile": "Dockerfile",
 		"args": {
 			"WORKSPACE": "/workspaces",
 			"WORKSPACE_REPO": "secure-ai-tooling"
@@ -22,7 +23,7 @@
 	// Use 'forwardPorts' to make a list of ports inside the container available locally.
 	// "forwardPorts": [],
 
-	"postCreateCommand": {
+	"onCreateCommand": {
 		"install-deps": "bash scripts/tools/install-deps.sh"
 	},
 

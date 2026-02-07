@@ -48,7 +48,15 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libharfbuzz0b \
     && rm -rf /var/lib/apt/lists/*
 
+# Install mise binary system-wide (cached in Docker layer).
+# Tool installations (Python, Node) happen per-user in install-deps.sh.
+RUN curl -fsSL https://mise.run | MISE_INSTALL_PATH=/usr/local/bin/mise sh
+
 # Create workspace directory (user creation handled by common-utils feature)
 RUN mkdir -p ${WORKSPACE}/${WORKSPACE_REPO}
+
+# Copy .mise.toml so mise can read tool versions during onCreateCommand
+# (overwritten by workspace mount, but available during build)
+COPY .mise.toml ${WORKSPACE}/${WORKSPACE_REPO}/.mise.toml
 
 WORKDIR ${WORKSPACE}/${WORKSPACE_REPO}

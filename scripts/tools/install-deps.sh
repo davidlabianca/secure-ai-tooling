@@ -6,13 +6,6 @@
 # Uses only bash builtins for parsing (no grep/sed/cut/tr/find) to work
 # in restricted PATH environments like test stubs.
 
-# Force line-buffered stdout so output streams in real-time during non-TTY
-# execution (e.g., devcontainer postCreateCommand).
-if [[ -z "${_INSTALL_DEPS_UNBUFFERED:-}" ]] && command -v stdbuf &>/dev/null && [[ ! -t 1 ]]; then
-    export _INSTALL_DEPS_UNBUFFERED=1
-    exec stdbuf -oL "$0" "$@"
-fi
-
 # Color codes for output (match verify-deps.sh conventions)
 GREEN='\033[0;32m'
 RED='\033[0;31m'

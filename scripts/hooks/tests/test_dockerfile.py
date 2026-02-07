@@ -8,8 +8,8 @@ to ensure it matches the devcontainer refactor spec.
 
 Test Coverage:
 ==============
-Total Test Classes: 6
-Total Test Methods: 18
+Total Test Classes: 7
+Total Test Methods: 20
 
 1. TestDockerfileExists (2): file exists, non-empty
 2. TestDockerfileBaseImage (2): uses ubuntu:noble, no playwright reference
@@ -20,6 +20,7 @@ Total Test Methods: 18
 5. TestDockerfileWorkspace (2): creates workspace dir, sets WORKDIR
 6. TestDockerfileNoRuntimeInstalls (3): no Python install, no Node.js install,
    no playwright install
+7. TestDockerfileMise (2): mise binary install, copies .mise.toml
 
 Testing Approach:
 =================
@@ -362,11 +363,54 @@ class TestDockerfileNoRuntimeInstalls:
                 )
 
 
+# =============================================================================
+# TestDockerfileMise
+# =============================================================================
+
+
+class TestDockerfileMise:
+    """
+    Validate mise binary installation in Dockerfile.
+
+    The mise binary is installed system-wide during Docker build so it is
+    cached in the Docker layer. Tool installations (Python, Node) happen
+    per-user in install-deps.sh via onCreateCommand.
+    """
+
+    def test_mise_binary_install(self, dockerfile_content):
+        """
+        Given: The Dockerfile content
+        When: Checking for mise binary installation
+        Then: Dockerfile contains a curl command fetching mise.run
+
+        mise is installed system-wide to /usr/local/bin/mise during the
+        Docker build, avoiding the need for install-deps.sh to download
+        it on every container creation.
+        """
+        assert "mise.run" in dockerfile_content, (
+            "Dockerfile should install mise binary via mise.run"
+        )
+
+    def test_copies_mise_toml(self, dockerfile_content):
+        """
+        Given: The Dockerfile content
+        When: Checking for .mise.toml COPY instruction
+        Then: Dockerfile contains COPY .mise.toml
+
+        .mise.toml is copied into the workspace so mise can read tool
+        versions during onCreateCommand. The file is overwritten when
+        the workspace volume is mounted.
+        """
+        assert "COPY .mise.toml" in dockerfile_content, (
+            "Dockerfile should COPY .mise.toml into the workspace"
+        )
+
+
 """
 Test Summary
 ============
-Total Test Classes: 6
-Total Test Methods: 18
+Total Test Classes: 7
+Total Test Methods: 20
 
 1. TestDockerfileExists (2): file exists, non-empty
 2. TestDockerfileBaseImage (2): uses ubuntu:noble, no playwright reference
@@ -377,6 +421,7 @@ Total Test Methods: 18
 5. TestDockerfileWorkspace (2): creates workspace dir, sets WORKDIR
 6. TestDockerfileNoRuntimeInstalls (3): no Python install, no Node.js install,
    no playwright install
+7. TestDockerfileMise (2): mise binary install, copies .mise.toml
 
 Coverage Areas:
 - Base image selection (ubuntu:noble, no Playwright)
@@ -386,4 +431,5 @@ Coverage Areas:
 - No user management (common-utils feature handles user creation)
 - Workspace setup (mkdir, WORKDIR)
 - No runtime tool installs (Python, Node.js, Playwright Chromium binary)
+- mise binary installation and .mise.toml copy
 """

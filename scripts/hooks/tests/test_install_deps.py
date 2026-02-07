@@ -9,7 +9,7 @@ and supports --dry-run and --quiet flags.
 
 Test Coverage:
 ==============
-Total Test Classes: 26
+Total Test Classes: 25
 Coverage Target: 100% of install-deps.sh functionality
 
 Group 1 -- Script Fundamentals (3):
@@ -17,43 +17,40 @@ Group 1 -- Script Fundamentals (3):
 2.  TestArgumentParsing - --dry-run, --quiet, --help, unknown flags
 3.  TestDryRunNoSideEffects - Dry-run produces no filesystem changes
 
-Group 1b -- Output Buffering (1):
-4.  TestOutputBuffering - stdbuf re-exec guard and non-TTY detection
-
 Group 2 -- Dry-Run Output (7):
-5.  TestDryRunMiseInstall - mise missing -> shows dry-run curl command
-6.  TestDryRunMiseSkip - mise present -> shows [SKIP]
-7.  TestDryRunPythonInstall - python missing -> shows mise install python
-8.  TestDryRunNodeInstall - node missing -> shows mise install node
-9.  TestDryRunPipInstall - pip packages missing -> shows pip install
-10. TestDryRunNpmInstall - npm packages missing -> shows npm install
-11. TestDryRunActInstall - act missing -> shows dry-run act install
+4.  TestDryRunMiseInstall - mise missing -> shows dry-run curl command
+5.  TestDryRunMiseSkip - mise present -> shows [SKIP]
+6.  TestDryRunPythonInstall - python missing -> shows mise install python
+7.  TestDryRunNodeInstall - node missing -> shows mise install node
+8.  TestDryRunPipInstall - pip packages missing -> shows pip install
+9.  TestDryRunNpmInstall - npm packages missing -> shows npm install
+10. TestDryRunActInstall - act missing -> shows dry-run act install
 
 Group 3 -- Skip/Idempotency (5):
-12. TestSkipPythonWhenPresent - python3 with correct version -> [SKIP]
-13. TestSkipNodeWhenPresent - node with correct version -> [SKIP]
-14. TestSkipActWhenPresent - act present -> [SKIP]
-15. TestSkipChromiumWhenPresent - chromium in cache -> [SKIP]
-16. TestSkipMiseWhenPresent - mise present -> [SKIP]
+11. TestSkipPythonWhenPresent - python3 with correct version -> [SKIP]
+12. TestSkipNodeWhenPresent - node with correct version -> [SKIP]
+13. TestSkipActWhenPresent - act present -> [SKIP]
+14. TestSkipChromiumWhenPresent - chromium in cache -> [SKIP]
+15. TestSkipMiseWhenPresent - mise present -> [SKIP]
 
 Group 3c -- mise install from config (1):
-17. TestMiseInstallFromConfig - bare mise install + reshim after trust
+16. TestMiseInstallFromConfig - bare mise install + reshim after trust
 
 Group 4 -- Error Handling (4):
-18. TestMiseInstallFailure - mise install fails -> [FAIL], continues
-19. TestPipInstallFailure - pip install fails -> [FAIL], continues
-20. TestNpmInstallFailure - npm install fails -> [FAIL], continues
-21. TestVerificationFailure - verify-deps.sh fails -> exit non-zero
+17. TestMiseInstallFailure - mise install fails -> [FAIL], continues
+18. TestPipInstallFailure - pip install fails -> [FAIL], continues
+19. TestNpmInstallFailure - npm install fails -> [FAIL], continues
+20. TestVerificationFailure - verify-deps.sh fails -> exit non-zero
 
 Group 4b -- mise reshim after pip (1):
-22. TestMiseReshimAfterPip - mise reshim after pip install
+21. TestMiseReshimAfterPip - mise reshim after pip install
 
 Group 5 -- Output Formatting (2):
-23. TestOutputColors - ANSI color codes present for tags
-24. TestQuietModeSuppression - --quiet hides [PASS]/[SKIP]/[INFO], shows [FAIL]
+22. TestOutputColors - ANSI color codes present for tags
+23. TestQuietModeSuppression - --quiet hides [PASS]/[SKIP]/[INFO], shows [FAIL]
 
 Group 6 -- Integration (1):
-25. TestFullInstallDryRun - all tools present, --dry-run -> all [SKIP], exit 0
+24. TestFullInstallDryRun - all tools present, --dry-run -> all [SKIP], exit 0
 
 Installation Order Tested:
 ==========================
@@ -458,81 +455,6 @@ class TestDryRunNoSideEffects:
 
         assert len(new_in_repo) == 0, (
             f"Dry-run should not create new files in repo root.\nNew files: {new_in_repo}"
-        )
-
-
-# =============================================================================
-# Group 1b -- Output Buffering
-# =============================================================================
-
-
-class TestOutputBuffering:
-    """
-    Test stdbuf re-exec for line-buffered output in non-TTY execution.
-
-    The script re-execs itself through stdbuf -oL when stdout is not a TTY
-    (e.g., during devcontainer postCreateCommand) to stream output in real-time.
-    A guard variable _INSTALL_DEPS_UNBUFFERED prevents infinite re-exec loops.
-    """
-
-    def test_unbuffered_guard_prevents_infinite_reexec(self, tmp_path):
-        """
-        Test that _INSTALL_DEPS_UNBUFFERED=1 prevents re-exec loop.
-
-        Given: _INSTALL_DEPS_UNBUFFERED=1 is set in the environment
-        When: Running install-deps.sh --dry-run
-        Then: Script exits 0 without attempting stdbuf re-exec
-        """
-        env_info = create_full_stub_env(tmp_path)
-        env_info["env"]["_INSTALL_DEPS_UNBUFFERED"] = "1"
-        result = subprocess.run(
-            [str(SCRIPT_PATH), "--dry-run"],
-            capture_output=True,
-            text=True,
-            env=env_info["env"],
-            timeout=30,
-        )
-        assert result.returncode == 0, (
-            f"Script should exit 0 with _INSTALL_DEPS_UNBUFFERED=1.\n"
-            f"Exit code: {result.returncode}\n"
-            f"STDOUT:\n{result.stdout}\n"
-            f"STDERR:\n{result.stderr}"
-        )
-
-    def test_stdbuf_reexec_only_when_not_tty(self, tmp_path):
-        """
-        Test that stdbuf re-exec fires when stdout is not a TTY.
-
-        Given: A stdbuf stub that logs STDBUF_CALLED then exec's remaining args
-        When: Running install-deps.sh --dry-run via subprocess (non-TTY stdout)
-        Then: The stdbuf stub log file exists (re-exec was attempted)
-        """
-        stdbuf_log = tmp_path / "home" / "stdbuf-calls.log"
-        stdbuf_stub = (
-            "#!/bin/bash\n"
-            f'echo "STDBUF_CALLED" >> "{stdbuf_log}"\n'
-            "# Skip past the -oL flag to find the real command\n"
-            "shift  # skip -oL\n"
-            'exec "$@"\n'
-        )
-        env_info = create_full_stub_env(tmp_path, overrides={"stdbuf": stdbuf_stub})
-        # Ensure guard is NOT set so re-exec fires
-        env_info["env"].pop("_INSTALL_DEPS_UNBUFFERED", None)
-        result = subprocess.run(
-            [str(SCRIPT_PATH), "--dry-run"],
-            capture_output=True,
-            text=True,
-            env=env_info["env"],
-            timeout=30,
-        )
-        assert result.returncode == 0, (
-            f"Script should exit 0 after stdbuf re-exec.\n"
-            f"Exit code: {result.returncode}\n"
-            f"STDOUT:\n{result.stdout}\n"
-            f"STDERR:\n{result.stderr}"
-        )
-        assert stdbuf_log.exists(), (
-            f"stdbuf stub log should exist after re-exec.\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}"
         )
 
 
@@ -1633,16 +1555,13 @@ class TestFullInstallDryRun:
 """
 Test Summary
 ============
-Total Test Classes: 26
-Total Test Methods: 39
+Total Test Classes: 25
+Total Test Methods: 37
 
 Group 1 -- Script Fundamentals (3 classes, 6 methods):
 - TestScriptExists (2): file exists, is executable
 - TestArgumentParsing (4): --dry-run, --quiet, --help, unknown flag
 - TestDryRunNoSideEffects (1): no filesystem changes
-
-Group 1b -- Output Buffering (1 class, 2 methods):
-- TestOutputBuffering (2): unbuffered guard, stdbuf re-exec when not TTY
 
 Group 2 -- Dry-Run Output (7 classes, 7 methods):
 - TestDryRunMiseInstall (1): mise missing -> DRY-RUN curl
@@ -1693,10 +1612,4 @@ Coverage Areas:
 - ANSI color codes for status tags
 - Quiet mode output suppression
 - Full integration with all tools present
-
-Next Steps:
-1. Run tests (all should fail - TDD red phase, script does not exist yet)
-2. Implement install-deps.sh script (TDD green phase)
-3. Refactor for clarity and maintainability (TDD refactor phase)
-4. Verify 100% coverage of script functionality
 """
