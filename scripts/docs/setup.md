@@ -81,6 +81,7 @@ npm install
 - `hooks/validate_riskmap.py` - Component edge validation and graph generation
 - `hooks/validate_control_risk_references.py` - Control-risk cross-reference validation
 - `hooks/validate_framework_references.py` - Framework reference validation
+- `hooks/validate_issue_templates.py` - Issue template and dependabot.yml schema validation
 - `hooks/yaml_to_markdown.py` - Markdown table generation from YAML
 - `hooks/riskmap_validator/` - Python module with models, validator, graphing, and utilities
 - `install-precommit-hook.sh` - Installs all hooks to your local `.git/hooks/` (supports `--auto` flag for non-interactive install)
