@@ -8,19 +8,21 @@ to ensure it matches the devcontainer refactor spec.
 
 Test Coverage:
 ==============
-Total Test Classes: 7
-Total Test Methods: 20
+Total Test Classes: 8
+Total Test Methods: 26
 
 1. TestDockerfileExists (2): file exists, non-empty
 2. TestDockerfileBaseImage (2): uses ubuntu:noble, no playwright reference
 3. TestDockerfileSystemPackages (4): core packages, Playwright deps,
    --no-install-recommends, apt cache cleanup
-4. TestDockerfileNoUserManagement (5): no UID/GID ARGs, no USERNAME ARG,
-   no useradd/groupadd, no sudoers, no USER directive
+4. TestDockerfileUserManagement (5): no UID/GID ARGs, USERNAME ARG is vscode,
+   creates vscode user, no sudoers, USER directives for build-time install
 5. TestDockerfileWorkspace (2): creates workspace dir, sets WORKDIR
-6. TestDockerfileNoRuntimeInstalls (3): no Python install, no Node.js install,
-   no playwright install
+6. TestDockerfileNoDirectRuntimeInstalls (3): no direct Python install,
+   no direct Node.js install, no playwright install
 7. TestDockerfileMise (2): mise binary install, copies .mise.toml
+8. TestDockerfileBuildTimeToolInstall (6): mise trust, mise install,
+   mise reshim, mise use -g python, mise use -g node, ENV HOME
 
 Testing Approach:
 =================
@@ -183,17 +185,23 @@ class TestDockerfileSystemPackages:
 
 
 # =============================================================================
-# TestDockerfileNoUserManagement
+# TestDockerfileUserManagement
 # =============================================================================
 
 
-class TestDockerfileNoUserManagement:
+class TestDockerfileUserManagement:
     """
-    Validate that the Dockerfile does NOT manage users.
+    Validate Dockerfile user management for build-time tool installation.
 
-    User creation is handled by the common-utils devcontainer feature with
-    uid/gid: "automatic", not by manual groupadd/useradd in the Dockerfile.
-    remoteUser in devcontainer.json sets the runtime user.
+    The Dockerfile creates a vscode user for running mise install during the
+    Docker build. This is idempotent with the common-utils feature's user
+    creation at runtime (useradd with 2>/dev/null || true).
+
+    The Dockerfile should:
+    - Create a vscode user via ARG USERNAME and useradd
+    - Use USER directives to switch to vscode for mise install, then back to root
+    - NOT manage UID/GID (common-utils handles this with automatic detection)
+    - NOT configure sudoers (common-utils handles this)
     """
 
     def test_no_uid_gid_args(self, dockerfile_content):
@@ -201,6 +209,9 @@ class TestDockerfileNoUserManagement:
         Given: The Dockerfile content
         When: Checking for UID/GID ARG declarations
         Then: ARG USER_UID and ARG USER_GID are NOT present
+
+        UID/GID are managed by common-utils with automatic detection, not
+        hardcoded in the Dockerfile.
         """
         assert "ARG USER_UID" not in dockerfile_content, (
             "Dockerfile should not declare ARG USER_UID -- common-utils handles this"
@@ -209,24 +220,32 @@ class TestDockerfileNoUserManagement:
             "Dockerfile should not declare ARG USER_GID -- common-utils handles this"
         )
 
-    def test_no_username_arg(self, dockerfile_content):
+    def test_username_arg_is_vscode(self, dockerfile_content):
         """
         Given: The Dockerfile content
-        When: Checking for USERNAME ARG declaration
-        Then: ARG USERNAME is NOT present
+        When: Checking for USERNAME ARG
+        Then: ARG USERNAME=vscode is present
+
+        The vscode user is created during build for running mise install
+        as a non-root user. The ARG defaults to vscode to match the
+        common-utils feature configuration in devcontainer.json.
         """
-        assert "ARG USERNAME" not in dockerfile_content, (
-            "Dockerfile should not declare ARG USERNAME -- common-utils handles this"
+        assert "ARG USERNAME=vscode" in dockerfile_content, (
+            "Dockerfile should declare ARG USERNAME=vscode for build-time user creation"
         )
 
-    def test_no_useradd_groupadd(self, dockerfile_content):
+    def test_creates_vscode_user(self, dockerfile_content):
         """
         Given: The Dockerfile content
-        When: Checking for user creation commands
-        Then: useradd and groupadd are NOT present
+        When: Checking for user creation
+        Then: useradd command is present to create the vscode user
+
+        The user is created with 2>/dev/null || true to be idempotent
+        with the common-utils feature's user creation at runtime.
+        groupadd should NOT be present (common-utils handles groups).
         """
-        assert "useradd" not in dockerfile_content, (
-            "Dockerfile should not use useradd -- common-utils handles user creation"
+        assert "useradd" in dockerfile_content, (
+            "Dockerfile should create vscode user with useradd for build-time mise install"
         )
         assert "groupadd" not in dockerfile_content, (
             "Dockerfile should not use groupadd -- common-utils handles group creation"
@@ -245,15 +264,30 @@ class TestDockerfileNoUserManagement:
             "Dockerfile should not reference sudoers -- common-utils handles this"
         )
 
-    def test_no_user_directive(self, dockerfile_lines):
+    def test_user_directives_for_build_time_install(self, dockerfile_lines):
         """
         Given: The Dockerfile lines
-        When: Checking for USER directive
-        Then: No USER directive exists (remoteUser in devcontainer.json handles this)
+        When: Checking for USER directives
+        Then: USER directives switch to vscode for mise install, then back to root
+
+        The Dockerfile switches to the vscode user for mise install (mise
+        installs per-user to ~/.local/share/mise/) then switches back to
+        root so the container starts correctly (remoteUser in devcontainer.json
+        sets the runtime user).
         """
         user_lines = [line.strip() for line in dockerfile_lines if line.strip().startswith("USER ")]
-        assert len(user_lines) == 0, (
-            "Dockerfile should not have a USER directive -- remoteUser in devcontainer.json handles this"
+        assert len(user_lines) >= 2, (
+            "Dockerfile should have USER directives for switching to vscode and back to root"
+        )
+        user_values = [line.split()[1] for line in user_lines]
+        # Verify we switch to vscode user (via ARG reference or literal)
+        has_vscode = any(v in ("${USERNAME}", "vscode") for v in user_values)
+        assert has_vscode, (
+            f"Dockerfile should have a USER directive switching to vscode user, got: {user_values}"
+        )
+        # Last USER directive should be root
+        assert user_values[-1] == "root", (
+            f"Last USER directive should be 'root', got: {user_values[-1]}"
         )
 
 
@@ -290,15 +324,20 @@ class TestDockerfileWorkspace:
 
 
 # =============================================================================
-# TestDockerfileNoRuntimeInstalls
+# TestDockerfileNoDirectRuntimeInstalls
 # =============================================================================
 
 
-class TestDockerfileNoRuntimeInstalls:
+class TestDockerfileNoDirectRuntimeInstalls:
     """
-    Validate that the Dockerfile does NOT install runtime tools.
-    Runtime tools (Python, Node.js, Playwright Chromium binary) are handled
-    by install-deps.sh.
+    Validate that the Dockerfile does NOT install runtime tools via direct commands.
+
+    Python and Node.js are installed via bare `mise install` (which reads
+    versions from .mise.toml), NOT via direct `mise install python`,
+    `apt-get install python3`, `nvm install`, etc. This ensures tool
+    versions are managed centrally in .mise.toml.
+
+    Playwright Chromium binary is handled by install-deps.sh, not the Dockerfile.
     """
 
     def test_no_python_install(self, dockerfile_content):
@@ -373,8 +412,8 @@ class TestDockerfileMise:
     Validate mise binary installation in Dockerfile.
 
     The mise binary is installed system-wide during Docker build so it is
-    cached in the Docker layer. Tool installations (Python, Node) happen
-    per-user in install-deps.sh via onCreateCommand.
+    cached in the Docker layer. Build-time tool installation (Python, Node)
+    is validated in TestDockerfileBuildTimeToolInstall.
     """
 
     def test_mise_binary_install(self, dockerfile_content):
@@ -406,30 +445,130 @@ class TestDockerfileMise:
         )
 
 
+# =============================================================================
+# TestDockerfileBuildTimeToolInstall
+# =============================================================================
+
+
+class TestDockerfileBuildTimeToolInstall:
+    """
+    Validate build-time Python/Node.js installation via mise.
+
+    Python and Node.js are installed during Docker build so binaries and
+    shims exist when the container starts. This eliminates the race condition
+    where VS Code's Python extension activates before onCreateCommand
+    installs Python via install-deps.sh.
+    """
+
+    def test_mise_trust(self, dockerfile_content):
+        """
+        Given: The Dockerfile content
+        When: Checking for mise trust command
+        Then: mise trust is called before mise install
+
+        mise requires explicit trust of .mise.toml to prevent executing
+        arbitrary tool installation commands from untrusted config files.
+        """
+        assert "mise trust" in dockerfile_content, (
+            "Dockerfile should run 'mise trust' before 'mise install'"
+        )
+
+    def test_mise_install_bare(self, dockerfile_content):
+        """
+        Given: The Dockerfile content
+        When: Checking for mise install command
+        Then: bare mise install is called (reads from .mise.toml)
+
+        Bare `mise install` installs all tools declared in .mise.toml,
+        ensuring versions are managed centrally rather than hardcoded
+        in the Dockerfile.
+        """
+        assert "mise install" in dockerfile_content, (
+            "Dockerfile should run bare 'mise install' to install tools from .mise.toml"
+        )
+
+    def test_mise_reshim(self, dockerfile_content):
+        """
+        Given: The Dockerfile content
+        When: Checking for mise reshim command
+        Then: mise reshim is called after install
+
+        mise reshim regenerates shim symlinks in ~/.local/share/mise/shims/
+        after tool installation, ensuring python, node, etc. are available
+        via the shims directory.
+        """
+        assert "mise reshim" in dockerfile_content, (
+            "Dockerfile should run 'mise reshim' after 'mise install'"
+        )
+
+    def test_mise_use_global_python(self, dockerfile_content):
+        """
+        Given: The Dockerfile content
+        When: Checking for mise use -g python command
+        Then: mise use -g python is called for global fallback
+
+        Sets a global default Python version in ~/.config/mise/config.toml
+        so shims resolve from any working directory (not just the project
+        directory where .mise.toml exists). Required for VS Code's Python
+        extension which may invoke shims from outside the project.
+        """
+        assert "mise use -g python" in dockerfile_content, (
+            "Dockerfile should run 'mise use -g python' for global fallback config"
+        )
+
+    def test_mise_use_global_node(self, dockerfile_content):
+        """
+        Given: The Dockerfile content
+        When: Checking for mise use -g node command
+        Then: mise use -g node is called for global fallback
+
+        Sets a global default Node.js version in ~/.config/mise/config.toml
+        so shims resolve from any working directory.
+        """
+        assert "mise use -g node" in dockerfile_content, (
+            "Dockerfile should run 'mise use -g node' for global fallback config"
+        )
+
+    def test_env_home_set(self, dockerfile_content):
+        """
+        Given: The Dockerfile content
+        When: Checking for ENV HOME directive
+        Then: ENV HOME is set for the vscode user
+
+        HOME must be set as a Docker ENV so mise knows where to install
+        tools (~/.local/share/mise/) during the build-time USER vscode block.
+        """
+        assert "ENV HOME=" in dockerfile_content, (
+            "Dockerfile should set ENV HOME for the vscode user's mise install"
+        )
+
+
 """
 Test Summary
 ============
-Total Test Classes: 7
-Total Test Methods: 20
+Total Test Classes: 8
+Total Test Methods: 26
 
 1. TestDockerfileExists (2): file exists, non-empty
 2. TestDockerfileBaseImage (2): uses ubuntu:noble, no playwright reference
 3. TestDockerfileSystemPackages (4): core packages, Playwright deps,
    --no-install-recommends, apt cache cleanup
-4. TestDockerfileNoUserManagement (5): no UID/GID ARGs, no USERNAME ARG,
-   no useradd/groupadd, no sudoers, no USER directive
+4. TestDockerfileUserManagement (5): no UID/GID ARGs, USERNAME ARG is vscode,
+   creates vscode user, no sudoers, USER directives for build-time install
 5. TestDockerfileWorkspace (2): creates workspace dir, sets WORKDIR
-6. TestDockerfileNoRuntimeInstalls (3): no Python install, no Node.js install,
-   no playwright install
+6. TestDockerfileNoDirectRuntimeInstalls (3): no direct Python install,
+   no direct Node.js install, no playwright install
 7. TestDockerfileMise (2): mise binary install, copies .mise.toml
+8. TestDockerfileBuildTimeToolInstall (6): mise trust, mise install,
+   mise reshim, mise use -g python, mise use -g node, ENV HOME
 
 Coverage Areas:
 - Base image selection (ubuntu:noble, no Playwright)
 - Core system packages (build-essential, curl, wget, git, ca-certificates)
 - Playwright Chromium system dependencies (representative subset)
 - Image optimization (--no-install-recommends, apt cache cleanup)
-- No user management (common-utils feature handles user creation)
+- User management for build-time tool install (vscode user, USER directives)
 - Workspace setup (mkdir, WORKDIR)
-- No runtime tool installs (Python, Node.js, Playwright Chromium binary)
-- mise binary installation and .mise.toml copy
+- No direct runtime installs (versions managed by .mise.toml, not hardcoded)
+- mise binary installation, .mise.toml copy, and build-time tool installation
 """

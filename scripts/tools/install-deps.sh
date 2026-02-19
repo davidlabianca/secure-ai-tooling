@@ -268,6 +268,11 @@ if command -v mise &>/dev/null && [[ -f "$MISE_CONFIG" ]]; then
         else
             pass_msg "Tools installed from .mise.toml"
             mise reshim 2>/dev/null || true
+            # Set global defaults so mise shims resolve outside the project directory.
+            # VS Code extensions invoke Python from contexts where the project .mise.toml
+            # isn't detected, causing "No version is set for shim" errors.
+            mise use -g python@3.14 2>/dev/null || true
+            mise use -g node@22 2>/dev/null || true
         fi
     fi
 fi
@@ -399,8 +404,10 @@ info_msg "Checking npm packages..."
 NPM_NEEDS_INSTALL=false
 
 if command -v npm &>/dev/null && [[ -f "$REPO_ROOT/package.json" ]]; then
-    # Check if npm packages are installed by running npm ls
-    if ! npm ls --prefix "$REPO_ROOT" &>/dev/null 2>&1; then
+    # Check if node_modules exists. Simpler and more reliable than npm ls,
+    # which can return false positives when Node is pre-installed (e.g. in
+    # the Dockerfile) but project packages haven't been installed yet.
+    if [[ ! -d "$REPO_ROOT/node_modules" ]]; then
         NPM_NEEDS_INSTALL=true
     fi
 
