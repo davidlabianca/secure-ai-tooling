@@ -1,0 +1,71 @@
+version: 2
+updates:
+  # Python (pip) - requirements.txt
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    labels: ["dependencies", "python", "security"]
+    commit-message:
+      prefix: "deps(python)"
+    groups:
+      minor-and-patch:
+        update-types:
+          - "minor"
+          - "patch"
+
+  # Node.js (npm) - package.json
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    labels: ["dependencies", "node", "security"]
+    commit-message:
+      prefix: "deps(node)"
+    groups:
+      minor-and-patch:
+        update-types:
+          - "minor"
+          - "patch"
+
+  # GitHub Actions - .github/workflows/*.yml
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    labels: ["dependencies", "ci/cd", "security"]
+    commit-message:
+      prefix: "deps(actions)"
+    groups:
+      minor-and-patch:
+        update-types:
+          - "minor"
+          - "patch"
+
+  # Docker - .devcontainer/Dockerfile
+  - package-ecosystem: "docker"
+    directory: "/.devcontainer"
+    schedule:
+      interval: "monthly"
+    labels: ["dependencies", "infrastructure", "security"]
+    commit-message:
+      prefix: "deps(docker)"
+    groups:
+      minor-and-patch:
+        update-types:
+          - "minor"
+          - "patch"
+
+  # Devcontainer features - .devcontainer/devcontainer.json
+  - package-ecosystem: "devcontainers"
+    directory: "/.devcontainer"
+    schedule:
+      interval: "monthly"
+    labels: ["dependencies", "infrastructure", "security"]
+    commit-message:
+      prefix: "deps(devcontainer)"
+    groups:
+      minor-and-patch:
+        update-types:
+          - "minor"
+          - "patch"

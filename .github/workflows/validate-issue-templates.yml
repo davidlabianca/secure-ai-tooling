@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - '.github/ISSUE_TEMPLATE/**'
+      - '.github/dependabot.yml'
       - 'risk-map/schemas/**'
       - 'scripts/hooks/validate_issue_templates.py'
       - 'scripts/generate_issue_templates.py'
@@ -14,6 +15,7 @@ on:
       - develop
     paths:
       - '.github/ISSUE_TEMPLATE/**'
+      - '.github/dependabot.yml'
       - 'risk-map/schemas/**'
 
 jobs:
@@ -33,12 +35,12 @@ jobs:
           cache: 'pip'
       - name: Install dependencies
         run: |
-          pip install -r requirements-dev.txt
+          pip install -r requirements.txt
           pip install check-jsonschema
       - name: Generate cache key
         id: cache-key
         run: |
-          echo "key=deps-${{ hashFiles('requirements-dev.txt') }}" >> $GITHUB_OUTPUT
+          echo "key=deps-${{ hashFiles('requirements.txt') }}" >> $GITHUB_OUTPUT
 
   # Validate templates against GitHub schemas
   validate-templates:
@@ -89,7 +91,7 @@ jobs:
           python-version: '3.14'
           cache: 'pip'
       - name: Install dependencies
-        run: pip install -r requirements-dev.txt
+        run: pip install -r requirements.txt
       - name: Check for template drift
         id: drift
         run: |
@@ -127,7 +129,7 @@ jobs:
           python-version: '3.14'
           cache: 'pip'
       - name: Install dependencies
-        run: pip install -r requirements-dev.txt
+        run: pip install -r requirements.txt
       - name: Run validator tests
         id: test
         run: |
