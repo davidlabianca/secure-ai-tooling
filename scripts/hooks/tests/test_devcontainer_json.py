@@ -8,8 +8,8 @@ installation from devcontainer features to install-deps.sh with mise.
 
 Test Coverage:
 ==============
-Total Test Classes: 6
-Total Test Methods: 23
+Total Test Classes: 7
+Total Test Methods: 28
 
 1. TestDevcontainerJsonExists (2): file exists, parses as valid JSON
 2. TestDevcontainerJsonFeatures (8): no Python feature, no Node feature,
@@ -22,10 +22,13 @@ Total Test Methods: 23
 4. TestDevcontainerJsonPythonConfig (3): interpreter path exists, uses mise shims,
    does not use /usr/local/python/current
 5. TestDevcontainerJsonVscodeExtensions (2): extensions array exists,
-   required extensions present
+   required extensions present (including ms-python.python)
 6. TestDevcontainerJsonBuildConfig (4): remoteUser is vscode,
    build.args contains WORKSPACE and WORKSPACE_REPO, build.context is "..",
    build.dockerfile is "Dockerfile"
+7. TestDevcontainerJsonRemoteEnv (5): remoteEnv exists, PATH includes
+   mise shims, PATH includes .local/bin, PATH preserves existing PATH,
+   PATH does not use ${containerEnv:HOME}
 
 Testing Approach:
 =================
@@ -418,7 +421,8 @@ class TestDevcontainerJsonVscodeExtensions:
     """
     Validate VSCode extensions configuration.
 
-    Required extensions (unchanged from original devcontainer.json):
+    Required extensions:
+    - ms-python.python (explicit install for reliable activation timing)
     - bierner.markdown-mermaid
     - charliermarsh.ruff
     - redhat.vscode-yaml
@@ -443,12 +447,18 @@ class TestDevcontainerJsonVscodeExtensions:
         Then: Required extensions are present
 
         Required for CoSAI Risk Map development:
+        - ms-python.python (interpreter discovery, test runner)
         - bierner.markdown-mermaid (Mermaid diagram preview)
         - charliermarsh.ruff (Python linting/formatting)
         - redhat.vscode-yaml (YAML validation)
+
+        ms-python.python is installed explicitly (rather than as a transitive
+        dependency of ruff) so its activation timing is controlled by the
+        devcontainer lifecycle.
         """
         extensions = devcontainer_json.get("customizations", {}).get("vscode", {}).get("extensions", [])
         required = [
+            "ms-python.python",
             "bierner.markdown-mermaid",
             "charliermarsh.ruff",
             "redhat.vscode-yaml",
@@ -528,11 +538,117 @@ class TestDevcontainerJsonBuildConfig:
         )
 
 
+# =============================================================================
+# TestDevcontainerJsonRemoteEnv
+# =============================================================================
+
+
+class TestDevcontainerJsonRemoteEnv:
+    """
+    Validate remoteEnv configuration for VS Code Server process environment.
+
+    The VS Code Server starts before onCreateCommand runs, capturing the
+    container's initial environment. Without remoteEnv, the server's PATH
+    lacks mise shims, causing the Python extension to fail interpreter
+    validation until a manual "Reload Window".
+
+    remoteEnv injects environment variables directly into the VS Code Server
+    process, independent of ~/.bashrc.
+    """
+
+    def test_remote_env_exists(self, devcontainer_json):
+        """
+        Given: The devcontainer.json config
+        When: Checking for remoteEnv
+        Then: remoteEnv key exists and is a dict
+
+        remoteEnv is required to inject mise shim paths into the VS Code
+        Server process environment so extensions can find tools without
+        requiring a manual "Reload Window" after container build.
+        """
+        remote_env = devcontainer_json.get("remoteEnv")
+        assert remote_env is not None, (
+            "devcontainer.json should have remoteEnv to inject mise paths "
+            "into VS Code Server environment"
+        )
+        assert isinstance(remote_env, dict), (
+            f"devcontainer.json remoteEnv should be a dict, got: {type(remote_env)}"
+        )
+
+    def test_remote_env_path_includes_mise_shims(self, devcontainer_json):
+        """
+        Given: The devcontainer.json config
+        When: Checking remoteEnv PATH value
+        Then: PATH includes mise shims directory
+
+        The mise shims directory contains symlinks for python, node, etc.
+        It must be on the VS Code Server's PATH so extensions (especially
+        the Python extension) can resolve tools from any working directory.
+        """
+        remote_env = devcontainer_json.get("remoteEnv", {})
+        path_value = remote_env.get("PATH", "")
+        assert "mise/shims" in path_value, (
+            f"remoteEnv PATH should include mise shims directory, got: {path_value}"
+        )
+
+    def test_remote_env_path_includes_mise_bin(self, devcontainer_json):
+        """
+        Given: The devcontainer.json config
+        When: Checking remoteEnv PATH value
+        Then: PATH includes .local/bin (where mise binary lives for user installs)
+
+        The .local/bin directory contains the mise binary itself when
+        installed per-user. Including it ensures mise commands work in
+        VS Code terminals without sourcing ~/.bashrc.
+        """
+        remote_env = devcontainer_json.get("remoteEnv", {})
+        path_value = remote_env.get("PATH", "")
+        assert ".local/bin" in path_value, (
+            f"remoteEnv PATH should include .local/bin directory, got: {path_value}"
+        )
+
+    def test_remote_env_path_no_containerenv_home(self, devcontainer_json):
+        """
+        Given: The devcontainer.json config
+        When: Checking remoteEnv PATH for ${containerEnv:HOME} usage
+        Then: PATH does NOT use ${containerEnv:HOME}
+
+        ${containerEnv:HOME} resolves to an empty string because HOME is not
+        set as a Docker ENV at the time remoteEnv is evaluated (it is set
+        dynamically by common-utils at runtime). This produces broken paths
+        like /.local/share/mise/shims instead of /home/vscode/.local/share/
+        mise/shims. Hardcoded /home/vscode is used instead, which is safe
+        because remoteUser is already set to vscode.
+        """
+        remote_env = devcontainer_json.get("remoteEnv", {})
+        path_value = remote_env.get("PATH", "")
+        assert "${containerEnv:HOME}" not in path_value, (
+            f"remoteEnv PATH should not use ${{containerEnv:HOME}} (resolves to "
+            f"empty string), use hardcoded /home/vscode instead. Got: {path_value}"
+        )
+
+    def test_remote_env_path_preserves_existing(self, devcontainer_json):
+        """
+        Given: The devcontainer.json config
+        When: Checking remoteEnv PATH value
+        Then: PATH references containerEnv:PATH to preserve existing PATH entries
+
+        remoteEnv PATH must append to (not replace) the container's existing
+        PATH, otherwise system tools like git, curl, etc. would be lost.
+        """
+        remote_env = devcontainer_json.get("remoteEnv", {})
+        path_value = remote_env.get("PATH", "")
+        assert "${containerEnv:PATH}" in path_value, (
+            f"remoteEnv PATH should reference ${{containerEnv:PATH}} to "
+            f"preserve existing PATH, got: {path_value}"
+        )
+
+
 """
 Test Summary
 ============
-Total Test Classes: 6
-Total Test Methods: 23
+Total Test Classes: 7
+Total Test Methods: 28
 
 1. TestDevcontainerJsonExists (2): file exists, parses as valid JSON
 2. TestDevcontainerJsonFeatures (8): no Python feature, no Node feature,
@@ -544,25 +660,20 @@ Total Test Methods: 23
 4. TestDevcontainerJsonPythonConfig (3): interpreter path exists, uses mise shims,
    not /usr/local/python/current
 5. TestDevcontainerJsonVscodeExtensions (2): extensions array exists,
-   required extensions present
+   required extensions present (including ms-python.python)
 6. TestDevcontainerJsonBuildConfig (4): remoteUser is vscode,
    build.args has WORKSPACE/WORKSPACE_REPO, build.context is "..",
    build.dockerfile is "Dockerfile"
+7. TestDevcontainerJsonRemoteEnv (5): remoteEnv exists, PATH includes
+   mise shims, PATH includes .local/bin, no ${containerEnv:HOME},
+   PATH preserves existing PATH
 
 Coverage Areas:
 - File existence and JSON validity
 - Feature configuration (Python/Node removed, Docker-in-Docker kept, common-utils added)
 - Lifecycle commands (onCreateCommand uses install-deps.sh, postCreateCommand absent)
 - Python interpreter configuration (mise shims path)
-- VSCode extensions (markdown-mermaid, ruff, yaml)
+- VSCode extensions (ms-python.python, markdown-mermaid, ruff, yaml)
 - Build configuration (remoteUser, build.args, context, dockerfile)
-
-Refactor Changes Validated:
-- Python/Node devcontainer features removed (now handled by mise)
-- common-utils feature added (handles user creation with automatic UID/GID)
-- onCreateCommand runs install-deps.sh (not old setup-script)
-- postCreateCommand removed (replaced by onCreateCommand)
-- Build context widened to repo root for .mise.toml access
-- Python interpreter path uses mise shims (not /usr/local/python/current)
-- Docker-in-Docker feature preserved (needed for act)
+- Remote environment (hardcoded /home/vscode paths, no broken ${containerEnv:HOME})
 """
