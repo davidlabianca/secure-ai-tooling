@@ -26,11 +26,11 @@ jobs:
         python-version: '3.14'
         cache: 'pip'
     - name: Install dependencies
-      run: pip install -r requirements-dev.txt
+      run: pip install -r requirements.txt
     - name: Generate cache key
       id: cache-key
       run: |
-        echo "key=deps-${{ hashFiles('requirements-dev.txt') }}" >> $GITHUB_OUTPUT
+        echo "key=deps-${{ hashFiles('requirements.txt') }}" >> $GITHUB_OUTPUT
   # Individual validation jobs that can fail independently
   python-linting:
     runs-on: ubuntu-latest
@@ -47,7 +47,7 @@ jobs:
         python-version: '3.14'
         cache: 'pip'
     - name: Install dependencies
-      run: pip install -r requirements-dev.txt
+      run: pip install -r requirements.txt
     - name: Lint with Ruff
       id: lint
       run: |
@@ -76,7 +76,7 @@ jobs:
         python-version: '3.14'
         cache: 'pip'
     - name: Install dependencies
-      run: pip install -r requirements-dev.txt
+      run: pip install -r requirements.txt
     - name: Test Python
       id: test
       run: |
