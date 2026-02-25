@@ -19,7 +19,7 @@ body:
       description: |
         GitHub permalink to the persona in personas.yaml (right-click line number → Copy permalink)
 
-        📋 [Browse personas.yaml](../../risk-map/yaml/personas.yaml)
+        📋 [Browse personas.yaml](https://github.com/cosai-oasis/secure-ai-tooling/blob/main/risk-map/yaml/personas.yaml)
       placeholder: 'https://github.com/org/repo/blob/abc123/risk-map/yaml/personas.yaml#L20-L30'
     validations:
       required: true

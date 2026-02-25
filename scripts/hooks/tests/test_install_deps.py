@@ -132,6 +132,9 @@ def create_full_stub_env(tmp_path, overrides=None):
     (repo_root / "package.json").write_text(
         '{"dependencies": {"prettier": "^3.8.1", "@mermaid-js/mermaid-cli": "^11.12.0"}}\n'
     )
+    # Create node_modules to simulate npm packages already installed.
+    # Tests that need to trigger npm install should remove this directory.
+    (repo_root / "node_modules").mkdir()
     (repo_root / ".mise.toml").write_text('[tools]\npython = "3.14"\nnode = "22"\n')
 
     # Create fake verify-deps.sh in the repo structure
@@ -690,24 +693,15 @@ class TestDryRunNpmInstall:
         """
         Test that missing npm packages trigger dry-run npm install message.
 
-        Given: An environment where npm packages are not installed
+        Given: An environment where node_modules does not exist
         When: Running install-deps.sh --dry-run
         Then: Output contains [DRY-RUN] referencing npm install
         """
-        # npm stub that reports no packages installed
-        npm_stub_no_pkgs = (
-            "#!/bin/bash\n"
-            'if [[ "$1" == "--version" ]]; then\n'
-            '    echo "10.0.0"\n'
-            'elif [[ "$1" == "ls" || "$1" == "list" ]]; then\n'
-            "    exit 1\n"
-            'elif [[ "$1" == "install" ]]; then\n'
-            "    exit 0\n"
-            "else\n"
-            "    exit 0\n"
-            "fi\n"
-        )
-        env_info = create_full_stub_env(tmp_path, overrides={"npm": npm_stub_no_pkgs})
+        env_info = create_full_stub_env(tmp_path)
+        # Remove node_modules to simulate missing npm packages
+        node_modules = env_info["repo_root"] / "node_modules"
+        if node_modules.exists():
+            node_modules.rmdir()
         result = subprocess.run(
             [str(SCRIPT_PATH), "--dry-run"],
             capture_output=True,
@@ -1242,7 +1236,7 @@ class TestNpmInstallFailure:
         """
         Test that failing npm install emits [FAIL] and continues.
 
-        Given: An environment where npm install fails
+        Given: An environment where node_modules is missing and npm install fails
         When: Running install-deps.sh
         Then: Output contains [FAIL] for npm packages
         And: Script continues to subsequent installation steps
@@ -1252,8 +1246,6 @@ class TestNpmInstallFailure:
             "#!/bin/bash\n"
             'if [[ "$1" == "--version" ]]; then\n'
             '    echo "10.0.0"\n'
-            'elif [[ "$1" == "ls" || "$1" == "list" ]]; then\n'
-            "    exit 1\n"
             'elif [[ "$1" == "install" ]]; then\n'
             "    exit 1\n"
             "else\n"
@@ -1261,6 +1253,10 @@ class TestNpmInstallFailure:
             "fi\n"
         )
         env_info = create_full_stub_env(tmp_path, overrides={"npm": npm_fail})
+        # Remove node_modules to trigger npm install
+        node_modules = env_info["repo_root"] / "node_modules"
+        if node_modules.exists():
+            node_modules.rmdir()
         result = subprocess.run(
             [str(SCRIPT_PATH)],
             capture_output=True,

@@ -198,21 +198,23 @@ git commit -m "Add new control category"
 - **Force mode**: Skips generation (only runs for actual commits)
 - **Error handling**: Fails commit if generation errors occur
 
-## 8. Issue Template Validation
+## 8. GitHub Config File Validation
 
-Validates GitHub issue templates against official GitHub schemas to ensure they render correctly:
+Validates GitHub config files against official schemas to ensure they conform to expected structure:
 
 **Features:**
 
-- **Schema validation**: Uses `check-jsonschema` with GitHub's built-in schemas
+- **Schema validation**: Uses `check-jsonschema` with built-in vendor schemas
 - **Issue form validation**: Validates against `vendor.github-issue-forms` schema
 - **Config validation**: Validates `config.yml` against `vendor.github-issue-config` schema
+- **Dependabot validation**: Validates `dependabot.yml` against `vendor.dependabot` schema
 - **Comprehensive checks**: Ensures field types, validation rules, and structure are correct
 
 **Files validated:**
 
 - All `.yml` files in `.github/ISSUE_TEMPLATE/` (issue forms)
 - `.github/ISSUE_TEMPLATE/config.yml` (configuration)
+- `.github/dependabot.yml` (dependency update configuration)
 
 **Example validation:**
 
@@ -237,8 +239,8 @@ Validates GitHub issue templates against official GitHub schemas to ensure they 
 
 **Behavior:**
 
-- **Normal mode**: Validates only staged template files
-- **Force mode**: Validates all templates in `.github/ISSUE_TEMPLATE/`
+- **Normal mode**: Validates only staged files
+- **Force mode**: Validates all issue templates and `dependabot.yml` if present
 - **Strict enforcement**: Commit fails if any template is invalid
 - **Clear errors**: Provides detailed error messages with remediation steps
 

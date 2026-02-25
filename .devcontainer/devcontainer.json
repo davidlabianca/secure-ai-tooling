@@ -27,10 +27,25 @@
 		"install-deps": "bash scripts/tools/install-deps.sh"
 	},
 
+	// Inject mise shims into the VS Code Server process environment.
+	// Without this, the server inherits the container's initial PATH (which
+	// lacks mise shims) and never sources ~/.bashrc. The Python extension
+	// then fails to validate defaultInterpreterPath until a manual
+	// "Reload Window" forces a fresh environment.
+	//
+	// Uses hardcoded /home/vscode instead of ${containerEnv:HOME} because
+	// HOME is set dynamically by common-utils at runtime, not as a Docker
+	// ENV. ${containerEnv:HOME} resolves to empty string, producing broken
+	// paths like /.local/share/mise/shims.
+	"remoteEnv": {
+		"PATH": "/home/vscode/.local/share/mise/shims:/home/vscode/.local/bin:${containerEnv:PATH}"
+	},
+
 	// Configure tool-specific properties.
 	"customizations": {
 		"vscode": {
 			"extensions": [
+				"ms-python.python",
 				"bierner.markdown-mermaid",
 				"charliermarsh.ruff",
 				"redhat.vscode-yaml"

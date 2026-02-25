@@ -14,6 +14,7 @@ scripts/hooks/
 ├── validate_riskmap.py         # Component edge validation
 ├── validate_control_risk_references.py  # Control-risk cross-reference validation
 ├── validate_framework_references.py     # Framework reference validation
+├── validate_issue_templates.py # Issue template and dependabot.yml schema validation
 ├── yaml_to_markdown.py         # Markdown table generation
 └── tests/                      # Test suite for utilities
     ├── bash_test_framework.sh  # Testing framework
@@ -136,7 +137,9 @@ The main pre-commit hook (`scripts/hooks/pre-commit`) orchestrates all validatio
 4. **Component Edge Validation** - Validates bidirectional component relationships
 5. **Control-Risk Reference Validation** - Validates control↔risk cross-references
 6. **Framework Reference Validation** - Validates framework mappings
-7. **Mermaid SVG Generation** - Generates SVG files from Mermaid diagrams
+7. **Issue Template Generation** - Regenerates templates when dependencies change
+8. **GitHub Config Validation** - Validates issue templates and `dependabot.yml` against vendor schemas
+9. **Mermaid SVG Generation** - Generates SVG files from Mermaid diagrams
 
 ### Automatic Generation
 
