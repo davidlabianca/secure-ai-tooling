@@ -71,15 +71,16 @@ personas:
         Actors that provide infrastructure, compute resources, APIs, and
         platform services for AI model hosting, training, or inference. This includes
         internal infrastructure teams, cloud providers (AWS, Azure, GCP), MLOps
-        platforms, and model API services.
+        platforms, and platform-level API gateway services
+        (e.g., load balancing, API authentication, and request throttling layers).
     mappings:
       iso-22989:
         - AI Partner (infrastructure provider)
     responsibilities:
-      - Infrastructure security and availability
+      - Infrastructure support, capacity, security, and availability
       - API security and rate limiting
       - Compute resource allocation
-      - Model hosting and serving
+      - Infrastructure support for model hosting and serving
 
   - id: personaModelServing
     title: AI Model Serving

@@ -285,6 +285,7 @@ controls:
     category: controlsInfrastructure
     personas:
       - personaPlatformProvider
+      - personaModelServing
       - personaAgenticProvider
       - personaApplicationDeveloper
       - personaModelCreator
@@ -609,6 +610,7 @@ controls:
       - personaModelProvider
       - personaDataProvider
       - personaPlatformProvider
+      - personaModelServing
       - personaAgenticProvider
       - personaApplicationDeveloper
       - personaGovernance
