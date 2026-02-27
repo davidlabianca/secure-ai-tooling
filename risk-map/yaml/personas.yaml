@@ -56,7 +56,7 @@ personas:
       - Model licensing and compliance
       - Model artifact integrity and availability for distribution
     identificationQuestions:
-      - Are you training or fine-tuning AI/ML models for use by others?
+      - Are you training or fine-tuning AI/ML models for use by others, including classical ML, statistical, optimization, and rule-based models?
       - Do you modify existing models (e.g., distillation, quantization, or adaptation) for use by others?
       - Do you evaluate, benchmark, or perform quality assurance on AI/ML models?
       - Are you making models available for others to download, license, or integrate?
