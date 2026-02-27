@@ -38,7 +38,11 @@ personas:
         Actors that develop, train, evaluate, and tune AI/ML models
         (foundation models, specialized models, or domain-adapted models).
         This includes those that develop models from scratch or significantly
-        modify existing models for distribution.
+        modify existing models for distribution. This also includes model
+        aggregators, model marketplaces, and those licensing models.
+      - >
+        Actors that also operate runtime environments serving model
+        predictions are additionally covered by AI Model Serving.
     mappings:
       iso-22989:
         - AI Producer
@@ -47,6 +51,17 @@ personas:
       - Model evaluation and validation
       - Model documentation and cards
       - Model versioning and updates
+      - Model quality assurance
+      - Model provenance tracking
+      - Model licensing and compliance
+      - Model artifact integrity and availability for distribution
+    identificationQuestions:
+      - Are you training or fine-tuning AI/ML models for use by others?
+      - Do you modify existing models (e.g., distillation, quantization, or adaptation) for use by others?
+      - Do you evaluate, benchmark, or perform quality assurance on AI/ML models?
+      - Are you making models available for others to download, license, or integrate?
+      - Do you host or curate a catalog of AI/ML models provided by third parties?
+      - Do you issue or manage licenses governing how AI/ML models may be used?
 
   - id: personaDataProvider
     title: Data Provider

@@ -23,16 +23,33 @@ Personas provide a structured foundation for AI security governance by enabling:
 
 ### Model Provider (`personaModelProvider`)
 
-Actors that develop, train, evaluate, and tune AI/ML models (foundation models, specialized models, or domain-adapted models). This includes those that develop models from scratch or significantly modify existing models for distribution.
+Actors that develop, train, evaluate, and tune AI/ML models (foundation models, specialized models, or domain-adapted models). This includes those that develop models from scratch or significantly modify existing models for distribution. This also includes model aggregators, model marketplaces, and those licensing models.
+
+Actors that also operate runtime environments serving model predictions are additionally covered by AI Model Serving.
 
 **Responsibilities:**
 - Model architecture design and training
 - Model evaluation and validation
 - Model documentation and cards
 - Model versioning and updates
+- Model quality assurance
+- Model provenance tracking
+- Model licensing and compliance
+- Model artifact integrity and availability for distribution
 
 **Framework Mapping:**
 - ISO 22989: AI Producer
+
+**Identification Questions:**
+
+Use these questions to determine if this persona applies to your organization:
+
+1. Are you training or fine-tuning AI/ML models for use by others?
+2. Do you modify existing models (e.g., distillation, quantization, or adaptation) for use by others?
+3. Do you evaluate, benchmark, or perform quality assurance on AI/ML models?
+4. Are you making models available for others to download, license, or integrate?
+5. Do you host or curate a catalog of AI/ML models provided by third parties?
+6. Do you issue or manage licenses governing how AI/ML models may be used?
 
 ---
 
