@@ -198,6 +198,13 @@ personas:
       - Reporting issues or anomalies
       - Following usage policies
       - Data minimization (user inputs)
+    identificationQuestions:
+      - Do you use AI-powered applications or services built and maintained by a different team or organization?
+      - Do you interact with applications or platforms that embed AI capabilities, such as intelligent recommendations, automated analysis, or AI-assisted workflows?
+      - Do you select, procure, or authorize AI-powered products or services for use within your organization?
+      - Do you provide direct inputs to AI systems, such as prompts, documents, or queries?
+      - Do you receive or rely on outputs from AI agents or automated processes acting on your behalf?
+      - Do you use AI systems where the development, deployment, and security controls are managed by others?
 
   # ==========================================================================
   # LEGACY PERSONAS (Deprecated)

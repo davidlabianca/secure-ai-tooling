@@ -171,6 +171,17 @@ Actors that use AI-powered applications or services without developing or deploy
 **Framework Mapping:**
 - ISO 22989: AI Consumer (end user)
 
+**Identification Questions:**
+
+Use these questions to determine if this persona applies to your organization:
+
+1. Do you use AI-powered applications or services built and maintained by a different team or organization?
+2. Do you interact with applications or platforms that embed AI capabilities, such as intelligent recommendations, automated analysis, or AI-assisted workflows?
+3. Do you select, procure, or authorize AI-powered products or services for use within your organization?
+4. Do you provide direct inputs to AI systems, such as prompts, documents, or queries?
+5. Do you receive or rely on outputs from AI agents or automated processes acting on your behalf?
+6. Do you use AI systems where the development, deployment, and security controls are managed by others?
+
 ---
 
 ## Legacy Personas (Deprecated)
