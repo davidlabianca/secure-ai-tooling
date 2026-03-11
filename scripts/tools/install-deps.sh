@@ -240,6 +240,26 @@ fi
 
 # Trust .mise.toml so mise reads tool versions from config
 MISE_CONFIG="$REPO_ROOT/.mise.toml"
+
+# Parse tool versions from .mise.toml using bash builtins only.
+# .mise.toml is the single source of truth for tool versions; these variables
+# replace hardcoded version strings throughout this script.
+MISE_PYTHON_VERSION=""
+MISE_NODE_VERSION=""
+if [[ -f "$MISE_CONFIG" ]]; then
+    while IFS= read -r _line; do
+        # Match: python = "3.14"
+        if [[ "$_line" == python\ =\ * ]]; then
+            _val="${_line#*\"}"
+            MISE_PYTHON_VERSION="${_val%%\"*}"
+        fi
+        # Match: node = "22"
+        if [[ "$_line" == node\ =\ * ]]; then
+            _val="${_line#*\"}"
+            MISE_NODE_VERSION="${_val%%\"*}"
+        fi
+    done < "$MISE_CONFIG"
+fi
 if command -v mise &>/dev/null && [[ -f "$MISE_CONFIG" ]]; then
     info_msg "Trusting $MISE_CONFIG..."
     if [[ "$DRY_RUN" == "true" ]]; then
@@ -268,6 +288,17 @@ if command -v mise &>/dev/null && [[ -f "$MISE_CONFIG" ]]; then
         else
             pass_msg "Tools installed from .mise.toml"
             mise reshim 2>/dev/null || true
+            # Set global defaults so mise shims resolve outside the project directory.
+            # VS Code extensions invoke Python from contexts where the project .mise.toml
+            # isn't detected, causing "No version is set for shim" errors.
+            # Versions derived from mise current (just installed from .mise.toml).
+            # Uses bash parameter expansion (not cut) per script's builtins-only constraint.
+            _py_full=$(mise current python 2>/dev/null)
+            _py_minor="${_py_full%.*}"
+            mise use -g "python@$_py_minor" 2>/dev/null || true
+            _node_full=$(mise current node 2>/dev/null)
+            _node_major="${_node_full%%.*}"
+            mise use -g "node@$_node_major" 2>/dev/null || true
         fi
     fi
 fi
@@ -293,18 +324,19 @@ fi
 
 if [[ "$PYTHON_INSTALLED" == "false" ]]; then
     if command -v mise &>/dev/null; then
+        _py_ver="${MISE_PYTHON_VERSION:-3.14}"
         if [[ "$DRY_RUN" == "true" ]]; then
-            dry_run_msg "Would run: mise install python@3.14"
+            dry_run_msg "Would run: mise install python@$_py_ver"
         else
-            mise install python@3.14
+            mise install "python@$_py_ver"
             if [[ $? -ne 0 ]]; then
-                fail_msg "Python 3.14 installation via mise failed"
+                fail_msg "Python $_py_ver installation via mise failed"
             else
-                pass_msg "Python 3.14 installed via mise"
+                pass_msg "Python $_py_ver installed via mise"
             fi
         fi
     else
-        fail_msg "Cannot install Python 3.14: mise is not available"
+        fail_msg "Cannot install Python ${MISE_PYTHON_VERSION:-3.14}: mise is not available"
     fi
 fi
 
@@ -328,18 +360,19 @@ fi
 
 if [[ "$NODE_INSTALLED" == "false" ]]; then
     if command -v mise &>/dev/null; then
+        _node_ver="${MISE_NODE_VERSION:-22}"
         if [[ "$DRY_RUN" == "true" ]]; then
-            dry_run_msg "Would run: mise install node@22"
+            dry_run_msg "Would run: mise install node@$_node_ver"
         else
-            mise install node@22
+            mise install "node@$_node_ver"
             if [[ $? -ne 0 ]]; then
-                fail_msg "Node.js 22 installation via mise failed"
+                fail_msg "Node.js $_node_ver installation via mise failed"
             else
-                pass_msg "Node.js 22 installed via mise"
+                pass_msg "Node.js $_node_ver installed via mise"
             fi
         fi
     else
-        fail_msg "Cannot install Node.js 22: mise is not available"
+        fail_msg "Cannot install Node.js ${MISE_NODE_VERSION:-22}: mise is not available"
     fi
 fi
 
@@ -399,8 +432,10 @@ info_msg "Checking npm packages..."
 NPM_NEEDS_INSTALL=false
 
 if command -v npm &>/dev/null && [[ -f "$REPO_ROOT/package.json" ]]; then
-    # Check if npm packages are installed by running npm ls
-    if ! npm ls --prefix "$REPO_ROOT" &>/dev/null 2>&1; then
+    # Check if node_modules exists. Simpler and more reliable than npm ls,
+    # which can return false positives when Node is pre-installed (e.g. in
+    # the Dockerfile) but project packages haven't been installed yet.
+    if [[ ! -d "$REPO_ROOT/node_modules" ]]; then
         NPM_NEEDS_INSTALL=true
     fi
 
@@ -535,6 +570,14 @@ fi
 # =============================================================================
 if [[ "$FAILURES" -eq 0 ]]; then
     info_msg "All dependencies installed successfully"
+    # Remind users to activate mise in their current shell.
+    # .bashrc was updated but only takes effect in new shells.
+    if [[ "$DRY_RUN" != "true" ]]; then
+        echo ""
+        info_msg "To use mise-managed tools in this shell, run one of:"
+        echo "  source ~/.bashrc"
+        echo "  eval \"\$(mise activate bash)\"    # or: mise activate --shims"
+    fi
     exit 0
 else
     info_msg "$FAILURES failure(s) detected"

@@ -1,21 +1,22 @@
 #!/usr/bin/env python3
 """
-Validate GitHub issue templates using check-jsonschema.
+Validate GitHub config files using check-jsonschema.
 
-This script validates GitHub issue template YAML files against official
-GitHub schemas to ensure they conform to the expected structure.
+This script validates GitHub YAML config files against official schemas
+to ensure they conform to the expected structure.
 
 Validates:
 - Issue form templates against vendor.github-issue-forms schema
 - config.yml against vendor.github-issue-config schema
+- dependabot.yml against vendor.dependabot schema
 
 Can run in two modes:
 - Normal mode: Validates only staged files (for git hooks)
-- Force mode: Validates all templates in .github/ISSUE_TEMPLATE
+- Force mode: Validates all config files
 
 Usage:
     python validate_issue_templates.py           # Check staged files only
-    python validate_issue_templates.py --force   # Check all template files
+    python validate_issue_templates.py --force   # Check all config files
     python validate_issue_templates.py --quiet   # Suppress informational output
 """
 
@@ -31,16 +32,16 @@ def parse_args() -> argparse.Namespace:
 
     Returns:
         argparse.Namespace with parsed arguments:
-        - force: bool - Validate all templates regardless of git staging
+        - force: bool - Validate all config files regardless of git staging
         - quiet: bool - Suppress informational output
     """
     parser = argparse.ArgumentParser(
-        description="Validate GitHub issue templates using check-jsonschema",
+        description="Validate GitHub config files using check-jsonschema",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
   %(prog)s                # Validate staged templates only (pre-commit mode)
-  %(prog)s --force        # Validate all templates in .github/ISSUE_TEMPLATE
+  %(prog)s --force        # Validate all config files (.github/ISSUE_TEMPLATE + dependabot.yml)
   %(prog)s --quiet        # Suppress informational output
   %(prog)s -f -q          # Force mode with quiet output
 
@@ -55,7 +56,7 @@ Exit Codes:
         "--force",
         "-f",
         action="store_true",
-        help="Validate all templates (not just staged files)",
+        help="Validate all config files (not just staged files)",
     )
 
     parser.add_argument(
@@ -97,13 +98,17 @@ def get_staged_files() -> list[Path]:
         return []
 
 
-def get_template_files(template_dir: Path, staged_only: bool = False) -> tuple[list[Path], Path | None]:
+def get_template_files(
+    template_dir: Path, staged_only: bool = False, staged: list[Path] | None = None
+) -> tuple[list[Path], Path | None]:
     """
     Get list of template files to validate.
 
     Args:
         template_dir: Path to .github/ISSUE_TEMPLATE directory
         staged_only: If True, only return files that are staged in git
+        staged: Pre-computed list of staged files. If None and staged_only is True,
+            calls get_staged_files() internally.
 
     Returns:
         Tuple of (issue_template_files, config_file_or_None):
@@ -114,8 +119,8 @@ def get_template_files(template_dir: Path, staged_only: bool = False) -> tuple[l
         return ([], None)
 
     if staged_only:
-        # Get staged files and filter to this directory
-        staged = get_staged_files()
+        if staged is None:
+            staged = get_staged_files()
 
         # Filter to .yml files in ISSUE_TEMPLATE directory (not nested)
         issue_forms = [
@@ -148,7 +153,8 @@ def validate_with_schema(file_path: Path, schema: str, quiet: bool = False) -> b
 
     Args:
         file_path: Path to file to validate
-        schema: Schema name ('vendor.github-issue-forms' or 'vendor.github-issue-config')
+        schema: Schema name ('vendor.github-issue-forms', 'vendor.github-issue-config',
+            or 'vendor.dependabot')
         quiet: If True, suppress output
 
     Returns:
@@ -211,33 +217,40 @@ def main() -> int:
     try:
         args = parse_args()
 
-        # Determine template directory
         template_dir = Path(".github/ISSUE_TEMPLATE")
+        dependabot_file = Path(".github/dependabot.yml")
 
-        # Check if directory exists
-        if not template_dir.exists():
-            if not args.quiet:
-                print("   No .github/ISSUE_TEMPLATE directory found - skipping")
-            return 0
+        # Collect staged files once for non-force mode to avoid duplicate git calls
+        staged = [] if args.force else get_staged_files()
 
-        # Get files to validate
-        if args.force:
-            issue_forms, config_file = get_template_files(template_dir, staged_only=False)
+        # Get issue template files to validate
+        if template_dir.exists():
+            if args.force:
+                issue_forms, config_file = get_template_files(template_dir, staged_only=False)
+            else:
+                issue_forms, config_file = get_template_files(template_dir, staged_only=True, staged=staged)
         else:
-            issue_forms, config_file = get_template_files(template_dir, staged_only=True)
+            issue_forms, config_file = [], None
 
-        # Check if there are files to validate
-        if not issue_forms and not config_file:
+        # Determine if dependabot.yml needs validation
+        if args.force:
+            validate_dependabot = dependabot_file.exists()
+        else:
+            validate_dependabot = dependabot_file in staged and dependabot_file.exists()
+
+        # Check if there are any files to validate
+        if not issue_forms and not config_file and not validate_dependabot:
             if not args.quiet:
-                print("   No issue template files to validate - skipping")
+                print("   No GitHub config files to validate - skipping")
             return 0
 
         # Print validation start message
         if not args.quiet:
-            print("🔍 Validating GitHub issue templates...")
+            print("🔍 Validating GitHub config files...")
 
         # Track validation results
         all_passed = True
+        fail_count = 0
 
         # Validate issue form templates
         for form in issue_forms:
@@ -245,6 +258,7 @@ def main() -> int:
                 print(f"   Validating {form.name} against vendor.github-issue-forms...")
             if not validate_with_schema(form, "vendor.github-issue-forms", args.quiet):
                 all_passed = False
+                fail_count += 1
 
         # Validate config.yml if present
         if config_file:
@@ -252,17 +266,24 @@ def main() -> int:
                 print(f"   Validating {config_file.name} against vendor.github-issue-config...")
             if not validate_with_schema(config_file, "vendor.github-issue-config", args.quiet):
                 all_passed = False
+                fail_count += 1
+
+        # Validate dependabot.yml if applicable
+        if validate_dependabot:
+            if not args.quiet:
+                print(f"   Validating {dependabot_file.name} against vendor.dependabot...")
+            if not validate_with_schema(dependabot_file, "vendor.dependabot", args.quiet):
+                all_passed = False
+                fail_count += 1
 
         # Report final results
         if all_passed:
             if not args.quiet:
-                print("✅ All issue templates passed validation")
+                print("✅ All GitHub config files passed validation")
             return 0
         else:
-            # Calculate error count for message
-            total_files = len(issue_forms) + (1 if config_file else 0)
-            error_word = "error" if total_files == 1 else "errors"
-            print(f"❌ Issue template validation failed ({total_files} {error_word})")
+            error_word = "failure" if fail_count == 1 else "failures"
+            print(f"❌ Validation failed ({fail_count} {error_word})")
             return 1
 
     except KeyboardInterrupt:
