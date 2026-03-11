@@ -1668,6 +1668,14 @@ risks:
         after initial user approval, exfiltrating SSH keys and MCP
         credentials from Claude Desktop and Cursor without triggering
         re-approval prompts.
+      - >
+        A <a href="https://blog.gitguardian.com/breaking-mcp-server-hosting/"
+        target="_blank" rel="noopener">tenant isolation failure</a>
+        in the Smithery.ai MCP server hosting platform (October 2025)
+        demonstrated that infrastructure compromise of a trusted registry
+        can enable modification of hosted tool definitions across 3,000+
+        MCP servers, allowing attackers to redirect agent tool selection
+        at scale on a previously vetted platform.
     relevantQuestions:
       - Could a previously vetted tool registry or MCP server manifest be modified without triggering an integrity alert?
       - Do you monitor for unauthorized changes to tool descriptions, schemas, or metadata after initial registration?
