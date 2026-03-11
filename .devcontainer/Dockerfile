@@ -49,7 +49,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # Install mise binary system-wide (cached in Docker layer).
-# Tool installations (Python, Node) happen per-user in install-deps.sh.
+# Binary is used both here (build-time tool install) and by install-deps.sh.
 RUN curl -fsSL https://mise.run | MISE_INSTALL_PATH=/usr/local/bin/mise sh
 
 # Create workspace directory (user creation handled by common-utils feature)
@@ -60,3 +60,24 @@ RUN mkdir -p ${WORKSPACE}/${WORKSPACE_REPO}
 COPY .mise.toml ${WORKSPACE}/${WORKSPACE_REPO}/.mise.toml
 
 WORKDIR ${WORKSPACE}/${WORKSPACE_REPO}
+
+# Create vscode user for build-time tool installation.
+# common-utils feature re-creates/configures this user at runtime;
+# the || true makes this idempotent with that later creation.
+ARG USERNAME=vscode
+RUN useradd -m -d /home/${USERNAME} -s /bin/bash ${USERNAME} 2>/dev/null || true
+
+# Install Python and Node.js via mise during Docker build so binaries and
+# shims exist when the container starts. This eliminates the race condition
+# where VS Code's Python extension activates before onCreateCommand installs
+# Python via install-deps.sh.
+USER ${USERNAME}
+ENV HOME=/home/${USERNAME}
+# Versions are derived from .mise.toml via `mise current` after install,
+# keeping .mise.toml as the single source of truth for tool versions.
+RUN mise trust .mise.toml && \
+    mise install && \
+    mise reshim && \
+    mise use -g python@$(mise current python | cut -d. -f1-2) && \
+    mise use -g node@$(mise current node | cut -d. -f1)
+USER root

@@ -27,17 +27,38 @@
 		"install-deps": "bash scripts/tools/install-deps.sh"
 	},
 
+	// Inject mise shims into the VS Code Server process environment.
+	// Without this, the server inherits the container's initial PATH (which
+	// lacks mise shims) and never sources ~/.bashrc. Terminal sessions and
+	// extensions need mise shims on PATH for tool resolution.
+	//
+	// Note: defaultInterpreterPath uses the absolute path to the real
+	// Python binary via mise's "latest" symlink, NOT the shim. Two reasons:
+	// 1. Shims are symlinks to the mise binary — the Python extension
+	//    can't validate them as a real interpreter.
+	// 2. Tilde (~) expansion fails because HOME isn't set as a Docker ENV
+	//    (same issue as remoteEnv below).
+	//
+	// Uses hardcoded /home/vscode instead of ${containerEnv:HOME} because
+	// HOME is set dynamically by common-utils at runtime, not as a Docker
+	// ENV. ${containerEnv:HOME} resolves to empty string, producing broken
+	// paths like /.local/share/mise/shims.
+	"remoteEnv": {
+		"PATH": "/home/vscode/.local/share/mise/shims:/home/vscode/.local/bin:${containerEnv:PATH}"
+	},
+
 	// Configure tool-specific properties.
 	"customizations": {
 		"vscode": {
 			"extensions": [
+				"ms-python.python",
 				"bierner.markdown-mermaid",
 				"charliermarsh.ruff",
 				"redhat.vscode-yaml"
 			],
 			"settings": {
 				"python.globalModuleInstallation": true,
-				"python.defaultInterpreterPath": "~/.local/share/mise/shims/python",
+				"python.defaultInterpreterPath": "/home/vscode/.local/share/mise/installs/python/latest/bin/python",
 				"python.testing.pytestEnabled": true,
 				"python.testing.unittestEnabled": false
 			}

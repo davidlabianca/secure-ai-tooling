@@ -12,6 +12,7 @@ When you create a pull request, GitHub Actions automatically runs:
 - **Component Edge Consistency**: Verifies bidirectional component relationships
 - **Control-Risk Reference Integrity**: Validates control-risk cross-references
 - **Graph Validation**: Generates and compares all three graph types
+- **GitHub Config Validation**: Validates issue templates against GitHub schemas and `dependabot.yml` against `vendor.dependabot` schema
 
 ## Graph Validation in CI
 

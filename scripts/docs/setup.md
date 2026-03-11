@@ -2,13 +2,21 @@
 
 > **Dev Container users:** If you are using the VS Code Dev Container, all setup is handled automatically by `install-deps.sh` (including pre-commit hooks). See [risk-map/docs/setup.md](../../risk-map/docs/setup.md) for Dev Container instructions. The manual steps below are for contributors working outside the container.
 
-## Git Hooks Setup
+## Prerequisites
 
-**Prerequisites:**
+**System requirements for `install-deps.sh`:**
+
+- `curl` — used to install mise and act
+- `sudo` with passwordless (NOPASSWD) access — used to install act; if unavailable, act installation is skipped but all other steps succeed
+- `bash` — the script uses bash-specific features (parameter expansion, arrays)
+
+**Runtime tools** (installed automatically by `install-deps.sh`, or install manually):
 
 - Python 3.14 or higher
 - Node.js 22+ and npm
 - Chrome/Chromium browser (for SVG generation from Mermaid diagrams)
+
+## Git Hooks Setup
 
 ### Automated setup (recommended)
 
@@ -22,7 +30,14 @@
 ./scripts/tools/install-deps.sh --dry-run
 ```
 
-After installation, verify the environment:
+After installation, activate mise in your current shell (new shells pick this up automatically from `~/.bashrc`):
+
+```bash
+source ~/.bashrc
+# or: eval "$(mise activate bash)"
+```
+
+Verify the environment:
 
 ```bash
 ./scripts/tools/verify-deps.sh
@@ -81,6 +96,7 @@ npm install
 - `hooks/validate_riskmap.py` - Component edge validation and graph generation
 - `hooks/validate_control_risk_references.py` - Control-risk cross-reference validation
 - `hooks/validate_framework_references.py` - Framework reference validation
+- `hooks/validate_issue_templates.py` - Issue template and dependabot.yml schema validation
 - `hooks/yaml_to_markdown.py` - Markdown table generation from YAML
 - `hooks/riskmap_validator/` - Python module with models, validator, graphing, and utilities
 - `install-precommit-hook.sh` - Installs all hooks to your local `.git/hooks/` (supports `--auto` flag for non-interactive install)

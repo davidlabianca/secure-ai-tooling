@@ -2,13 +2,14 @@
 """
 Tests for validate_issue_templates.py
 
-This test suite validates the GitHub issue template validator that uses
-check-jsonschema to validate issue forms and config against GitHub's schemas.
+This test suite validates the GitHub config file validator that uses
+check-jsonschema to validate issue forms, config, and dependabot.yml
+against official schemas.
 
 Test Coverage:
 ==============
-Total Tests: 50+ across 8 test classes
-Coverage Target: 85%+ of validate_issue_templates.py (when implemented)
+Total Tests: 72 across 10 test classes
+Coverage Target: 85%+ of validate_issue_templates.py
 
 1. TestCommandLineArgs - CLI argument parsing (14 tests)
    - Default arguments
@@ -76,6 +77,15 @@ Coverage Target: 85%+ of validate_issue_templates.py (when implemented)
    - Permission errors on template files
    - Symlinks to template files
    - Concurrent git operations
+
+9. TestDependabotValidation - Dependabot.yml validation (7 tests)
+   - Validates dependabot.yml with vendor.dependabot schema
+   - Skips when dependabot.yml doesn't exist
+   - Reports failure when dependabot.yml invalid
+   - Only validates when staged in normal mode
+   - Validates when staged in normal mode
+   - Validates without ISSUE_TEMPLATE directory
+   - Integration: validates real dependabot.yml
 
 Implementation Notes:
 - Script will be: /workspaces/secure-ai-tooling/scripts/hooks/validate_issue_templates.py
@@ -1473,6 +1483,268 @@ class TestEdgeCases:
 
 
 # ============================================================================
+# Dependabot Validation Tests
+# ============================================================================
+
+
+class TestDependabotValidation:
+    """Test dependabot.yml validation using vendor.dependabot schema."""
+
+    def test_validates_dependabot_yml_with_vendor_dependabot_schema(self, tmp_path: Path, monkeypatch):
+        """
+        Test dependabot.yml is validated with vendor.dependabot schema in force mode.
+
+        Given: .github/dependabot.yml exists
+        When: Script runs in force mode
+        Then: check-jsonschema is called with vendor.dependabot schema
+        """
+        from validate_issue_templates import main
+
+        monkeypatch.chdir(tmp_path)
+
+        # Create ISSUE_TEMPLATE dir (required for script to proceed)
+        template_dir = tmp_path / ".github" / "ISSUE_TEMPLATE"
+        template_dir.mkdir(parents=True)
+
+        # Create dependabot.yml
+        dependabot_file = tmp_path / ".github" / "dependabot.yml"
+        dependabot_file.write_text("version: 2\nupdates: []\n")
+
+        with patch("sys.argv", ["script.py", "--force"]):
+            with patch("subprocess.run") as mock_run:
+                mock_run.return_value = subprocess.CompletedProcess(
+                    args=[], returncode=0, stdout="ok", stderr=""
+                )
+                main()
+
+        # Find the call that used vendor.dependabot
+        dependabot_calls = [
+            c for c in mock_run.call_args_list
+            if "vendor.dependabot" in c[0][0]
+        ]
+        assert len(dependabot_calls) == 1, "Should call check-jsonschema with vendor.dependabot"
+        # Script uses relative path ".github/dependabot.yml"
+        assert ".github/dependabot.yml" in dependabot_calls[0][0][0][-1]
+
+    def test_skips_dependabot_validation_when_file_missing(self, tmp_path: Path, monkeypatch, capsys):
+        """
+        Test dependabot validation is skipped when file doesn't exist.
+
+        Given: .github/dependabot.yml does not exist
+        When: Script runs in force mode
+        Then: No dependabot validation is attempted
+        """
+        from validate_issue_templates import main
+
+        monkeypatch.chdir(tmp_path)
+
+        # Create ISSUE_TEMPLATE dir with a template
+        template_dir = tmp_path / ".github" / "ISSUE_TEMPLATE"
+        template_dir.mkdir(parents=True)
+        (template_dir / "test.yml").write_text("name: Test")
+
+        # No dependabot.yml created
+
+        with patch("sys.argv", ["script.py", "--force"]):
+            with patch("subprocess.run") as mock_run:
+                mock_run.return_value = subprocess.CompletedProcess(
+                    args=[], returncode=0, stdout="ok", stderr=""
+                )
+                main()
+
+        # No call should use vendor.dependabot
+        dependabot_calls = [
+            c for c in mock_run.call_args_list
+            if "vendor.dependabot" in c[0][0]
+        ]
+        assert len(dependabot_calls) == 0, "Should not validate dependabot when file missing"
+
+    def test_reports_failure_when_dependabot_yml_invalid(self, tmp_path: Path, monkeypatch):
+        """
+        Test reports failure for invalid dependabot.yml.
+
+        Given: .github/dependabot.yml with invalid content
+        When: Script runs in force mode
+        Then: Validation fails and exit code is 1
+        """
+        from validate_issue_templates import main
+
+        monkeypatch.chdir(tmp_path)
+
+        # Create ISSUE_TEMPLATE dir (empty is ok, we care about dependabot)
+        template_dir = tmp_path / ".github" / "ISSUE_TEMPLATE"
+        template_dir.mkdir(parents=True)
+
+        # Create invalid dependabot.yml
+        dependabot_file = tmp_path / ".github" / "dependabot.yml"
+        dependabot_file.write_text("invalid: content\n")
+
+        with patch("sys.argv", ["script.py", "--force"]):
+            with patch("subprocess.run") as mock_run:
+                # Issue templates: no files to validate (empty dir)
+                # Dependabot: validation fails
+                def side_effect(cmd, **kwargs):
+                    if "vendor.dependabot" in cmd:
+                        return subprocess.CompletedProcess(
+                            args=cmd, returncode=1, stdout="",
+                            stderr="ValidationError: 'version' is required"
+                        )
+                    return subprocess.CompletedProcess(
+                        args=cmd, returncode=0, stdout="ok", stderr=""
+                    )
+
+                mock_run.side_effect = side_effect
+                exit_code = main()
+
+        assert exit_code == 1
+
+    def test_only_validates_dependabot_when_staged_in_normal_mode(self, tmp_path: Path, monkeypatch):
+        """
+        Test dependabot.yml is only validated when staged in normal (non-force) mode.
+
+        Given: .github/dependabot.yml exists but is not staged
+        When: Script runs in normal mode
+        Then: dependabot.yml is not validated
+        """
+        from validate_issue_templates import main
+
+        monkeypatch.chdir(tmp_path)
+
+        # Create ISSUE_TEMPLATE dir
+        template_dir = tmp_path / ".github" / "ISSUE_TEMPLATE"
+        template_dir.mkdir(parents=True)
+
+        # Create dependabot.yml
+        dependabot_file = tmp_path / ".github" / "dependabot.yml"
+        dependabot_file.write_text("version: 2\nupdates: []\n")
+
+        # Create a staged issue template so the script doesn't skip entirely
+        (template_dir / "test.yml").write_text("name: Test")
+
+        with patch("sys.argv", ["script.py"]):
+            with patch("subprocess.run") as mock_run:
+                def side_effect(cmd, **kwargs):
+                    # git diff returns only an issue template (not dependabot.yml)
+                    if cmd[0] == "git":
+                        return subprocess.CompletedProcess(
+                            args=cmd, returncode=0,
+                            stdout=".github/ISSUE_TEMPLATE/test.yml\n",
+                            stderr=""
+                        )
+                    # check-jsonschema calls succeed
+                    return subprocess.CompletedProcess(
+                        args=cmd, returncode=0, stdout="ok", stderr=""
+                    )
+
+                mock_run.side_effect = side_effect
+                main()
+
+        # No call should use vendor.dependabot (not staged)
+        dependabot_calls = [
+            c for c in mock_run.call_args_list
+            if len(c[0][0]) > 0 and c[0][0][0] == "check-jsonschema"
+            and "vendor.dependabot" in c[0][0]
+        ]
+        assert len(dependabot_calls) == 0
+
+    def test_validates_dependabot_when_staged_in_normal_mode(self, tmp_path: Path, monkeypatch):
+        """
+        Test dependabot.yml is validated when staged in normal mode.
+
+        Given: .github/dependabot.yml is staged
+        When: Script runs in normal mode
+        Then: dependabot.yml is validated with vendor.dependabot schema
+        """
+        from validate_issue_templates import main
+
+        monkeypatch.chdir(tmp_path)
+
+        # Create ISSUE_TEMPLATE dir
+        template_dir = tmp_path / ".github" / "ISSUE_TEMPLATE"
+        template_dir.mkdir(parents=True)
+
+        # Create dependabot.yml
+        dependabot_file = tmp_path / ".github" / "dependabot.yml"
+        dependabot_file.write_text("version: 2\nupdates: []\n")
+
+        with patch("sys.argv", ["script.py"]):
+            with patch("subprocess.run") as mock_run:
+                def side_effect(cmd, **kwargs):
+                    # git diff returns dependabot.yml as staged
+                    if cmd[0] == "git":
+                        return subprocess.CompletedProcess(
+                            args=cmd, returncode=0,
+                            stdout=".github/dependabot.yml\n",
+                            stderr=""
+                        )
+                    # check-jsonschema calls succeed
+                    return subprocess.CompletedProcess(
+                        args=cmd, returncode=0, stdout="ok", stderr=""
+                    )
+
+                mock_run.side_effect = side_effect
+                main()
+
+        # Should have a call with vendor.dependabot
+        dependabot_calls = [
+            c for c in mock_run.call_args_list
+            if len(c[0][0]) > 0 and c[0][0][0] == "check-jsonschema"
+            and "vendor.dependabot" in c[0][0]
+        ]
+        assert len(dependabot_calls) == 1
+
+    def test_validates_dependabot_without_issue_template_dir(self, tmp_path: Path, monkeypatch):
+        """
+        Test dependabot.yml is validated even when ISSUE_TEMPLATE dir is missing.
+
+        Given: No .github/ISSUE_TEMPLATE directory but .github/dependabot.yml exists
+        When: Script runs in force mode
+        Then: dependabot.yml is still validated
+        """
+        from validate_issue_templates import main
+
+        monkeypatch.chdir(tmp_path)
+
+        # Create .github with only dependabot.yml, no ISSUE_TEMPLATE dir
+        github_dir = tmp_path / ".github"
+        github_dir.mkdir()
+        dependabot_file = github_dir / "dependabot.yml"
+        dependabot_file.write_text("version: 2\nupdates: []\n")
+
+        with patch("sys.argv", ["script.py", "--force"]):
+            with patch("subprocess.run") as mock_run:
+                mock_run.return_value = subprocess.CompletedProcess(
+                    args=[], returncode=0, stdout="ok", stderr=""
+                )
+                exit_code = main()
+
+        assert exit_code == 0
+        dependabot_calls = [
+            c for c in mock_run.call_args_list
+            if "vendor.dependabot" in c[0][0]
+        ]
+        assert len(dependabot_calls) == 1, "Should validate dependabot.yml without ISSUE_TEMPLATE dir"
+
+    def test_integration_validates_real_dependabot_yml(self):
+        """
+        Test validation of the real .github/dependabot.yml file.
+
+        Given: Actual dependabot.yml from the repository
+        When: Validation is run with vendor.dependabot schema
+        Then: File passes validation
+        """
+        from validate_issue_templates import validate_with_schema
+
+        dependabot_file = Path(__file__).parent.parent.parent.parent / ".github" / "dependabot.yml"
+        if not dependabot_file.exists():
+            pytest.skip("dependabot.yml not found in repository")
+
+        result = validate_with_schema(dependabot_file, "vendor.dependabot", quiet=True)
+
+        assert result is True, "dependabot.yml should pass vendor.dependabot validation"
+
+
+# ============================================================================
 # Integration Tests
 # ============================================================================
 
@@ -1594,7 +1866,7 @@ class TestIntegrationWithRealFiles:
 """
 Test Summary
 ============
-Total Tests: 60
+Total Tests: 72
 - Command Line Args: 14 tests
 - GitHub Schema Validation: 8 tests
 - File Detection: 7 tests
@@ -1603,6 +1875,7 @@ Total Tests: 60
 - Exit Codes: 5 tests
 - Check-jsonschema Integration: 7 tests
 - Edge Cases: 7 tests
+- Dependabot Validation: 7 tests
 - Integration Tests: 5 tests
 
 Coverage Areas:

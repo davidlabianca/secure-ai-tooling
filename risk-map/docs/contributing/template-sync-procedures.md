@@ -198,21 +198,21 @@ python scripts/generate_issue_templates.py --validate
 
 **Templates are automatically validated before commit and in CI/CD pipelines.**
 
-### Issue Template Validator
+### GitHub Config File Validator
 
-**Goal:** Ensure all templates conform to GitHub's schema requirements
+**Goal:** Ensure all issue templates and `dependabot.yml` conform to their respective schema requirements
 
 #### Validator Script
 
 **File:** `scripts/hooks/validate_issue_templates.py`
 
-A comprehensive validator that uses `check-jsonschema` with GitHub's built-in schemas:
+Validates issue templates against GitHub schemas and `dependabot.yml` against the `vendor.dependabot` schema using `check-jsonschema`:
 
 ```bash
-# Validate all templates (manual use)
+# Validate all config files (manual use)
 python scripts/hooks/validate_issue_templates.py --force
 
-# Validate staged templates only (pre-commit)
+# Validate staged files only (pre-commit)
 python scripts/hooks/validate_issue_templates.py
 
 # Quiet mode (errors only)
@@ -242,7 +242,7 @@ The validator and generator are integrated into the pre-commit workflow:
 python scripts/hooks/validate_issue_templates.py --force
 
 # Should output:
-# ✅ All issue templates passed validation
+# ✅ All GitHub config files passed validation
 ```
 
 **For Maintainers:**
