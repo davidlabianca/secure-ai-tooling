@@ -9,7 +9,7 @@ activate the correct Python and Node.js versions.
 
 Test Coverage:
 ==============
-Total Tests: 12 test methods across 5 classes
+Total Tests: 16 test methods across 6 classes
 Coverage Target: 100% of .mise.toml configuration requirements
 
 1. TestMiseConfigExists - File existence and type
@@ -34,11 +34,20 @@ Coverage Target: 100% of .mise.toml configuration requirements
    - Python version matches verify-deps.sh threshold (>= 3.14)
    - Node.js version matches verify-deps.sh threshold (>= 22)
 
+6. TestMiseInterpreterResolution - Runtime mise binary validation
+   (skipped when mise-installed Python is not present, e.g., CI)
+   - mise "latest" symlink exists
+   - Python binary is executable
+   - Python binary runs and reports version
+   - Version matches .mise.toml specification
+
 Testing Approach:
 =================
 Uses tomllib (Python 3.11+ stdlib) to parse the TOML file and validate its
 structure and values. Consistency tests read verify-deps.sh to extract the
-version thresholds and compare against .mise.toml values.
+version thresholds and compare against .mise.toml values. Runtime integration
+tests (TestMiseInterpreterResolution) are skipped in CI where mise is not
+the Python provider.
 """
 
 import re
@@ -304,6 +313,14 @@ class TestMiseConfigConsistency:
         )
 
 
+# Skip the entire class when mise-installed Python is not present (e.g., GitHub Actions
+# CI uses actions/setup-python instead of mise).
+_mise_python_latest = Path.home() / ".local/share/mise/installs/python/latest"
+
+@pytest.mark.skipif(
+    not _mise_python_latest.exists(),
+    reason="mise-installed Python not present (not running in devcontainer)",
+)
 class TestMiseInterpreterResolution:
     """
     Runtime integration tests verifying the mise Python binary resolves correctly.
@@ -311,6 +328,8 @@ class TestMiseInterpreterResolution:
     devcontainer.json sets defaultInterpreterPath to the real Python binary via
     mise's "latest" symlink. These tests verify that symlink chain actually
     resolves to a working Python interpreter inside the container.
+
+    Skipped in CI where Python is provided by actions/setup-python rather than mise.
     """
 
     MISE_PYTHON_LATEST = Path.home() / ".local/share/mise/installs/python/latest"
