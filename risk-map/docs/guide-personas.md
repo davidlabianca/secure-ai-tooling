@@ -46,7 +46,7 @@ Use these questions to determine if this persona applies to your organization:
 
 1. Are you training or fine-tuning AI/ML models for use by others, including classical ML, statistical, optimization, and rule-based models?
 2. Do you modify existing models (e.g., distillation, quantization, or adaptation) for use by others?
-3. Do you evaluate, benchmark, or perform quality assurance on AI/ML models?
+3. Do you evaluate, benchmark, or perform quality assurance on AI/ML models as part of training, adaptation, or distribution decisions?
 4. Are you making models available for others to download, license, or integrate?
 5. Do you host or curate a catalog of AI/ML models provided by third parties?
 6. Do you issue or manage licenses governing how AI/ML models may be used?

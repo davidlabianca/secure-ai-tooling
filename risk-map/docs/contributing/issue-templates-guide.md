@@ -620,12 +620,16 @@ Different entity types map to different external frameworks:
 | NIST AI RMF      | ✅       | ❌    | ❌         | ❌       |
 | STRIDE           | ❌       | ✅    | ❌         | ❌       |
 | OWASP Top 10 LLM | ✅       | ✅    | ❌         | ❌       |
+| ISO 22989        | ❌       | ❌    | ❌         | ✅       |
+| EU AI Act        | ✅       | ❌    | ❌         | ✅       |
 
-**Controls** use MITRE ATLAS mitigations (AML.M\*), NIST AI RMF subcategories, and OWASP Top 10 for LLM.
+**Controls** use MITRE ATLAS mitigations (AML.M\*), NIST AI RMF subcategories, OWASP Top 10 for LLM, and EU AI Act articles.
 
 **Risks** use MITRE ATLAS techniques (AML.T\*), STRIDE threat categories, and OWASP Top 10 for LLM.
 
-**Components and Personas** currently have no framework mappings in practice.
+**Personas** use ISO 22989 actor roles and EU AI Act defined roles.
+
+**Components** currently have no framework mappings.
 
 Templates automatically show only applicable frameworks for each entity type based on dynamic configuration.
 

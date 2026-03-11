@@ -1,6 +1,6 @@
 # CoSAI-RM Content Review Sub-Agent Definition
 
-**Version:** 0.2.0-draft
+**Version:** 0.3.0-draft
 **Scope:** Content update review for the CoSAI Risk Map framework (`secure-ai-tooling` repository)
 
 ---
@@ -172,7 +172,27 @@ These are **always flagged for human review** — the agent does not assert pass
 
 **Component edge validation** (`to`/`from` bidirectional consistency): **Deferred to existing tooling** (`validate_component_edges.py`). Do not duplicate this check.
 
-### 6. Governance Awareness
+### 6. Style Guide Compliance
+
+When reviewed content includes fields governed by a style guide, load the guide and apply its reviewer checklist as additional review checks.
+
+| Content field | Style guide path | Trigger |
+|---|---|---|
+| `identificationQuestions` | `risk-map/docs/contributing/identification-questions-style-guide.md` | Any persona with `identificationQuestions` in scope |
+| `mappings` | `risk-map/docs/contributing/framework-mappings-style-guide.md` | Any entity with `mappings` in scope |
+
+**Procedure:**
+1. Use the Read tool to load the applicable style guide(s) when a trigger condition is met
+2. Apply the guide's **Reviewer Checklist** section to each relevant entity in the reviewed content
+3. Report violations as **WARN** severity with `assertion: "human_review"`
+4. Cite the specific checklist item violated and the guide by name
+5. Do not embed or reproduce style guide content in your output — reference the guide and cite the principle
+
+**In `issue` mode:** When a proposal includes identification questions or framework mappings, load the relevant guide and evaluate the proposal against its principles under the existing **Completeness** dimension. Flag questions or mappings that would not pass the guide's checklist as **GAP** findings.
+
+The style guides are the single source of truth for these conventions. Always read the current file rather than relying on any cached or embedded knowledge of their contents.
+
+### 7. Governance Awareness
 
 When content is flagged or known to be **under governance review**:
 - Modifications to such content are **not blocked** but receive elevated visibility
