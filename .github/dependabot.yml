@@ -5,6 +5,13 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
+      day: "sunday"
+      time: "09:00"
+      timezone: "America/Los_Angeles"
+    open-pull-requests-limit: 5
+    assignees:
+      - "davidlabianca"
+      - "shrey-bagga"
     labels: ["dependencies", "python", "security"]
     commit-message:
       prefix: "deps(python)"
@@ -22,6 +29,13 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
+      day: "sunday"
+      time: "09:00"
+      timezone: "America/Los_Angeles"
+    open-pull-requests-limit: 5
+    assignees:
+      - "davidlabianca"
+      - "shrey-bagga"
     labels: ["dependencies", "node", "security"]
     commit-message:
       prefix: "deps(node)"
@@ -39,6 +53,13 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
+      day: "sunday"
+      time: "09:00"
+      timezone: "America/Los_Angeles"
+    open-pull-requests-limit: 5
+    assignees:
+      - "davidlabianca"
+      - "shrey-bagga"
     labels: ["dependencies", "ci/cd", "security"]
     commit-message:
       prefix: "deps(actions)"
@@ -56,6 +77,12 @@ updates:
     directory: "/.devcontainer"
     schedule:
       interval: "monthly"
+      time: "09:00"
+      timezone: "America/Los_Angeles"
+    open-pull-requests-limit: 5
+    assignees:
+      - "davidlabianca"
+      - "shrey-bagga"
     labels: ["dependencies", "infrastructure", "security"]
     commit-message:
       prefix: "deps(docker)"
@@ -73,6 +100,12 @@ updates:
     directory: "/.devcontainer"
     schedule:
       interval: "monthly"
+      time: "09:00"
+      timezone: "America/Los_Angeles"
+    open-pull-requests-limit: 5
+    assignees:
+      - "davidlabianca"
+      - "shrey-bagga"
     labels: ["dependencies", "infrastructure", "security"]
     commit-message:
       prefix: "deps(devcontainer)"
