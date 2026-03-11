@@ -70,8 +70,8 @@ Group 9 -- Pre-commit Hook Installation (3):
 Installation Order Tested:
 ==========================
 1. mise (curl https://mise.run | sh)
-2. Python >= 3.14 (mise install python@3.14)
-3. Node.js >= 22 (mise install node@22)
+2. Python >= 3.14 (mise install python@<version from .mise.toml>)
+3. Node.js >= 22 (mise install node@<version from .mise.toml>)
 4. pip packages (pip install -r requirements.txt)
 5. npm packages (npm install)
 6. act (curl nektos/act install script)
@@ -573,7 +573,7 @@ class TestDryRunPythonInstall:
     Test dry-run output when Python is missing.
 
     When python3 is not found or version is insufficient, the script should
-    output a [DRY-RUN] message about mise install python@3.14.
+    output a [DRY-RUN] message about mise install python.
     """
 
     def test_python_missing_shows_dry_run_install(self, tmp_path):
@@ -607,7 +607,7 @@ class TestDryRunNodeInstall:
     Test dry-run output when Node.js is missing.
 
     When node is not found, the script should output a [DRY-RUN] message
-    about mise install node@22.
+    about mise install node.
     """
 
     def test_node_missing_shows_dry_run_install(self, tmp_path):

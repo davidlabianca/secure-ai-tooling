@@ -32,7 +32,7 @@ def parse_args() -> argparse.Namespace:
 
     Returns:
         argparse.Namespace with parsed arguments:
-        - force: bool - Validate all templates regardless of git staging
+        - force: bool - Validate all config files regardless of git staging
         - quiet: bool - Suppress informational output
     """
     parser = argparse.ArgumentParser(
@@ -41,7 +41,7 @@ def parse_args() -> argparse.Namespace:
         epilog="""
 Examples:
   %(prog)s                # Validate staged templates only (pre-commit mode)
-  %(prog)s --force        # Validate all templates in .github/ISSUE_TEMPLATE
+  %(prog)s --force        # Validate all config files (.github/ISSUE_TEMPLATE + dependabot.yml)
   %(prog)s --quiet        # Suppress informational output
   %(prog)s -f -q          # Force mode with quiet output
 
@@ -56,7 +56,7 @@ Exit Codes:
         "--force",
         "-f",
         action="store_true",
-        help="Validate all templates (not just staged files)",
+        help="Validate all config files (not just staged files)",
     )
 
     parser.add_argument(
@@ -98,13 +98,17 @@ def get_staged_files() -> list[Path]:
         return []
 
 
-def get_template_files(template_dir: Path, staged_only: bool = False) -> tuple[list[Path], Path | None]:
+def get_template_files(
+    template_dir: Path, staged_only: bool = False, staged: list[Path] | None = None
+) -> tuple[list[Path], Path | None]:
     """
     Get list of template files to validate.
 
     Args:
         template_dir: Path to .github/ISSUE_TEMPLATE directory
         staged_only: If True, only return files that are staged in git
+        staged: Pre-computed list of staged files. If None and staged_only is True,
+            calls get_staged_files() internally.
 
     Returns:
         Tuple of (issue_template_files, config_file_or_None):
@@ -115,8 +119,8 @@ def get_template_files(template_dir: Path, staged_only: bool = False) -> tuple[l
         return ([], None)
 
     if staged_only:
-        # Get staged files and filter to this directory
-        staged = get_staged_files()
+        if staged is None:
+            staged = get_staged_files()
 
         # Filter to .yml files in ISSUE_TEMPLATE directory (not nested)
         issue_forms = [
@@ -224,7 +228,7 @@ def main() -> int:
             if args.force:
                 issue_forms, config_file = get_template_files(template_dir, staged_only=False)
             else:
-                issue_forms, config_file = get_template_files(template_dir, staged_only=True)
+                issue_forms, config_file = get_template_files(template_dir, staged_only=True, staged=staged)
         else:
             issue_forms, config_file = [], None
 

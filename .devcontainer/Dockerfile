@@ -73,9 +73,11 @@ RUN useradd -m -d /home/${USERNAME} -s /bin/bash ${USERNAME} 2>/dev/null || true
 # Python via install-deps.sh.
 USER ${USERNAME}
 ENV HOME=/home/${USERNAME}
+# Versions are derived from .mise.toml via `mise current` after install,
+# keeping .mise.toml as the single source of truth for tool versions.
 RUN mise trust .mise.toml && \
     mise install && \
     mise reshim && \
-    mise use -g python@3.14 && \
-    mise use -g node@22
+    mise use -g python@$(mise current python | cut -d. -f1-2) && \
+    mise use -g node@$(mise current node | cut -d. -f1)
 USER root
