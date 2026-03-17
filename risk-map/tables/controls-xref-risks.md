@@ -7,9 +7,11 @@
 | controlAdversarialTrainingAndTesting       | Adversarial Training and Testing                  | SDD       | Sensitive Data Disclosure                |
 | controlAgentObservability                  | Agent Observability                               | RA        | Rogue Actions                            |
 | controlAgentObservability                  | Agent Observability                               | SDD       | Sensitive Data Disclosure                |
+| controlAgentObservability                  | Agent Observability                               | TRT       | Tool Registry Tampering                  |
 | controlAgentPluginPermissions              | Agent Permissions                                 | IIC       | Insecure Integrated Component            |
 | controlAgentPluginPermissions              | Agent Permissions                                 | RA        | Rogue Actions                            |
 | controlAgentPluginPermissions              | Agent Permissions                                 | SDD       | Sensitive Data Disclosure                |
+| controlAgentPluginPermissions              | Agent Permissions                                 | TSP       | Tool Source Provenance                   |
 | controlAgentPluginUserControl              | Agent User Control                                | RA        | Rogue Actions                            |
 | controlAgentPluginUserControl              | Agent User Control                                | SDD       | Sensitive Data Disclosure                |
 | controlApplicationAccessManagement         | Application Access and Resource Management        | DMS       | Denial of ML Service                     |
@@ -50,6 +52,7 @@
 | controlModelAndDataIntegrityManagement     | Model and Data Integrity Management               | ORH       | Orchestrator/Route Hijack                |
 | controlModelAndDataIntegrityManagement     | Model and Data Integrity Management               | PCP       | Prompt/Response Cache Poisoning          |
 | controlModelAndDataIntegrityManagement     | Model and Data Integrity Management               | RVP       | Retrieval/Vector Store Poisoning         |
+| controlModelAndDataIntegrityManagement     | Model and Data Integrity Management               | TSP       | Tool Source Provenance                   |
 | controlModelAndDataInventoryManagement     | Model and Data Inventory Management               | DP        | Data Poisoning                           |
 | controlModelAndDataInventoryManagement     | Model and Data Inventory Management               | MST       | Model Source Tampering                   |
 | controlModelAndDataInventoryManagement     | Model and Data Inventory Management               | MXF       | Model Exfiltration                       |
@@ -57,6 +60,7 @@
 | controlModelPrivacyEnhancingTechnologies   | Privacy Enhancing Technologies for Model Training | SDD       | Sensitive Data Disclosure                |
 | controlOrchestratorAndRouteIntegrity       | Orchestrator and Route Integrity                  | MDT       | Model Deployment Tampering               |
 | controlOrchestratorAndRouteIntegrity       | Orchestrator and Route Integrity                  | ORH       | Orchestrator/Route Hijack                |
+| controlOrchestratorAndRouteIntegrity       | Orchestrator and Route Integrity                  | TRT       | Tool Registry Tampering                  |
 | controlOutputValidationAndSanitization     | Output Validation and Sanitization                | COV       | Covert Channels in Model Outputs         |
 | controlOutputValidationAndSanitization     | Output Validation and Sanitization                | IMO       | Insecure Model Output                    |
 | controlOutputValidationAndSanitization     | Output Validation and Sanitization                | ISD       | Inferred Sensitive Data                  |
@@ -80,6 +84,7 @@
 | controlSecureByDefaultMLTooling            | Secure-by-Default ML Tooling                      | MST       | Model Source Tampering                   |
 | controlSecureByDefaultMLTooling            | Secure-by-Default ML Tooling                      | MXF       | Model Exfiltration                       |
 | controlSecureByDefaultMLTooling            | Secure-by-Default ML Tooling                      | ORH       | Orchestrator/Route Hijack                |
+| controlSecureByDefaultMLTooling            | Secure-by-Default ML Tooling                      | TSP       | Tool Source Provenance                   |
 | controlThreatDetection                     | Threat Detection                                  | all       | All Risks                                |
 | controlTrainingDataManagement              | Training Data Management                          | EDH       | Excessive Data Handling                  |
 | controlTrainingDataManagement              | Training Data Management                          | ISD       | Inferred Sensitive Data                  |

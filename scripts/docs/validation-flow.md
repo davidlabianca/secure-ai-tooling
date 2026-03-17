@@ -17,7 +17,9 @@ When you commit changes, the hook will:
    - If `risks.yaml` changed: generate risk tables + regenerate controls-xref-risks
    - If `controls.yaml` changed: generate all 4 control table formats
 8. **Control-Risk Validation** - Verify control-risk cross-reference consistency
-9. **Block commit** if any validation fails
+9. **Issue Template Generation** - Regenerate templates when dependencies change (schemas, frameworks, template sources)
+10. **GitHub Config Validation** - Validate issue templates against `vendor.github-issue-forms`/`vendor.github-issue-config` and `dependabot.yml` against `vendor.dependabot`
+11. **Block commit** if any validation fails
 
 **Note**: Graph and table generation only occur when relevant files are staged for commit, not in `--force` mode.
 

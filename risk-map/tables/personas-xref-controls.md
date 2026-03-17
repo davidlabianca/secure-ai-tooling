@@ -107,6 +107,7 @@
 | personaModelProvider        | Model Provider                           | controlTrainingDataManagement              | Training Data Management                          |
 | personaModelProvider        | Model Provider                           | controlTrainingDataSanitization            | Training Data Sanitization                        |
 | personaModelServing         | AI Model Serving                         | controlApplicationAccessManagement         | Application Access and Resource Management        |
+| personaModelServing         | AI Model Serving                         | controlIncidentResponseManagement          | Incident Response Management                      |
 | personaModelServing         | AI Model Serving                         | controlInputValidationAndSanitization      | Input Validation and Sanitization                 |
 | personaModelServing         | AI Model Serving                         | controlIsolatedConfidentialComputing       | Isolated and Confidential Computing               |
 | personaModelServing         | AI Model Serving                         | controlModelAndDataAccessControls          | Model and Data Access Controls                    |
@@ -116,6 +117,7 @@
 | personaModelServing         | AI Model Serving                         | controlOutputValidationAndSanitization     | Output Validation and Sanitization                |
 | personaModelServing         | AI Model Serving                         | controlRedTeaming                          | Red Teaming                                       |
 | personaModelServing         | AI Model Serving                         | controlRuntimePrivacyEnhancingTechnologies | Privacy Enhancing Technologies for Inference      |
+| personaModelServing         | AI Model Serving                         | controlSecureByDefaultMLTooling            | Secure-by-Default ML Tooling                      |
 | personaModelServing         | AI Model Serving                         | controlUserTransparencyAndControls         | User Transparency and Controls                    |
 | personaPlatformProvider     | AI Platform Provider                     | controlApplicationAccessManagement         | Application Access and Resource Management        |
 | personaPlatformProvider     | AI Platform Provider                     | controlIncidentResponseManagement          | Incident Response Management                      |

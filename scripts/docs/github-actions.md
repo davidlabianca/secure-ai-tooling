@@ -15,6 +15,11 @@ In addition to local pre-commit validation, the repository includes GitHub Actio
   - Component graph (`./risk-map/diagrams/risk-map-graph.md`)
   - Control graph (`./risk-map/diagrams/controls-graph.md`)
   - Controls-to-risk graph (`./risk-map/diagrams/controls-to-risk-graph.md`)
+- **GitHub Config Validation**: Validates issue templates and dependabot configuration
+  - Issue forms against `vendor.github-issue-forms` schema
+  - `config.yml` against `vendor.github-issue-config` schema
+  - `dependabot.yml` against `vendor.dependabot` schema
+  - Template drift detection (schemas changed but templates not regenerated)
 - **Mermaid SVG Validation**: Validates Mermaid diagram syntax and generates SVG previews
 - **Markdown Table Validation**: Generates and compares markdown tables against committed versions
   - Components tables (`components-full.md`, `components-summary.md`)

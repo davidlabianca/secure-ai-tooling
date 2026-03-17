@@ -9,7 +9,7 @@ activate the correct Python and Node.js versions.
 
 Test Coverage:
 ==============
-Total Tests: 12 test methods across 5 classes
+Total Tests: 16 test methods across 6 classes
 Coverage Target: 100% of .mise.toml configuration requirements
 
 1. TestMiseConfigExists - File existence and type
@@ -34,11 +34,20 @@ Coverage Target: 100% of .mise.toml configuration requirements
    - Python version matches verify-deps.sh threshold (>= 3.14)
    - Node.js version matches verify-deps.sh threshold (>= 22)
 
+6. TestMiseInterpreterResolution - Runtime mise binary validation
+   (skipped when mise-installed Python is not present, e.g., CI)
+   - mise "latest" symlink exists
+   - Python binary is executable
+   - Python binary runs and reports version
+   - Version matches .mise.toml specification
+
 Testing Approach:
 =================
 Uses tomllib (Python 3.11+ stdlib) to parse the TOML file and validate its
 structure and values. Consistency tests read verify-deps.sh to extract the
-version thresholds and compare against .mise.toml values.
+version thresholds and compare against .mise.toml values. Runtime integration
+tests (TestMiseInterpreterResolution) are skipped in CI where mise is not
+the Python provider.
 """
 
 import re
@@ -125,9 +134,9 @@ class TestMiseConfigPython:
     """
     Test Python version specification in .mise.toml.
 
-    Validates that .mise.toml declares the correct Python version matching
-    what install-deps.sh installs (python@3.14) and what verify-deps.sh
-    checks for (>= 3.14).
+    Validates that .mise.toml declares the correct Python version.
+    .mise.toml is the single source of truth; install-deps.sh and the
+    Dockerfile derive versions from it dynamically.
     """
 
     @pytest.fixture()
@@ -153,12 +162,11 @@ class TestMiseConfigPython:
 
         Given: A .mise.toml with tools.python defined
         When: Reading the python version value
-        Then: Value is "3.14" (matching install-deps.sh: mise install python@3.14)
+        Then: Value is "3.14"
         """
         python_version = str(tools.get("python", ""))
         assert python_version == "3.14", (
-            f"Expected tools.python = '3.14', got '{python_version}'. "
-            f"Must match install-deps.sh: mise install python@3.14"
+            f"Expected tools.python = '3.14', got '{python_version}'"
         )
 
     def test_python_version_satisfies_minimum(self, tools):
@@ -182,9 +190,9 @@ class TestMiseConfigNode:
     """
     Test Node.js version specification in .mise.toml.
 
-    Validates that .mise.toml declares the correct Node.js version matching
-    what install-deps.sh installs (node@22) and what verify-deps.sh checks
-    for (>= 22).
+    Validates that .mise.toml declares the correct Node.js version.
+    .mise.toml is the single source of truth; install-deps.sh and the
+    Dockerfile derive versions from it dynamically.
     """
 
     @pytest.fixture()
@@ -210,11 +218,11 @@ class TestMiseConfigNode:
 
         Given: A .mise.toml with tools.node defined
         When: Reading the node version value
-        Then: Value is "22" (matching install-deps.sh: mise install node@22)
+        Then: Value is "22"
         """
         node_version = str(tools.get("node", ""))
         assert node_version == "22", (
-            f"Expected tools.node = '22', got '{node_version}'. Must match install-deps.sh: mise install node@22"
+            f"Expected tools.node = '22', got '{node_version}'"
         )
 
     def test_node_version_satisfies_minimum(self, tools):
@@ -305,33 +313,108 @@ class TestMiseConfigConsistency:
         )
 
 
-"""
-Test Summary
-============
-Total Test Classes: 5
-Total Test Methods: 12
+# Skip the entire class when mise-installed Python is not present (e.g., GitHub Actions
+# CI uses actions/setup-python instead of mise).
+_mise_python_latest = Path.home() / ".local/share/mise/installs/python/latest"
 
-Coverage Areas:
-- File existence and type validation (2 tests)
-- TOML syntax and structure validation (2 tests)
-- Python version specification (3 tests)
-- Node.js version specification (3 tests)
-- Cross-file consistency with verify-deps.sh (2 tests)
+@pytest.mark.skipif(
+    not _mise_python_latest.exists(),
+    reason="mise-installed Python not present (not running in devcontainer)",
+)
+class TestMiseInterpreterResolution:
+    """
+    Runtime integration tests verifying the mise Python binary resolves correctly.
 
-Test Approach:
-- Uses tomllib (Python 3.11+ stdlib) for TOML parsing
-- Validates file existence, type, structure, and values
-- Extracts version thresholds from verify-deps.sh via regex
-- Confirms .mise.toml versions satisfy the thresholds
-- No external dependencies beyond pytest and stdlib
+    devcontainer.json sets defaultInterpreterPath to the real Python binary via
+    mise's "latest" symlink. These tests verify that symlink chain actually
+    resolves to a working Python interpreter inside the container.
 
-Version Sources Cross-Referenced:
-- install-deps.sh: mise install python@3.14, mise install node@22
-- verify-deps.sh: Python >= 3.14, Node >= 22
-- .mise.toml: tools.python = "3.14", tools.node = "22"
+    Skipped in CI where Python is provided by actions/setup-python rather than mise.
+    """
 
-Next Steps:
-1. Run tests (all should fail - TDD red phase, .mise.toml does not exist yet)
-2. Create .mise.toml file (TDD green phase)
-3. Verify all 12 tests pass
-"""
+    MISE_PYTHON_LATEST = Path.home() / ".local/share/mise/installs/python/latest"
+    MISE_PYTHON_BIN = MISE_PYTHON_LATEST / "bin" / "python"
+
+    def test_mise_python_latest_symlink_exists(self):
+        """
+        Given: mise installed Python from .mise.toml
+        When: Checking for the "latest" symlink
+        Then: Symlink exists at ~/.local/share/mise/installs/python/latest
+
+        The "latest" symlink is managed by mise and used by
+        defaultInterpreterPath in devcontainer.json.
+        """
+        assert self.MISE_PYTHON_LATEST.exists(), (
+            f"mise 'latest' symlink missing: {self.MISE_PYTHON_LATEST}. "
+            f"Was 'mise install' run?"
+        )
+        assert self.MISE_PYTHON_LATEST.is_symlink(), (
+            f"Expected symlink at {self.MISE_PYTHON_LATEST}, got regular path"
+        )
+
+    def test_mise_python_latest_binary_is_executable(self):
+        """
+        Given: The mise "latest" symlink exists
+        When: Checking the Python binary it points to
+        Then: Binary exists and is executable
+
+        devcontainer.json defaultInterpreterPath points here. If this fails,
+        VS Code will show "could not be resolved" at startup.
+        """
+        assert self.MISE_PYTHON_BIN.exists(), (
+            f"Python binary missing at {self.MISE_PYTHON_BIN}"
+        )
+        import os
+        assert os.access(self.MISE_PYTHON_BIN, os.X_OK), (
+            f"Python binary not executable: {self.MISE_PYTHON_BIN}"
+        )
+
+    def test_mise_python_latest_binary_runs(self):
+        """
+        Given: The mise Python binary exists and is executable
+        When: Invoking it with --version
+        Then: It executes as Python and reports a version string
+        """
+        import subprocess
+        result = subprocess.run(
+            [str(self.MISE_PYTHON_BIN), "--version"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        assert result.returncode == 0, (
+            f"Python binary exited with {result.returncode}: {result.stderr}"
+        )
+        # Python 3.4+ writes --version to stdout, but check both for robustness
+        combined = result.stdout + result.stderr
+        assert "Python" in combined, (
+            f"Expected 'Python' in version output, got: {combined}"
+        )
+
+    def test_mise_python_latest_matches_mise_toml(self):
+        """
+        Given: .mise.toml declares a Python version
+        When: Running the "latest" binary
+        Then: Its version matches the .mise.toml specification
+
+        Catches drift where mise's "latest" symlink points to a different
+        Python version than what .mise.toml declares.
+        """
+        import subprocess
+        with open(MISE_CONFIG_PATH, "rb") as f:
+            config = tomllib.load(f)
+        expected_minor = str(config.get("tools", {}).get("python", ""))
+
+        result = subprocess.run(
+            [str(self.MISE_PYTHON_BIN), "--version"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        # "Python 3.14.3" -> "3.14" (stdout for Python 3.4+, check both for safety)
+        combined = (result.stdout + result.stderr).strip()
+        version_str = combined.split()[-1]
+        actual_minor = ".".join(version_str.split(".")[:2])
+        assert actual_minor == expected_minor, (
+            f"mise 'latest' Python is {actual_minor}, but .mise.toml declares {expected_minor}"
+        )

@@ -742,6 +742,14 @@ risks:
         By uploading a malicious Alexa skill / Google action (plugins), <a href="https://www.theverge.com/2019/10/21/20924886/alexa-google-home-security-vulnerability-srlabs-phishing-eavesdropping"
         target="_blank" rel="noopener">attackers were able to eavesdrop on user conversations</a>
         that occurred near Alexa / Google Home devices.
+      - >
+        A <a href="https://blog.gitguardian.com/breaking-mcp-server-hosting/"
+        target="_blank" rel="noopener">path traversal vulnerability</a>
+        in Smithery.ai's MCP server hosting platform (October 2025) exposed
+        3,000+ hosted MCP servers and thousands of downstream API keys
+        through a tenant isolation failure in the Docker build configuration.
+        An attacker with this access could modify hosted tool definitions
+        or intercept credentials used by AI agents connecting to those servers.
     tourContent:
       introduced:
         - >
@@ -1598,6 +1606,115 @@ risks:
           integrity, secure adapter repositories with provenance tracking, runtime
           monitoring for anomalous behavior, sandboxed adapter loading processes,
           and comprehensive testing of adapter functionality before deployment.
+  - id: TRT
+    title: Tool Registry Tampering
+    shortDescription:
+      - >
+        Compromise of previously vetted tool registries, MCP server manifests,
+        or tool metadata, causing agents to select and invoke unintended tools
+        through altered descriptions, schemas, or shadowed tool names.
+    longDescription:
+      - >
+        Even when tool registries and MCP server manifests have been properly
+        vetted and approved, they remain targets for post-vetting compromise.
+        Attackers who gain access to a trusted registry can alter tool
+        descriptions, modify schemas, or inject shadowed tool entries that
+        redirect agent tool selection.
+      - >
+        This risk is distinct from <a href="#TSP">Tool Source Provenance</a>,
+        which addresses the use of unvetted sources. TRT assumes the source
+        was properly vetted but was subsequently compromised. The trust model
+        is different: TSP is a failure to verify, while TRT is a failure of
+        ongoing integrity assurance.
+      - >
+        TRT is structurally related to <a href="#ORH">Orchestrator/Route
+        Hijack</a>, which targets model routing configuration. Both involve
+        tampering with metadata that directs system behavior, but ORH
+        operates on model routing infrastructure while TRT operates on tool
+        discovery and selection mechanisms. A successful TRT exploit
+        typically manifests as <a href="#RA">Rogue Actions</a>.
+      - >
+        The attack surface includes tool registry databases, MCP server
+        manifest files, schema definition endpoints, and discovery service
+        APIs. Compromise may be persistent (modified registry entries) or
+        transient (man-in-the-middle on discovery endpoints). Detection
+        requires runtime integrity monitoring of tool metadata against
+        known-good baselines.
+      - >
+        <a href="#IIC">Insecure Integrated Component</a> addresses
+        vulnerabilities in the tools themselves. TRT is complementary:
+        it addresses the metadata that causes the agent to select a
+        particular tool, regardless of whether the selected tool is
+        itself secure.
+    category: risksDeploymentAndInfrastructure
+    personas:
+      - personaAgenticProvider
+      - personaApplicationDeveloper
+      - personaPlatformProvider
+      - personaModelServing
+    controls:
+      - controlOrchestratorAndRouteIntegrity
+      - controlAgentObservability
+    examples:
+      - >
+        <a href="https://www.paloaltonetworks.com/blog/cloud-security/model-context-protocol-mcp-a-security-overview/"
+        target="_blank" rel="noopener">Palo Alto Networks</a> published
+        practical demonstrations of MCP tool poisoning where vetted tool
+        descriptions were modified post-approval to redirect agent behavior.
+      - >
+        <a href="https://invariantlabs.ai/blog/mcp-security-notification-tool-poisoning-attacks"
+        target="_blank" rel="noopener">Invariant Labs demonstrated</a>
+        (April 2025) that MCP servers can silently modify tool descriptions
+        after initial user approval, exfiltrating SSH keys and MCP
+        credentials from Claude Desktop and Cursor without triggering
+        re-approval prompts.
+      - >
+        A <a href="https://blog.gitguardian.com/breaking-mcp-server-hosting/"
+        target="_blank" rel="noopener">tenant isolation failure</a>
+        in the Smithery.ai MCP server hosting platform (October 2025)
+        demonstrated that infrastructure compromise of a trusted registry
+        can enable modification of hosted tool definitions across 3,000+
+        MCP servers, allowing attackers to redirect agent tool selection
+        at scale on a previously vetted platform.
+    relevantQuestions:
+      - Could a previously vetted tool registry or MCP server manifest be modified without triggering an integrity alert?
+      - Do you monitor for unauthorized changes to tool descriptions, schemas, or metadata after initial registration?
+      - Can tools in your system update their own descriptions or capabilities without explicit re-approval?
+    tourContent:
+      introduced:
+        - >
+          Tool Registry Tampering risk is introduced when vetted tool
+          registries, MCP server manifests, or discovery endpoints lack
+          ongoing integrity monitoring and tamper detection.
+      exposed:
+        - >
+          This risk is exposed at deployment and runtime when compromised
+          tool metadata redirects agent tool selection, causing invocation
+          of unintended or malicious tools despite prior vetting.
+      mitigated:
+        - >
+          Mitigation involves runtime integrity monitoring of tool metadata
+          against known-good baselines, configuration integrity verification,
+          anomalous tool selection detection, and vulnerability management
+          for registry infrastructure.
+    mappings:
+      mitre-atlas:
+        - AML.T0010.004
+      stride:
+        - tampering
+      owasp-top10-llm:
+        - LLM06
+    lifecycleStage:
+      - deployment
+      - runtime
+    impactType:
+      - confidentiality
+      - integrity
+      - safety
+    actorAccess:
+      - external
+      - agent
+      - privileged
   - id: ORH
     title: Orchestrator/Route Hijack
     shortDescription:
@@ -1891,6 +2008,97 @@ risks:
           input validation and sanitization, verifying model integrity through
           cryptographic signatures, sandboxing model loading processes, and using
           secure-by-default ML tooling that prevents code execution during deserialization.
+  - id: TSP
+    title: Tool Source Provenance
+    shortDescription:
+      - >
+        Use of unvetted or unverified tool registries, MCP server manifests,
+        or tool metadata sources that may provide agents with deceptive tool
+        descriptions, altered schemas, or shadowed tool names.
+    longDescription:
+      - >
+        Agents depend on tool metadata from registries, MCP server manifests,
+        and discovery endpoints to decide which tools to invoke. When these
+        sources are adopted without provenance verification, cryptographic
+        signing, or publisher identity validation, the agent may receive
+        deliberately deceptive tool descriptions or schemas.
+      - >
+        This risk operates at the tool selection layer, before a prompt is
+        constructed. Unlike <a href="#PIJ">Prompt Injection</a>, which
+        targets model input processing, TSP targets the trust assumptions
+        in tool discovery. The agent's reasoning core treats tool metadata
+        as authoritative, and unvetted sources exploit that trust.
+      - >
+        Attack patterns include Tool Poisoning (malicious logic hidden in
+        tool descriptions), Tool Shadowing and Typosquatting (lookalike tools
+        using similar names or Unicode homoglyphs), and Schema Poisoning
+        (configuration files that alter tool behavior). These were
+        cataloged by Checkmarx in their MCP risk taxonomy (December 2025).
+      - >
+        TSP is structurally analogous to <a href="#MST">Model Source
+        Tampering</a>, which addresses unvetted model artifacts in the
+        supply chain. Both are provenance failures where untrusted sources
+        are consumed without verification. A successful TSP exploit
+        typically manifests as <a href="#RA">Rogue Actions</a> when the
+        agent invokes the wrong tool.
+    category: risksSupplyChainAndDevelopment
+    personas:
+      - personaAgenticProvider
+      - personaApplicationDeveloper
+    controls:
+      - controlModelAndDataIntegrityManagement
+      - controlSecureByDefaultMLTooling
+      - controlAgentPluginPermissions
+    examples:
+      - >
+        The <a href="https://checkmarx.com/zero-post/11-emerging-ai-security-risks-with-mcp-model-context-protocol/"
+        target="_blank" rel="noopener">Checkmarx CxZero MCP Risk Taxonomy</a>
+        (December 2025) identified Tool Poisoning, Tool Shadowing, and Schema
+        Poisoning as three of the top 11 MCP security risks.
+      - >
+        The NeurIPS 2025 paper <a href="https://arxiv.org/html/2508.02110v2"
+        target="_blank" rel="noopener">"Attractive Metadata Attack"</a>
+        demonstrated that metadata manipulation alone is sufficient to redirect
+        tool selection in agentic systems, achieving 81-95% attack success rates.
+    relevantQuestions:
+      - Do you discover or register tools from third-party sources without verifying the publisher's identity or provenance?
+      - Do you allow tool registries or MCP server manifests to be added to your system without cryptographic signature verification?
+      - Does your tool selection process rely on tool descriptions or metadata without independent validation of the tool's claimed functionality?
+    tourContent:
+      introduced:
+        - >
+          Tool Source Provenance risk is introduced when tool registries,
+          MCP server manifests, or discovery endpoints are adopted without
+          provenance verification or publisher identity validation.
+      exposed:
+        - >
+          This risk is exposed during tool discovery and selection when
+          agents consume unvetted tool metadata and make invocation
+          decisions based on unverified descriptions or schemas.
+      mitigated:
+        - >
+          Mitigation involves cryptographic signing of tool manifests,
+          publisher identity verification, namespace governance to prevent
+          typosquatting, and least-privilege tool access policies.
+    mappings:
+      mitre-atlas:
+        - AML.T0010.001
+      stride:
+        - spoofing
+      owasp-top10-llm:
+        - LLM03
+        - LLM06
+    lifecycleStage:
+      - development
+      - deployment
+    impactType:
+      - confidentiality
+      - integrity
+      - safety
+    actorAccess:
+      - supply-chain
+      - agent
+      - external
   - id: PCP
     title: Prompt/Response Cache Poisoning
     shortDescription:

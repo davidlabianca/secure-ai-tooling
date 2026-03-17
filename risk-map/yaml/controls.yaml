@@ -228,6 +228,7 @@ controls:
       - ORH
       - PCP
       - RVP
+      - TSP
     mappings:
       mitre-atlas:
         - AML.M0013
@@ -285,6 +286,7 @@ controls:
     category: controlsInfrastructure
     personas:
       - personaPlatformProvider
+      - personaModelServing
       - personaAgenticProvider
       - personaApplicationDeveloper
       - personaModelCreator
@@ -304,6 +306,7 @@ controls:
       - ADI
       - ORH
       - MLD
+      - TSP
     mappings:
       mitre-atlas:
         - AML.M0011
@@ -538,6 +541,7 @@ controls:
       - IIC
       - SDD
       - RA
+      - TSP
     mappings:
       mitre-atlas:
         - AML.M0028
@@ -609,6 +613,7 @@ controls:
       - personaModelProvider
       - personaDataProvider
       - personaPlatformProvider
+      - personaModelServing
       - personaAgenticProvider
       - personaApplicationDeveloper
       - personaGovernance
@@ -691,6 +696,7 @@ controls:
     risks:
       - SDD
       - RA
+      - TRT
   - id: controlIsolatedConfidentialComputing
     title: Isolated and Confidential Computing
     description:
@@ -761,3 +767,4 @@ controls:
     risks:
       - ORH
       - MDT
+      - TRT
