@@ -1580,13 +1580,14 @@ risks:
       - controlSecureByDefaultMLTooling
     examples:
       - >
-        Research demonstrates <a href="https://arxiv.org/abs/2311.03262" target="_blank"
+        Research demonstrates <a href="https://arxiv.org/abs/2403.00108" target="_blank"
         rel="noopener">backdoor attacks on LoRA adapters</a> where malicious
         fine-tuning components can compromise model behavior while appearing benign.
       - >
-        Security studies show <a href="https://arxiv.org/abs/2401.13025" target="_blank"
-        rel="noopener">supply chain attacks on adapter repositories</a> where
-        trojaned PEFT modules are distributed to unsuspecting users.
+        Security studies show <a href="https://arxiv.org/abs/2310.00648" target="_blank"
+        rel="noopener">trojan attacks targeting parameter-efficient fine-tuning</a>
+        where compromised model weights propagate backdoors through downstream
+        PEFT adaptation.
     tourContent:
       introduced:
         - >
