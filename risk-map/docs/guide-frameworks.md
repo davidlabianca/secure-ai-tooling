@@ -141,9 +141,6 @@ risks:
       mitre-atlas:
         - AML.T0018
         - AML.T0020
-      nist-ai-rmf:
-        - MS-2.7
-        - MS-2.8
       stride:
         - tampering
 ```

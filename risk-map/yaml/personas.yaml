@@ -96,6 +96,13 @@ personas:
       - API security and rate limiting
       - Compute resource allocation
       - Infrastructure support for model hosting and serving
+    identificationQuestions:
+      - Do you provision or manage compute resources (e.g., GPU clusters, cloud instances, or on-premises hardware) used for AI model training, fine-tuning, or inference?
+      - Do you operate or maintain networking, storage, or data infrastructure that supports AI workloads?
+      - Do you provide platform services for the AI lifecycle (e.g., MLOps tooling, experiment tracking, or model hosting environments)?
+      - Do you manage API gateway services for AI systems, including load balancing, authentication, or request throttling?
+      - Do you enforce multi-tenant isolation, access controls, or security policies at the infrastructure layer for AI workloads?
+      - Do you provide the infrastructure environment in which AI models run, rather than managing the model serving logic itself?
 
   - id: personaModelServing
     title: AI Model Serving

@@ -31,17 +31,17 @@ jobs:
       validation_errors: ${{ steps.validate-preview.outputs.validation_errors }}
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v4
+      uses: actions/checkout@v6
       with:
         token: ${{ github.token }}  # Use default GITHUB_TOKEN with limited permissions
 
     - name: Setup Node.js without npm cache
-      uses: actions/setup-node@v5
+      uses: actions/setup-node@v6
       with:
         node-version: '22.x'
 
     - name: Cache global npm packages
-      uses: actions/cache@v4
+      uses: actions/cache@v5
       id: npm-cache
       with:
         path: |
@@ -159,7 +159,7 @@ jobs:
 
     - name: Upload SVG previews as artifacts
       if: success() && steps.validate-preview.outputs.no_files != 'true'
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         name: mermaid-svg-previews
         path: preview-svgs/
@@ -168,7 +168,7 @@ jobs:
 
     - name: Comment on PR with results
       if: always() && steps.validate-structure.outputs.validation_skipped != 'true' && env.PRIVILEGED == 'true'
-      uses: actions/github-script@v7
+      uses: actions/github-script@v8
       with:
         script: |
           const fs = require('fs');
