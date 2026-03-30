@@ -215,8 +215,8 @@ Examples of valid values:
 - `AI Partner (data supplier)`
 - `AI Partner (infrastructure provider)`
 - `AI Partner (tooling provider)`
-- `AI Consumer (application builder)`
-- `AI Consumer (end user)`
+- `AI Customer (application builder)`
+- `AI Customer (end user)`
 
 The parenthetical qualifier (e.g., `data supplier`, `application builder`) disambiguates broad roles that ISO 22989 further divides. Preserve the parenthetical exactly as it appears in the standard.
 
