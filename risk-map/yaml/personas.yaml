@@ -152,12 +152,30 @@ personas:
       - API integration security
       - Cognitive architecture safety guardrails
     identificationQuestions:
-      - Is your system responsible for deciding which tool an AI model should use next?
-      - Does your platform manage the state or history of a multi-turn agentic workflow?
-      - Are you providing the glue that connects an LLM to an API?
-      - Are you maintaining a library or SDK that abstracts the complexity of LLM tool-calling?
-      - Does your software define the cognitive architecture (loops, reasoning steps) for an AI system?
-      - Do developers import your package to enable agentic capabilities in their code?
+      - >
+        Do you build or maintain software that orchestrates which tools
+        an AI model invokes (e.g., tool-calling frameworks, agent
+        orchestrators, or planning engines)?
+      - >
+        Do you manage the state or history of multi-turn agentic
+        workflows (e.g., conversation history, execution state, or
+        tool results)?
+      - >
+        Do you provide, as a reusable framework or platform rather
+        than a single application, integration layers that connect
+        large language models to external APIs or services (e.g.,
+        tool integrations, plugins, or MCP servers)?
+      - >
+        Do you build or maintain libraries or SDKs that abstract LLM
+        tool-calling (e.g., tool definition, schema generation, or
+        output parsing)?
+      - >
+        Do you define the agent architecture for AI systems (e.g.,
+        reasoning loops, planning workflows, or reflection patterns)?
+      - >
+        Do you provide runtime guardrails or safety boundaries for
+        agentic tool execution (e.g., sandboxed execution, permission
+        boundaries, or pre-execution policy enforcement)?
 
   - id: personaApplicationDeveloper
     title: Application Developer
