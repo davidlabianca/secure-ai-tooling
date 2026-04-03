@@ -45,9 +45,11 @@ def format_edges(edges: dict | None) -> str:
 
     parts = []
     if edges.get("to"):
-        parts.append(f"**To:**<br> {'<br> '.join(edges['to'])}")
+        # Strip trailing newlines that PyYAML may add from folded block scalars
+        parts.append(f"**To:**<br> {'<br> '.join(v.strip() for v in edges['to'])}")
     if edges.get("from"):
-        parts.append(f"**From:**<br> {'<br> '.join(edges['from'])}")
+        # Strip trailing newlines that PyYAML may add from folded block scalars
+        parts.append(f"**From:**<br> {'<br> '.join(v.strip() for v in edges['from'])}")
 
     return "<br>".join(parts) if parts else ""
 
@@ -71,8 +73,10 @@ def format_list(entry, prefix: str = "") -> str:
         return str(entry) if entry else ""
 
     if prefix:
-        return "<br>".join(f"{prefix}{item}" for item in entry)
-    return "<br> ".join(entry)
+        # Strip trailing newlines that PyYAML may add from folded block scalars
+        return "<br>".join(f"{prefix}{item.strip()}" for item in entry)
+    # Strip trailing newlines that PyYAML may add from folded block scalars
+    return "<br> ".join(item.strip() for item in entry)
 
 
 def format_dict(entry) -> str:

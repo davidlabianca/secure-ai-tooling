@@ -268,6 +268,72 @@ class TestFormattingFunctions:
         assert yaml_to_markdown.format_mappings("string") == ""
         assert yaml_to_markdown.format_mappings(123) == ""
 
+    def test_format_list_strips_trailing_newlines(self):
+        """
+        Test that format_list() strips trailing newlines from list items.
+
+        Given: A list of strings with trailing newlines (as produced by PyYAML
+               when parsing folded block scalars using the '>' indicator)
+        When: format_list() is called without a prefix
+        Then: The result contains no raw newline characters, so that the output
+              is safe to embed in a markdown table cell without breaking the row
+        """
+        items_with_newlines = ["Question one?\n", "Question two?\n"]
+        result = yaml_to_markdown.format_list(items_with_newlines)
+        assert "\n" not in result, (
+            "format_list() must strip trailing newlines from items; "
+            "raw '\\n' characters break markdown table rows"
+        )
+
+    def test_format_list_with_prefix_strips_trailing_newlines(self):
+        """
+        Test that format_list() strips trailing newlines when a prefix is given.
+
+        Given: A list of strings with trailing newlines and a dash prefix
+        When: format_list() is called with prefix="- "
+        Then: The result contains no raw newline characters
+        """
+        items_with_newlines = ["Question one?\n", "Question two?\n"]
+        result = yaml_to_markdown.format_list(items_with_newlines, prefix="- ")
+        assert "\n" not in result, (
+            "format_list() with prefix must strip trailing newlines from items; "
+            "raw '\\n' characters break markdown table rows"
+        )
+
+    def test_format_list_strips_leading_and_trailing_whitespace(self):
+        """
+        Test that format_list() strips both leading and trailing whitespace from items.
+
+        Given: A list with a single padded string (leading spaces, trailing newline)
+        When: format_list() is called
+        Then: The result has no leading/trailing whitespace on the item content,
+              confirming .strip() semantics rather than only rstrip()
+        """
+        result = yaml_to_markdown.format_list(["  padded  \n"])
+        assert "\n" not in result, "Trailing newline must be removed"
+        assert result.strip() == result, "Leading/trailing whitespace must be stripped from the output"
+
+    def test_format_list_no_change_for_clean_strings(self):
+        """
+        Test that format_list() produces unchanged output for items without whitespace issues.
+
+        Given: A list of clean strings (no trailing newlines or extra whitespace)
+        When: format_list() is called with and without a prefix
+        Then: Output is identical to current behavior, guarding against regressions
+              introduced while fixing the trailing-newline bug
+        """
+        clean_items = ["Clean one", "Clean two"]
+
+        result_no_prefix = yaml_to_markdown.format_list(clean_items)
+        assert result_no_prefix == "Clean one<br> Clean two", (
+            "format_list() without prefix must join items with '<br> '"
+        )
+
+        result_with_prefix = yaml_to_markdown.format_list(clean_items, prefix="- ")
+        assert result_with_prefix == "- Clean one<br>- Clean two", (
+            "format_list() with prefix must join prefixed items with '<br>'"
+        )
+
 
 class TestYamlToMarkdownTable:
     """
@@ -1209,6 +1275,74 @@ class TestPersonaTableGenerators:
         assert "personaMinimal" in result
         assert "Minimal Persona" in result
         assert isinstance(result, str)
+
+    def test_persona_full_table_with_folded_scalar_newlines(self):
+        """
+        Test PersonaFullDetailTableGenerator produces valid table rows when
+        identificationQuestions items carry trailing newlines from PyYAML folded
+        block scalar ('>' indicator) parsing.
+
+        Given: A persona dict whose identificationQuestions strings each end with
+               '\\n', exactly as PyYAML produces when loading a '>' folded block
+        When: PersonaFullDetailTableGenerator.generate() is called
+        Then:
+          - tabulate does not split cells on embedded newlines, producing phantom
+            rows that have the persona ID column empty — every data row that starts
+            with '|' and is not the header or separator must contain the persona ID
+            or a <br> continuation token, not an entirely empty first cell
+          - All identification questions appear in the output
+
+        Note: tabulate splits cell content on '\\n', turning one logical row into
+        multiple visual rows. The broken rows show up as '|' lines with empty first
+        cells and <br>-prefixed content in later columns — exactly the symptom this
+        test targets.
+        """
+        # Simulate what PyYAML returns for a '>' folded block scalar in a list:
+        # each item gets a trailing '\n'.
+        personas_with_folded_scalars = {
+            "personas": [
+                {
+                    "id": "personaFolded",
+                    "title": "Folded Scalar Persona",
+                    "description": ["A persona whose YAML uses folded blocks.\n"],
+                    "responsibilities": ["Responsibility alpha.\n", "Responsibility beta.\n"],
+                    "identificationQuestions": [
+                        "Are you responsible for model training?\n",
+                        "Do you define data pipelines?\n",
+                    ],
+                    "mappings": {"iso-22989": ["AI Producer"]},
+                }
+            ]
+        }
+
+        generator = yaml_to_markdown.PersonaFullDetailTableGenerator()
+        result = generator.generate(personas_with_folded_scalars, "personas")
+
+        lines = result.split("\n")
+        # Skip the header line (index 0) and the separator line (index 1).
+        # Every remaining non-empty '|'-prefixed line is a data row.
+        data_rows = [line for line in lines[2:] if line.startswith("|")]
+
+        # A phantom row produced by tabulate splitting on '\n' has an empty first
+        # cell: it looks like '|               | ...'. The first cell of every
+        # legitimate data row must not be entirely whitespace.
+        for row in data_rows:
+            cells = row.split("|")
+            # cells[0] is the empty string before the leading '|';
+            # cells[1] is the first column value.
+            first_cell = cells[1].strip() if len(cells) > 1 else ""
+            assert first_cell != "", (
+                f"Phantom table row detected — tabulate split a cell on an embedded '\\n'. "
+                f"Row: {row!r}"
+            )
+
+        # Both questions must survive intact in the output.
+        assert "Are you responsible for model training?" in result, (
+            "First identification question is missing from the table output"
+        )
+        assert "Do you define data pipelines?" in result, (
+            "Second identification question is missing; trailing '\\n' may have broken the row"
+        )
 
 
 class TestPersonaXRefGenerators:
