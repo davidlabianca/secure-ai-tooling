@@ -12,6 +12,9 @@ on:
       - 'risk-map/yaml/**'
       - 'risk-map/schemas/**'
 
+permissions:
+  contents: read
+
 jobs:
   # Setup job to install dependencies and prepare validation scripts
   setup:
