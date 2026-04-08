@@ -1255,7 +1255,8 @@ class TestExpandFrameworkMappings:
         # Check description includes framework details
         description = mitre_section["attributes"]["description"]
         assert "MITRE ATLAS" in description or "mitre-atlas" in description.lower()
-        assert "atlas.mitre.org" in description or "https://atlas.mitre.org" in description
+        expected_url = "https://atlas.mitre.org"
+        assert description.endswith(f"({expected_url})")
 
     def test_expand_framework_mappings_empty_frameworks(self, sample_schema_parser: SchemaParser) -> None:
         """

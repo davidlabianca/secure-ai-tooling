@@ -18,6 +18,9 @@ on:
       - '.github/dependabot.yml'
       - 'risk-map/schemas/**'
 
+permissions:
+  contents: read
+
 jobs:
   # Setup job to install dependencies
   setup:
