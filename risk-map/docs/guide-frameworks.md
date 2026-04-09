@@ -141,9 +141,6 @@ risks:
       mitre-atlas:
         - AML.T0018
         - AML.T0020
-      nist-ai-rmf:
-        - MS-2.7
-        - MS-2.8
       stride:
         - tampering
 ```
@@ -199,8 +196,8 @@ personas:
 | `personaDataProvider` | AI Partner (data supplier) |
 | `personaPlatformProvider` | AI Partner (infrastructure provider) |
 | `personaAgenticProvider` | AI Partner (tooling provider) |
-| `personaApplicationDeveloper` | AI Consumer (application builder) |
-| `personaEndUser` | AI Consumer (end user) |
+| `personaApplicationDeveloper` | AI Customer (application builder) |
+| `personaEndUser` | AI Customer (end user) |
 | `personaGovernance` | (No direct ISO 22989 mapping) |
 
 See [Personas Guide](guide-personas.md) for detailed persona descriptions and responsibilities.

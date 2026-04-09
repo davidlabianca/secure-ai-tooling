@@ -7,6 +7,8 @@
 | personaAgenticProvider      | Agentic Platform and Framework Providers | MEV       | Model Evasion                            |
 | personaAgenticProvider      | Agentic Platform and Framework Providers | RA        | Rogue Actions                            |
 | personaAgenticProvider      | Agentic Platform and Framework Providers | RVP       | Retrieval/Vector Store Poisoning         |
+| personaAgenticProvider      | Agentic Platform and Framework Providers | TRT       | Tool Registry Tampering                  |
+| personaAgenticProvider      | Agentic Platform and Framework Providers | TSP       | Tool Source Provenance                   |
 | personaApplicationDeveloper | Application Developer                    | ADI       | Adapter/PEFT Injection                   |
 | personaApplicationDeveloper | Application Developer                    | ASSC      | Accelerator and System Side-channels     |
 | personaApplicationDeveloper | Application Developer                    | COV       | Covert Channels in Model Outputs         |
@@ -29,6 +31,8 @@
 | personaApplicationDeveloper | Application Developer                    | RA        | Rogue Actions                            |
 | personaApplicationDeveloper | Application Developer                    | RVP       | Retrieval/Vector Store Poisoning         |
 | personaApplicationDeveloper | Application Developer                    | SDD       | Sensitive Data Disclosure                |
+| personaApplicationDeveloper | Application Developer                    | TRT       | Tool Registry Tampering                  |
+| personaApplicationDeveloper | Application Developer                    | TSP       | Tool Source Provenance                   |
 | personaDataProvider         | Data Provider                            | DP        | Data Poisoning                           |
 | personaDataProvider         | Data Provider                            | EDH       | Excessive Data Handling                  |
 | personaDataProvider         | Data Provider                            | FLP       | Federated/Distributed Training Privacy   |
@@ -125,6 +129,7 @@
 | personaModelServing         | AI Model Serving                         | PIJ       | Prompt Injection                         |
 | personaModelServing         | AI Model Serving                         | RA        | Rogue Actions                            |
 | personaModelServing         | AI Model Serving                         | RVP       | Retrieval/Vector Store Poisoning         |
+| personaModelServing         | AI Model Serving                         | TRT       | Tool Registry Tampering                  |
 | personaPlatformProvider     | AI Platform Provider                     | ADI       | Adapter/PEFT Injection                   |
 | personaPlatformProvider     | AI Platform Provider                     | ASSC      | Accelerator and System Side-channels     |
 | personaPlatformProvider     | AI Platform Provider                     | DMS       | Denial of ML Service                     |
@@ -136,3 +141,4 @@
 | personaPlatformProvider     | AI Platform Provider                     | MST       | Model Source Tampering                   |
 | personaPlatformProvider     | AI Platform Provider                     | RA        | Rogue Actions                            |
 | personaPlatformProvider     | AI Platform Provider                     | RVP       | Retrieval/Vector Store Poisoning         |
+| personaPlatformProvider     | AI Platform Provider                     | TRT       | Tool Registry Tampering                  |

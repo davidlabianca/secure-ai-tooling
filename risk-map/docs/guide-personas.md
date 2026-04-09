@@ -23,16 +23,33 @@ Personas provide a structured foundation for AI security governance by enabling:
 
 ### Model Provider (`personaModelProvider`)
 
-Actors that develop, train, evaluate, and tune AI/ML models (foundation models, specialized models, or domain-adapted models). This includes those that develop models from scratch or significantly modify existing models for distribution.
+Actors that develop, train, evaluate, and tune AI/ML models (foundation models, specialized models, or domain-adapted models). This includes those that develop models from scratch or significantly modify existing models for distribution. This also includes model aggregators, model marketplaces, and those licensing models.
+
+Actors that also operate runtime environments serving model predictions are additionally covered by AI Model Serving.
 
 **Responsibilities:**
 - Model architecture design and training
 - Model evaluation and validation
 - Model documentation and cards
 - Model versioning and updates
+- Model quality assurance
+- Model provenance tracking
+- Model licensing and compliance
+- Model artifact integrity and availability for distribution
 
 **Framework Mapping:**
 - ISO 22989: AI Producer
+
+**Identification Questions:**
+
+Use these questions to determine if this persona applies to your organization:
+
+1. Are you training or fine-tuning AI/ML models for use by others, including classical ML, statistical, optimization, and rule-based models?
+2. Do you modify existing models (e.g., distillation, quantization, or adaptation) for use by others?
+3. Do you evaluate, benchmark, or perform quality assurance on AI/ML models as part of training, adaptation, or distribution decisions?
+4. Are you making models available for others to download, license, or integrate?
+5. Do you host or curate a catalog of AI/ML models provided by third parties?
+6. Do you issue or manage licenses governing how AI/ML models may be used?
 
 ---
 
@@ -124,7 +141,7 @@ Actors that integrate AI models (via APIs or embedded models) into applications,
 - User access controls
 
 **Framework Mapping:**
-- ISO 22989: AI Consumer (application builder)
+- ISO 22989: AI Customer (application builder)
 
 ---
 
@@ -152,7 +169,18 @@ Actors that use AI-powered applications or services without developing or deploy
 - Data minimization (user inputs)
 
 **Framework Mapping:**
-- ISO 22989: AI Consumer (end user)
+- ISO 22989: AI Customer (end user)
+
+**Identification Questions:**
+
+Use these questions to determine if this persona applies to your organization:
+
+1. Do you use AI-powered applications or services built and maintained by a different team or organization?
+2. Do you interact with applications or platforms that embed AI capabilities, such as intelligent recommendations, automated analysis, or AI-assisted workflows?
+3. Do you select, procure, or authorize AI-powered products or services for use within your organization?
+4. Do you provide direct inputs to AI systems, such as prompts, documents, or queries?
+5. Do you receive or rely on outputs from AI agents or automated processes acting on your behalf?
+6. Do you use AI systems where the development, deployment, and security controls are managed by others?
 
 ---
 
@@ -212,8 +240,8 @@ Personas can be mapped to actors defined in external frameworks. Currently, the 
 | AI Platform Provider | AI Partner (infrastructure provider) |
 | AI Model Serving | (No direct mapping) |
 | Agentic Platform Provider | AI Partner (tooling provider) |
-| Application Developer | AI Consumer (application builder) |
-| AI System Users | AI Consumer (end user) |
+| Application Developer | AI Customer (application builder) |
+| AI System Users | AI Customer (end user) |
 | AI System Governance | (No direct mapping) |
 
 ### Adding Framework Mappings

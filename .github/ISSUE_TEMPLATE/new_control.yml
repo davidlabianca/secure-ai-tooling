@@ -103,7 +103,7 @@ body:
         Map this control to external security frameworks by listing relevant mitigation or control IDs.
         Enter one ID per line. Format: `framework-id: mapping-value`
 
-        Valid frameworks for controls include: mitre-atlas, nist-ai-rmf, owasp-top10-llm
+        Valid frameworks for controls include: mitre-atlas, nist-ai-rmf, owasp-top10-llm, eu-ai-act
       placeholder: |
         mitre-atlas: AML.M0007
         nist-ai-rmf: GV-6.2

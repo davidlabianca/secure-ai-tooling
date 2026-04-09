@@ -164,7 +164,7 @@ The agentic AI space is rapidly evolving with unclear boundaries. The identifica
 - Makes decisions about input/output validation
 - Has user-facing security responsibilities
 
-**ISO 22989 mapping:** AI Consumer (application builder)
+**ISO 22989 mapping:** AI Customer (application builder)
 
 **Key differentiation from Model Provider (personaModelProvider):**
 - Uses models without significant modification
@@ -201,7 +201,7 @@ The agentic AI space is rapidly evolving with unclear boundaries. The identifica
 - Source of user inputs that may contain sensitive data
 - First line of defense for detecting anomalies
 
-**ISO 22989 mapping:** AI Consumer (end user)
+**ISO 22989 mapping:** AI Customer (end user)
 
 **Key considerations:**
 - Relies on other personas for security controls
@@ -398,6 +398,30 @@ An 8th persona, `personaModelServing` (AI Model Serving), was added to fill the 
 No ISO 22989 mapping was identified for this persona. No identification questions are defined initially; the persona's scope is sufficiently distinct from its neighbors.
 
 See [guide-personas.md](../guide-personas.md#ai-model-serving-personamodelserving) for the full definition and responsibilities.
+
+---
+
+## Addendum: personaModelProvider Scope Expansion — Model Marketplaces (GH #143)
+
+The `personaModelProvider` persona was expanded to include model marketplaces, model aggregators, and model licensing entities. This is a scope expansion of the existing persona, not a new persona.
+
+### Why Not a New Persona
+
+1. **Persona sprawl** — Adding a separate "Model Marketplace" persona would increase the taxonomy without a corresponding gain in control specificity. The existing 9 controls referencing `personaModelProvider` apply equally to marketplace actors.
+2. **Data Provider precedent** — `personaDataProvider` already covers "data aggregators, data marketplaces, and those licensing datasets." Extending the same pattern to Model Provider maintains consistency across the persona model.
+3. **Boundary language** — The existing `personaModelServing` description references "registry storage (Model Provider)," which already accommodates model distribution infrastructure under this persona.
+4. **Control applicability** — All controls currently assigned to `personaModelProvider` (model documentation, versioning, evaluation, security) apply to marketplace operators who curate and distribute models.
+
+### What Changed
+
+- **Description** — Added a sentence covering model aggregators, model marketplaces, and model licensing. Added a second paragraph clarifying the boundary with AI Model Serving for actors that also operate model serving environments.
+- **Responsibilities** — Added four items reflecting marketplace activity: model quality assurance, model provenance tracking, model licensing and compliance, and model artifact integrity and availability for distribution.
+- **Identification questions** — Added four questions to help marketplace and licensing actors determine if this persona applies to them.
+
+### Boundary Clarifications
+
+- **Dual-persona actors** — An entity that operates a model marketplace *and* manages a runtime serving environment (e.g., HuggingFace Inference Endpoints) falls under both `personaModelProvider` and `personaModelServing`. The description's second paragraph makes this explicit.
+- **Platform Provider distinction** — `personaPlatformProvider` covers infrastructure and compute resources. A model marketplace that only catalogs and distributes model artifacts (without operating a model serving environment) falls solely under `personaModelProvider`.
 
 ---
 
