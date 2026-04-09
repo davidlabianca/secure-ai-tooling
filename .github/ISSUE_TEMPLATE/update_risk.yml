@@ -17,7 +17,7 @@ body:
       description: |
         GitHub permalink to the risk in risks.yaml (right-click line number → Copy permalink)
 
-        📋 [Browse risks.yaml](https://github.com/cosai-oasis/secure-ai-tooling/blob/main/risk-map/yaml/risks.yaml)
+        📋 [Browse risks.yaml](../../risk-map/yaml/risks.yaml)
       placeholder: 'https://github.com/org/repo/blob/abc123/risk-map/yaml/risks.yaml#L45-L90'
     validations:
       required: true
@@ -76,7 +76,7 @@ body:
 
         ✨ **Automatic Cross-Mapping**: Control mappings are automatically bidirectional. When you add/remove controls here, the reverse risk mappings are automatically updated in those controls.
 
-        📋 [View control list](https://github.com/cosai-oasis/secure-ai-tooling/blob/main/risk-map/tables/controls-summary.md)
+        📋 [View control list](../../risk-map/tables/controls-summary.md)
       placeholder: |
         + controlThreatDetection
         + controlVulnerabilityManagement

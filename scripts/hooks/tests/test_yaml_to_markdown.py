@@ -800,7 +800,7 @@ class TestTableGenerators:
                     "title": "Test Control 1",
                     "description": ["Test description"],
                     "category": "controlsData",
-                    "risks": ["DP", "MST"],
+                    "risks": ["riskDataPoisoning", "riskModelSourceTampering"],
                     "components": ["componentDataSources", "componentTrainingData"],
                 },
                 {
@@ -1973,7 +1973,8 @@ class TestFlatControlXRefGenerators:
         """
         Test FlatRiskXRefTableGenerator creates one row per control-risk mapping.
 
-        Given: Controls data with 1 control having risks: ["DP", "MST", "PIJ"]
+        Given: Controls data with 1 control having 3 risks
+               (riskDataPoisoning, riskModelSourceTampering, riskPromptInjection)
         When: FlatRiskXRefTableGenerator.generate() is called
         Then: Exactly 3 data rows are produced, each with control and one risk
         """
@@ -1981,9 +1982,9 @@ class TestFlatControlXRefGenerators:
         risks_file = tmp_path / "risks.yaml"
         risks_data = {
             "risks": [
-                {"id": "DP", "title": "Data Poisoning"},
-                {"id": "MST", "title": "Model Source Tampering"},
-                {"id": "PIJ", "title": "Prompt Injection"},
+                {"id": "riskDataPoisoning", "title": "Data Poisoning"},
+                {"id": "riskModelSourceTampering", "title": "Model Source Tampering"},
+                {"id": "riskPromptInjection", "title": "Prompt Injection"},
             ]
         }
         with open(risks_file, "w") as f:
@@ -1991,7 +1992,15 @@ class TestFlatControlXRefGenerators:
 
         controls_data = {
             "controls": [
-                {"id": "ctrl1", "title": "Control 1", "risks": ["DP", "MST", "PIJ"]},
+                {
+                    "id": "ctrl1",
+                    "title": "Control 1",
+                    "risks": [
+                        "riskDataPoisoning",
+                        "riskModelSourceTampering",
+                        "riskPromptInjection",
+                    ],
+                },
             ]
         }
 
@@ -2007,7 +2016,12 @@ class TestFlatControlXRefGenerators:
             assert "ctrl1" in row
             assert "Control 1" in row
             # Each row should contain exactly one risk
-            risk_count = sum(1 for risk_id in ["DP", "MST", "PIJ"] if risk_id in row)
+            test_risk_ids = [
+                "riskDataPoisoning",
+                "riskModelSourceTampering",
+                "riskPromptInjection",
+            ]
+            risk_count = sum(1 for risk_id in test_risk_ids if risk_id in row)
             assert risk_count == 1
 
     def test_flat_xref_risks_column_headers(self, tmp_path):
@@ -2020,9 +2034,9 @@ class TestFlatControlXRefGenerators:
         """
         risks_file = tmp_path / "risks.yaml"
         with open(risks_file, "w") as f:
-            yaml.dump({"risks": [{"id": "DP", "title": "Data Poisoning"}]}, f)
+            yaml.dump({"risks": [{"id": "riskDataPoisoning", "title": "Data Poisoning"}]}, f)
 
-        controls_data = {"controls": [{"id": "ctrl1", "title": "Control 1", "risks": ["DP"]}]}
+        controls_data = {"controls": [{"id": "ctrl1", "title": "Control 1", "risks": ["riskDataPoisoning"]}]}
 
         generator = yaml_to_markdown.FlatRiskXRefTableGenerator(input_dir=tmp_path)
         result = generator.generate(controls_data, "controls")
@@ -2146,10 +2160,10 @@ class TestFlatControlXRefGenerators:
         risks_file = tmp_path / "risks.yaml"
         risks_data = {
             "risks": [
-                {"id": "DP", "title": "Data Poisoning"},
-                {"id": "MST", "title": "Model Source Tampering"},
-                {"id": "PIJ", "title": "Prompt Injection"},
-                {"id": "XSS", "title": "Cross-Site Scripting"},
+                {"id": "riskDataPoisoning", "title": "Data Poisoning"},
+                {"id": "riskModelSourceTampering", "title": "Model Source Tampering"},
+                {"id": "riskPromptInjection", "title": "Prompt Injection"},
+                {"id": "riskSensitiveDataDisclosure", "title": "Sensitive Data Disclosure"},
             ]
         }
         with open(risks_file, "w") as f:
@@ -2157,8 +2171,16 @@ class TestFlatControlXRefGenerators:
 
         controls_data = {
             "controls": [
-                {"id": "ctrlB", "title": "Control B", "risks": ["PIJ", "MST"]},
-                {"id": "ctrlA", "title": "Control A", "risks": ["XSS", "DP"]},
+                {
+                    "id": "ctrlB",
+                    "title": "Control B",
+                    "risks": ["riskPromptInjection", "riskModelSourceTampering"],
+                },
+                {
+                    "id": "ctrlA",
+                    "title": "Control A",
+                    "risks": ["riskSensitiveDataDisclosure", "riskDataPoisoning"],
+                },
             ]
         }
 
@@ -2176,11 +2198,14 @@ class TestFlatControlXRefGenerators:
         assert len(ctrl_b_rows) == 2
         assert max(ctrl_a_rows) < min(ctrl_b_rows), "ctrlA rows should come before ctrlB rows"
 
-        # Within ctrlA, DP should come before XSS (alphabetical)
+        # Within ctrlA, riskDataPoisoning should come before riskSensitiveDataDisclosure (alphabetical)
         ctrl_a_data = [row for row in data_rows if "ctrlA" in row]
-        dp_idx = next(i for i, row in enumerate(ctrl_a_data) if "DP" in row)
-        xss_idx = next(i for i, row in enumerate(ctrl_a_data) if "XSS" in row)
-        assert dp_idx < xss_idx, "DP should appear before XSS within ctrlA group"
+        dp_idx = next(i for i, row in enumerate(ctrl_a_data) if "riskDataPoisoning" in row)
+        sdd_idx = next(i for i, row in enumerate(ctrl_a_data) if "riskSensitiveDataDisclosure" in row)
+        assert dp_idx < sdd_idx, (
+            "riskDataPoisoning should appear before "
+            "riskSensitiveDataDisclosure within ctrlA group"
+        )
 
     def test_flat_xref_risks_rejects_non_controls_type(self, tmp_path):
         """
@@ -2330,15 +2355,23 @@ class TestFlatFlag:
         Then: Output has singular column headers and one row per control-risk mapping
         """
         controls_file = tmp_path / "controls.yaml"
-        controls_data = {"controls": [{"id": "ctrl1", "title": "Control 1", "risks": ["DP", "MST"]}]}
+        controls_data = {
+            "controls": [
+                {
+                    "id": "ctrl1",
+                    "title": "Control 1",
+                    "risks": ["riskDataPoisoning", "riskModelSourceTampering"],
+                }
+            ]
+        }
         with open(controls_file, "w") as f:
             yaml.dump(controls_data, f)
 
         risks_file = tmp_path / "risks.yaml"
         risks_data = {
             "risks": [
-                {"id": "DP", "title": "Data Poisoning"},
-                {"id": "MST", "title": "Model Source Tampering"},
+                {"id": "riskDataPoisoning", "title": "Data Poisoning"},
+                {"id": "riskModelSourceTampering", "title": "Model Source Tampering"},
             ]
         }
         with open(risks_file, "w") as f:
@@ -2506,14 +2539,22 @@ class TestFlatFlag:
         risks_file = tmp_path / "risks.yaml"
         risks_data = {
             "risks": [
-                {"id": "DP", "title": "Data Poisoning"},
-                {"id": "MST", "title": "Model Source Tampering"},
+                {"id": "riskDataPoisoning", "title": "Data Poisoning"},
+                {"id": "riskModelSourceTampering", "title": "Model Source Tampering"},
             ]
         }
         with open(risks_file, "w") as f:
             yaml.dump(risks_data, f)
 
-        controls_data = {"controls": [{"id": "ctrl1", "title": "Control 1", "risks": ["DP", "MST"]}]}
+        controls_data = {
+            "controls": [
+                {
+                    "id": "ctrl1",
+                    "title": "Control 1",
+                    "risks": ["riskDataPoisoning", "riskModelSourceTampering"],
+                }
+            ]
+        }
 
         generator = yaml_to_markdown.FlatRiskXRefTableGenerator(input_dir=tmp_path)
         result = generator.generate(controls_data, "controls")

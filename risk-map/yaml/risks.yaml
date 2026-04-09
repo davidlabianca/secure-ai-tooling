@@ -30,7 +30,7 @@ description:
     parties, across the AI development lifecycle.
   - For a complete list of controls, see the Control descriptions.
 risks:
-  - id: DP
+  - id: riskDataPoisoning
     title: Data Poisoning
     shortDescription:
       - >
@@ -123,7 +123,7 @@ risks:
       - privileged
       - service-provider
       - infrastructure-provider
-  - id: UTD
+  - id: riskUnauthorizedTrainingData
     title: Unauthorized Training Data
     shortDescription:
       - >
@@ -182,7 +182,7 @@ risks:
     actorAccess:
       - supply-chain
       - service-provider
-  - id: MST
+  - id: riskModelSourceTampering
     title: Model Source Tampering
     shortDescription:
       - >
@@ -270,7 +270,7 @@ risks:
       - privileged
       - infrastructure-provider
       - physical
-  - id: EDH
+  - id: riskExcessiveDataHandling
     title: Excessive Data Handling
     shortDescription:
       - >
@@ -330,7 +330,7 @@ risks:
     actorAccess:
       - privileged
       - service-provider
-  - id: EDH-I
+  - id: riskExcessiveDataHandlingDuringInference
     title: Excessive Data Handling During Inference
     shortDescription:
       - >
@@ -394,7 +394,7 @@ risks:
     actorAccess:
       - privileged
       - service-provider
-  - id: MXF
+  - id: riskModelExfiltration
     title: Model Exfiltration
     shortDescription:
       - >
@@ -417,7 +417,7 @@ risks:
       - >
         These risks also extend to on-device models, where an attacker has access to
         hardware.
-      - This risk is distinct from the related <a href="#MRE">Model Reverse Engineering</a>.
+      - This risk is distinct from the related <a href="#riskModelReverseEngineering">Model Reverse Engineering</a>.
     category: risksDeploymentAndInfrastructure
     personas:
       - personaModelProvider
@@ -471,7 +471,7 @@ risks:
       - infrastructure-provider
       - physical
       - api
-  - id: MDT
+  - id: riskModelDeploymentTampering
     title: Model Deployment Tampering
     shortDescription:
       - >
@@ -552,7 +552,7 @@ risks:
       - infrastructure-provider
       - api
       - user
-  - id: DMS
+  - id: riskDenialOfMLService
     title: Denial of ML Service
     shortDescription:
       - >
@@ -623,7 +623,7 @@ risks:
       - external
       - api
       - user
-  - id: MRE
+  - id: riskModelReverseEngineering
     title: Model Reverse Engineering
     shortDescription:
       - >
@@ -644,7 +644,7 @@ risks:
         original foundation model.
       - >
         These risks also extend to on-device models, where an attacker has access to
-        hardware. See also <a href="#MXF">Model Exfiltration</a>.
+        hardware. See also <a href="#riskModelExfiltration">Model Exfiltration</a>.
     category: risksDeploymentAndInfrastructure
     personas:
       - personaModelProvider
@@ -686,7 +686,7 @@ risks:
     actorAccess:
       - api
       - user
-  - id: IIC
+  - id: riskInsecureIntegratedComponent
     title: Insecure Integrated Component
     shortDescription:
       - >
@@ -720,7 +720,7 @@ risks:
           integrated application that calls another service and uses content from that
           service to construct an input to a model.
       - >
-        Insecure Integrated Component is related to <a href="#PIJ">Prompt Injection</a>
+        Insecure Integrated Component is related to <a href="#riskPromptInjection">Prompt Injection</a>
         but these are different. Although attacks exploiting an Insecure Integrated
         Component often involve prompt injection, those could be also done via other
         means such as Poisoning and Evasion. In addition, prompt injection is possible
@@ -790,7 +790,7 @@ risks:
       - api
       - agent
       - user
-  - id: PIJ
+  - id: riskPromptInjection
     title: Prompt Injection
     shortDescription:
       - >
@@ -814,8 +814,8 @@ risks:
         Injections</a> generally cause the LLM to execute malicious “injected”
         instructions as part of data that were not meant to be executed by the LLM.
         The blast radius of such attacks can become much bigger in the presence of
-        other risks such as <a href="#IIC">Insecure Integrated Component</a> and
-        <a href="#RA">Rogue Actions</a>.
+        other risks such as <a href="#riskInsecureIntegratedComponent">Insecure Integrated Component</a> and
+        <a href="#riskRogueActions">Rogue Actions</a>.
       - >
         With foundation models becoming multi-modal, multi-modal prompt injection has
         also become possible. These attacks use injection inputs other than text to
@@ -872,7 +872,7 @@ risks:
       - external
       - api
       - user
-  - id: MEV
+  - id: riskModelEvasion
     title: Model Evasion
     shortDescription:
       - >
@@ -896,7 +896,7 @@ risks:
         In some cases, an attacker might gain clues about how to perturb inputs by discovering
         the underlying foundation model’s family, i.e., by knowing the particular
         architecture and evolution of a specific model. In other situations, an attacker
-        might repeatedly probe the model (see <a href="#MRE">Model Reverse Engineering</a>)
+        might repeatedly probe the model (see <a href="#riskModelReverseEngineering">Model Reverse Engineering</a>)
         to figure out inference patterns in order to craft examples that evade those
         inferences. Adversarial examples might be constructed by perturbations to inputs
         that will provide the output the attacker wants while looking unaltered otherwise.
@@ -957,7 +957,7 @@ risks:
       - external
       - api
       - user
-  - id: SDD
+  - id: riskSensitiveDataDisclosure
     title: Sensitive Data Disclosure
     shortDescription:
       - >
@@ -1088,7 +1088,7 @@ risks:
       - agent
       - privileged
       - infrastructure-provider
-  - id: ISD
+  - id: riskInferredSensitiveData
     title: Inferred Sensitive Data
     shortDescription:
       - >
@@ -1111,7 +1111,7 @@ risks:
         may be alarmed if a model infers sensitive data about them, and that one user
         may use a model to infer sensitive data about someone else.
       - >
-        This risk differs from <a href="#SDD">Sensitive Data Disclosure</a> which involves
+        This risk differs from <a href="#riskSensitiveDataDisclosure">Sensitive Data Disclosure</a> which involves
         sensitive data specifically from training, tuning or prompt data.
     category: risksRuntimeDataSecurity
     personas:
@@ -1164,7 +1164,7 @@ risks:
       - external
       - api
       - user
-  - id: IMO
+  - id: riskInsecureModelOutput
     title: Insecure Model Output
     shortDescription:
       - >
@@ -1226,7 +1226,7 @@ risks:
       - external
       - api
       - user
-  - id: RA
+  - id: riskRogueActions
     title: Rogue Actions
     shortDescription:
       - >
@@ -1324,7 +1324,7 @@ risks:
       - api
       - user
       - agent
-  - id: ASSC
+  - id: riskAcceleratorAndSystemSideChannels
     title: Accelerator and System Side-channels
     shortDescription:
       - >
@@ -1397,7 +1397,7 @@ risks:
           page-table isolation, retpolines), using secure scheduling algorithms, applying
           noise injection or randomization techniques, and monitoring for anomalous
           access patterns indicative of side-channel attacks.
-  - id: EDW
+  - id: riskEconomicDenialOfWallet
     title: Economic Denial of Wallet
     shortDescription:
       - >
@@ -1466,7 +1466,7 @@ risks:
           rate limiting and usage monitoring, anomaly detection for unusual
           consumption patterns, and access controls to prevent unauthorized
           or excessive resource usage.
-  - id: FLP
+  - id: riskFederatedDistributedTrainingPrivacy
     title: Federated/Distributed Training Privacy
     shortDescription:
       - >
@@ -1537,7 +1537,7 @@ risks:
           multi-party computation for aggregation, robust participant authentication,
           gradient compression and noise injection, and monitoring for anomalous
           client behavior during training.
-  - id: ADI
+  - id: riskAdapterPEFTInjection
     title: Adapter/PEFT Injection
     shortDescription:
       - >
@@ -1610,7 +1610,7 @@ risks:
           integrity, secure adapter repositories with provenance tracking, runtime
           monitoring for anomalous behavior, sandboxed adapter loading processes,
           and comprehensive testing of adapter functionality before deployment.
-  - id: TRT
+  - id: riskToolRegistryTampering
     title: Tool Registry Tampering
     shortDescription:
       - >
@@ -1625,18 +1625,18 @@ risks:
         descriptions, modify schemas, or inject shadowed tool entries that
         redirect agent tool selection.
       - >
-        This risk is distinct from <a href="#TSP">Tool Source Provenance</a>,
-        which addresses the use of unvetted sources. TRT assumes the source
+        This risk is distinct from <a href="#riskToolSourceProvenance">Tool Source Provenance</a>,
+        which addresses the use of unvetted sources. riskToolRegistryTampering assumes the source
         was properly vetted but was subsequently compromised. The trust model
-        is different: TSP is a failure to verify, while TRT is a failure of
+        is different: riskToolSourceProvenance is a failure to verify, while riskToolRegistryTampering is a failure of
         ongoing integrity assurance.
       - >
-        TRT is structurally related to <a href="#ORH">Orchestrator/Route
+        riskToolRegistryTampering is structurally related to <a href="#riskOrchestratorRouteHijacking">Orchestrator/Route
         Hijack</a>, which targets model routing configuration. Both involve
-        tampering with metadata that directs system behavior, but ORH
-        operates on model routing infrastructure while TRT operates on tool
-        discovery and selection mechanisms. A successful TRT exploit
-        typically manifests as <a href="#RA">Rogue Actions</a>.
+        tampering with metadata that directs system behavior, but riskOrchestratorRouteHijacking
+        operates on model routing infrastructure while riskToolRegistryTampering operates on tool
+        discovery and selection mechanisms. A successful riskToolRegistryTampering exploit
+        typically manifests as <a href="#riskRogueActions">Rogue Actions</a>.
       - >
         The attack surface includes tool registry databases, MCP server
         manifest files, schema definition endpoints, and discovery service
@@ -1645,8 +1645,8 @@ risks:
         requires runtime integrity monitoring of tool metadata against
         known-good baselines.
       - >
-        <a href="#IIC">Insecure Integrated Component</a> addresses
-        vulnerabilities in the tools themselves. TRT is complementary:
+        <a href="#riskInsecureIntegratedComponent">Insecure Integrated Component</a> addresses
+        vulnerabilities in the tools themselves. riskToolRegistryTampering is complementary:
         it addresses the metadata that causes the agent to select a
         particular tool, regardless of whether the selected tool is
         itself secure.
@@ -1719,7 +1719,7 @@ risks:
       - external
       - agent
       - privileged
-  - id: ORH
+  - id: riskOrchestratorRouteHijacking
     title: Orchestrator/Route Hijack
     shortDescription:
       - >
@@ -1792,7 +1792,7 @@ risks:
           integrity verification, robust access controls for routing systems,
           cryptographic signing of routing configurations, monitoring for anomalous
           routing patterns, and validation of model endpoints before request forwarding.
-  - id: EBM
+  - id: riskEvaluationBenchmarkManipulation
     title: Evaluation/Benchmark Manipulation
     shortDescription:
       - >
@@ -1863,7 +1863,7 @@ risks:
           integrity verification, using diverse and protected evaluation sets,
           employing red teaming and adversarial testing, monitoring for evaluation
           anomalies, and maintaining strict access controls for evaluation data.
-  - id: COV
+  - id: riskCovertChannelsInModelOutputs
     title: Covert Channels in Model Outputs
     shortDescription:
       - >
@@ -1935,7 +1935,7 @@ risks:
           for anomalous response patterns, analyzing model behavior for covert
           channels, and applying randomization techniques to disrupt potential
           information encoding mechanisms.
-  - id: MLD
+  - id: riskMaliciousLoaderDeserialization
     title: Malicious Loader/Deserialization
     shortDescription:
       - >
@@ -2016,7 +2016,7 @@ risks:
           input validation and sanitization, verifying model integrity through
           cryptographic signatures, sandboxing model loading processes, and using
           secure-by-default ML tooling that prevents code execution during deserialization.
-  - id: TSP
+  - id: riskToolSourceProvenance
     title: Tool Source Provenance
     shortDescription:
       - >
@@ -2032,8 +2032,8 @@ risks:
         deliberately deceptive tool descriptions or schemas.
       - >
         This risk operates at the tool selection layer, before a prompt is
-        constructed. Unlike <a href="#PIJ">Prompt Injection</a>, which
-        targets model input processing, TSP targets the trust assumptions
+        constructed. Unlike <a href="#riskPromptInjection">Prompt Injection</a>, which
+        targets model input processing, riskToolSourceProvenance targets the trust assumptions
         in tool discovery. The agent's reasoning core treats tool metadata
         as authoritative, and unvetted sources exploit that trust.
       - >
@@ -2043,11 +2043,11 @@ risks:
         (configuration files that alter tool behavior). These were
         cataloged by Checkmarx in their MCP risk taxonomy (December 2025).
       - >
-        TSP is structurally analogous to <a href="#MST">Model Source
+        riskToolSourceProvenance is structurally analogous to <a href="#riskModelSourceTampering">Model Source
         Tampering</a>, which addresses unvetted model artifacts in the
         supply chain. Both are provenance failures where untrusted sources
-        are consumed without verification. A successful TSP exploit
-        typically manifests as <a href="#RA">Rogue Actions</a> when the
+        are consumed without verification. A successful riskToolSourceProvenance exploit
+        typically manifests as <a href="#riskRogueActions">Rogue Actions</a> when the
         agent invokes the wrong tool.
     category: risksSupplyChainAndDevelopment
     personas:
@@ -2107,7 +2107,7 @@ risks:
       - supply-chain
       - agent
       - external
-  - id: PCP
+  - id: riskPromptResponseCachePoisoning
     title: Prompt/Response Cache Poisoning
     shortDescription:
       - >
@@ -2178,7 +2178,7 @@ risks:
           Mitigation involves implementing strong cache isolation per user or tenant,
           validating cached content integrity, using cryptographically secure cache
           keys, and applying access controls to prevent unauthorized cache manipulation.
-  - id: RVP
+  - id: riskRetrievalVectorStorePoisoning
     title: Retrieval/Vector Store Poisoning
     shortDescription:
       - >

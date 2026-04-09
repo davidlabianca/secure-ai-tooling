@@ -220,14 +220,14 @@ def sample_controls():
             title="Input Validation",
             category="controlsData",
             components=["componentDataSources", "componentDataValidation"],
-            risks=["DP", "PIJ"],
+            risks=["riskDataPoisoning", "riskPromptInjection"],
             personas=["personaModelCreator"],
         ),
         "controlModelIntegrity": ControlNode(
             title="Model Integrity Management",
             category="controlsModel",
             components=["componentModelTraining", "componentModelDeployment"],
-            risks=["MST", "MDT"],
+            risks=["riskModelSourceTampering", "riskModelDeploymentTampering"],
             personas=["personaModelCreator", "personaModelConsumer"],
         ),
         "controlUniversalSecurity": ControlNode(
@@ -244,10 +244,10 @@ def sample_controls():
 def sample_risks():
     """Sample risk data for testing."""
     return {
-        "DP": RiskNode(title="Data Poisoning", category="risks"),
-        "PIJ": RiskNode(title="Prompt Injection", category="risks"),
-        "MST": RiskNode(title="Model Source Tampering", category="risks"),
-        "MDT": RiskNode(title="Model Deployment Tampering", category="risks"),
+        "riskDataPoisoning": RiskNode(title="Data Poisoning", category="risks"),
+        "riskPromptInjection": RiskNode(title="Prompt Injection", category="risks"),
+        "riskModelSourceTampering": RiskNode(title="Model Source Tampering", category="risks"),
+        "riskModelDeploymentTampering": RiskNode(title="Model Deployment Tampering", category="risks"),
         "OrphanRisk": RiskNode(title="Orphaned Risk", category="risks"),
     }
 

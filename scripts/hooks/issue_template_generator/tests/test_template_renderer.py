@@ -101,7 +101,17 @@ def sample_schema_parser(tmp_path: Path) -> SchemaParser:
                     "id": {"enum": ["risksSupplyChainAndDevelopment", "risksDeploymentAndInfrastructure"]}
                 }
             },
-            "risk": {"properties": {"id": {"enum": ["DP", "MST", "PIJ"]}}},
+            "risk": {
+                "properties": {
+                    "id": {
+                        "enum": [
+                            "riskDataPoisoning",
+                            "riskModelSourceTampering",
+                            "riskPromptInjection",
+                        ]
+                    }
+                }
+            },
         },
     }
 
