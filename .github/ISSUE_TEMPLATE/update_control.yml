@@ -17,7 +17,7 @@ body:
       description: |
         GitHub permalink to the control in controls.yaml (right-click line number → Copy permalink)
 
-        📋 [Browse controls.yaml](../../risk-map/yaml/controls.yaml)
+        📋 [Browse controls.yaml](https://github.com/cosai-oasis/secure-ai-tooling/blob/main/risk-map/yaml/controls.yaml)
       placeholder: 'https://github.com/org/repo/blob/abc123/risk-map/yaml/controls.yaml#L45-L52'
     validations:
       required: true
@@ -72,7 +72,7 @@ body:
       description: |
         Add or remove component IDs. Use `+` to add, `-` to remove (one per line)
 
-        📋 [View component list](../../risk-map/tables/components-summary.md)
+        📋 [View component list](https://github.com/cosai-oasis/secure-ai-tooling/blob/main/risk-map/tables/components-summary.md)
       placeholder: |
         + componentModelEvaluation
         + componentOutputHandling
@@ -87,7 +87,7 @@ body:
 
         ✨ **Automatic Cross-Mapping**: Risk mappings are automatically bidirectional. When you add/remove risks here, the reverse control mappings are automatically updated in those risks.
 
-        📋 [View risk list](../../risk-map/tables/risks-summary.md)
+        📋 [View risk list](https://github.com/cosai-oasis/secure-ai-tooling/blob/main/risk-map/tables/risks-summary.md)
       placeholder: |
         + riskModelEvasion
         + riskInsecureIntegratedComponent
