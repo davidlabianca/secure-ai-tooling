@@ -84,7 +84,7 @@ Applicable Components:
 componentInputHandling
 componentModelServing
 Mitigated Risks:
-PIJ
+riskPromptInjection
 SSRF
 ```
 
@@ -97,7 +97,7 @@ The template includes inline links to:
 
 **Automatic Cross-Mapping:**
 
-✨ When you map this control to risks (e.g., PIJ, SSRF), the reverse mappings are automatically created. Each risk you list will automatically get this control added to its applicable controls. You don't need to create a separate issue to update the risks.
+✨ When you map this control to risks (e.g., `riskPromptInjection`), the reverse mappings are automatically created. Each risk you list will automatically get this control added to its applicable controls. You don't need to create a separate issue to update the risks.
 
 ---
 
@@ -116,7 +116,7 @@ The template includes inline links to:
 **Optional Quick Actions:**
 
 - **Component Changes** - Use `+` to add, `-` to remove (e.g., `+ componentModelEvaluation`, `- componentDataSources`)
-- **Risk Changes** - Same syntax (e.g., `+ MST`, `- PIJ`)
+- **Risk Changes** - Same syntax (e.g., `+ riskModelSourceTampering`, `- riskPromptInjection`)
 - **Framework Changes** - Same syntax (e.g., `+ mitre-atlas: AML.M0015`, `- nist-ai-rmf: GV-6.2`)
 - **Supporting Evidence** - Links to discussions, standards, references
 
@@ -165,7 +165,7 @@ This provides exact context for maintainers to see what you're changing.
 
 **Required Fields (7):**
 
-1. **Risk ID** - Short identifier (2-4 uppercase letters, e.g., PIJ, DP, MST)
+1. **Risk ID** - Identifier using `risk` + camelCase descriptor format (e.g., `riskPromptInjection`, `riskDataPoisoning`, `riskModelSourceTampering`)
 2. **Risk Title** - Human-readable name
 3. **Short Description** - One-sentence summary
 4. **Long Description** - Detailed explanation of the risk

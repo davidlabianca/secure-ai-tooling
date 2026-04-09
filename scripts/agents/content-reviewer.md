@@ -109,14 +109,12 @@ If provided, use them to supplement (not override) the embedded schema awareness
 
 | Content Type | Format | Casing | Examples |
 |---|---|---|---|
-| **Risks** | 2-4 uppercase letter abbreviation, optional hyphen + sub-identifier | UPPERCASE | `DP`, `EDH`, `ASSC`, `EDH-I`, `MXF` |
+| **Risks** | `risk` prefix + descriptor | camelCase | `riskDataPoisoning`, `riskExcessiveDataHandling`, `riskAcceleratorAndSystemSideChannels` |
 | **Controls** | `control` prefix + descriptor | camelCase | `controlAccessControls`, `controlSecureMLTooling` |
 | **Components** | `component` prefix + descriptor | camelCase | `componentTrainingData`, `componentModelRegistry` |
 | **Personas** | `persona` prefix + descriptor | camelCase | `personaModelProvider`, `personaModelConsumer` |
 
 **Category IDs** follow `{typePlural}{Domain}` in camelCase: `risksData`, `controlsInfrastructure`, `componentsModel`, `componentsApplication`.
-
-> **Note on risk IDs:** The current uppercase abbreviation format is a legacy convention. A future migration to `risk` + camelCase descriptor is planned. The agent enforces the *current* convention (uppercase abbreviation) and should not reject risk IDs solely for not matching the camelCase pattern used by other types.
 
 ---
 
@@ -299,7 +297,7 @@ findings:
   - check: "bidirectional_consistency"
     severity: "FAIL"
     assertion: "agent"          # "agent" | "human_review"
-    message: "Control lists risk MXF, but MXF does not reference this control"
+    message: "Control lists risk riskModelExfiltration, but riskModelExfiltration does not reference this control"
     governance: false
   - check: "under_specification"
     severity: "WARN"
@@ -327,7 +325,7 @@ entities:
       - check: "bidirectional_consistency"
         severity: "FAIL"
         assertion: "agent"
-        message: "Control lists risk MXF, but MXF does not reference this control"
+        message: "Control lists risk riskModelExfiltration, but riskModelExfiltration does not reference this control"
         governance: false
 impact:
   summary: "Change affects 1 control with 3 risk references and 2 component mappings"
@@ -359,8 +357,8 @@ proposed_change: |
       description: "Validate that model cards contain required security-relevant metadata before deployment."
       category: controlsModel
       risks:
-        - MDT
-        - MST
+        - riskModelDeploymentTampering
+        - riskModelSourceTampering
       components:
         - componentModelRegistry
       personas:
@@ -377,11 +375,11 @@ Verdict: NEEDS_HUMAN_REVIEW
 ### Structural Checks
 ✅ PASS — ID follows convention (control + camelCase descriptor)
 ✅ PASS — All required fields present
-✅ PASS — Risk references MDT, MST exist in risks.yaml
+✅ PASS — Risk references riskModelDeploymentTampering, riskModelSourceTampering exist in risks.yaml
 ✅ PASS — Component reference componentModelRegistry exists
 ✅ PASS — Persona reference personaModelConsumer exists
-⚠️ FAIL — Bidirectional inconsistency: this control lists risks MDT
-and MST, but neither risk references controlModelCardValidation.
+⚠️ FAIL — Bidirectional inconsistency: this control lists risks riskModelDeploymentTampering
+and riskModelSourceTampering, but neither risk references controlModelCardValidation.
 Both risks.yaml entries must be updated to include this control.
 
 ### Specification Quality [HUMAN REVIEW]
@@ -395,7 +393,7 @@ against evasion attacks).
 ✅ No orphan or coverage issues introduced
 
 ### Impact
-Summary: This addition increases coverage for risks MDT and MST.
+Summary: This addition increases coverage for risks riskModelDeploymentTampering and riskModelSourceTampering.
 Both risks gain an additional mitigating control. Component
 componentModelRegistry gains control coverage. No framework
 references (MITRE ATLAS, NIST, OWASP) are present on this
@@ -404,7 +402,7 @@ NIST AI RMF governance functions.
 
 ### Recommended Next Steps
 1. Fix bidirectional references: add controlModelCardValidation
-   to the controls list in MDT and MST entries in risks.yaml
+   to the controls list in riskModelDeploymentTampering and riskModelSourceTampering entries in risks.yaml
 2. Review whether description should enumerate specific metadata
    fields (human judgment)
 3. Consider adding framework references
@@ -499,7 +497,7 @@ mode: diff
 format: agent
 proposed_change: |
   Removing from risks.yaml:
-    - id: RVP
+    - id: riskRetrievalVectorStorePoisoning
       title: "Runtime Vulnerability and Performance"
       ...entire entry removed...
 ```
@@ -515,33 +513,33 @@ summary:
   info_count: 0
   human_review_count: 1
 entities:
-  - entity_id: "RVP"
+  - entity_id: "riskRetrievalVectorStorePoisoning"
     entity_type: "risk"
     entity_title: "Runtime Vulnerability and Performance"
     findings:
       - check: "removal_structural_trace"
         severity: "FAIL"
         assertion: "agent"
-        message: "Removing RVP creates dangling references in controls: controlRuntimeMonitoring, controlPerformanceTesting, controlAnomalyDetection"
+        message: "Removing riskRetrievalVectorStorePoisoning creates dangling references in controls: controlRuntimeMonitoring, controlPerformanceTesting, controlAnomalyDetection"
         governance: false
       - check: "removal_semantic_impact"
         severity: "WARN"
         assertion: "human_review"
-        message: "Removal of RVP leaves no risk entry covering runtime performance degradation as a security concern. controlRuntimeMonitoring would become an orphaned control (no risks). Coverage assessment: coverage-significantly-reduced."
+        message: "Removal of riskRetrievalVectorStorePoisoning leaves no risk entry covering runtime performance degradation as a security concern. controlRuntimeMonitoring would become an orphaned control (no risks). Coverage assessment: coverage-significantly-reduced."
         governance: false
 impact:
-  summary: "Removal affects 3 controls that reference RVP. 1 control (controlRuntimeMonitoring) becomes orphaned. Framework references on RVP include MITRE ATLAS mapping — this mapping would be lost."
+  summary: "Removal affects 3 controls that reference riskRetrievalVectorStorePoisoning. 1 control (controlRuntimeMonitoring) becomes orphaned. Framework references on riskRetrievalVectorStorePoisoning include MITRE ATLAS mapping — this mapping would be lost."
   detailed:
     coverage_delta: "coverage-significantly-reduced"
     affected_controls:
       - "controlRuntimeMonitoring"
       - "controlPerformanceTesting"
       - "controlAnomalyDetection"
-    framework_reference_impact: "MITRE ATLAS mapping on RVP would be removed"
+    framework_reference_impact: "MITRE ATLAS mapping on riskRetrievalVectorStorePoisoning would be removed"
     orphaned_after_removal:
       - entity_id: "controlRuntimeMonitoring"
         entity_type: "control"
-        reason: "RVP was its only mapped risk"
+        reason: "riskRetrievalVectorStorePoisoning was its only mapped risk"
 ```
 
 ---

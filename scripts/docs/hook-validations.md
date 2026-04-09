@@ -143,7 +143,7 @@ controls:
 
 # risks.yaml
 risks:
-  - id: PIJ
+  - id: riskPromptInjection
     frameworks:
       mitre-atlas: AML.T0051  # ✅ Valid MITRE ATLAS technique
       stride: Tampering       # ✅ Valid STRIDE category

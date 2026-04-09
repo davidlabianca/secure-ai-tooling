@@ -50,8 +50,8 @@ Next, define the control's properties in the main `controls.yaml` data file. Thi
     - componentTheModel
     - componentOutputHandling
   risks:
-    - IMO # Mapped to Insecure Model Output
-    - PIJ # Mapped to Prompt Injection
+    - riskInsecureModelOutput # Mapped to Insecure Model Output
+    - riskPromptInjection # Mapped to Prompt Injection
 
 # Example of a universal (governance) control
 - id: controlRedTeaming
@@ -119,11 +119,11 @@ Controls that apply to **all risks** should use the keyword `all`:
 These controls apply to all risks by default and should never be explicitly listed in risks.yaml.
 
 - **File to edit**: `risks.yaml`
-- **Action**: For each risk ID you listed in the previous step (e.g., `IMO`, `PIJ`), find its definition in `risks.yaml` and add your new `controlNewControl` ID to its `controls` list.
+- **Action**: For each risk ID you listed in the previous step (e.g., `riskInsecureModelOutput`, `riskPromptInjection`), find its definition in `risks.yaml` and add your new `controlNewControl` ID to its `controls` list.
 
 ```yaml
-# In yaml/risks.yaml, under the IMO risk definition
-- id: IMO
+# In yaml/risks.yaml, under the riskInsecureModelOutput risk definition
+- id: riskInsecureModelOutput
   # other properties
   controls:
     - controlOutputValidationAndSanitization

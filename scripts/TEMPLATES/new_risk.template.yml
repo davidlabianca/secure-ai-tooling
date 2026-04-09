@@ -16,10 +16,10 @@ body:
     attributes:
       label: Risk ID*
       description: |
-        Unique 2-4 letter uppercase identifier (abbreviation of the risk name)
+        Unique identifier using `risk` prefix + camelCase descriptor
 
-        Examples: DP (Data Poisoning), PIJ (Prompt Injection), MST (Model Source Tampering)
-      placeholder: 'e.g., MEM'
+        Examples: riskDataPoisoning, riskPromptInjection, riskModelSourceTampering
+      placeholder: 'e.g., riskMembershipInference'
     validations:
       required: true
 
