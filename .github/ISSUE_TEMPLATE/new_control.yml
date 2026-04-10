@@ -88,10 +88,10 @@ body:
 
         📋 [View full risk list](https://github.com/cosai-oasis/secure-ai-tooling/blob/main/risk-map/tables/risks-summary.md)
 
-        Common risks: DP (Data Poisoning), MST (Model Theft), PIJ (Prompt Injection), SDD (Sensitive Data Disclosure), etc.
+        Common risks: riskDataPoisoning, riskModelSourceTampering, riskPromptInjection, riskSensitiveDataDisclosure, etc.
       placeholder: |
-        DP
-        UTD
+        riskDataPoisoning
+        riskUnauthorizedTrainingData
     validations:
       required: true
 

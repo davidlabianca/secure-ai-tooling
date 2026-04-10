@@ -47,7 +47,7 @@ body:
         **Examples:**
         - "Update description to clarify that this control also applies to fine-tuning scenarios"
         - "Add componentModelEvaluation to components list - this control is relevant during evaluation phase"
-        - "Remove PIJ from risks - this control doesn't effectively mitigate prompt injection"
+        - "Remove riskPromptInjection from risks - this control doesn't effectively mitigate prompt injection"
         - "Add MITRE ATLAS mapping AML.M0015 (Adversarial Input Detection)"
       placeholder: |
         Current state: [what it says now]
@@ -89,9 +89,9 @@ body:
 
         📋 [View risk list](https://github.com/cosai-oasis/secure-ai-tooling/blob/main/risk-map/tables/risks-summary.md)
       placeholder: |
-        + MEV
-        + IIC
-        - PIJ
+        + riskModelEvasion
+        + riskInsecureIntegratedComponent
+        - riskPromptInjection
 
   - type: textarea
     id: framework-mappings

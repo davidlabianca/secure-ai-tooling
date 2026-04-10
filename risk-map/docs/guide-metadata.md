@@ -203,7 +203,7 @@ actorAccess:
 ### Risk with All Metadata Fields
 
 ```yaml
-- id: MST
+- id: riskModelSourceTampering
   title: Model Supply Chain Compromise
   shortDescription:
     - "Compromising model artifacts or dependencies in the supply chain"
@@ -251,8 +251,8 @@ actorAccess:
     - componentModelStorage
     - componentModelServing
   risks:
-    - MST
-    - MDT
+    - riskModelSourceTampering
+    - riskModelDeploymentTampering
   mappings:
     mitre-atlas:
       - AML.M0013

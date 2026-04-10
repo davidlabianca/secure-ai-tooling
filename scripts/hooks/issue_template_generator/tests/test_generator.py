@@ -149,7 +149,17 @@ def mock_repo_root(tmp_path: Path, templates_dir: Path, output_dir: Path) -> Pat
                         "id": {"enum": ["risksSupplyChainAndDevelopment", "risksDeploymentAndInfrastructure"]}
                     }
                 },
-                "risk": {"properties": {"id": {"enum": ["DP", "MST", "PIJ"]}}},
+                "risk": {
+                    "properties": {
+                        "id": {
+                            "enum": [
+                                "riskDataPoisoning",
+                                "riskModelSourceTampering",
+                                "riskPromptInjection",
+                            ]
+                        }
+                    }
+                },
             },
         },
         "components.schema.json": {

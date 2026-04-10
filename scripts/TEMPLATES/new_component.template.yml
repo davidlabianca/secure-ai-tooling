@@ -74,7 +74,7 @@ body:
         - If you add `componentB` in "Edges To", then `componentB` will automatically get an "Edges From" entry for this component
         - If you add `componentA` in "Edges From", then `componentA` will automatically get an "Edges To" entry for this component
 
-        📋 [View component list](../../risk-map/tables/components-summary.md)
+        📋 [View component list](https://github.com/cosai-oasis/secure-ai-tooling/blob/main/risk-map/tables/components-summary.md)
 
   - type: textarea
     id: edges-to

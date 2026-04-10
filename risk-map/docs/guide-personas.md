@@ -328,7 +328,7 @@ Run validation to ensure your changes are correct:
 
 ```bash
 # Schema validation
-check-jsonschema --schemafile risk-map/schemas/personas.schema.json risk-map/yaml/personas.yaml
+check-jsonschema --base-uri file://$(pwd)/risk-map/schemas/ --schemafile risk-map/schemas/personas.schema.json risk-map/yaml/personas.yaml
 
 # Framework reference validation
 python3 scripts/hooks/validate_framework_references.py --force

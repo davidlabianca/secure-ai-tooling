@@ -1,7 +1,7 @@
 title: Sample Risks for Testing
 description: Sample risk data for unit testing the risk validation system
 risks:
-  - id: DP
+  - id: riskDataPoisoning
     title: Data Poisoning
     shortDescription:
       - Sample data poisoning risk for testing
@@ -11,7 +11,7 @@ risks:
       - controlInputValidation
       - controlDataValidation
 
-  - id: PIJ
+  - id: riskPromptInjection
     title: Prompt Injection
     shortDescription:
       - Sample prompt injection risk for testing
@@ -22,7 +22,7 @@ risks:
       - controlInputValidation
       - controlOutputValidation
 
-  - id: MST
+  - id: riskModelSourceTampering
     title: Model Source Tampering
     shortDescription:
       - Sample model tampering risk for testing
@@ -32,7 +32,7 @@ risks:
       - controlModelIntegrity
       - controlAccessControls
 
-  - id: MDT
+  - id: riskModelDeploymentTampering
     title: Model Deployment Tampering
     shortDescription:
       - Sample deployment tampering risk for testing

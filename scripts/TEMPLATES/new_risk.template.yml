@@ -16,10 +16,10 @@ body:
     attributes:
       label: Risk ID*
       description: |
-        Unique 2-4 letter uppercase identifier (abbreviation of the risk name)
+        Unique identifier using `risk` prefix + camelCase descriptor
 
-        Examples: DP (Data Poisoning), PIJ (Prompt Injection), MST (Model Source Tampering)
-      placeholder: 'e.g., MEM'
+        Examples: riskDataPoisoning, riskPromptInjection, riskModelSourceTampering
+      placeholder: 'e.g., riskMembershipInference'
     validations:
       required: true
 
@@ -92,7 +92,7 @@ body:
 
         Control IDs that mitigate this risk (one per line)
 
-        📋 [View control list](../../risk-map/tables/controls-summary.md)
+        📋 [View control list](https://github.com/cosai-oasis/secure-ai-tooling/blob/main/risk-map/tables/controls-summary.md)
       placeholder: |
         controlModelAndDataAccessControls
         controlThreatDetection

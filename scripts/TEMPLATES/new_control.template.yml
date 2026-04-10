@@ -54,7 +54,7 @@ body:
       description: |
         List component IDs this control applies to (one per line), or use "all" or "none"
 
-        📋 [View full component list](../../risk-map/tables/components-summary.md)
+        📋 [View full component list](https://github.com/cosai-oasis/secure-ai-tooling/blob/main/risk-map/tables/components-summary.md)
 
         Common components: componentDataSources, componentTrainingData, componentModelServing, componentModelStorage, componentOutputHandling, etc.
       placeholder: |
@@ -72,12 +72,12 @@ body:
 
         List risk IDs this control addresses (one per line), or use "all"
 
-        📋 [View full risk list](../../risk-map/tables/risks-summary.md)
+        📋 [View full risk list](https://github.com/cosai-oasis/secure-ai-tooling/blob/main/risk-map/tables/risks-summary.md)
 
-        Common risks: DP (Data Poisoning), MST (Model Theft), PIJ (Prompt Injection), SDD (Sensitive Data Disclosure), etc.
+        Common risks: riskDataPoisoning, riskModelSourceTampering, riskPromptInjection, riskSensitiveDataDisclosure, etc.
       placeholder: |
-        DP
-        UTD
+        riskDataPoisoning
+        riskUnauthorizedTrainingData
     validations:
       required: true
 
