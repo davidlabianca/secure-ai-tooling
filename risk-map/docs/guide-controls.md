@@ -27,6 +27,8 @@ First, declare the new control's unique ID in the `controls.schema.json` file. T
 
 Next, define the control's properties in the main `controls.yaml` data file. This is where you describe what the control is and map it to other parts of the framework.
 
+> **Title convention**: Control titles must be short noun phrases (2-6 words) that name the defensive capability or security measure. See the [Control Titles Style Guide](contributing/control-titles-style-guide.md) for rules and examples.
+
 - **File to edit**: `controls.yaml`
 - **Action**: Add a new entry to the `controls` list. When filling out the properties, you must select valid IDs from the other schema files.
 
@@ -187,6 +189,7 @@ Once validated, follow the [General Content Contribution Workflow](workflow.md) 
 ---
 
 **Related:**
+- [Control Titles Style Guide](contributing/control-titles-style-guide.md) - Title naming convention and reviewer checklist
 - [Validation Tools](validation.md) - Detailed validation commands
 - [Troubleshooting](troubleshooting.md) - Help with validation errors
 - [Best Practices](best-practices.md) - Development workflow tips

@@ -21,6 +21,8 @@ First, add a unique ID for the new risk to the `risks.schema.json` file. The ID 
 
 Next, provide the full definition of the risk in `risks.yaml`. This includes its title, descriptions, associated personas, mitigating controls, and contextual information.
 
+> **Title convention**: Risk titles must be short noun phrases (2-5 words) that name the threat or attack vector directly. See the [Risk Titles Style Guide](contributing/risk-titles-style-guide.md) for rules and examples.
+
 - **File to edit**: `risks.yaml`
 - **Action**: Add a new entry to the `risks` list. The `personas` and `controls` lists must contain valid IDs from their respective schema files.
 
@@ -185,6 +187,7 @@ Once validated, follow the [General Content Contribution Workflow](workflow.md) 
 ---
 
 **Related:**
+- [Risk Titles Style Guide](contributing/risk-titles-style-guide.md) - Title naming convention and reviewer checklist
 - [Validation Tools](validation.md) - Detailed validation commands
 - [Troubleshooting](troubleshooting.md) - Help with validation errors
 - [Best Practices](best-practices.md) - Development workflow tips
