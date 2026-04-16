@@ -4,10 +4,10 @@ Once you've determined the need for a new component, the following steps are req
 
 ## 1. Add the new component ID to the schema
 
-First, declare the new component's unique ID in the schema. This makes the system aware of the new component and allows for validation.
+First, derive the new component ID from the component title (`component` + camelCase descriptor — e.g., "Feature Store" → `componentFeatureStore`) and declare it in the schema. This makes the system aware of the new component and allows for validation. (The issue-template flow derives this ID automatically; when authoring YAML/schema directly via PR, apply the same convention by hand.)
 
 - **File to edit**: `schemas/components.schema.json`
-- **Action**: Find the `enum` list under `definitions.component.properties.id` and add your new component's ID. The ID should follow the `component[Name]` convention.
+- **Action**: Find the `enum` list under `definitions.component.properties.id` and add your new component's ID alphabetically.
 
 ```json
 // In schemas/components.schema.json

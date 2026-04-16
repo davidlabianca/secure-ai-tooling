@@ -4,7 +4,7 @@ Risks represent the potential security threats that can affect the components of
 
 ## 1. Add the new risk ID to the schema
 
-First, add a unique ID for the new risk to the `risks.schema.json` file. The ID should follow the format `risk` + camelCase descriptor derived from the risk title (e.g., `riskDataPoisoning`, `riskPromptInjection`).
+First, derive the new risk ID from the risk title (`risk` + camelCase descriptor — e.g., "Data Poisoning" → `riskDataPoisoning`, "Prompt Injection" → `riskPromptInjection`) and add it to `risks.schema.json`. (The issue-template flow derives this ID automatically; when authoring YAML/schema directly via PR, apply the same convention by hand.)
 
 - **File to edit**: `schemas/risks.schema.json`
 - **Action**: Find the `enum` list under `definitions.risk.properties.id` and add your new risk ID alphabetically.
@@ -41,7 +41,7 @@ Next, provide the full definition of the risk in `risks.yaml`. This includes its
       and what its potential impact is.
   category: risksSupplyChainAndDevelopment # Required: Must match one of the risk categories
   personas:
-    - personaModelConsumer
+    - personaApplicationDeveloper
   controls:
     - controlNewControl
   examples: # Provide links to real-world examples or research
