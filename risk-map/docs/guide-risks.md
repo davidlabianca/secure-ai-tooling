@@ -4,7 +4,7 @@ Risks represent the potential security threats that can affect the components of
 
 ## 1. Add the new risk ID to the schema
 
-First, add a unique ID for the new risk to the `risks.schema.json` file. The ID should follow the format `risk` + camelCase descriptor derived from the risk title (e.g., `riskDataPoisoning`, `riskPromptInjection`).
+First, derive the new risk ID from the risk title (`risk` + camelCase descriptor — e.g., "Data Poisoning" → `riskDataPoisoning`, "Prompt Injection" → `riskPromptInjection`) and add it to `risks.schema.json`. (The issue-template flow derives this ID automatically; when authoring YAML/schema directly via PR, apply the same convention by hand.)
 
 - **File to edit**: `schemas/risks.schema.json`
 - **Action**: Find the `enum` list under `definitions.risk.properties.id` and add your new risk ID alphabetically.
@@ -20,6 +20,8 @@ First, add a unique ID for the new risk to the `risks.schema.json` file. The ID 
 ## 2. Add the new risk definition to the YAML file
 
 Next, provide the full definition of the risk in `risks.yaml`. This includes its title, descriptions, associated personas, mitigating controls, and contextual information.
+
+> **Title convention**: Risk titles must be short noun phrases (2-5 words) that name the threat or attack vector directly. See the [Risk Titles Style Guide](contributing/risk-titles-style-guide.md) for rules and examples.
 
 - **File to edit**: `risks.yaml`
 - **Action**: Add a new entry to the `risks` list. The `personas` and `controls` lists must contain valid IDs from their respective schema files.
@@ -39,7 +41,7 @@ Next, provide the full definition of the risk in `risks.yaml`. This includes its
       and what its potential impact is.
   category: risksSupplyChainAndDevelopment # Required: Must match one of the risk categories
   personas:
-    - personaModelConsumer
+    - personaApplicationDeveloper
   controls:
     - controlNewControl
   examples: # Provide links to real-world examples or research
@@ -185,6 +187,7 @@ Once validated, follow the [General Content Contribution Workflow](workflow.md) 
 ---
 
 **Related:**
+- [Risk Titles Style Guide](contributing/risk-titles-style-guide.md) - Title naming convention and reviewer checklist
 - [Validation Tools](validation.md) - Detailed validation commands
 - [Troubleshooting](troubleshooting.md) - Help with validation errors
 - [Best Practices](best-practices.md) - Development workflow tips

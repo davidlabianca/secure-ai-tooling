@@ -217,8 +217,8 @@ See [Personas Guide](guide-personas.md) for detailed persona descriptions and re
     - "Attackers compromise the model supply chain by injecting malicious code..."
   category: risksSupplyChainAndDevelopment
   personas:
-    - personaModelCreator
-    - personaModelConsumer
+    - personaModelProvider
+    - personaApplicationDeveloper
   controls:
     - controlVulnerabilityManagement
     - controlModelAndDataIntegrityManagement
@@ -251,8 +251,8 @@ See [Personas Guide](guide-personas.md) for detailed persona descriptions and re
     - "Implement cryptographic signing and verification for models and datasets"
   category: controlsModel
   personas:
-    - personaModelCreator
-    - personaModelConsumer
+    - personaModelProvider
+    - personaApplicationDeveloper
   components:
     - componentModelStorage
     - componentModelServing

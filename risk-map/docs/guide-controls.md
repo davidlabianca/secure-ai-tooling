@@ -4,7 +4,7 @@ Adding a new control involves defining it and then mapping it to the components,
 
 ## 1. Add the new control ID to the schema
 
-First, declare the new control's unique ID in the `controls.schema.json` file. This registers the new control with the framework. The ID should follow the `control[Name]` convention.
+First, derive the new control ID from the control title (`control` + camelCase descriptor — e.g., "Red Teaming" → `controlRedTeaming`) and declare it in `controls.schema.json`. This registers the new control with the framework. (The issue-template flow derives this ID automatically; when authoring YAML/schema directly via PR, apply the same convention by hand.)
 
 - **File to edit**: `schemas/controls.schema.json`
 - **Action**: Find the `enum` list under `definitions.control.properties.id` and add your new control ID alphabetically.
@@ -27,6 +27,8 @@ First, declare the new control's unique ID in the `controls.schema.json` file. T
 
 Next, define the control's properties in the main `controls.yaml` data file. This is where you describe what the control is and map it to other parts of the framework.
 
+> **Title convention**: Control titles must be short noun phrases (2-6 words) that name the defensive capability or security measure. See the [Control Titles Style Guide](contributing/control-titles-style-guide.md) for rules and examples.
+
 - **File to edit**: `controls.yaml`
 - **Action**: Add a new entry to the `controls` list. When filling out the properties, you must select valid IDs from the other schema files.
 
@@ -44,8 +46,8 @@ Next, define the control's properties in the main `controls.yaml` data file. Thi
       and why it is an effective safeguard.
   category: controlsModel
   personas:
-    - personaModelCreator
-    - personaModelConsumer
+    - personaModelProvider
+    - personaApplicationDeveloper
   components:
     - componentTheModel
     - componentOutputHandling
@@ -62,8 +64,8 @@ Next, define the control's properties in the main `controls.yaml` data file. Thi
       on AI infrastructure and products.
   category: controlsAssurance
   personas:
-    - personaModelCreator
-    - personaModelConsumer
+    - personaModelProvider
+    - personaApplicationDeveloper
   components: all # This control applies to all components
   risks: all # This control applies to all risks
 ```
@@ -187,6 +189,7 @@ Once validated, follow the [General Content Contribution Workflow](workflow.md) 
 ---
 
 **Related:**
+- [Control Titles Style Guide](contributing/control-titles-style-guide.md) - Title naming convention and reviewer checklist
 - [Validation Tools](validation.md) - Detailed validation commands
 - [Troubleshooting](troubleshooting.md) - Help with validation errors
 - [Best Practices](best-practices.md) - Development workflow tips

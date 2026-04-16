@@ -1,0 +1,13 @@
+# Synthetic personas fixture for exclude_ids composition tests.
+# Used by test_expand_placeholders_composes_exclude_with_deprecated.
+# personaA is deprecated; personaB and personaC are active.
+personas:
+  - id: personaA
+    title: Persona A
+    deprecated: true
+
+  - id: personaB
+    title: Persona B
+
+  - id: personaC
+    title: Persona C

@@ -10,6 +10,8 @@ body:
 
         Use this template to propose changes to an existing risk. Only fill out the sections relevant to your proposed changes.
 
+        📋 **Before you submit**: Skim the [Submission Readiness Guide](https://github.com/cosai-oasis/secure-ai-tooling/blob/main/risk-map/docs/contributing/submission-readiness-guide.md) — the same persona, universal-control, and framework-mapping rules apply to updates.
+
   - type: input
     id: risk-permalink
     attributes:
@@ -90,7 +92,9 @@ body:
         Add or remove framework mappings. Use `+` to add, `-` to remove.
         Format: `+/- framework-id: mapping-value`
 
-        Valid frameworks for risks: {{RISK_FRAMEWORKS_LIST}}
+        Valid frameworks for risks: {{RISK_FRAMEWORKS_LIST}}. Risks use MITRE ATLAS **techniques** (`AML.T####`).
+
+        📋 See the [Framework Mappings Style Guide](https://github.com/cosai-oasis/secure-ai-tooling/blob/main/risk-map/docs/contributing/framework-mappings-style-guide.md) for per-framework rules.
       placeholder: |
         + mitre-atlas: AML.T0051
         + stride: information-disclosure
@@ -138,4 +142,6 @@ body:
       description: Please confirm the following
       options:
         - label: I have provided a valid GitHub permalink to the risk
+          required: true
+        - label: My proposed changes conform to the Submission Readiness Guide
           required: true

@@ -2,16 +2,24 @@
 
 This guide explains how to use the GitHub issue templates available in the CoSAI Risk Map repository. These templates streamline the process of proposing new content or updating existing content in the AI security framework.
 
+> **Read these first.** Templates capture the _what_; two companion documents capture the _quality bar_:
+>
+> - [`submission-readiness-guide.md`](./submission-readiness-guide.md) — pre-submission checklist, ID conventions, persona model, universal controls, framework mappings, and overlap checking.
+> - [`common-review-findings.md`](./common-review-findings.md) — the issues reviewers flag most often, grouped by severity, with fix guidance.
+>
+> Every `new_*` template links to both. Working through the readiness guide before opening an issue is the fastest path to a PROCEED verdict.
+
 ## Table of Contents
 
 1. [Overview](#overview)
-2. [Control Templates](#control-templates)
-3. [Risk Templates](#risk-templates)
-4. [Component Templates](#component-templates)
-5. [Persona Templates](#persona-templates)
-6. [Infrastructure Template](#infrastructure-template)
-7. [Key Concepts](#key-concepts)
-8. [Common Pitfalls](#common-pitfalls)
+2. [Recent Template Changes](#recent-template-changes)
+3. [Control Templates](#control-templates)
+4. [Risk Templates](#risk-templates)
+5. [Component Templates](#component-templates)
+6. [Persona Templates](#persona-templates)
+7. [Infrastructure Template](#infrastructure-template)
+8. [Key Concepts](#key-concepts)
+9. [Common Pitfalls](#common-pitfalls)
 
 ---
 
@@ -44,6 +52,29 @@ The repository provides 9 issue templates organized into 5 categories:
 - **Update templates**: KISS (Keep It Simple, Stupid) approach with GitHub permalinks and free-form descriptions
 - **Automatic bidirectionality**: The system automatically creates reverse mappings (you don't need to update both sides manually)
 
+> **About "Required for review" counts:** Each template section below lists the fields a reviewer expects on a complete submission. GitHub Issue Forms only enforces a subset of these at submit time — it can mark individual `input`/`textarea` fields required, but it cannot require that any option in a `checkbox` group be selected. So a submission with empty Applicable Personas or Applicable Controls will pass the form but be flagged DISCUSS in review. Treat the counts as the review bar, not the form-validation bar.
+
+---
+
+## Recent Template Changes
+
+_Snapshot as of 2026-04-15. This section is a history aid and will drift; consult the live `.github/ISSUE_TEMPLATE/*.yml` files for current behavior._
+
+The following changes were applied across the issue templates alongside the introduction of the [Submission Readiness Guide](./submission-readiness-guide.md):
+
+| Template                   | Change                                                                                                  | Rationale                                                                                                                                                            |
+| -------------------------- | ------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `new_risk.yml`             | Removed `personaGovernance` from the persona checkbox list                                              | `personaGovernance` is a controls-only persona; risks list **impacted** personas, not implementers.                                                                  |
+| `new_risk.yml`             | Personas description rewritten to "impacted by," not "need to mitigate"                                 | Aligns with the documented persona model (risks = impacted, controls = implementers).                                                                                |
+| All `new_*` templates      | Removed manual ID input fields                                                                          | IDs are mechanically derived from the Title field — having both invited drift between submitted ID and title.                                                        |
+| `new_persona.yml`          | Added optional `Identification Questions` textarea with style guide link                                | Personas are scoped using yes/no, second-person, activity-based questions per the [Identification Questions Style Guide](./identification-questions-style-guide.md). |
+| `update_persona.yml`       | Added `Identification Questions Changes` field and "Update identification questions" change-type option | Allows targeted updates to a persona's identification questions without conflating them with description rewrites.                                                   |
+| All `new_*` and `update_*` | Added pointer to `submission-readiness-guide.md` in opening markdown and submission checklist           | Surfaces the quality bar before fields are filled.                                                                                                                   |
+| Title fields (`new_*`)     | Added pointer to per-entity title style guide                                                           | Title style guides are the source of truth; templates now route contributors there.                                                                                  |
+| Framework mapping fields   | Added pointer to `framework-mappings-style-guide.md` and noted the technique-vs-mitigation rule inline  | Wrong-entity-type mapping (e.g., `AML.M####` on a risk) is one of the most common review findings.                                                                   |
+
+If you maintain templates, see [`template-sync-procedures.md`](./template-sync-procedures.md) for keeping the YAML sources, schemas, and this guide in sync.
+
 ---
 
 ## Control Templates
@@ -54,14 +85,14 @@ The repository provides 9 issue templates organized into 5 categories:
 
 **File:** `.github/ISSUE_TEMPLATE/new_control.yml`
 
-**Required Fields (5):**
+**Required for review (6):**
 
-1. **Control Title** - Concise, descriptive name (e.g., "Privacy Enhancing Technologies")
+1. **Control Title** - Concise noun phrase naming the defense (e.g., "Privacy Enhancing Technologies for Model Training"). See [`control-titles-style-guide.md`](./control-titles-style-guide.md). The Control ID is mechanically derived from this title (`control` prefix + camelCase descriptor, e.g., `controlPrivacyEnhancingTechnologiesForModelTraining`).
 2. **Control Description** - Detailed explanation of purpose, implementation, and expected outcomes
-3. **Control Category** - Primary category from: Data, Infrastructure, Model, Application, Assurance, Governance
-4. **Applicable Personas** - Which personas implement this (Model Creator, Model Consumer)
-5. **Applicable Components** - Component IDs this control applies to (one per line) or "all"/"none"
-6. **Mitigated Risks** - Risk IDs this control addresses (one per line) or "all"
+3. **Control Category** - One of: `controlsData`, `controlsInfrastructure`, `controlsModel`, `controlsApplication`, `controlsAssurance`, `controlsGovernance`
+4. **Applicable Personas** - Which personas **implement** this control. See [persona model](./submission-readiness-guide.md#section-3-the-persona-model).
+5. **Applicable Components** - Component IDs this control applies to (one per line) or `all`/`none`
+6. **Mitigated Risks** - Risk IDs this control addresses (one per line) or `all` (universal control)
 
 **Optional Fields:**
 
@@ -74,18 +105,20 @@ The repository provides 9 issue templates organized into 5 categories:
 **Example Walkthrough:**
 
 ```yaml
-Control Title: Model Input Validation
-Control Description: Implement validation checks on all inputs to AI models to detect and reject malicious or malformed data before processing.
-Control Category: controlsModel (Model Controls)
+# Illustrative — fields show the form a new-control proposal takes.
+# (ID is mechanically derived from Title — submitter does not enter it.)
+Control Title: Prompt Isolation
+Control Description: Isolate untrusted prompt content from system instructions and tool-call surfaces so model-mediated injection cannot escalate into unintended actions.
+Control Category: controlsApplication
 Applicable Personas:
-  ☑ Model Creator
-  ☑ Model Consumer
+  ☑ personaApplicationDeveloper
+  ☑ personaAgenticProvider
 Applicable Components:
 componentInputHandling
 componentModelServing
 Mitigated Risks:
 riskPromptInjection
-SSRF
+riskModelEvasion
 ```
 
 **Reference Links:**
@@ -107,7 +140,7 @@ The template includes inline links to:
 
 **File:** `.github/ISSUE_TEMPLATE/update_control.yml`
 
-**Required Fields (3):**
+**Required for review (3):**
 
 1. **Control Permalink** - GitHub permalink to the control in `controls.yaml` (right-click line number → Copy permalink)
 2. **Change Type** - What you're changing (description, mappings, category, metadata, other)
@@ -163,15 +196,14 @@ This provides exact context for maintainers to see what you're changing.
 
 **File:** `.github/ISSUE_TEMPLATE/new_risk.yml`
 
-**Required Fields (7):**
+**Required for review (6):**
 
-1. **Risk ID** - Identifier using `risk` + camelCase descriptor format (e.g., `riskPromptInjection`, `riskDataPoisoning`, `riskModelSourceTampering`)
-2. **Risk Title** - Human-readable name
-3. **Short Description** - One-sentence summary
-4. **Long Description** - Detailed explanation of the risk
-5. **Risk Category** - Category from schema (e.g., Integrity, Confidentiality, Availability)
-6. **Applicable Personas** - Which personas face this risk
-7. **Applicable Controls** - Control IDs that mitigate this risk (one per line) or "all"
+1. **Risk Title** - Concise noun phrase naming the threat. See [`risk-titles-style-guide.md`](./risk-titles-style-guide.md). The Risk ID is mechanically derived from this title (`risk` prefix + camelCase descriptor, e.g., `riskPromptInjection`).
+2. **Short Description** - One- or two-sentence summary
+3. **Long Description** - Maps to a classical security concept, then names the AI-specific amplifier
+4. **Risk Category** - One of: `risksSupplyChainAndDevelopment`, `risksDeploymentAndInfrastructure`, `risksRuntimeInputSecurity`, `risksRuntimeDataSecurity`, `risksRuntimeOutputSecurity`
+5. **Applicable Personas** - Which personas are **impacted by** this risk (not implementers). `personaGovernance` is controls-only and is not listed here.
+6. **Applicable Controls** - Control IDs that mitigate this risk (one per line). Do **not** list the 7 universal controls — see [Universal Controls](./submission-readiness-guide.md#section-4-universal-controls).
 
 **Optional Fields:**
 
@@ -185,27 +217,35 @@ This provides exact context for maintainers to see what you're changing.
 **Example Walkthrough:**
 
 ```yaml
-Risk ID: MBTD
-Risk Title: Model Backdoor Trojan Deployment
-Short Description: Adversary embeds hidden functionality in model that activates on specific triggers
-Long Description: An attacker inserts malicious logic into the AI model during training or fine-tuning that remains dormant until triggered by specific inputs, allowing unauthorized actions or data exfiltration.
+# Illustrative — fields show the form a new-risk proposal takes.
+# (riskModelSourceTampering already exists in risks.yaml; this example shows
+# what a fresh proposal of that entry would look like.)
+# (ID is mechanically derived from Title — submitter does not enter it.)
+Risk Title: Model Source Tampering
+Short Description: An attacker modifies model weights or training artifacts before deployment, embedding hidden behaviors that activate on specific triggers at runtime.
+Long Description: |
+  Model source tampering is a model-supply-chain integrity risk — the classical
+  equivalent is a trojaned binary in a software supply chain. The AI-specific
+  amplifier is that the malicious behavior is encoded in model weights rather
+  than in inspectable source code, making it difficult to detect through
+  conventional code review. Tampering may occur during training, fine-tuning,
+  or via tampered base models.
 
-Risk Category: Integrity
+Risk Category: risksSupplyChainAndDevelopment
 Applicable Personas:
-  ☑ Model Creator
-  ☑ Model Consumer
+  ☑ personaModelProvider
+  ☑ personaApplicationDeveloper
+  ☑ personaEndUser
 Applicable Controls:
-controlModelValidation
-controlSupplyChainSecurity
-controlAdversarialTesting
+controlModelAndDataIntegrityManagement
+controlAdversarialTrainingAndTesting
 
 Examples:
-- Backdoor triggered by specific pixel patterns in images
-- Hidden functionality activated by rare token sequences
+<a href="https://arxiv.org/abs/1708.06733" target="_blank" rel="noopener">BadNets: Identifying Vulnerabilities in the Machine Learning Model Supply Chain (Gu et al., 2017)</a>
 
 Framework Mappings:
-MITRE ATLAS: AML.T0018
-STRIDE: Tampering
+mitre-atlas: AML.T0018
+stride: tampering
 ```
 
 **Reference Links:**
@@ -224,7 +264,7 @@ STRIDE: Tampering
 
 **File:** `.github/ISSUE_TEMPLATE/update_risk.yml`
 
-**Required Fields (3):**
+**Required for review (3):**
 
 1. **Risk Permalink** - GitHub permalink to the risk in `risks.yaml`
 2. **Change Type** - What you're changing (description, examples, mappings, etc.)
@@ -274,13 +314,12 @@ Supporting Evidence:
 
 **File:** `.github/ISSUE_TEMPLATE/new_component.yml`
 
-**Required Fields (5):**
+**Required for review (4):**
 
-1. **Component ID** - camelCase identifier starting with "component" (e.g., `componentFeatureStore`)
-2. **Component Title** - Human-readable name
-3. **Component Description** - What this component does and why it's important
-4. **Component Category** - Data, Infrastructure, Model, or Application
-5. **Edges** - Relationships to other components
+1. **Component Title** - Human-readable name. See [`component-titles-style-guide.md`](./component-titles-style-guide.md). The Component ID is mechanically derived from this title (`component` prefix + camelCase descriptor, e.g., `componentFeatureStore`).
+2. **Component Description** - What this component does and why it's important
+3. **Component Category** - Data, Infrastructure, Model, or Application
+4. **Edges** - Relationships to other components
 
 **Edge Relationships:**
 
@@ -290,7 +329,7 @@ Supporting Evidence:
 **Example Walkthrough:**
 
 ```yaml
-Component ID: componentFeatureStore
+# (ID is mechanically derived from Title — submitter does not enter it.)
 Component Title: Feature Store
 Component Description: Centralized repository for storing, managing, and serving features for ML training and inference.
 Component Category: Data
@@ -320,7 +359,7 @@ componentDataProcessing
 
 **File:** `.github/ISSUE_TEMPLATE/update_component.yml`
 
-**Required Fields (3):**
+**Required for review (3):**
 
 1. **Component Permalink** - GitHub permalink to component in `components.yaml`
 2. **Change Type** - What you're changing
@@ -367,14 +406,13 @@ Supporting Evidence:
 
 **File:** `.github/ISSUE_TEMPLATE/new_persona.yml`
 
-**Important Note:** Personas are rarely added. The framework currently has 2 personas (Model Creator, Model Consumer) that cover most use cases. Before proposing a new persona, carefully justify why existing personas don't suffice.
+**Important Note:** Personas are rarely added. The framework defines several personas covering common roles in AI development and deployment (see [`personas.yaml`](../../yaml/personas.yaml) for the current set). Before proposing a new persona, carefully justify why existing personas don't suffice. New personas should also propose `identificationQuestions` so readers can determine whether they fit — see the [Identification Questions Style Guide](./identification-questions-style-guide.md).
 
-**Required Fields (4):**
+**Required for review (3):**
 
-1. **Persona ID** - camelCase starting with "persona" (e.g., `personaModelAuditor`)
-2. **Persona Title** - Human-readable name
-3. **Persona Description** - Who this persona is and their responsibilities
-4. **Justification** - Why existing personas don't cover this use case
+1. **Persona Title** - Human-readable name. The Persona ID is mechanically derived from this title (`persona` prefix + camelCase descriptor, e.g., `personaModelAuditor`).
+2. **Persona Description** - Who this persona is and their responsibilities
+3. **Justification** - Why existing personas don't cover this use case
 
 **Additional Fields:**
 
@@ -387,16 +425,20 @@ Supporting Evidence:
 **Example Walkthrough:**
 
 ```yaml
-Persona ID: personaModelAuditor
+# (ID is mechanically derived from Title — submitter does not enter it.)
 Persona Title: Model Auditor
 Persona Description: External third-party auditor responsible for independent assessment and certification of AI systems for compliance and security.
 
 Justification:
-Existing personas (Model Creator, Model Consumer) don't cover external auditors who:
-  - Don't create or deploy models
+None of the existing personas (Model Provider, Data Provider, Platform Provider,
+Model Serving, Agentic Provider, Application Developer, AI System Governance,
+End User) cover external auditors who:
+  - Don't create or deploy models themselves
   - Need read-only access to inspect training data, model artifacts, and logs
   - Assess compliance against regulatory frameworks
   - Issue certification reports
+  (Distinct from personaGovernance, which sets internal policy rather than
+  performing external attestation.)
 
 Use Cases:
   - Third-party AI system certification
@@ -420,14 +462,17 @@ Personas don't have bidirectional relationships, so there's no automatic cross-m
 
 **File:** `.github/ISSUE_TEMPLATE/update_persona.yml`
 
-**Required Fields (3):**
+**Required for review (3):**
 
 1. **Persona Permalink** - GitHub permalink to persona in `personas.yaml`
 2. **Change Type** - What you're changing
 3. **Proposed Changes** - Free-form description
 
+**Change Type Options:** Update title (rename persona), Update description, Refine scope or responsibilities, **Update identification questions**, Other.
+
 **Additional Fields:**
 
+- **Identification Questions Changes** - Add or update identification questions for the persona using `+`/`-` syntax (or paste the full updated list). See the [Identification Questions Style Guide](./identification-questions-style-guide.md) for required form, scoping clauses, and reviewer checklist.
 - Framework impact assessment
 - Scope clarification (included/excluded roles)
 - Supporting evidence (industry standards, role definitions)
@@ -440,19 +485,20 @@ Persona Permalink: https://github.com/cosai-oasis/secure-ai-tooling/blob/jkl012/
 Change Type: Clarify scope and responsibilities
 
 Proposed Changes:
-Clarify that Model Consumer also includes organizations that fine-tune foundation models, not just those deploying off-the-shelf models.
+Clarify that Application Developer also includes organizations that fine-tune foundation models for their applications, not just those integrating off-the-shelf models.
 
 Scope Clarification:
 Included roles:
-- Organizations deploying pre-trained models
-- Organizations fine-tuning foundation models
-- SaaS providers integrating AI capabilities
+- Organizations integrating pre-trained models into applications
+- Organizations fine-tuning foundation models for application-specific use
+- SaaS providers building AI capabilities into their products
 
 Excluded roles:
-- End users of AI applications (not responsible for model deployment)
+- End users of AI applications (covered by personaEndUser)
+- Organizations training base models from scratch (covered by personaModelProvider)
 
 Supporting Evidence:
-- NIST AI RMF guidance on consumer responsibilities
+- NIST AI RMF guidance on application-developer responsibilities
 - MLOps maturity model: https://...
 ```
 
