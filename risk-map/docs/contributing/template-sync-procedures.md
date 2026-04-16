@@ -330,7 +330,7 @@ Additional properties are not allowed ('validations' was unexpected)
   attributes:
     label: Applicable Personas*
     options:
-      - label: Model Provider
+      - label: Model Creator
   validations:
     required: true # <- NOT ALLOWED
 
@@ -340,7 +340,7 @@ Additional properties are not allowed ('validations' was unexpected)
   attributes:
     label: Applicable Personas*
     options:
-      - label: Model Provider
+      - label: Model Creator
         required: true # <- ALLOWED
 ```
 

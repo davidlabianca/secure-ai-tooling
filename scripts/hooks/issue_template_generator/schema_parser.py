@@ -9,8 +9,6 @@ import json
 from pathlib import Path
 from typing import Any
 
-import yaml
-
 
 class SchemaParser:
     """
@@ -22,17 +20,14 @@ class SchemaParser:
 
     Attributes:
         schema_dir: Path to directory containing JSON schema files
-        yaml_data_dir: Optional path to directory containing YAML data files
     """
 
-    def __init__(self, schema_dir: Path, yaml_data_dir: Path | None = None) -> None:
+    def __init__(self, schema_dir: Path) -> None:
         """
         Initialize SchemaParser with schema directory.
 
         Args:
             schema_dir: Path to directory containing JSON schema files
-            yaml_data_dir: Optional path to directory containing YAML data files
-                           (required only if load_deprecated_ids() will be called)
 
         Raises:
             FileNotFoundError: If schema_dir doesn't exist
@@ -45,8 +40,6 @@ class SchemaParser:
             raise NotADirectoryError(f"'{schema_dir}' is not a directory")
 
         self.schema_dir = schema_dir
-        self.yaml_data_dir = yaml_data_dir
-        self._deprecated_ids_cache: dict[tuple[str, str], set[str]] = {}
 
     def load_schema(self, schema_name: str) -> dict[str, Any]:
         """
@@ -69,45 +62,6 @@ class SchemaParser:
 
         with open(schema_path, "r", encoding="utf-8") as f:
             return json.load(f)
-
-    def load_deprecated_ids(self, yaml_filename: str, list_key: str) -> set[str]:
-        """
-        Load IDs of deprecated entries from a YAML data file.
-
-        Opens yaml_data_dir / yaml_filename, iterates data[list_key], and
-        returns the set of entry["id"] values where entry.get("deprecated") is True.
-        Results are cached per-instance keyed by (yaml_filename, list_key).
-
-        Args:
-            yaml_filename: Name of the YAML file (e.g., "personas.yaml")
-            list_key: Top-level key whose value is a list of entries (e.g., "personas")
-
-        Returns:
-            Set of deprecated IDs; empty set if none are deprecated
-
-        Raises:
-            ValueError: If yaml_data_dir was not configured on this instance
-            FileNotFoundError: If yaml_filename does not exist in yaml_data_dir
-        """
-        if self.yaml_data_dir is None:
-            raise ValueError("yaml_data_dir not configured on SchemaParser")
-
-        cache_key = (yaml_filename, list_key)
-        if cache_key in self._deprecated_ids_cache:
-            return self._deprecated_ids_cache[cache_key]
-
-        yaml_path = self.yaml_data_dir / yaml_filename
-        # Let FileNotFoundError propagate naturally if the file is missing
-        with open(yaml_path, "r", encoding="utf-8") as f:
-            data = yaml.safe_load(f)
-
-        deprecated: set[str] = set()
-        for entry in data.get(list_key, []):
-            if entry.get("deprecated") is True:
-                deprecated.add(entry["id"])
-
-        self._deprecated_ids_cache[cache_key] = deprecated
-        return deprecated
 
     def extract_enum_values(self, schema_data: dict[str, Any], field_path: str) -> list[str]:
         """

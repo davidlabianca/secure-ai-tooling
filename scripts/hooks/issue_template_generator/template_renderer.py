@@ -29,27 +29,11 @@ class TemplateRenderer:
     # Valid entity types
     VALID_ENTITY_TYPES = {"controls", "risks", "components", "personas"}
 
-    # Placeholder mappings to schema paths with field type metadata.
-    #
+    # Placeholder mappings to schema paths with field type metadata
     # Field types match GitHub form input requirements:
     # - "dropdown": Plain string lists (e.g., ["controlsData", "controlsModel"])
     # - "checkbox": Label-only objects (e.g., [{"label": "personaModelCreator"}])
     # - None: Fallback format with label and value (for textarea/markdown context)
-    #
-    # Optional keys per entry:
-    # - "yaml_source": (filename, collection_key) — enables deprecated-id filtering
-    #   by loading YAML data and excluding entries with deprecated: true.
-    # - "exclude_ids": tuple[str, ...] — per-mapping context exclusion; IDs listed
-    #   here are always omitted regardless of deprecated status.
-    #
-    # Persona split:
-    # - PERSONAS          — for controls templates; includes personaGovernance
-    #   (governance is a controls-only persona per the persona model).
-    # - PERSONAS_FOR_RISKS — for risk templates; excludes personaGovernance because
-    #   risks track personas harmed by a threat, not personas who implement defenses.
-    #   See risk-map/docs/contributing/submission-readiness-guide.md §3.
-    #
-    # Filter compose order: enum_ids - deprecated_ids (yaml_source) - exclude_ids
     PLACEHOLDER_MAPPINGS = {
         # Dropdowns - plain string format required
         "CONTROL_CATEGORIES": {
@@ -68,18 +52,9 @@ class TemplateRenderer:
             "field_type": "dropdown",
         },
         # Checkboxes - label-only object format required
-        # PERSONAS: full list for controls (governance is controls-only)
         "PERSONAS": {
             "schema_paths": [("personas.schema.json", "definitions.persona.properties.id")],
             "field_type": "checkbox",
-            "yaml_source": ("personas.yaml", "personas"),
-        },
-        # PERSONAS_FOR_RISKS: excludes personaGovernance (controls-only persona)
-        "PERSONAS_FOR_RISKS": {
-            "schema_paths": [("personas.schema.json", "definitions.persona.properties.id")],
-            "field_type": "checkbox",
-            "yaml_source": ("personas.yaml", "personas"),
-            "exclude_ids": ("personaGovernance",),
         },
         "LIFECYCLE_STAGE": {
             "schema_paths": [("lifecycle-stage.schema.json", "definitions.lifecycleStage.properties.id")],
@@ -235,24 +210,6 @@ class TemplateRenderer:
 
             if not enum_values:
                 # Empty enum - return empty string
-                return ""
-
-            # Remove deprecated entries when the mapping declares a yaml_source
-            # and the schema_parser has a yaml_data_dir configured
-            yaml_source = mapping.get("yaml_source")
-            if yaml_source is not None and self.schema_parser.yaml_data_dir is not None:
-                deprecated_ids = self.schema_parser.load_deprecated_ids(*yaml_source)
-                enum_values = [v for v in enum_values if v not in deprecated_ids]
-
-            # Remove explicitly excluded IDs (per-mapping context exclusion).
-            # Applies after deprecated-filter; compose order:
-            #   enum_ids - deprecated_ids - exclude_ids
-            exclude_ids = mapping.get("exclude_ids", ())
-            if exclude_ids:
-                enum_values = [v for v in enum_values if v not in exclude_ids]
-
-            if not enum_values:
-                # All values were filtered out - return empty string
                 return ""
 
             # Format based on field type

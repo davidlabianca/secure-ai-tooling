@@ -9,19 +9,26 @@ body:
         ## Propose a New Risk
         Use this template to suggest a new AI security risk for the framework.
 
-        📋 **Before you submit**: Read the [Submission Readiness Guide](https://github.com/cosai-oasis/secure-ai-tooling/blob/main/risk-map/docs/contributing/submission-readiness-guide.md) to understand the quality bar and see [Common Review Findings](https://github.com/cosai-oasis/secure-ai-tooling/blob/main/risk-map/docs/contributing/common-review-findings.md) to avoid the most frequent rework requests.
-
         **Required fields** are marked with an asterisk (*).
+
+  - type: input
+    id: risk-id
+    attributes:
+      label: Risk ID*
+      description: |
+        Unique identifier using `risk` prefix + camelCase descriptor
+
+        Examples: riskDataPoisoning, riskPromptInjection, riskModelSourceTampering
+      placeholder: 'e.g., riskMembershipInference'
+    validations:
+      required: true
 
   - type: input
     id: risk-title
     attributes:
       label: Risk Title*
-      description: |
-        A concise noun phrase (2-5 words) naming the threat. The ID is mechanically derived from this title.
-
-        📋 See the [Risk Titles Style Guide](https://github.com/cosai-oasis/secure-ai-tooling/blob/main/risk-map/docs/contributing/risk-titles-style-guide.md) for naming rules.
-      placeholder: 'e.g., Membership Inference'
+      description: A concise, descriptive name for the risk
+      placeholder: 'e.g., Model Extraction via Membership Inference'
     validations:
       required: true
 
@@ -76,10 +83,7 @@ body:
     id: personas
     attributes:
       label: Applicable Personas*
-      description: |
-        Which personas are **impacted by** this risk? (Risks list the personas harmed, not the personas who implement defenses.)
-
-        Note: `personaGovernance` is a controls-only persona and is not listed here. `personaEndUser` applies to most risks.
+      description: Which personas need to mitigate this risk?
       options:
         - label: personaModelProvider
         - label: personaDataProvider
@@ -87,7 +91,10 @@ body:
         - label: personaModelServing
         - label: personaAgenticProvider
         - label: personaApplicationDeveloper
+        - label: personaGovernance
         - label: personaEndUser
+        - label: personaModelCreator
+        - label: personaModelConsumer
 
   - type: textarea
     id: controls
@@ -137,13 +144,10 @@ body:
         Map this risk to external security frameworks by listing relevant technique/attack IDs.
         Enter one ID per line. Format: `framework-id: mapping-value`
 
-        Valid frameworks for risks include: mitre-atlas, stride, owasp-top10-llm. Risks use MITRE ATLAS **techniques** (`AML.T####`), not mitigations.
-
-        📋 See the [Framework Mappings Style Guide](https://github.com/cosai-oasis/secure-ai-tooling/blob/main/risk-map/docs/contributing/framework-mappings-style-guide.md) for per-framework rules.
+        Valid frameworks for risks include: mitre-atlas, stride, owasp-top10-llm
       placeholder: |
-        mitre-atlas: AML.T0051
-        stride: information-disclosure
-        owasp-top10-llm: LLM01
+        mitre-atlas: AML.M0007
+        nist-ai-rmf: GV-6.2
 
   - type: checkboxes
     id: lifecycle-stage
@@ -207,6 +211,4 @@ body:
       description: Please confirm the following
       options:
         - label: I have reviewed existing risks to ensure this is not a duplicate
-          required: true
-        - label: I have read the Submission Readiness Guide and believe my proposal meets the quality bar
           required: true

@@ -405,7 +405,7 @@ echo  # Add blank line for readability
 echo "🔗 Running component edge validation..."
 
 # Path to the component edge validation script
-EDGE_VALIDATOR="${HOOKS_DIR}/validate_riskmap.py"
+EDGE_VALIDATOR=".git/hooks/validate_riskmap.py"
 
 # Run the component edge validation with appropriate args based on passed flags
 run_validator "$EDGE_VALIDATOR" "component edge validation" "$EDGE_ARGS"
@@ -444,7 +444,7 @@ echo  # Add blank line for readability
 echo "🔗 Running control-to-risk reference validation..."
 
 # Path to the control-risk reference validation script
-REF_VALIDATOR="${HOOKS_DIR}/validate_control_risk_references.py"
+REF_VALIDATOR=".git/hooks/validate_control_risk_references.py"
 
 # Run the control-risk reference validation
 # Uses same EDGE_ARGS since both validators support --force flag
@@ -461,7 +461,7 @@ echo  # Add blank line for readability
 echo "🔗 Running framework reference validation..."
 
 # Path to the framework reference validation script
-FRAMEWORK_VALIDATOR="${HOOKS_DIR}/validate_framework_references.py"
+FRAMEWORK_VALIDATOR=".git/hooks/validate_framework_references.py"
 
 # Run the framework reference validation
 # Uses same EDGE_ARGS since both validators support --force flag
@@ -566,7 +566,7 @@ if [[ $FORCE_VALIDATE -eq 0 ]]; then
     if echo "$STAGED_FILES" | grep -q "risk-map/yaml/\(components\|controls\|risks\|personas\)\.yaml$"; then
         echo "📋 YAML files changed - generating markdown tables..."
 
-        TABLE_GENERATOR="${HOOKS_DIR}/yaml_to_markdown.py"
+        TABLE_GENERATOR=".git/hooks/yaml_to_markdown.py"
 
         if [[ ! -f "$TABLE_GENERATOR" ]]; then
             echo "   ⚠️  Warning: Table generator not found - skipping table generation"

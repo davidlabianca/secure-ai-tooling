@@ -211,8 +211,8 @@ actorAccess:
     - "Attackers compromise the model supply chain by injecting malicious code..."
   category: risksSupplyChainAndDevelopment
   personas:
-    - personaModelProvider
-    - personaApplicationDeveloper
+    - personaModelCreator
+    - personaModelConsumer
   controls:
     - controlVulnerabilityManagement
     - controlModelAndDataIntegrityManagement
@@ -245,8 +245,8 @@ actorAccess:
     - "Implement cryptographic signing and verification for models and datasets"
   category: controlsModel
   personas:
-    - personaModelProvider
-    - personaApplicationDeveloper
+    - personaModelCreator
+    - personaModelConsumer
   components:
     - componentModelStorage
     - componentModelServing

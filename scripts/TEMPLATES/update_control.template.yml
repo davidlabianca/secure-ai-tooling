@@ -10,8 +10,6 @@ body:
 
         Use this template to propose changes to an existing control. Only fill out the sections relevant to your proposed changes.
 
-        📋 **Before you submit**: Skim the [Submission Readiness Guide](https://github.com/cosai-oasis/secure-ai-tooling/blob/main/risk-map/docs/contributing/submission-readiness-guide.md) — the same persona, universal-control, and framework-mapping rules apply to updates.
-
   - type: input
     id: control-permalink
     attributes:
@@ -103,9 +101,7 @@ body:
         Add or remove framework mappings. Use `+` to add, `-` to remove.
         Format: `+/- framework-id: mapping-value`
 
-        Valid frameworks for controls: {{CONTROL_FRAMEWORKS_LIST}}. Controls use MITRE ATLAS **mitigations** (`AML.M####`).
-
-        📋 See the [Framework Mappings Style Guide](https://github.com/cosai-oasis/secure-ai-tooling/blob/main/risk-map/docs/contributing/framework-mappings-style-guide.md) for per-framework rules.
+        Valid frameworks for controls: {{CONTROL_FRAMEWORKS_LIST}}
       placeholder: |
         + mitre-atlas: AML.M0015
         + nist-ai-rmf: GV-4.1
@@ -129,6 +125,4 @@ body:
       description: Please confirm the following
       options:
         - label: I have provided a valid GitHub permalink to the control
-          required: true
-        - label: My proposed changes conform to the Submission Readiness Guide
           required: true

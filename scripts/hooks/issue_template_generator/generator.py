@@ -97,8 +97,7 @@ class IssueTemplateGenerator:
             raise ValueError("frameworks.yaml must contain 'frameworks' key")
 
         # Create SchemaParser and TemplateRenderer instances
-        yaml_data_dir = repo_root / "risk-map" / "yaml"
-        self.schema_parser = SchemaParser(self.schemas_dir, yaml_data_dir=yaml_data_dir)
+        self.schema_parser = SchemaParser(self.schemas_dir)
         self.template_renderer = TemplateRenderer(self.schema_parser, self.frameworks_data)
 
     def get_available_templates(self) -> list[str]:

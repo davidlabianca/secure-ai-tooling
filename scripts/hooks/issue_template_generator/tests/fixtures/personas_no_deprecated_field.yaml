@@ -1,9 +1,0 @@
-# Synthetic personas fixture: entries that omit the deprecated field entirely.
-# Used by test_load_deprecated_ids_handles_entries_without_deprecated_field.
-personas:
-  - id: personaNoFlag1
-    title: Persona Without Deprecated Field One
-
-  - id: personaNoFlag2
-    title: Persona Without Deprecated Field Two
-    # deliberately no 'deprecated' key — should be treated as active
