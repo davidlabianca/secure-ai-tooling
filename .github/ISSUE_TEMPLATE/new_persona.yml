@@ -10,29 +10,19 @@ body:
 
         Use this template to suggest a new persona for the AI risk framework.
 
+        📋 **Before you submit**: Read the [Submission Readiness Guide](https://github.com/cosai-oasis/secure-ai-tooling/blob/main/risk-map/docs/contributing/submission-readiness-guide.md) to understand the quality bar.
+
         **Required fields** are marked with an asterisk (*).
 
-        **Current personas**: Model Creator, Model Consumer
+        **Current personas**: see [`personas.yaml`](https://github.com/cosai-oasis/secure-ai-tooling/blob/main/risk-map/yaml/personas.yaml) for the full list (10 personas as of writing, including Model Provider, Data Provider, Platform Provider, Model Serving, Agentic Provider, Application Developer, AI System Governance, and End User).
 
         **Note**: Personas represent key roles in the AI ecosystem responsible for implementing controls and managing risks. Consider carefully whether a new persona is needed or if the proposed role fits within existing personas.
-
-  - type: input
-    id: persona-id
-    attributes:
-      label: Persona ID*
-      description: |
-        Unique identifier in camelCase format
-
-        Must start with "persona" (e.g., personaModelAuditor)
-      placeholder: 'e.g., personaModelAuditor'
-    validations:
-      required: true
 
   - type: input
     id: persona-title
     attributes:
       label: Persona Title*
-      description: A concise, human-readable name for the persona
+      description: A concise, human-readable name for the persona. The ID is mechanically derived from this title.
       placeholder: 'e.g., Model Auditor'
     validations:
       required: true
@@ -102,15 +92,27 @@ body:
         - Lack of independent oversight
 
   - type: textarea
+    id: identification-questions
+    attributes:
+      label: Identification Questions (Optional)
+      description: |
+        Yes/no, second-person, activity-based questions a reader can use to determine whether they are this persona.
+
+        📋 See the [Identification Questions Style Guide](https://github.com/cosai-oasis/secure-ai-tooling/blob/main/risk-map/docs/contributing/identification-questions-style-guide.md) for required form, scoping clauses, and reviewer checklist.
+      placeholder: |
+        Are you responsible for evaluating AI/ML models for compliance with internal or external policies?
+        Do you produce assessment reports about model behavior that other teams act on?
+
+  - type: textarea
     id: relationship-to-existing
     attributes:
       label: Relationship to Existing Personas*
       description: |
-        Explain how this persona relates to and differs from Model Creator and Model Consumer
+        Explain how this persona relates to and differs from the closest existing personas (e.g., Model Provider, Application Developer, End User)
 
         Why can't existing personas cover this role?
       placeholder: |
-        Unlike Model Creator (who develops models) and Model Consumer (who deploys models), this persona...
+        Unlike Model Provider (who trains/distributes models) and Application Developer (who integrates models into applications), this persona...
 
         This role is distinct because...
     validations:
@@ -147,4 +149,6 @@ body:
       description: Please confirm the following
       options:
         - label: I have reviewed existing personas to ensure this is not redundant
+          required: true
+        - label: I have read the Submission Readiness Guide and believe my proposal meets the quality bar
           required: true
