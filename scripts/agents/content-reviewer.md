@@ -94,13 +94,14 @@ If provided, use them to supplement (not override) the embedded schema awareness
 
 - Required: `id`, `title`, `description`, `category`
 - Relationships: mapped to controls that mitigate them
+- Personas: parties **impacted by** the risk (who bears the consequences). `personaEndUser` appears on most risks. `personaGovernance` is NOT used on risks (it appears exclusively on controls).
 - Categories (enum in `risks.schema.json`): `risksSupplyChainAndDevelopment`, `risksDeploymentAndInfrastructure`, `risksRuntimeInputSecurity`, `risksRuntimeDataSecurity`, `risksRuntimeOutputSecurity`
 - May include framework references: MITRE ATLAS, NIST AI RMF, OWASP Top 10 for LLM
 
 **Controls** (`controls.yaml`):
 
 - Required: `id`, `title`, `description`, `category`
-- Relationships: `risks` (which risks this control mitigates), `components` (which components this applies to), `personas` (relevant roles)
+- Relationships: `risks` (which risks this control mitigates), `components` (which components this applies to), `personas` (parties **in a position to implement** the control). `personaGovernance` appears on governance/policy controls. `personaEndUser` rarely appears on controls.
 - Special values: `risks: all`, `components: all`, `components: none` — valid but flagged for review
 - May include framework references: MITRE ATLAS, NIST AI RMF, OWASP Top 10 for LLM
 
