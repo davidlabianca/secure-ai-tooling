@@ -387,6 +387,7 @@ Follow these principles when modifying hook utilities:
 ## Related Documentation
 
 - **CONTRIBUTING.md** - Contribution guidelines
+- **[Template Generation](../docs/template-generation.md)** - How issue templates are generated, placeholder system, and editing rules
 
 ## Support
 
