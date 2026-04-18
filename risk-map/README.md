@@ -27,6 +27,7 @@ This repository is designed to serve both human practitioners and automated syst
 
 * **For Human Review (Learn & Assess)**: 
     * Use the **Markdown Tables** in [`./tables/`](./tables/) to navigate the framework. Start with the `summary` tables for context and move to `full` tables for implementation details.
+    * Use the **persona-based Pages MVP** in [`./site/`](./site/) to match CoSAI-RM personas and browse the linked risks and controls. See [Persona Pages MVP](./docs/persona-pages.md) for build and preview instructions.
 * **For Tooling & LLMs (Integrate)**: 
     * Use the **YAML Data Files** in [(`./yaml/`)](./yaml/)  as structured context for RAG applications, GRC platforms, or automated CI/CD security checks.
 * **For Development (Build)**: 
@@ -73,6 +74,8 @@ Building and using AI systems involves many potential risks. We created the Secu
 To address these needs, we developed the Securing AI Framework Map, with supporting documentation about the components, risks, and controls. 
 
 To help practitioners more easily navigate the Map and documentation most relevant to them, we also created the Securing AI Risk Assessment, which gives users personalized risk information after they answer a few questions. 
+
+The current GitHub Pages MVP complements that legacy assessment with a persona-first flow that maps users to CoSAI-RM personas, then shows the relevant risks and controls without introducing scoring or maturity grades. See [Persona Pages MVP](./docs/persona-pages.md) for the implementation and maintenance workflow.
 
 ## Design
 The Securing AI Map structures the AI development lifecycle into four primary groupings of components, providing a standardized view of the end-to-end process: **Data, Infrastructure, Model,** and **Application**. Practitioners can understand the processes and components involved in creating and using AI models, and more specifically, which risks are involved in the lifecycle at which stage. 
@@ -142,4 +145,3 @@ These mappings are automatically generated and validated through the project's d
 - **Bidirectional validation**: The framework validates that component edges, risk references, and control mappings are correctly cross-referenced
 
 See the [Validation Tools](./docs/validation.md) and [CI/CD](./docs/ci-cd.md) documentation for details on the validation and generation process 
-
