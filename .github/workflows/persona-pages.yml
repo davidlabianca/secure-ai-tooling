@@ -1,0 +1,97 @@
+name: CoSAI Persona Pages
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - ".github/workflows/persona-pages.yml"
+      - "risk-map/site/**"
+      - "risk-map/yaml/personas.yaml"
+      - "risk-map/yaml/risks.yaml"
+      - "risk-map/yaml/controls.yaml"
+      - "risk-map/docs/persona-pages.md"
+      - "scripts/build_persona_site_data.py"
+      - "scripts/hooks/tests/test_build_persona_site_data.py"
+      - "README.md"
+      - "risk-map/README.md"
+      - "requirements.txt"
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/persona-pages.yml"
+      - "risk-map/site/**"
+      - "risk-map/yaml/personas.yaml"
+      - "risk-map/yaml/risks.yaml"
+      - "risk-map/yaml/controls.yaml"
+      - "risk-map/docs/persona-pages.md"
+      - "scripts/build_persona_site_data.py"
+      - "scripts/hooks/tests/test_build_persona_site_data.py"
+      - "README.md"
+      - "risk-map/README.md"
+      - "requirements.txt"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: persona-pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.14"
+          cache: "pip"
+
+      - name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: "22.x"
+
+      - name: Install Python dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run persona site data tests
+        run: pytest scripts/hooks/tests/test_build_persona_site_data.py
+
+      - name: Run persona site logic tests
+        run: node --test risk-map/site/tests/*.test.mjs
+
+      - name: Prepare Pages artifact
+        run: |
+          set -euo pipefail
+          rm -rf _site
+          mkdir -p _site
+          cp -R risk-map/site/. _site/
+          python3 scripts/build_persona_site_data.py --site-dir _site
+          test -f _site/generated/persona-site-data.json
+
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload GitHub Pages artifact
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: _site
+
+  deploy:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

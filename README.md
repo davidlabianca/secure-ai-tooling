@@ -31,6 +31,8 @@ The Risk Map organizes the AI development lifecycle into four primary groups: **
 
 The framework is provided as a set of human-readable .yaml files and machine-readable .schema.json files that you can use to learn, assess your own projects, and build upon for your organization's needs.
 
+The repository also includes a static CoSAI-RM persona navigator for GitHub Pages. It uses the framework YAML as the source of truth to help users identify which personas apply to them and then browse the linked risks and controls. See [`risk-map/docs/persona-pages.md`](./risk-map/docs/persona-pages.md) for local build, preview, and deployment details.
+
 #### **Framework Mappings**
 
 The CoSAI Risk Map includes mappings to established security frameworks, enabling cross-referencing with:
