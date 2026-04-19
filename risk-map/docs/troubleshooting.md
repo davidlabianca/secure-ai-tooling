@@ -18,6 +18,11 @@ pre-commit run check-jsonschema --files risk-map/yaml/components.yaml
 ./scripts/tools/validate-all.sh
 ```
 
+> **Note:** `pre-commit run --all-files` stages regenerated derivatives (SVGs,
+> graphs, tables, issue templates) via the Mode B auto-stage pattern. See
+> [scripts/docs/manual-validation.md](../../scripts/docs/manual-validation.md#recommended-unified-dev-helper)
+> for the full caveat and how to unstage bycatch before an unrelated commit.
+
 See also [scripts/docs/troubleshooting.md](../../scripts/docs/troubleshooting.md)
 for installation, Chromium, and environment issues.
 

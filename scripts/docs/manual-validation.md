@@ -9,6 +9,26 @@ The framework pre-commit hook itself does not have a `--force` flag — use
 `pre-commit run --all-files` instead, but note that this also runs the
 regeneration hooks and modifies the working tree.
 
+> **Caveat: `pre-commit run --all-files` has side effects on the git index.**
+> The Mode B regenerator hooks (`regenerate-graphs`, `regenerate-tables`,
+> `regenerate-svgs`, `regenerate-issue-templates`, `prettier-yaml`) all call
+> `git add` on their outputs so derivatives land in the same commit as their
+> source. When invoked via `--all-files`, these hooks run unconditionally and
+> stage any bytes that differ from HEAD — most commonly the SVGs, which
+> change run-to-run as mmdc / Chromium versions drift. If you plan to make
+> an UNRELATED commit after running `--all-files`, unstage the bycatch first
+> so it does not ride along:
+>
+> ```bash
+> git restore --staged risk-map/svg/ risk-map/tables/ risk-map/diagrams/ \
+>                      .github/ISSUE_TEMPLATE/
+> ```
+>
+> For safer verification, prefer scoped invocations — e.g.,
+> `pre-commit run <hook-id> --files <specific-files>` — or use
+> `./scripts/tools/validate-all.sh` (below), which validates without
+> regenerating anything.
+
 ## Recommended: unified dev helper
 
 `scripts/tools/validate-all.sh` runs every validator with `--force` in one

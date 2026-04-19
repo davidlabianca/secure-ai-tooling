@@ -17,6 +17,12 @@ repos:
   # Schema validation: one entry per yaml/schema pair so the framework only
   # invokes check-jsonschema when the matching yaml or its schema is staged.
   # BASE_URI is needed for cross-schema $ref resolution.
+  #
+  # Each hook sets `pass_filenames: false` and pins the yaml path as the
+  # trailing positional arg in `args:`. Without this, the framework would
+  # append both the yaml AND the schema file (both match `files:`) as
+  # positional args to check-jsonschema, which would then try to validate
+  # the schema file itself against --schemafile and fail.
   # ---------------------------------------------------------------------------
   - repo: https://github.com/python-jsonschema/check-jsonschema
     rev: 0.37.1
@@ -24,83 +30,117 @@ repos:
       - id: check-jsonschema
         name: 'schema: actor-access.yaml'
         files: ^risk-map/(yaml/actor-access\.yaml|schemas/actor-access\.schema\.json)$
+        pass_filenames: false
         args:
           - --schemafile
           - risk-map/schemas/actor-access.schema.json
           - --base-uri
           - file://./risk-map/schemas/
+          - risk-map/yaml/actor-access.yaml
       - id: check-jsonschema
         name: 'schema: components.yaml'
         files: ^risk-map/(yaml/components\.yaml|schemas/components\.schema\.json)$
+        pass_filenames: false
         args:
           - --schemafile
           - risk-map/schemas/components.schema.json
           - --base-uri
           - file://./risk-map/schemas/
+          - risk-map/yaml/components.yaml
       - id: check-jsonschema
         name: 'schema: controls.yaml'
         files: ^risk-map/(yaml/controls\.yaml|schemas/controls\.schema\.json)$
+        pass_filenames: false
         args:
           - --schemafile
           - risk-map/schemas/controls.schema.json
           - --base-uri
           - file://./risk-map/schemas/
+          - risk-map/yaml/controls.yaml
       - id: check-jsonschema
         name: 'schema: frameworks.yaml'
         files: ^risk-map/(yaml/frameworks\.yaml|schemas/frameworks\.schema\.json)$
+        pass_filenames: false
         args:
           - --schemafile
           - risk-map/schemas/frameworks.schema.json
           - --base-uri
           - file://./risk-map/schemas/
+          - risk-map/yaml/frameworks.yaml
       - id: check-jsonschema
         name: 'schema: impact-type.yaml'
         files: ^risk-map/(yaml/impact-type\.yaml|schemas/impact-type\.schema\.json)$
+        pass_filenames: false
         args:
           - --schemafile
           - risk-map/schemas/impact-type.schema.json
           - --base-uri
           - file://./risk-map/schemas/
+          - risk-map/yaml/impact-type.yaml
       - id: check-jsonschema
         name: 'schema: lifecycle-stage.yaml'
         files: ^risk-map/(yaml/lifecycle-stage\.yaml|schemas/lifecycle-stage\.schema\.json)$
+        pass_filenames: false
         args:
           - --schemafile
           - risk-map/schemas/lifecycle-stage.schema.json
           - --base-uri
           - file://./risk-map/schemas/
+          - risk-map/yaml/lifecycle-stage.yaml
       - id: check-jsonschema
         name: 'schema: mermaid-styles.yaml'
         files: ^risk-map/(yaml/mermaid-styles\.yaml|schemas/mermaid-styles\.schema\.json)$
+        pass_filenames: false
         args:
           - --schemafile
           - risk-map/schemas/mermaid-styles.schema.json
           - --base-uri
           - file://./risk-map/schemas/
+          - risk-map/yaml/mermaid-styles.yaml
       - id: check-jsonschema
         name: 'schema: personas.yaml'
         files: ^risk-map/(yaml/personas\.yaml|schemas/personas\.schema\.json)$
+        pass_filenames: false
         args:
           - --schemafile
           - risk-map/schemas/personas.schema.json
           - --base-uri
           - file://./risk-map/schemas/
+          - risk-map/yaml/personas.yaml
       - id: check-jsonschema
         name: 'schema: risks.yaml'
         files: ^risk-map/(yaml/risks\.yaml|schemas/risks\.schema\.json)$
+        pass_filenames: false
         args:
           - --schemafile
           - risk-map/schemas/risks.schema.json
           - --base-uri
           - file://./risk-map/schemas/
+          - risk-map/yaml/risks.yaml
       - id: check-jsonschema
         name: 'schema: self-assessment.yaml'
         files: ^risk-map/(yaml/self-assessment\.yaml|schemas/self-assessment\.schema\.json)$
+        pass_filenames: false
         args:
           - --schemafile
           - risk-map/schemas/self-assessment.schema.json
           - --base-uri
           - file://./risk-map/schemas/
+          - risk-map/yaml/self-assessment.yaml
+
+  # ---------------------------------------------------------------------------
+  # Metaschema check: validate that each .schema.json file in risk-map/schemas/
+  # is itself a structurally valid JSON Schema document (against its declared
+  # $schema metaschema). Catches typo'd keywords (e.g., `requried`), invalid
+  # regex patterns, and broken $refs at author time rather than at validation
+  # time. Runs whenever any schema file is staged.
+  # ---------------------------------------------------------------------------
+  - repo: https://github.com/python-jsonschema/check-jsonschema
+    rev: 0.37.1
+    hooks:
+      - id: check-metaschema
+        name: 'schema: meta-validate .schema.json files'
+        files: ^risk-map/schemas/.*\.schema\.json$
 
   # ---------------------------------------------------------------------------
   # Schema-master trigger: when the master riskmap.schema.json changes, every
@@ -182,7 +222,14 @@ repos:
         language: system
         entry: python3 scripts/hooks/precommit/regenerate_issue_templates.py
         files: ^(scripts/TEMPLATES/.*\.yml|risk-map/schemas/.*\.schema\.json|risk-map/yaml/frameworks\.yaml)$
-        pass_filenames: true
+        # pass_filenames: false so the framework calls the wrapper exactly once.
+        # With true + many matching files (e.g., all schemas staged or running
+        # against --all-files), pre-commit batches calls and runs them in
+        # parallel; concurrent `git add` invocations then fight over
+        # .git/index.lock. The wrapper regenerates wholesale anyway — it has
+        # no per-file work — so it does not need filenames.
+        pass_filenames: false
+        require_serial: true
 
       - id: validate-issue-templates
         name: 'validate: GitHub issue templates'
@@ -198,12 +245,17 @@ repos:
   # ---------------------------------------------------------------------------
   - repo: local
     hooks:
+      # require_serial prevents pre-commit from running parallel batches of the
+      # same hook, which would cause concurrent `git add` calls to fight over
+      # .git/index.lock. The current risk-map has few enough trigger files to
+      # avoid batching in practice, but the flag is future-proofing for growth.
       - id: regenerate-graphs
         name: 'generate: Mermaid graphs (component, control, risk)'
         language: system
         entry: python3 scripts/hooks/precommit/regenerate_graphs.py
         files: ^risk-map/yaml/(components|controls|risks)\.yaml$
         pass_filenames: true
+        require_serial: true
 
       - id: regenerate-tables
         name: 'generate: Markdown tables (yaml-to-md, xref refresh)'
@@ -211,6 +263,7 @@ repos:
         entry: python3 scripts/hooks/precommit/regenerate_tables.py
         files: ^risk-map/yaml/(components|controls|risks|personas)\.yaml$
         pass_filenames: true
+        require_serial: true
 
       - id: regenerate-svgs
         name: 'generate: Mermaid SVGs from .mmd/.mermaid'
@@ -218,3 +271,4 @@ repos:
         entry: python3 scripts/hooks/precommit/regenerate_svgs.py
         files: ^risk-map/diagrams/.*\.(mmd|mermaid)$
         pass_filenames: true
+        require_serial: true

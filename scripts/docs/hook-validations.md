@@ -27,27 +27,36 @@ cross-schema `$ref` resolution.
 - `yaml/risks.yaml` → `schemas/risks.schema.json`
 - `yaml/self-assessment.yaml` → `schemas/self-assessment.schema.json`
 
-## 2. Schema Master Trigger
+## 2. Schema Meta-Validation
+
+The `check-metaschema` hook (from `python-jsonschema/check-jsonschema`)
+validates that each `risk-map/schemas/*.schema.json` file is itself a
+structurally valid JSON Schema document against its declared `$schema`
+metaschema. Runs whenever any schema file is staged. Catches typo'd
+keywords (e.g., `requried`), invalid regex patterns, and broken `$refs`
+at author time rather than at validation time.
+
+## 3. Schema Master Trigger
 
 When `risk-map/schemas/riskmap.schema.json` itself is staged, every yaml is
 re-validated against its schema in a single pass
 (`validate-all-yaml-on-master-schema-change` local hook). This catches
 master-schema changes that break downstream validation.
 
-## 3. Prettier YAML Formatting
+## 4. Prettier YAML Formatting
 
 `prettier-yaml` hook wraps `npx prettier --write` and `git add`s each
 reformatted file (Mode B auto-stage), so formatting changes land in the same
 commit as the source edit. Targets yaml files under `risk-map/yaml/`.
 
-## 4. Ruff Lint + Format
+## 5. Ruff Lint + Format
 
 Published `ruff` and `ruff-format` hooks from
 `github.com/astral-sh/ruff-pre-commit`. Configuration is read from
 `.ruff.toml` at the repo root (line length 115, double quotes). Lint failure
 blocks the commit; format is applied and re-staged.
 
-## 5. Component Edge Validation
+## 6. Component Edge Validation
 
 `validate-component-edges` hook runs `scripts/hooks/validate_riskmap.py`
 when `risk-map/yaml/components.yaml` is staged. The validator does its own
@@ -74,7 +83,7 @@ components:
       from: [componentA] # ✅ Matches componentA's 'to' edge
 ```
 
-## 6. Control-to-Risk Reference Validation
+## 7. Control-to-Risk Reference Validation
 
 `validate-control-risk-references` hook runs
 `scripts/hooks/validate_control_risk_references.py` when
@@ -106,7 +115,7 @@ risks:
       - CTRL-001
 ```
 
-## 7. Framework Reference Validation
+## 8. Framework Reference Validation
 
 `validate-framework-references` hook runs
 `scripts/hooks/validate_framework_references.py` when `controls.yaml`,
@@ -125,7 +134,7 @@ risks:
 - `frameworks.yaml` configuration and structure
 - `personas.yaml` framework applicability
 
-## 8. Issue Template Regeneration
+## 9. Issue Template Regeneration
 
 `regenerate-issue-templates` hook (`scripts/hooks/precommit/regenerate_issue_templates.py`)
 triggers when any of these is staged:
@@ -134,10 +143,11 @@ triggers when any of these is staged:
 - Any schema: `risk-map/schemas/*.schema.json`
 - Framework config: `risk-map/yaml/frameworks.yaml`
 
-Multiple matching triggers produce exactly one regeneration (single dedup by
-design). The wrapper runs `python3 scripts/generate_issue_templates.py` and
-`git add`s the `.github/ISSUE_TEMPLATE` directory so the regenerated
-templates land in the same commit.
+The framework invokes the wrapper once per commit regardless of how many
+trigger files are staged (`pass_filenames: false` + `require_serial: true`),
+and the wrapper regenerates the full template set unconditionally. The
+generated `.github/ISSUE_TEMPLATE` directory is `git add`-ed so the
+regenerated templates land in the same commit.
 
 **Generated templates:**
 
@@ -147,12 +157,12 @@ templates land in the same commit.
 - `new_persona.yml`, `update_persona.yml`
 - `infrastructure.yml`
 
-## 9. Issue Template Validation
+## 10. Issue Template Validation
 
 `validate-issue-templates` hook runs
 `scripts/hooks/validate_issue_templates.py` when anything under
 `.github/ISSUE_TEMPLATE/*.yml` or `scripts/TEMPLATES/*.yml` is staged
-(including the files just regenerated in step 8).
+(including the files just regenerated in step 9).
 
 **Validates against vendored schemas:**
 
@@ -175,7 +185,7 @@ templates land in the same commit.
   validations: { required: true }   # ❌ checkboxes don't support top-level validations
 ```
 
-## 10. Graph Regeneration
+## 11. Graph Regeneration
 
 `regenerate-graphs` hook (`scripts/hooks/precommit/regenerate_graphs.py`)
 produces three Mermaid graph pairs based on which source yaml is staged:
@@ -189,7 +199,7 @@ produces three Mermaid graph pairs based on which source yaml is staged:
 Each output pair is `git add`-ed on success. The wrapper delegates to
 `validate_riskmap.py --to-graph / --to-controls-graph / --to-risk-graph`.
 
-## 11. Table Regeneration
+## 12. Table Regeneration
 
 `regenerate-tables` hook (`scripts/hooks/precommit/regenerate_tables.py`)
 produces 8 generation operations across 4 source triggers. The ordering
@@ -209,7 +219,7 @@ trigger) run — matches bash behavior.
 
 See [Table Generation](table-generation.md) for output filename conventions.
 
-## 12. Mermaid SVG Regeneration
+## 13. Mermaid SVG Regeneration
 
 `regenerate-svgs` hook (`scripts/hooks/precommit/regenerate_svgs.py`)
 converts staged `.mmd` or `.mermaid` files under `risk-map/diagrams/` into

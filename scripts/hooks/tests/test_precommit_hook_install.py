@@ -100,6 +100,8 @@ class TestConfigFile:
 _REQUIRED_HOOK_IDS = {
     # Schema validation (one entry per yaml/schema pair, all share id):
     "check-jsonschema",
+    # Meta-validate schema files themselves against their declared $schema:
+    "check-metaschema",
     # Custom schema-master trigger:
     "validate-all-yaml-on-master-schema-change",
     # Format/lint:
@@ -155,10 +157,13 @@ _WRAPPER_CONTRACTS = [
         True,
     ),
     (
+        # regenerate-issue-templates uses pass_filenames: false to avoid
+        # pre-commit batching the hook into parallel invocations that would
+        # fight over .git/index.lock when running against --all-files.
         "regenerate-issue-templates",
         "scripts/hooks/precommit/regenerate_issue_templates.py",
         "TEMPLATES",
-        True,
+        False,
     ),
     (
         "prettier-yaml",

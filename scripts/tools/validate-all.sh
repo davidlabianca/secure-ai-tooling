@@ -73,6 +73,14 @@ FAILURES=0
 # original formatting. The order below matches the framework config's
 # validator ordering for consistency with commit-time feedback.
 
+banner "Schema meta-validation"
+if check-jsonschema --check-metaschema risk-map/schemas/*.schema.json; then
+    pass_msg "Schema files are structurally valid JSON Schema"
+else
+    fail_msg "One or more schema files are invalid JSON Schema"
+    FAILURES=$((FAILURES + 1))
+fi
+
 banner "Component edge validation"
 if python3 scripts/hooks/validate_riskmap.py --force; then
     pass_msg "Component edges"
