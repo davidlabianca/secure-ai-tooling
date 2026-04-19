@@ -2,6 +2,25 @@
 
 This page covers common validation issues and how to resolve them.
 
+## Debugging framework hooks
+
+The repo uses the upstream `pre-commit` framework. Useful commands while debugging:
+
+```bash
+# Run all hooks against the current working tree (regenerates derivatives):
+pre-commit run --all-files
+
+# Run one hook by id, against all files or a specific file set:
+pre-commit run validate-component-edges --all-files
+pre-commit run check-jsonschema --files risk-map/yaml/components.yaml
+
+# Validate content without regenerating graphs / tables / SVGs:
+./scripts/tools/validate-all.sh
+```
+
+See also [scripts/docs/troubleshooting.md](../../scripts/docs/troubleshooting.md)
+for installation, Chromium, and environment issues.
+
 ## Edge Validation Errors
 
 If the pre-commit hook or manual validation fails with edge consistency errors:
@@ -56,7 +75,7 @@ python scripts/hooks/validate_riskmap.py --to-controls-graph ./test-controls.md 
 ⚠️ Warning: Could not stage generated graph
 ```
 
-**Fix**: Check file permissions and git repository status. Ensure `./risk-map/docs/` directory is writable.
+**Fix**: Check file permissions and git repository status. Ensure `./risk-map/diagrams/` is writable (graph wrapper output location).
 
 ### 4. Component layout seems suboptimal
 

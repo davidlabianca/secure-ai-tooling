@@ -188,7 +188,7 @@ See [submission-readiness-guide.md §3](../../risk-map/docs/contributing/submiss
 | Regeneration produces an unexpected diff in a generated file | The source template was not updated; only the generated file was edited | Discard the generated change, edit the source template instead, then regenerate |
 | A deprecated entry still appears in a rendered checkbox | The mapping has no `yaml_source` configured | Add `yaml_source` to the entry in `PLACEHOLDER_MAPPINGS` |
 | Wrong personas in the risk template | Template uses `{{PERSONAS}}` instead of `{{PERSONAS_FOR_RISKS}}` | Replace `{{PERSONAS}}` with `{{PERSONAS_FOR_RISKS}}` in `new_risk.template.yml` |
-| Hook says "validator not found in worktree" | Stale `.git/hooks/pre-commit` from before commit `d535dd4` | Reinstall the hook with `scripts/install-precommit-hook.sh` |
+| Hook says "validator not found in worktree" | Stale bash hook left over from before #211 migration | Reinstall the framework hook with `pre-commit install --overwrite` |
 | `check-jsonschema` fails after regeneration | Generated template has a structural issue | Run `python3 scripts/generate_issue_templates.py --validate` and inspect the error |
 
 ---

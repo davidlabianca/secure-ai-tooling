@@ -221,17 +221,9 @@ python scripts/hooks/validate_issue_templates.py --force --quiet
 
 ### Pre-Commit Hook Integration
 
-**File:** `scripts/hooks/pre-commit`
+**Config:** `.pre-commit-config.yaml` (hooks `regenerate-issue-templates` and `validate-issue-templates`)
 
-The validator and generator are integrated into the pre-commit workflow:
-
-```bash
-# Runs automatically on git commit
-# - Generates templates form src if `.template.yml` files are staged
-# - Validates staged template files
-# - Blocks commit if validation fails
-# - Provides clear error messages
-```
+The validator and generator are integrated as framework hooks. The `regenerate-issue-templates` wrapper (`scripts/hooks/precommit/regenerate_issue_templates.py`) runs first when any template source, schema, or `frameworks.yaml` is staged; it regenerates and `git add`s the output directory. The `validate-issue-templates` hook then runs `scripts/hooks/validate_issue_templates.py` against the staged files and blocks the commit on failure.
 
 ### Usage Examples
 
