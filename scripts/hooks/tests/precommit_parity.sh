@@ -126,6 +126,17 @@ export GIT_COMMITTER_EMAIL="parity@example.invalid"
 export GIT_AUTHOR_DATE="2026-01-01T00:00:00+00:00"
 export GIT_COMMITTER_DATE="$GIT_AUTHOR_DATE"
 
+# CHROMIUM_PATH for the regenerate_svgs hook. The bash baseline reads this
+# from a sed-injected line in .git/hooks/pre-commit (set by its installer);
+# the framework wrapper reads it from the environment. Setting it here keeps
+# both runs equivalent. Falls back to mmdc auto-detect if Playwright not found.
+PLAYWRIGHT_BIN="$(find "${PLAYWRIGHT_BROWSERS_PATH:-$HOME/.cache/ms-playwright}" \
+    -name headless_shell -o -name chrome 2>/dev/null | head -1)"
+if [[ -n "$PLAYWRIGHT_BIN" && -x "$PLAYWRIGHT_BIN" ]]; then
+    export CHROMIUM_PATH="$PLAYWRIGHT_BIN"
+    echo "[setup] CHROMIUM_PATH: $CHROMIUM_PATH"
+fi
+
 # -----------------------------------------------------------------------------
 # Helper: clone repo at SHA into target directory
 # -----------------------------------------------------------------------------
@@ -138,6 +149,26 @@ prepare_clone() {
     git -C "$target" checkout --quiet "$sha"
     # Detach so the original branch ref is not used
     git -C "$target" checkout --quiet --detach
+    # mise refuses to use .mise.toml in untrusted paths; trust the clone so
+    # the installer's `npx --version` check (resolved via mise shim) works.
+    # Only treat absence of mise itself as acceptable; a present-but-failing
+    # `mise trust` is a real setup error.
+    if command -v mise >/dev/null 2>&1 && [[ -f "$target/.mise.toml" ]]; then
+        if ! mise trust "$target/.mise.toml" >/dev/null 2>&1; then
+            echo "Error: mise trust failed for $target/.mise.toml" >&2
+            exit 2
+        fi
+    fi
+    # Install npm deps (prettier + mermaid-cli) so npx invocations from inside
+    # the hooks resolve locally. Hard-fail on npm failure so a silent registry
+    # outage doesn't let the harness run with missing tools and produce a
+    # misleading parity FAIL.
+    if [[ -f "$target/package.json" ]]; then
+        if ! ( cd "$target" && npm install --silent --no-audit --no-fund --no-progress >/dev/null 2>&1 ); then
+            echo "Error: npm install failed in $target" >&2
+            exit 2
+        fi
+    fi
 }
 
 # -----------------------------------------------------------------------------
