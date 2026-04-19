@@ -291,8 +291,7 @@ class TestTriggerCombinatorics:
 
         assert result == 0
         assert mock_run.call_count == 2, (
-            f"Expected exactly 2 subprocess calls despite 3 triggers (dedup), "
-            f"got {mock_run.call_count}"
+            f"Expected exactly 2 subprocess calls despite 3 triggers (dedup), got {mock_run.call_count}"
         )
         calls = [c.args[0] for c in mock_run.call_args_list]
         assert calls.count(CMD_GENERATE) == 1, "Generation must run exactly once"
@@ -349,9 +348,7 @@ class TestSubprocessCommandShape:
             main([SAMPLE_TEMPLATE])
 
         calls = [c.args[0] for c in mock_run.call_args_list]
-        assert CMD_GENERATE in calls, (
-            f"Expected {CMD_GENERATE!r} in subprocess calls, got {calls!r}"
-        )
+        assert CMD_GENERATE in calls, f"Expected {CMD_GENERATE!r} in subprocess calls, got {calls!r}"
 
     def test_git_add_command_is_exactly_git_add_templates_dir(self):
         """
@@ -367,9 +364,7 @@ class TestSubprocessCommandShape:
             main([SAMPLE_TEMPLATE])
 
         calls = [c.args[0] for c in mock_run.call_args_list]
-        assert GIT_ADD_TEMPLATES in calls, (
-            f"Expected {GIT_ADD_TEMPLATES!r} in subprocess calls, got {calls!r}"
-        )
+        assert GIT_ADD_TEMPLATES in calls, f"Expected {GIT_ADD_TEMPLATES!r} in subprocess calls, got {calls!r}"
 
     def test_all_subprocess_calls_use_list_form_not_shell_strings(self):
         """
@@ -385,9 +380,7 @@ class TestSubprocessCommandShape:
 
         for c in mock_run.call_args_list:
             cmd = c.args[0]
-            assert isinstance(cmd, list), (
-                f"subprocess.run must be called with a list, got {type(cmd)}: {cmd!r}"
-            )
+            assert isinstance(cmd, list), f"subprocess.run must be called with a list, got {type(cmd)}: {cmd!r}"
 
 
 # ===========================================================================
@@ -406,6 +399,7 @@ class TestFailureModes:
         When: main() is called
         Then: main() returns non-zero
         """
+
         def side_effect(cmd, **kwargs):
             mock = _make_subprocess_mock(0)
             if cmd[0] == "git":
@@ -431,12 +425,8 @@ class TestFailureModes:
             result = main([SAMPLE_TEMPLATE])
 
         assert result != 0
-        git_add_calls = [
-            c for c in mock_run.call_args_list if c.args[0][0] == "git"
-        ]
-        assert len(git_add_calls) == 0, (
-            "git add must not be called when generation fails"
-        )
+        git_add_calls = [c for c in mock_run.call_args_list if c.args[0][0] == "git"]
+        assert len(git_add_calls) == 0, "git add must not be called when generation fails"
 
     def test_both_commands_succeed_returns_zero(self):
         """
@@ -478,9 +468,7 @@ class TestEdgeCases:
             result = main([abs_path])
 
         assert result == 0
-        assert mock_run.call_count == 2, (
-            "Absolute path matching a trigger pattern must fire generation"
-        )
+        assert mock_run.call_count == 2, "Absolute path matching a trigger pattern must fire generation"
 
     def test_mixed_argv_one_trigger_plus_unrelated_fires_exactly_one_generation(self):
         """
@@ -496,9 +484,7 @@ class TestEdgeCases:
             result = main([SAMPLE_SCHEMA, "README.md", "docs/guide.md"])
 
         assert result == 0
-        assert mock_run.call_count == 2, (
-            f"Mixed argv should trigger exactly once, got {mock_run.call_count} calls"
-        )
+        assert mock_run.call_count == 2, f"Mixed argv should trigger exactly once, got {mock_run.call_count} calls"
 
     def test_generation_precedes_git_add_in_call_order(self):
         """
@@ -520,9 +506,7 @@ class TestEdgeCases:
         generate_index = calls.index(CMD_GENERATE)
         git_add_index = calls.index(GIT_ADD_TEMPLATES)
 
-        assert generate_index < git_add_index, (
-            "Generation must precede git add in the subprocess call sequence"
-        )
+        assert generate_index < git_add_index, "Generation must precede git add in the subprocess call sequence"
 
 
 # ===========================================================================

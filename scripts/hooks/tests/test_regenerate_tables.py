@@ -70,28 +70,64 @@ YAML_TO_MD = "scripts/hooks/yaml_to_markdown.py"
 
 # Generation commands — must match the spec table exactly
 CMD_COMPONENTS_ALL_FORMATS = [
-    "python3", YAML_TO_MD, "components", "--all-formats", "--quiet",
+    "python3",
+    YAML_TO_MD,
+    "components",
+    "--all-formats",
+    "--quiet",
 ]
 CMD_CONTROLS_XREF_COMPONENTS = [
-    "python3", YAML_TO_MD, "controls", "--format", "xref-components", "--quiet",
+    "python3",
+    YAML_TO_MD,
+    "controls",
+    "--format",
+    "xref-components",
+    "--quiet",
 ]
 CMD_RISKS_ALL_FORMATS = [
-    "python3", YAML_TO_MD, "risks", "--all-formats", "--quiet",
+    "python3",
+    YAML_TO_MD,
+    "risks",
+    "--all-formats",
+    "--quiet",
 ]
 CMD_CONTROLS_XREF_RISKS = [
-    "python3", YAML_TO_MD, "controls", "--format", "xref-risks", "--quiet",
+    "python3",
+    YAML_TO_MD,
+    "controls",
+    "--format",
+    "xref-risks",
+    "--quiet",
 ]
 CMD_PERSONAS_XREF_RISKS = [
-    "python3", YAML_TO_MD, "personas", "--format", "xref-risks", "--quiet",
+    "python3",
+    YAML_TO_MD,
+    "personas",
+    "--format",
+    "xref-risks",
+    "--quiet",
 ]
 CMD_CONTROLS_ALL_FORMATS = [
-    "python3", YAML_TO_MD, "controls", "--all-formats", "--quiet",
+    "python3",
+    YAML_TO_MD,
+    "controls",
+    "--all-formats",
+    "--quiet",
 ]
 CMD_PERSONAS_XREF_CONTROLS = [
-    "python3", YAML_TO_MD, "personas", "--format", "xref-controls", "--quiet",
+    "python3",
+    YAML_TO_MD,
+    "personas",
+    "--format",
+    "xref-controls",
+    "--quiet",
 ]
 CMD_PERSONAS_ALL_FORMATS = [
-    "python3", YAML_TO_MD, "personas", "--all-formats", "--quiet",
+    "python3",
+    YAML_TO_MD,
+    "personas",
+    "--all-formats",
+    "--quiet",
 ]
 
 # git add targets — glob patterns are expanded by git itself
@@ -144,15 +180,9 @@ class TestTriggerCombinatorics:
 
         subprocess_calls = [c.args[0] for c in mock_run.call_args_list]
 
-        assert CMD_COMPONENTS_ALL_FORMATS in subprocess_calls, (
-            "components --all-formats generation missing"
-        )
-        assert CMD_CONTROLS_XREF_COMPONENTS in subprocess_calls, (
-            "controls xref-components generation missing"
-        )
-        assert GIT_ADD_COMPONENTS_TABLES in subprocess_calls, (
-            "git add for components-*.md missing"
-        )
+        assert CMD_COMPONENTS_ALL_FORMATS in subprocess_calls, "components --all-formats generation missing"
+        assert CMD_CONTROLS_XREF_COMPONENTS in subprocess_calls, "controls xref-components generation missing"
+        assert GIT_ADD_COMPONENTS_TABLES in subprocess_calls, "git add for components-*.md missing"
         assert GIT_ADD_CONTROLS_XREF_COMPONENTS in subprocess_calls, (
             "git add for controls-xref-components.md missing"
         )
@@ -282,12 +312,15 @@ class TestTriggerCombinatorics:
         def index_of(target):
             return next(i for i, c in enumerate(subprocess_calls) if c == target)
 
-        assert index_of(CMD_COMPONENTS_ALL_FORMATS) < index_of(CMD_RISKS_ALL_FORMATS), \
+        assert index_of(CMD_COMPONENTS_ALL_FORMATS) < index_of(CMD_RISKS_ALL_FORMATS), (
             "Components trigger group must run before risks trigger group"
-        assert index_of(CMD_RISKS_ALL_FORMATS) < index_of(CMD_CONTROLS_ALL_FORMATS), \
+        )
+        assert index_of(CMD_RISKS_ALL_FORMATS) < index_of(CMD_CONTROLS_ALL_FORMATS), (
             "Risks trigger group must run before controls trigger group"
-        assert index_of(CMD_CONTROLS_ALL_FORMATS) < index_of(CMD_PERSONAS_ALL_FORMATS), \
+        )
+        assert index_of(CMD_CONTROLS_ALL_FORMATS) < index_of(CMD_PERSONAS_ALL_FORMATS), (
             "Controls trigger group must run before personas trigger group"
+        )
 
         assert len(subprocess_calls) == 16, (
             f"Expected 16 subprocess calls for all 4 YAMLs, got {len(subprocess_calls)}"
@@ -318,8 +351,9 @@ class TestTriggerCombinatorics:
         assert CMD_CONTROLS_ALL_FORMATS in subprocess_calls, (
             "controls --all-formats (from controls trigger) must also run"
         )
-        assert len(subprocess_calls) == 8, \
+        assert len(subprocess_calls) == 8, (
             f"Expected 8 subprocess calls for components+controls, got {len(subprocess_calls)}"
+        )
 
     def test_risks_and_personas_staged_runs_three_risks_plus_one_personas_generation(self):
         """
@@ -344,8 +378,9 @@ class TestTriggerCombinatorics:
         assert CMD_CONTROLS_XREF_RISKS in subprocess_calls
         assert CMD_PERSONAS_XREF_RISKS in subprocess_calls
         assert CMD_PERSONAS_ALL_FORMATS in subprocess_calls
-        assert len(subprocess_calls) == 8, \
+        assert len(subprocess_calls) == 8, (
             f"Expected 8 subprocess calls for risks+personas, got {len(subprocess_calls)}"
+        )
 
     def test_unrelated_file_in_argv_triggers_no_generation(self):
         """
@@ -428,6 +463,7 @@ class TestGitAddAlignment:
         When: main() is called
         Then: GIT_ADD_PERSONAS_TABLES is never called
         """
+
         def side_effect(cmd, **kwargs):
             mock = _make_subprocess_mock(0)
             if cmd == CMD_PERSONAS_ALL_FORMATS:
@@ -438,9 +474,7 @@ class TestGitAddAlignment:
             main([PERSONAS_YAML])
 
         subprocess_calls = [c.args[0] for c in mock_run.call_args_list]
-        assert GIT_ADD_PERSONAS_TABLES not in subprocess_calls, (
-            "git add must not be called when generation fails"
-        )
+        assert GIT_ADD_PERSONAS_TABLES not in subprocess_calls, "git add must not be called when generation fails"
 
     def test_git_add_not_called_for_unrelated_file(self):
         """
@@ -473,6 +507,7 @@ class TestFailureModes:
         When: main() is called
         Then: Both generation commands are attempted, main() returns non-zero
         """
+
         def side_effect(cmd, **kwargs):
             mock = _make_subprocess_mock(0)
             if cmd == CMD_COMPONENTS_ALL_FORMATS:
@@ -497,6 +532,7 @@ class TestFailureModes:
         When: main() is called
         Then: main() returns non-zero
         """
+
         def side_effect(cmd, **kwargs):
             mock = _make_subprocess_mock(0)
             if cmd[0] == "git":
@@ -537,12 +573,8 @@ class TestFailureModes:
             result = main([RISKS_YAML])
 
         assert result != 0
-        git_add_calls = [
-            c for c in mock_run.call_args_list if c.args[0][0] == "git"
-        ]
-        assert len(git_add_calls) == 0, (
-            "git add must not be called when generation fails"
-        )
+        git_add_calls = [c for c in mock_run.call_args_list if c.args[0][0] == "git"]
+        assert len(git_add_calls) == 0, "git add must not be called when generation fails"
 
     def test_failure_in_components_trigger_does_not_skip_subsequent_triggers(self):
         """
@@ -552,6 +584,7 @@ class TestFailureModes:
         Then: all subsequent triggers (risks, controls, personas) still execute their
               generations; final exit code is non-zero.
         """
+
         def side_effect(cmd, **kwargs):
             mock = _make_subprocess_mock(0)
             if cmd == CMD_COMPONENTS_ALL_FORMATS:
@@ -584,6 +617,7 @@ class TestFailureModes:
         Then: git add called for risks and personas-xref-risks, NOT for controls-xref-risks;
               main() returns non-zero
         """
+
         def side_effect(cmd, **kwargs):
             mock = _make_subprocess_mock(0)
             if cmd == CMD_CONTROLS_XREF_RISKS:
@@ -596,9 +630,7 @@ class TestFailureModes:
         assert result != 0
 
         subprocess_calls = [c.args[0] for c in mock_run.call_args_list]
-        assert GIT_ADD_RISKS_TABLES in subprocess_calls, (
-            "git add must be called for succeeded risks generation"
-        )
+        assert GIT_ADD_RISKS_TABLES in subprocess_calls, "git add must be called for succeeded risks generation"
         assert GIT_ADD_PERSONAS_XREF_RISKS in subprocess_calls, (
             "git add must be called for succeeded personas-xref-risks generation"
         )
@@ -678,9 +710,7 @@ class TestEdgeCases:
 
         assert result == 0
         subprocess_calls = [c.args[0] for c in mock_run.call_args_list]
-        assert CMD_RISKS_ALL_FORMATS in subprocess_calls, (
-            "risks.yaml with ./ prefix must trigger generation"
-        )
+        assert CMD_RISKS_ALL_FORMATS in subprocess_calls, "risks.yaml with ./ prefix must trigger generation"
 
     def test_non_trigger_yaml_in_directory_does_not_generate(self):
         """
@@ -719,9 +749,7 @@ class TestSubprocessCallShape:
 
         for c in mock_run.call_args_list:
             cmd = c.args[0]
-            assert isinstance(cmd, list), (
-                f"subprocess.run must be called with a list, got {type(cmd)}: {cmd!r}"
-            )
+            assert isinstance(cmd, list), f"subprocess.run must be called with a list, got {type(cmd)}: {cmd!r}"
 
     def test_generation_precedes_git_add_for_each_rule(self):
         """

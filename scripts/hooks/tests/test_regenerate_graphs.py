@@ -224,9 +224,7 @@ class TestTriggerCombinatorics:
         # Each appears exactly once (no double-generation)
         assert subprocess_calls.count(CMD_RISK_MAP) == 1, "risk-map-graph generated more than once"
         assert subprocess_calls.count(CMD_CONTROLS) == 1, "controls-graph generated more than once"
-        assert subprocess_calls.count(CMD_RISK_GRAPH) == 1, (
-            "controls-to-risk-graph generated more than once"
-        )
+        assert subprocess_calls.count(CMD_RISK_GRAPH) == 1, "controls-to-risk-graph generated more than once"
 
     def test_all_three_yaml_files_staged_generates_all_three_without_duplication(self):
         """
@@ -312,9 +310,7 @@ class TestFailureModes:
 
         assert result != 0, "Should return non-zero when any generation fails"
         # All three generation commands must have been attempted
-        assert call_count["n"] >= 3, (
-            "Wrapper must attempt all generations even after an earlier failure"
-        )
+        assert call_count["n"] >= 3, "Wrapper must attempt all generations even after an earlier failure"
 
     def test_generation_succeeds_but_git_add_fails_returns_nonzero(self):
         """
@@ -324,6 +320,7 @@ class TestFailureModes:
         When: main() is called
         Then: main() returns non-zero
         """
+
         def side_effect(cmd, **kwargs):
             mock = _make_subprocess_mock(0)
             if cmd[0] == "git":
@@ -378,12 +375,8 @@ class TestFailureModes:
 
             main([COMPONENTS_YAML])
 
-        git_add_calls = [
-            c for c in mock_run.call_args_list if c.args[0][0] == "git"
-        ]
-        assert len(git_add_calls) == 0, (
-            "git add must not be called when the corresponding generation fails"
-        )
+        git_add_calls = [c for c in mock_run.call_args_list if c.args[0][0] == "git"]
+        assert len(git_add_calls) == 0, "git add must not be called when the corresponding generation fails"
 
     def test_second_generation_failure_does_not_prevent_third(self):
         """
@@ -394,6 +387,7 @@ class TestFailureModes:
         Then: Both controls-graph and risk-graph commands are attempted;
               main() returns non-zero (because one failed)
         """
+
         def side_effect(cmd, **kwargs):
             mock = _make_subprocess_mock(0)
             if cmd == CMD_CONTROLS:
@@ -420,6 +414,7 @@ class TestFailureModes:
         Then: GIT_ADD_RISK_GRAPH is called, GIT_ADD_CONTROLS is NOT called,
               and main() returns non-zero
         """
+
         def side_effect(cmd, **kwargs):
             mock = _make_subprocess_mock(0)
             if cmd == CMD_CONTROLS:
@@ -646,9 +641,7 @@ class TestSubprocessCallShape:
 
         for c in mock_run.call_args_list:
             cmd = c.args[0]
-            assert isinstance(cmd, list), (
-                f"subprocess.run must receive a list, got {type(cmd)}: {cmd!r}"
-            )
+            assert isinstance(cmd, list), f"subprocess.run must receive a list, got {type(cmd)}: {cmd!r}"
 
     def test_git_add_commands_are_called_as_lists_not_shell_strings(self):
         """
@@ -666,9 +659,7 @@ class TestSubprocessCallShape:
         assert len(git_calls) >= 1, "Expected at least one git add call"
         for c in git_calls:
             cmd = c.args[0]
-            assert isinstance(cmd, list), (
-                f"git add must be called with a list, got {type(cmd)}: {cmd!r}"
-            )
+            assert isinstance(cmd, list), f"git add must be called with a list, got {type(cmd)}: {cmd!r}"
 
     def test_generation_precedes_git_add_for_each_graph(self):
         """

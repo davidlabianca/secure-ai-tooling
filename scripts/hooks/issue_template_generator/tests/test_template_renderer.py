@@ -2386,13 +2386,7 @@ class TestDeprecatedPersonaFiltering:
         # Synthetic personas schema — includes both active and deprecated IDs
         personas_schema = {
             "$id": "personas.schema.json",
-            "definitions": {
-                "persona": {
-                    "properties": {
-                        "id": {"enum": ["personaActive", "personaDeprecatedX"]}
-                    }
-                }
-            },
+            "definitions": {"persona": {"properties": {"id": {"enum": ["personaActive", "personaDeprecatedX"]}}}},
         }
         (schema_dir / "personas.schema.json").write_text(json.dumps(personas_schema))
 
@@ -2444,11 +2438,7 @@ class TestDeprecatedPersonaFiltering:
         lifecycle_schema = {
             "$id": "lifecycle-stage.schema.json",
             "definitions": {
-                "lifecycleStage": {
-                    "properties": {
-                        "id": {"enum": ["planning", "deployment", "maintenance"]}
-                    }
-                }
+                "lifecycleStage": {"properties": {"id": {"enum": ["planning", "deployment", "maintenance"]}}}
             },
         }
         (schema_dir / "lifecycle-stage.schema.json").write_text(json.dumps(lifecycle_schema))
@@ -2609,13 +2599,7 @@ class TestExcludeIdsMechanism:
         # Synthetic schema with three persona IDs
         synthetic_schema = {
             "$id": "personas.schema.json",
-            "definitions": {
-                "persona": {
-                    "properties": {
-                        "id": {"enum": ["personaA", "personaB", "personaC"]}
-                    }
-                }
-            },
+            "definitions": {"persona": {"properties": {"id": {"enum": ["personaA", "personaB", "personaC"]}}}},
         }
         (schema_dir / "personas.schema.json").write_text(json.dumps(synthetic_schema))
 
@@ -2676,13 +2660,7 @@ class TestExcludeIdsMechanism:
 
         synthetic_schema = {
             "$id": "personas.schema.json",
-            "definitions": {
-                "persona": {
-                    "properties": {
-                        "id": {"enum": ["personaA", "personaB", "personaC"]}
-                    }
-                }
-            },
+            "definitions": {"persona": {"properties": {"id": {"enum": ["personaA", "personaB", "personaC"]}}}},
         }
         (schema_dir / "personas.schema.json").write_text(json.dumps(synthetic_schema))
 

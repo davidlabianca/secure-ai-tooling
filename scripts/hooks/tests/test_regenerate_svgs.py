@@ -84,12 +84,18 @@ def _make_subprocess_mock(returncode: int = 0) -> MagicMock:
 def _mmdc_cmd(input_path: str, output_path: str, config_path: str) -> list:
     """Return the expected mmdc command for a given input/output/config path."""
     return [
-        "npx", "mmdc",
-        "-i", input_path,
-        "-o", output_path,
-        "-t", "neutral",
-        "-b", "transparent",
-        "-p", config_path,
+        "npx",
+        "mmdc",
+        "-i",
+        input_path,
+        "-o",
+        output_path,
+        "-t",
+        "neutral",
+        "-b",
+        "transparent",
+        "-p",
+        config_path,
     ]
 
 
@@ -282,9 +288,7 @@ class TestMainHappyPath:
             result = main([SAMPLE_MMD])
 
         assert result == 0
-        assert mock_run.call_count == 2, (
-            f"Expected 2 subprocess calls (mmdc + git add), got {mock_run.call_count}"
-        )
+        assert mock_run.call_count == 2, f"Expected 2 subprocess calls (mmdc + git add), got {mock_run.call_count}"
 
     def test_mmdc_command_includes_required_flags(self):
         """
@@ -305,9 +309,12 @@ class TestMainHappyPath:
 
         mmdc_cmd = mmdc_calls[0]
         assert mmdc_cmd[0:6] == [
-            "npx", "mmdc",
-            "-i", SAMPLE_MMD,
-            "-o", SAMPLE_SVG_FROM_MMD,
+            "npx",
+            "mmdc",
+            "-i",
+            SAMPLE_MMD,
+            "-o",
+            SAMPLE_SVG_FROM_MMD,
         ]
         assert mmdc_cmd[6:10] == ["-t", "neutral", "-b", "transparent"]
         assert mmdc_cmd[10] == "-p"
@@ -329,9 +336,7 @@ class TestMainHappyPath:
         calls = [c.args[0] for c in mock_run.call_args_list]
         git_calls = [c for c in calls if c[0] == "git"]
         assert len(git_calls) == 1, "Expected exactly one git add call"
-        assert git_calls[0] == _git_add_cmd(SAMPLE_SVG_FROM_MMD), (
-            f"git add called with wrong path: {git_calls[0]}"
-        )
+        assert git_calls[0] == _git_add_cmd(SAMPLE_SVG_FROM_MMD), f"git add called with wrong path: {git_calls[0]}"
 
     def test_two_mmd_files_make_two_mmdc_calls_and_two_git_adds(self):
         """
@@ -362,16 +367,16 @@ class TestMainHappyPath:
         with patch("subprocess.run") as mock_run:
             mock_run.return_value = _make_subprocess_mock(0)
 
-            result = main([
-                "risk-map/diagrams/foo.mmd",
-                "risk-map/diagrams/bar.mermaid",
-                "risk-map/diagrams/ignored.txt",
-            ])
+            result = main(
+                [
+                    "risk-map/diagrams/foo.mmd",
+                    "risk-map/diagrams/bar.mermaid",
+                    "risk-map/diagrams/ignored.txt",
+                ]
+            )
 
         assert result == 0
-        assert mock_run.call_count == 4, (
-            f"Expected 4 subprocess calls (2 valid files), got {mock_run.call_count}"
-        )
+        assert mock_run.call_count == 4, f"Expected 4 subprocess calls (2 valid files), got {mock_run.call_count}"
 
 
 # ===========================================================================
@@ -441,24 +446,23 @@ class TestFailureModes:
         When: main() is called
         Then: both mmdc calls are attempted, main() returns non-zero
         """
+
         def side_effect(cmd, **kwargs):
             if cmd[0] == "npx" and cmd[cmd.index("-i") + 1] == "risk-map/diagrams/first.mmd":
                 return _make_subprocess_mock(1)
             return _make_subprocess_mock(0)
 
         with patch("subprocess.run", side_effect=side_effect) as mock_run:
-            result = main([
-                "risk-map/diagrams/first.mmd",
-                "risk-map/diagrams/second.mmd",
-            ])
+            result = main(
+                [
+                    "risk-map/diagrams/first.mmd",
+                    "risk-map/diagrams/second.mmd",
+                ]
+            )
 
         assert result != 0, "Should return non-zero when any mmdc call fails"
-        npx_calls = [
-            c for c in mock_run.call_args_list if c.args[0][0] == "npx"
-        ]
-        assert len(npx_calls) == 2, (
-            "Both mmdc calls must be attempted even after the first failure"
-        )
+        npx_calls = [c for c in mock_run.call_args_list if c.args[0][0] == "npx"]
+        assert len(npx_calls) == 2, "Both mmdc calls must be attempted even after the first failure"
 
     def test_mmdc_succeeds_but_git_add_fails_returns_nonzero(self):
         """
@@ -468,6 +472,7 @@ class TestFailureModes:
         When: main() is called
         Then: main() returns non-zero
         """
+
         def side_effect(cmd, **kwargs):
             mock = _make_subprocess_mock(0)
             if cmd[0] == "git":
@@ -508,12 +513,8 @@ class TestFailureModes:
             result = main([SAMPLE_MMD, SAMPLE_MERMAID])
 
         assert result != 0
-        git_add_calls = [
-            c for c in mock_run.call_args_list if c.args[0][0] == "git"
-        ]
-        assert len(git_add_calls) == 0, (
-            "git add must not be called when mmdc fails"
-        )
+        git_add_calls = [c for c in mock_run.call_args_list if c.args[0][0] == "git"]
+        assert len(git_add_calls) == 0, "git add must not be called when mmdc fails"
 
 
 # ===========================================================================
@@ -524,9 +525,7 @@ class TestFailureModes:
 class TestEnvHandling:
     """Tests for CHROMIUM_PATH environment variable influence on puppeteer config."""
 
-    def test_chromium_path_unset_produces_config_without_executable_path(
-        self, monkeypatch, tmp_path
-    ):
+    def test_chromium_path_unset_produces_config_without_executable_path(self, monkeypatch, tmp_path):
         """
         When CHROMIUM_PATH is unset and ARM64 discovery finds nothing, config has no executablePath.
 
@@ -563,9 +562,7 @@ class TestEnvHandling:
             "Config must not contain executablePath when CHROMIUM_PATH is unset and discovery finds nothing"
         )
 
-    def test_chromium_path_empty_string_produces_config_without_executable_path(
-        self, monkeypatch
-    ):
+    def test_chromium_path_empty_string_produces_config_without_executable_path(self, monkeypatch):
         """
         When CHROMIUM_PATH is "" (empty) and discovery finds nothing, config has no executablePath.
 
@@ -596,13 +593,9 @@ class TestEnvHandling:
             main([SAMPLE_MMD])
 
         assert len(captured_configs) == 1
-        assert "executablePath" not in captured_configs[0], (
-            "Empty CHROMIUM_PATH must be treated the same as unset"
-        )
+        assert "executablePath" not in captured_configs[0], "Empty CHROMIUM_PATH must be treated the same as unset"
 
-    def test_chromium_path_set_produces_config_with_executable_path(
-        self, monkeypatch
-    ):
+    def test_chromium_path_set_produces_config_with_executable_path(self, monkeypatch):
         """
         When CHROMIUM_PATH=/usr/bin/chromium, config includes executablePath.
 
@@ -678,12 +671,11 @@ class TestCleanup:
 
         assert len(written_temp_paths) >= 1, "Expected at least one temp file to have been created"
         for call_args in mock_ntf.call_args_list:
-            assert call_args.kwargs.get("delete") is False, \
+            assert call_args.kwargs.get("delete") is False, (
                 "NamedTemporaryFile must use delete=False so finally block owns cleanup"
-        for temp_path in written_temp_paths:
-            assert not Path(temp_path).exists(), (
-                f"Temp config file {temp_path!r} was not deleted in finally block"
             )
+        for temp_path in written_temp_paths:
+            assert not Path(temp_path).exists(), f"Temp config file {temp_path!r} was not deleted in finally block"
 
 
 # ===========================================================================
@@ -708,9 +700,7 @@ class TestSubprocessCallShape:
 
         for c in mock_run.call_args_list:
             cmd = c.args[0]
-            assert isinstance(cmd, list), (
-                f"subprocess.run must be called with a list, got {type(cmd)}: {cmd!r}"
-            )
+            assert isinstance(cmd, list), f"subprocess.run must be called with a list, got {type(cmd)}: {cmd!r}"
 
     def test_mmdc_precedes_git_add_for_each_file(self):
         """
@@ -723,10 +713,12 @@ class TestSubprocessCallShape:
         """
         with patch("subprocess.run") as mock_run:
             mock_run.return_value = _make_subprocess_mock(0)
-            main([
-                "risk-map/diagrams/alpha.mmd",
-                "risk-map/diagrams/beta.mmd",
-            ])
+            main(
+                [
+                    "risk-map/diagrams/alpha.mmd",
+                    "risk-map/diagrams/beta.mmd",
+                ]
+            )
 
         calls = [c.args[0] for c in mock_run.call_args_list]
 
@@ -737,12 +729,8 @@ class TestSubprocessCallShape:
         assert len(git_indices) == 2, "Expected 2 git add calls"
 
         # First mmdc must precede first git add; second mmdc must precede second git add
-        assert npx_indices[0] < git_indices[0], (
-            "First mmdc call must precede first git add"
-        )
-        assert npx_indices[1] < git_indices[1], (
-            "Second mmdc call must precede second git add"
-        )
+        assert npx_indices[0] < git_indices[0], "First mmdc call must precede first git add"
+        assert npx_indices[1] < git_indices[1], "Second mmdc call must precede second git add"
 
 
 # ===========================================================================
