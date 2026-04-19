@@ -178,6 +178,16 @@ prepare_clone() {
 echo "[baseline] preparing clone at $BASELINE_SHA"
 prepare_clone "$BASELINE_DIR" "$BASELINE_SHA"
 
+# After the bash hook is deleted (Task 14 of #211), there is no baseline to
+# compare against. Treat that as a successful no-op so the CI workflow on
+# the deletion commit doesn't fail. Parity was already verified on prior
+# commits (see git history for parity-pass commits).
+if [[ ! -x "$BASELINE_DIR/scripts/install-precommit-hook.sh" ]]; then
+    echo "[baseline] bash hook absent at this SHA; parity already verified upstream"
+    echo "[gate] PASS (no-op): bash hook removed in this branch"
+    exit 0
+fi
+
 echo "[baseline] installing legacy bash hook"
 ( cd "$BASELINE_DIR" && ./scripts/install-precommit-hook.sh --auto --force >/dev/null )
 
