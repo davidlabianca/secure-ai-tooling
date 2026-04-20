@@ -1,31 +1,63 @@
 # Validation Flow
 
-When you commit changes, the hook will:
+When you commit changes, the pre-commit framework reads `.pre-commit-config.yaml`
+at the repo root, selects hooks whose `files:` regex matches the staged set,
+and runs them in declaration order. The sequence below matches the current
+config exactly. Each hook only runs when its trigger files are staged; unused
+hooks show `(no files to check) Skipped` in the output.
 
-1. **Schema Validation** - Check YAML structure and data types
-2. **Prettier Formatting** - Format YAML files in `risk-map/yaml/` and re-stage them
-3. **Ruff Linting** - Lint Python files for code quality
-4. **Edge Validation** - Verify component relationship consistency
-5. **Graph Generation** - Generate and stage graphs based on file changes:
-   - If `components.yaml` changed: generate `./risk-map/diagrams/risk-map-graph.md`
-   - If `components.yaml` or `controls.yaml` changed: generate `./risk-map/diagrams/controls-graph.md`
-   - If `components.yaml`, `controls.yaml` or `risks.yaml` changed: generate `./risk-map/diagrams/controls-to-risk-graph.md`
-6. **SVG Generation** - Convert staged Mermaid files to SVG format:
-   - If `.mmd/.mermaid` files changed: generate corresponding SVG files in `./risk-map/svg/`
-7. **Table Generation** - Convert staged YAML files to markdown tables:
-   - If `components.yaml` changed: generate component tables + regenerate controls-xref-components
-   - If `risks.yaml` changed: generate risk tables + regenerate controls-xref-risks
-   - If `controls.yaml` changed: generate all 4 control table formats
-8. **Control-Risk Validation** - Verify control-risk cross-reference consistency
-9. **Issue Template Generation** - Regenerate templates when dependencies change (schemas, frameworks, template sources)
-10. **GitHub Config Validation** - Validate issue templates against `vendor.github-issue-forms`/`vendor.github-issue-config` and `dependabot.yml` against `vendor.dependabot`
-11. **Block commit** if any validation fails
+1. **Schema Validation** — one `check-jsonschema` hook per yaml/schema pair
+   (10 pairs: actor-access, components, controls, frameworks, impact-type,
+   lifecycle-stage, mermaid-styles, personas, risks, self-assessment).
+2. **Schema Meta-Validation** — `check-metaschema` validates each
+   `risk-map/schemas/*.schema.json` is itself a structurally valid JSON
+   Schema against its declared `$schema` metaschema.
+3. **Schema Master Trigger** — when `risk-map/schemas/riskmap.schema.json`
+   itself is staged, every yaml is re-validated against its schema.
+4. **Prettier Formatting** — `prettier-yaml` wrapper formats yamls under
+   `risk-map/yaml/` and `git add`s the reformatted output (Mode B auto-stage).
+5. **Ruff Lint** — `ruff` checks staged Python files.
+6. **Ruff Format** — `ruff-format` formats staged Python files.
+7. **Component Edge Validation** — `validate_riskmap.py` runs when
+   `components.yaml` is staged.
+8. **Control-to-Risk Reference Validation** — `validate_control_risk_references.py`
+   runs when `controls.yaml` or `risks.yaml` is staged.
+9. **Framework Reference Validation** — `validate_framework_references.py`
+   runs when `controls`, `frameworks`, `personas`, or `risks` yaml is staged.
+10. **Issue Template Regeneration** — `regenerate_issue_templates.py` runs
+    when any template source, any schema, or `frameworks.yaml` is staged;
+    generates `.github/ISSUE_TEMPLATE/*.yml` and stages them.
+11. **Issue Template Validation** — `validate_issue_templates.py` runs when
+    anything under `.github/ISSUE_TEMPLATE/` or `scripts/TEMPLATES/` is
+    staged (including the files just regenerated in step 10).
+12. **Graph Regeneration** — `regenerate_graphs.py` produces risk-map graph,
+    controls graph, and controls-to-risk graph (3 markdown + 3 mermaid outputs)
+    based on which of `components.yaml`, `controls.yaml`, `risks.yaml` is
+    staged. Each output pair is `git add`-ed on success.
+13. **Table Regeneration** — `regenerate_tables.py` regenerates 8 table
+    outputs across 4 triggers (see `scripts/docs/table-generation.md`).
+14. **SVG Regeneration** — `regenerate_svgs.py` converts staged
+    `risk-map/diagrams/*.mmd` or `*.mermaid` files to SVG.
 
-**Note**: Graph and table generation only occur when relevant files are staged for commit, not in `--force` mode.
+The commit is blocked if any hook returns non-zero.
+
+## Running the full sequence manually
+
+```bash
+# Against the working tree (does NOT require staged files):
+pre-commit run --all-files
+
+# Against only staged files (same as what git commit does):
+pre-commit run
+```
+
+Note: `pre-commit run --all-files` will also run the generators, which may
+modify derivatives in your working tree. To validate without regeneration,
+use `scripts/tools/validate-all.sh` (see [Manual Validation](manual-validation.md)).
 
 ---
 
 **Related:**
-- [Hook Validations](hook-validations.md) - Details of each validation
-- [Manual Validation](manual-validation.md) - Running validations with --force
-- [Troubleshooting](troubleshooting.md) - Handling validation failures
+- [Hook Validations](hook-validations.md) — Details of each hook
+- [Manual Validation](manual-validation.md) — Running validators without committing
+- [Troubleshooting](troubleshooting.md) — Handling validation failures

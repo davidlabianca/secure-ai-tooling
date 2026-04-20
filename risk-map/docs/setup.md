@@ -17,10 +17,10 @@ The repository includes a VS Code Dev Container configuration that provides a pr
 1. **Open the repository in VS Code**
 2. **Reopen in Container**: When prompted (or use Command Palette: "Dev Containers: Reopen in Container")
 3. **Wait for container build**: The first build creates the base image, then `install-deps.sh` runs automatically to install all runtime tools via mise
-4. **Pre-commit hooks are installed automatically** as part of the container setup (via `install-deps.sh` Step 8). To re-install manually if needed:
+4. **Pre-commit hooks are installed automatically** as part of the container setup (via `install-deps.sh` Step 8, which invokes `pre-commit install` against `.pre-commit-config.yaml`). To re-install manually if needed:
 
    ```bash
-   bash ./scripts/install-precommit-hook.sh
+   pre-commit install --overwrite
    ```
 
 The Dev Container automatically provides:
@@ -76,18 +76,21 @@ The repository handles Mermaid diagrams with different approaches for local deve
 
 ### Platform-Specific Setup
 
-**Note**: If using the Dev Container, Chrome/Chromium is pre-installed. For manual setup:
+**Note**: If using the Dev Container, Chrome/Chromium is pre-installed. For manual setup, the `regenerate-svgs` hook self-discovers a Chromium binary at runtime — you do not need to sed-inject paths into the hook.
 
-- **Mac/Windows/Linux x64**: Chrome automatically handled by puppeteer
-- **Linux ARM64**: Requires manual Chromium setup:
+Discovery order:
 
-  ```bash
-  # Use the --install-playwright flag during setup
-  ./scripts/install-precommit-hook.sh --install-playwright
+1. `CHROMIUM_PATH` env var (if set and non-empty) — explicit override
+2. On Linux ARM64: `$PLAYWRIGHT_BROWSERS_PATH` (or `~/.cache/ms-playwright`) is searched recursively for `headless_shell` then `chrome`
+3. Otherwise: mmdc's bundled detection (works on Mac / Windows / Linux x64 with system Chrome)
 
-  # Or install manually
-  npx playwright install chromium --with-deps
-  ```
+For Linux ARM64 contributors, install Playwright Chromium once:
+
+```bash
+npx playwright install chromium --with-deps
+```
+
+`install-deps.sh` Step 7 does this automatically. To explicitly override discovery, export `CHROMIUM_PATH` before committing.
 
 ---
 

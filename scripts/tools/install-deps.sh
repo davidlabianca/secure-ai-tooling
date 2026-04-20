@@ -517,30 +517,27 @@ fi
 # Step 8: Pre-commit hooks
 # =============================================================================
 step_msg 8 "Pre-commit hooks"
-info_msg "Installing pre-commit hooks..."
-PRECOMMIT_SCRIPT="$REPO_ROOT/scripts/install-precommit-hook.sh"
+info_msg "Installing pre-commit framework hook..."
 
-# install-precommit-hook.sh uses 'git rev-parse --show-toplevel' which fails
-# in devcontainers where the workspace is mounted with different ownership.
-# Mark the repo as safe so git commands work for the current user.
+# `pre-commit install` writes a shim into .git/hooks/pre-commit that delegates
+# to the framework runtime, which reads .pre-commit-config.yaml at the repo
+# root. Devcontainers can fail `git rev-parse --show-toplevel` due to volume
+# ownership mismatch — mark the repo as safe up front.
 if command -v git &>/dev/null; then
     RESOLVED_ROOT="$(cd "$REPO_ROOT" && pwd -P)"
     git config --global --add safe.directory "$RESOLVED_ROOT" 2>/dev/null || true
 fi
 
-if [[ -x "$PRECOMMIT_SCRIPT" ]]; then
-    if [[ "$DRY_RUN" == "true" ]]; then
-        dry_run_msg "Would run: $PRECOMMIT_SCRIPT --force --auto --install-playwright"
-    else
-        bash "$PRECOMMIT_SCRIPT" --force --auto --install-playwright
-        if [[ $? -ne 0 ]]; then
-            fail_msg "Pre-commit hook installation failed"
-        else
-            pass_msg "Pre-commit hooks installed"
-        fi
-    fi
+if [[ "$DRY_RUN" == "true" ]]; then
+    dry_run_msg "Would run: python3 -m pre_commit install --overwrite (in $REPO_ROOT)"
 else
-    fail_msg "install-precommit-hook.sh not found or not executable at $PRECOMMIT_SCRIPT"
+    if (cd "$REPO_ROOT" && python3 -m pre_commit install --overwrite); then
+        pass_msg "Pre-commit framework hook installed"
+        # regenerate_svgs.py self-discovers Playwright Chromium on ARM64 Linux;
+        # CHROMIUM_PATH env override is honored if set.
+    else
+        fail_msg "pre-commit install failed (is the pre-commit package present?)"
+    fi
 fi
 
 # =============================================================================

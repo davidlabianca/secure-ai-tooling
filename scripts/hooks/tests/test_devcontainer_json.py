@@ -344,8 +344,7 @@ class TestDevcontainerJsonCommands:
         onCreateCommand. postCreateCommand should no longer exist.
         """
         assert "postCreateCommand" not in devcontainer_json, (
-            "devcontainer.json should not have postCreateCommand "
-            "(replaced by onCreateCommand)"
+            "devcontainer.json should not have postCreateCommand (replaced by onCreateCommand)"
         )
 
 
@@ -551,9 +550,7 @@ class TestDevcontainerJsonBuildConfig:
         can COPY .mise.toml and install mise during the build.
         """
         build_context = devcontainer_json.get("build", {}).get("context")
-        assert build_context == "..", (
-            f"devcontainer.json build.context should be '..', got: {build_context}"
-        )
+        assert build_context == "..", f"devcontainer.json build.context should be '..', got: {build_context}"
 
     def test_build_dockerfile_path(self, devcontainer_json):
         """
@@ -601,8 +598,7 @@ class TestDevcontainerJsonRemoteEnv:
         """
         remote_env = devcontainer_json.get("remoteEnv")
         assert remote_env is not None, (
-            "devcontainer.json should have remoteEnv to inject mise paths "
-            "into VS Code Server environment"
+            "devcontainer.json should have remoteEnv to inject mise paths into VS Code Server environment"
         )
         assert isinstance(remote_env, dict), (
             f"devcontainer.json remoteEnv should be a dict, got: {type(remote_env)}"
@@ -620,9 +616,7 @@ class TestDevcontainerJsonRemoteEnv:
         """
         remote_env = devcontainer_json.get("remoteEnv", {})
         path_value = remote_env.get("PATH", "")
-        assert "mise/shims" in path_value, (
-            f"remoteEnv PATH should include mise shims directory, got: {path_value}"
-        )
+        assert "mise/shims" in path_value, f"remoteEnv PATH should include mise shims directory, got: {path_value}"
 
     def test_remote_env_path_includes_mise_bin(self, devcontainer_json):
         """
@@ -636,9 +630,7 @@ class TestDevcontainerJsonRemoteEnv:
         """
         remote_env = devcontainer_json.get("remoteEnv", {})
         path_value = remote_env.get("PATH", "")
-        assert ".local/bin" in path_value, (
-            f"remoteEnv PATH should include .local/bin directory, got: {path_value}"
-        )
+        assert ".local/bin" in path_value, f"remoteEnv PATH should include .local/bin directory, got: {path_value}"
 
     def test_remote_env_path_no_containerenv_home(self, devcontainer_json):
         """
@@ -672,8 +664,7 @@ class TestDevcontainerJsonRemoteEnv:
         remote_env = devcontainer_json.get("remoteEnv", {})
         path_value = remote_env.get("PATH", "")
         assert "${containerEnv:PATH}" in path_value, (
-            f"remoteEnv PATH should reference ${{containerEnv:PATH}} to "
-            f"preserve existing PATH, got: {path_value}"
+            f"remoteEnv PATH should reference ${{containerEnv:PATH}} to preserve existing PATH, got: {path_value}"
         )
 
 

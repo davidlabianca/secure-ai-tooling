@@ -76,7 +76,7 @@ Installation Order Tested:
 5. npm packages (npm install)
 6. act (curl nektos/act install script)
 7. Playwright Chromium (npx playwright install chromium)
-8. Pre-commit hooks (install-precommit-hook.sh --force --auto --install-playwright)
+8. Pre-commit hooks (python3 -m pre_commit install --overwrite)
 9. Verification (verify-deps.sh as final gate)
 
 Testing Approach:
@@ -246,10 +246,14 @@ def create_full_stub_env(tmp_path, overrides=None):
         "wget": ("#!/bin/bash\nexit 0\n"),
     }
 
-    # Apply overrides: None removes the tool, string replaces the stub
+    # Apply overrides: None removes the tool, string replaces the stub.
+    # `verify-deps` is handled separately above. The `install-precommit-hook`
+    # key is accepted but ignored for backward compatibility — #211 removed
+    # the bash installer; install-deps.sh now invokes `python3 -m pre_commit`
+    # directly, and the failure-mode test overrides `python3` instead.
     for tool, content in overrides.items():
         if tool in ("verify-deps", "install-precommit-hook"):
-            continue  # already handled above
+            continue
         if content is None:
             default_stubs.pop(tool, None)
         else:
@@ -261,19 +265,8 @@ def create_full_stub_env(tmp_path, overrides=None):
         stub_file.write_text(content)
         stub_file.chmod(0o755)
 
-    # Create install-precommit-hook.sh stub in fake repo's scripts/ directory
-    scripts_dir = repo_root / "scripts"
-    scripts_dir.mkdir(exist_ok=True)
-    precommit_script = scripts_dir / "install-precommit-hook.sh"
-    precommit_content = overrides.get(
-        "install-precommit-hook",
-        "#!/bin/bash\nexit 0\n",
-    )
-    if precommit_content is not None:
-        precommit_script.write_text(precommit_content)
-        precommit_script.chmod(0o755)
-
-    # Create .git/hooks directory in fake repo (for pre-commit hook installation)
+    # Create .git/hooks directory in fake repo so `pre_commit install` has
+    # somewhere to drop its shim.
     git_hooks_dir = repo_root / ".git" / "hooks"
     git_hooks_dir.mkdir(parents=True, exist_ok=True)
 
@@ -1616,9 +1609,7 @@ class TestPathPersistenceBashrcCreated:
 
         assert bashrc.exists(), f"~/.bashrc should have been created at {bashrc}"
         content = bashrc.read_text()
-        assert "mise/shims" in content, (
-            f"~/.bashrc should contain 'mise/shims' PATH export.\nContent:\n{content}"
-        )
+        assert "mise/shims" in content, f"~/.bashrc should contain 'mise/shims' PATH export.\nContent:\n{content}"
 
 
 class TestPathPersistenceIdempotent:
@@ -1640,7 +1631,7 @@ class TestPathPersistenceIdempotent:
         bashrc = home_dir / ".bashrc"
         # Pre-create with the expected line
         bashrc.write_text(
-            '# mise shims PATH (added by install-deps.sh)\n'
+            "# mise shims PATH (added by install-deps.sh)\n"
             'export PATH="$HOME/.local/share/mise/shims:$HOME/.local/bin:$PATH"\n'
         )
 
@@ -1655,8 +1646,7 @@ class TestPathPersistenceIdempotent:
         content = bashrc.read_text()
         count = content.count("mise/shims")
         assert count == 1, (
-            f"~/.bashrc should contain exactly 1 'mise/shims' line, found {count}.\n"
-            f"Content:\n{content}"
+            f"~/.bashrc should contain exactly 1 'mise/shims' line, found {count}.\nContent:\n{content}"
         )
 
     def test_bashrc_skip_message_when_already_present(self, tmp_path):
@@ -1671,7 +1661,7 @@ class TestPathPersistenceIdempotent:
         home_dir = tmp_path / "home"
         bashrc = home_dir / ".bashrc"
         bashrc.write_text(
-            '# mise shims PATH (added by install-deps.sh)\n'
+            "# mise shims PATH (added by install-deps.sh)\n"
             'export PATH="$HOME/.local/share/mise/shims:$HOME/.local/bin:$PATH"\n'
         )
 
@@ -1685,12 +1675,12 @@ class TestPathPersistenceIdempotent:
 
         combined_output = result.stdout + result.stderr
         skip_path_lines = [
-            line for line in combined_output.splitlines()
+            line
+            for line in combined_output.splitlines()
             if "SKIP" in line and ("PATH" in line or "bashrc" in line.lower())
         ]
         assert len(skip_path_lines) > 0, (
-            f"Output should have [SKIP] line for PATH/bashrc when already present.\n"
-            f"Output:\n{combined_output}"
+            f"Output should have [SKIP] line for PATH/bashrc when already present.\nOutput:\n{combined_output}"
         )
 
 
@@ -1721,9 +1711,7 @@ class TestPathPersistenceDryRun:
             timeout=30,
         )
 
-        assert not bashrc.exists(), (
-            "~/.bashrc should NOT be created in --dry-run mode."
-        )
+        assert not bashrc.exists(), "~/.bashrc should NOT be created in --dry-run mode."
 
     def test_dry_run_shows_would_append_message(self, tmp_path):
         """
@@ -1749,12 +1737,10 @@ class TestPathPersistenceDryRun:
 
         combined_output = result.stdout + result.stderr
         dry_run_bashrc_lines = [
-            line for line in combined_output.splitlines()
-            if "DRY-RUN" in line and "bashrc" in line.lower()
+            line for line in combined_output.splitlines() if "DRY-RUN" in line and "bashrc" in line.lower()
         ]
         assert len(dry_run_bashrc_lines) > 0, (
-            f"Output should have [DRY-RUN] line referencing bashrc.\n"
-            f"Output:\n{combined_output}"
+            f"Output should have [DRY-RUN] line referencing bashrc.\nOutput:\n{combined_output}"
         )
 
 
@@ -1789,9 +1775,7 @@ class TestPathPersistenceContent:
         content = bashrc.read_text()
         expected_line = 'export PATH="$HOME/.local/share/mise/shims:$HOME/.local/bin:$PATH"'
         assert expected_line in content, (
-            f"~/.bashrc should contain the exact export line.\n"
-            f"Expected: {expected_line}\n"
-            f"Content:\n{content}"
+            f"~/.bashrc should contain the exact export line.\nExpected: {expected_line}\nContent:\n{content}"
         )
 
 
@@ -1817,16 +1801,14 @@ class TestNonInteractiveCommands:
         content = SCRIPT_PATH.read_text()
         # Find lines containing 'pip install' (the actual install, not dry-run messages)
         pip_install_lines = [
-            line.strip() for line in content.splitlines()
+            line.strip()
+            for line in content.splitlines()
             if "pip install" in line and "dry_run_msg" not in line and "fail_msg" not in line
         ]
-        assert len(pip_install_lines) > 0, (
-            "Script should contain at least one 'pip install' command line."
-        )
+        assert len(pip_install_lines) > 0, "Script should contain at least one 'pip install' command line."
         has_no_input = any("--no-input" in line for line in pip_install_lines)
         assert has_no_input, (
-            f"pip install command should include '--no-input' flag.\n"
-            f"Found pip install lines: {pip_install_lines}"
+            f"pip install command should include '--no-input' flag.\nFound pip install lines: {pip_install_lines}"
         )
 
     def test_npm_install_uses_non_interactive_flags(self):
@@ -1840,16 +1822,14 @@ class TestNonInteractiveCommands:
         content = SCRIPT_PATH.read_text()
         # Find lines containing 'npm install' (the actual install, not dry-run/fail messages)
         npm_install_lines = [
-            line.strip() for line in content.splitlines()
+            line.strip()
+            for line in content.splitlines()
             if "npm install" in line and "dry_run_msg" not in line and "fail_msg" not in line
         ]
-        assert len(npm_install_lines) > 0, (
-            "Script should contain at least one 'npm install' command line."
-        )
+        assert len(npm_install_lines) > 0, "Script should contain at least one 'npm install' command line."
         has_no_audit = any("--no-audit" in line for line in npm_install_lines)
         assert has_no_audit, (
-            f"npm install command should include '--no-audit' flag.\n"
-            f"Found npm install lines: {npm_install_lines}"
+            f"npm install command should include '--no-audit' flag.\nFound npm install lines: {npm_install_lines}"
         )
 
 
@@ -1869,17 +1849,17 @@ class TestNonInteractiveSudo:
         content = SCRIPT_PATH.read_text()
         # Find lines with sudo and act/nektos (the actual install, not dry-run messages)
         sudo_lines = [
-            line.strip() for line in content.splitlines()
-            if "sudo" in line and ("nektos" in line or "act" in line.lower())
-            and "dry_run_msg" not in line and "fail_msg" not in line
+            line.strip()
+            for line in content.splitlines()
+            if "sudo" in line
+            and ("nektos" in line or "act" in line.lower())
+            and "dry_run_msg" not in line
+            and "fail_msg" not in line
         ]
-        assert len(sudo_lines) > 0, (
-            "Script should contain at least one sudo line for act install."
-        )
+        assert len(sudo_lines) > 0, "Script should contain at least one sudo line for act install."
         has_sudo_n = any("sudo -n" in line for line in sudo_lines)
         assert has_sudo_n, (
-            f"act install should use 'sudo -n' for non-interactive execution.\n"
-            f"Found sudo lines: {sudo_lines}"
+            f"act install should use 'sudo -n' for non-interactive execution.\nFound sudo lines: {sudo_lines}"
         )
 
 
@@ -1913,21 +1893,13 @@ class TestPrecommitHookInstallStep:
             timeout=30,
         )
         combined_output = result.stdout + result.stderr
-        assert "[8/9]" in combined_output, (
-            f"Output should contain step banner [8/9].\nOutput:\n{combined_output}"
-        )
+        assert "[8/9]" in combined_output, f"Output should contain step banner [8/9].\nOutput:\n{combined_output}"
         # Find the line with [8/9] and check it references pre-commit or hooks
-        step_8_lines = [
-            line for line in combined_output.splitlines()
-            if "[8/9]" in line
-        ]
-        assert len(step_8_lines) > 0, (
-            f"Should find at least one line with [8/9].\nOutput:\n{combined_output}"
-        )
+        step_8_lines = [line for line in combined_output.splitlines() if "[8/9]" in line]
+        assert len(step_8_lines) > 0, f"Should find at least one line with [8/9].\nOutput:\n{combined_output}"
         step_8_text = step_8_lines[0].lower()
         assert "pre-commit" in step_8_text or "hook" in step_8_text, (
-            f"Step [8/9] banner should reference pre-commit or hooks.\n"
-            f"Line: {step_8_lines[0]}"
+            f"Step [8/9] banner should reference pre-commit or hooks.\nLine: {step_8_lines[0]}"
         )
 
     def test_total_steps_is_9(self):
@@ -1967,14 +1939,15 @@ class TestPrecommitHookInstallDryRun:
         )
         combined_output = result.stdout + result.stderr
         dry_run_precommit_lines = [
-            line for line in combined_output.splitlines()
+            line
+            for line in combined_output.splitlines()
             if "DRY-RUN" in line
-            and ("precommit" in line.lower() or "pre-commit" in line.lower()
-                 or "install-precommit" in line.lower())
+            and (
+                "precommit" in line.lower() or "pre-commit" in line.lower() or "install-precommit" in line.lower()
+            )
         ]
         assert len(dry_run_precommit_lines) > 0, (
-            f"Dry-run output should contain [DRY-RUN] referencing pre-commit hook.\n"
-            f"Output:\n{combined_output}"
+            f"Dry-run output should contain [DRY-RUN] referencing pre-commit hook.\nOutput:\n{combined_output}"
         )
 
 
@@ -1985,9 +1958,9 @@ class TestPrecommitHookInstallOutcome:
 
     def test_precommit_hook_pass_when_script_succeeds(self, tmp_path):
         """
-        When install-precommit-hook.sh stub exists and succeeds, output contains [PASS].
+        When `python3 -m pre_commit install` succeeds, output contains [PASS].
 
-        Given: A stubbed environment with a passing install-precommit-hook.sh
+        Given: A stubbed environment whose python3 exits 0 on any argv
         When: Running install-deps.sh (non-dry-run)
         Then: Output contains [PASS] referencing pre-commit or hooks
         """
@@ -2001,26 +1974,37 @@ class TestPrecommitHookInstallOutcome:
         )
         combined_output = result.stdout + result.stderr
         pass_hook_lines = [
-            line for line in combined_output.splitlines()
-            if "PASS" in line
-            and ("pre-commit" in line.lower() or "hook" in line.lower())
+            line
+            for line in combined_output.splitlines()
+            if "PASS" in line and ("pre-commit" in line.lower() or "hook" in line.lower())
         ]
         assert len(pass_hook_lines) > 0, (
-            f"Output should contain [PASS] for pre-commit hooks when script succeeds.\n"
-            f"Output:\n{combined_output}"
+            f"Output should contain [PASS] for pre-commit hooks when script succeeds.\nOutput:\n{combined_output}"
         )
 
-    def test_precommit_hook_fail_when_script_missing(self, tmp_path):
+    def test_precommit_hook_fail_when_pre_commit_module_missing(self, tmp_path):
         """
-        When install-precommit-hook.sh doesn't exist, output contains [FAIL].
+        When `python3 -m pre_commit install` fails, output contains [FAIL].
 
-        Given: A stubbed environment without install-precommit-hook.sh
+        Given: A stubbed environment whose python3 returns non-zero on -m pre_commit
         When: Running install-deps.sh (non-dry-run)
         Then: Output contains [FAIL] referencing pre-commit or hook
+
+        This replaces the prior "install-precommit-hook.sh missing" test (#211 deleted
+        that bash installer; install-deps.sh now invokes the framework module directly).
         """
-        env_info = create_full_stub_env(
-            tmp_path, overrides={"install-precommit-hook": None}
+        # Stub python3 so `python3 -m pre_commit ...` exits non-zero, but other
+        # invocations (-c, --version) still succeed for earlier steps.
+        failing_python = (
+            "#!/bin/bash\n"
+            'if [[ "$1" == "-m" && "$2" == "pre_commit" ]]; then\n'
+            '    echo "ModuleNotFoundError: No module named pre_commit" >&2\n'
+            "    exit 1\n"
+            'elif [[ "$1" == "-c" || "$1" == "--version" ]]; then\n'
+            '    echo "Python 3.13.0"\n'
+            "fi\n"
         )
+        env_info = create_full_stub_env(tmp_path, overrides={"python3": failing_python})
         result = subprocess.run(
             [str(SCRIPT_PATH)],
             capture_output=True,
@@ -2030,13 +2014,12 @@ class TestPrecommitHookInstallOutcome:
         )
         combined_output = result.stdout + result.stderr
         fail_hook_lines = [
-            line for line in combined_output.splitlines()
-            if "FAIL" in line
-            and ("pre-commit" in line.lower() or "hook" in line.lower()
-                 or "install-precommit" in line.lower())
+            line
+            for line in combined_output.splitlines()
+            if "FAIL" in line and ("pre-commit" in line.lower() or "hook" in line.lower())
         ]
         assert len(fail_hook_lines) > 0, (
-            f"Output should contain [FAIL] for pre-commit hooks when script is missing.\n"
+            f"Output should contain [FAIL] for pre-commit hooks when the framework module is missing.\n"
             f"Output:\n{combined_output}"
         )
 

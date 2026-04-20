@@ -282,13 +282,9 @@ class TestDockerfileUserManagement:
         user_values = [line.split()[1] for line in user_lines]
         # Verify we switch to vscode user (via ARG reference or literal)
         has_vscode = any(v in ("${USERNAME}", "vscode") for v in user_values)
-        assert has_vscode, (
-            f"Dockerfile should have a USER directive switching to vscode user, got: {user_values}"
-        )
+        assert has_vscode, f"Dockerfile should have a USER directive switching to vscode user, got: {user_values}"
         # Last USER directive should be root
-        assert user_values[-1] == "root", (
-            f"Last USER directive should be 'root', got: {user_values[-1]}"
-        )
+        assert user_values[-1] == "root", f"Last USER directive should be 'root', got: {user_values[-1]}"
 
 
 # =============================================================================
@@ -426,9 +422,7 @@ class TestDockerfileMise:
         Docker build, avoiding the need for install-deps.sh to download
         it on every container creation.
         """
-        assert "mise.run" in dockerfile_content, (
-            "Dockerfile should install mise binary via mise.run"
-        )
+        assert "mise.run" in dockerfile_content, "Dockerfile should install mise binary via mise.run"
 
     def test_copies_mise_toml(self, dockerfile_content):
         """
@@ -440,9 +434,7 @@ class TestDockerfileMise:
         versions during onCreateCommand. The file is overwritten when
         the workspace volume is mounted.
         """
-        assert "COPY .mise.toml" in dockerfile_content, (
-            "Dockerfile should COPY .mise.toml into the workspace"
-        )
+        assert "COPY .mise.toml" in dockerfile_content, "Dockerfile should COPY .mise.toml into the workspace"
 
 
 # =============================================================================
@@ -469,9 +461,7 @@ class TestDockerfileBuildTimeToolInstall:
         mise requires explicit trust of .mise.toml to prevent executing
         arbitrary tool installation commands from untrusted config files.
         """
-        assert "mise trust" in dockerfile_content, (
-            "Dockerfile should run 'mise trust' before 'mise install'"
-        )
+        assert "mise trust" in dockerfile_content, "Dockerfile should run 'mise trust' before 'mise install'"
 
     def test_mise_install_bare(self, dockerfile_content):
         """
@@ -497,9 +487,7 @@ class TestDockerfileBuildTimeToolInstall:
         after tool installation, ensuring python, node, etc. are available
         via the shims directory.
         """
-        assert "mise reshim" in dockerfile_content, (
-            "Dockerfile should run 'mise reshim' after 'mise install'"
-        )
+        assert "mise reshim" in dockerfile_content, "Dockerfile should run 'mise reshim' after 'mise install'"
 
     def test_mise_use_global_python(self, dockerfile_content):
         """

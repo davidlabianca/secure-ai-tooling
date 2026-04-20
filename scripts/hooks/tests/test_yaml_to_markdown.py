@@ -281,8 +281,7 @@ class TestFormattingFunctions:
         items_with_newlines = ["Question one?\n", "Question two?\n"]
         result = yaml_to_markdown.format_list(items_with_newlines)
         assert "\n" not in result, (
-            "format_list() must strip trailing newlines from items; "
-            "raw '\\n' characters break markdown table rows"
+            "format_list() must strip trailing newlines from items; raw '\\n' characters break markdown table rows"
         )
 
     def test_format_list_with_prefix_strips_trailing_newlines(self):
@@ -1332,8 +1331,7 @@ class TestPersonaTableGenerators:
             # cells[1] is the first column value.
             first_cell = cells[1].strip() if len(cells) > 1 else ""
             assert first_cell != "", (
-                f"Phantom table row detected — tabulate split a cell on an embedded '\\n'. "
-                f"Row: {row!r}"
+                f"Phantom table row detected — tabulate split a cell on an embedded '\\n'. Row: {row!r}"
             )
 
         # Both questions must survive intact in the output.
@@ -2203,8 +2201,7 @@ class TestFlatControlXRefGenerators:
         dp_idx = next(i for i, row in enumerate(ctrl_a_data) if "riskDataPoisoning" in row)
         sdd_idx = next(i for i, row in enumerate(ctrl_a_data) if "riskSensitiveDataDisclosure" in row)
         assert dp_idx < sdd_idx, (
-            "riskDataPoisoning should appear before "
-            "riskSensitiveDataDisclosure within ctrlA group"
+            "riskDataPoisoning should appear before riskSensitiveDataDisclosure within ctrlA group"
         )
 
     def test_flat_xref_risks_rejects_non_controls_type(self, tmp_path):

@@ -48,31 +48,29 @@ Verify the environment:
 If you prefer to install dependencies individually:
 
 ```bash
-# Install required Python packages
+# Install required Python packages (includes pre-commit framework)
 pip install -r requirements.txt
 
 # Install Node.js dependencies (prettier, mermaid-cli, etc.)
 npm install
 
-# Install the pre-commit hook
-./scripts/install-precommit-hook.sh
+# Install the pre-commit framework hook into .git/hooks/pre-commit
+pre-commit install
 ```
 
 **Platform-specific Chrome/Chromium setup:**
 
-- **Mac/Windows/Linux x64**: Chrome automatically handled by puppeteer (bundled with mermaid-cli dependencies)
-- **Linux ARM64**: Requires manual Chromium setup since Google Chrome is not available for ARM64:
+The `regenerate-svgs` hook converts Mermaid diagrams to SVGs via `npx mmdc`,
+which needs a Chromium binary. The hook self-discovers it at runtime:
 
-  ```bash
-  # Option 1: Use Playwright Chromium (recommended)
-  ./scripts/install-precommit-hook.sh --install-playwright
+1. If `CHROMIUM_PATH` is set in your environment, it is used verbatim
+2. On Linux ARM64, it auto-discovers Playwright's bundled Chromium under
+   `$PLAYWRIGHT_BROWSERS_PATH` (or `~/.cache/ms-playwright` if unset)
+3. Otherwise, mmdc's bundled detection runs (works on Mac / Windows /
+   Linux x64 with system Chrome)
 
-  # Option 2: Install system Chromium
-  sudo apt install chromium-browser  # Ubuntu/Debian
-
-  # Option 3: Specify custom Chromium path during installation
-  ./scripts/install-precommit-hook.sh
-  ```
+For Linux ARM64 contributors, ensure Playwright Chromium is installed
+(`install-deps.sh` does this automatically; manual: `npx playwright install chromium`).
 
 ## Requirements
 
@@ -92,14 +90,19 @@ npm install
 
 ## Hook Files
 
-- `hooks/pre-commit` - The main git hook script that orchestrates all validations
+Hooks are configured declaratively in `.pre-commit-config.yaml` at the repo
+root and installed via `pre-commit install`. Validators and generators live
+under `scripts/hooks/`:
+
+- `hooks/precommit/` - Wrapper scripts invoked by the framework (graphs,
+  tables, SVGs, issue templates, prettier-yaml). Each wrapper runs its
+  underlying tool and `git add`s the output (Mode B auto-stage).
 - `hooks/validate_riskmap.py` - Component edge validation and graph generation
 - `hooks/validate_control_risk_references.py` - Control-risk cross-reference validation
 - `hooks/validate_framework_references.py` - Framework reference validation
 - `hooks/validate_issue_templates.py` - Issue template and dependabot.yml schema validation
 - `hooks/yaml_to_markdown.py` - Markdown table generation from YAML
 - `hooks/riskmap_validator/` - Python module with models, validator, graphing, and utilities
-- `install-precommit-hook.sh` - Installs all hooks to your local `.git/hooks/` (supports `--auto` flag for non-interactive install)
 
 ---
 

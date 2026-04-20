@@ -29,7 +29,7 @@ The validation script checks for:
 - **No isolated components**: Components should have at least one `to` or `from` edge
 - **Valid component references**: All components referenced in edges must exist
 
-**Automatic Graph Generation**: The pre-commit hook automatically generates graphs when relevant files are staged:
+**Automatic Graph Generation**: The pre-commit framework invokes the `regenerate-graphs` hook (`scripts/hooks/precommit/regenerate_graphs.py`) when relevant files are staged. Each generated pair is staged with `git add` so it lands in the same commit (Mode B auto-stage):
 
 - **Component Graph**: When `components.yaml` is staged, generates `./risk-map/diagrams/risk-map-graph.md`
   - Uses Elk layout engine for automatic positioning and ranking
@@ -65,7 +65,7 @@ python scripts/hooks/validate_riskmap.py --to-graph ./components.md --to-control
 
 ## Markdown Table Documentation
 
-The pre-commit hooks automatically generate markdown tables from YAML files for easy documentation viewing:
+The `regenerate-tables` framework hook (`scripts/hooks/precommit/regenerate_tables.py`) automatically generates markdown tables from YAML files for easy documentation viewing:
 
 **Automatic Generation:**
 

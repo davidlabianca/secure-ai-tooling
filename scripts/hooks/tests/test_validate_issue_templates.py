@@ -1512,16 +1512,11 @@ class TestDependabotValidation:
 
         with patch("sys.argv", ["script.py", "--force"]):
             with patch("subprocess.run") as mock_run:
-                mock_run.return_value = subprocess.CompletedProcess(
-                    args=[], returncode=0, stdout="ok", stderr=""
-                )
+                mock_run.return_value = subprocess.CompletedProcess(args=[], returncode=0, stdout="ok", stderr="")
                 main()
 
         # Find the call that used vendor.dependabot
-        dependabot_calls = [
-            c for c in mock_run.call_args_list
-            if "vendor.dependabot" in c[0][0]
-        ]
+        dependabot_calls = [c for c in mock_run.call_args_list if "vendor.dependabot" in c[0][0]]
         assert len(dependabot_calls) == 1, "Should call check-jsonschema with vendor.dependabot"
         # Script uses relative path ".github/dependabot.yml"
         assert ".github/dependabot.yml" in dependabot_calls[0][0][0][-1]
@@ -1547,16 +1542,11 @@ class TestDependabotValidation:
 
         with patch("sys.argv", ["script.py", "--force"]):
             with patch("subprocess.run") as mock_run:
-                mock_run.return_value = subprocess.CompletedProcess(
-                    args=[], returncode=0, stdout="ok", stderr=""
-                )
+                mock_run.return_value = subprocess.CompletedProcess(args=[], returncode=0, stdout="ok", stderr="")
                 main()
 
         # No call should use vendor.dependabot
-        dependabot_calls = [
-            c for c in mock_run.call_args_list
-            if "vendor.dependabot" in c[0][0]
-        ]
+        dependabot_calls = [c for c in mock_run.call_args_list if "vendor.dependabot" in c[0][0]]
         assert len(dependabot_calls) == 0, "Should not validate dependabot when file missing"
 
     def test_reports_failure_when_dependabot_yml_invalid(self, tmp_path: Path, monkeypatch):
@@ -1586,12 +1576,9 @@ class TestDependabotValidation:
                 def side_effect(cmd, **kwargs):
                     if "vendor.dependabot" in cmd:
                         return subprocess.CompletedProcess(
-                            args=cmd, returncode=1, stdout="",
-                            stderr="ValidationError: 'version' is required"
+                            args=cmd, returncode=1, stdout="", stderr="ValidationError: 'version' is required"
                         )
-                    return subprocess.CompletedProcess(
-                        args=cmd, returncode=0, stdout="ok", stderr=""
-                    )
+                    return subprocess.CompletedProcess(args=cmd, returncode=0, stdout="ok", stderr="")
 
                 mock_run.side_effect = side_effect
                 exit_code = main()
@@ -1623,27 +1610,24 @@ class TestDependabotValidation:
 
         with patch("sys.argv", ["script.py"]):
             with patch("subprocess.run") as mock_run:
+
                 def side_effect(cmd, **kwargs):
                     # git diff returns only an issue template (not dependabot.yml)
                     if cmd[0] == "git":
                         return subprocess.CompletedProcess(
-                            args=cmd, returncode=0,
-                            stdout=".github/ISSUE_TEMPLATE/test.yml\n",
-                            stderr=""
+                            args=cmd, returncode=0, stdout=".github/ISSUE_TEMPLATE/test.yml\n", stderr=""
                         )
                     # check-jsonschema calls succeed
-                    return subprocess.CompletedProcess(
-                        args=cmd, returncode=0, stdout="ok", stderr=""
-                    )
+                    return subprocess.CompletedProcess(args=cmd, returncode=0, stdout="ok", stderr="")
 
                 mock_run.side_effect = side_effect
                 main()
 
         # No call should use vendor.dependabot (not staged)
         dependabot_calls = [
-            c for c in mock_run.call_args_list
-            if len(c[0][0]) > 0 and c[0][0][0] == "check-jsonschema"
-            and "vendor.dependabot" in c[0][0]
+            c
+            for c in mock_run.call_args_list
+            if len(c[0][0]) > 0 and c[0][0][0] == "check-jsonschema" and "vendor.dependabot" in c[0][0]
         ]
         assert len(dependabot_calls) == 0
 
@@ -1669,27 +1653,24 @@ class TestDependabotValidation:
 
         with patch("sys.argv", ["script.py"]):
             with patch("subprocess.run") as mock_run:
+
                 def side_effect(cmd, **kwargs):
                     # git diff returns dependabot.yml as staged
                     if cmd[0] == "git":
                         return subprocess.CompletedProcess(
-                            args=cmd, returncode=0,
-                            stdout=".github/dependabot.yml\n",
-                            stderr=""
+                            args=cmd, returncode=0, stdout=".github/dependabot.yml\n", stderr=""
                         )
                     # check-jsonschema calls succeed
-                    return subprocess.CompletedProcess(
-                        args=cmd, returncode=0, stdout="ok", stderr=""
-                    )
+                    return subprocess.CompletedProcess(args=cmd, returncode=0, stdout="ok", stderr="")
 
                 mock_run.side_effect = side_effect
                 main()
 
         # Should have a call with vendor.dependabot
         dependabot_calls = [
-            c for c in mock_run.call_args_list
-            if len(c[0][0]) > 0 and c[0][0][0] == "check-jsonschema"
-            and "vendor.dependabot" in c[0][0]
+            c
+            for c in mock_run.call_args_list
+            if len(c[0][0]) > 0 and c[0][0][0] == "check-jsonschema" and "vendor.dependabot" in c[0][0]
         ]
         assert len(dependabot_calls) == 1
 
@@ -1713,16 +1694,11 @@ class TestDependabotValidation:
 
         with patch("sys.argv", ["script.py", "--force"]):
             with patch("subprocess.run") as mock_run:
-                mock_run.return_value = subprocess.CompletedProcess(
-                    args=[], returncode=0, stdout="ok", stderr=""
-                )
+                mock_run.return_value = subprocess.CompletedProcess(args=[], returncode=0, stdout="ok", stderr="")
                 exit_code = main()
 
         assert exit_code == 0
-        dependabot_calls = [
-            c for c in mock_run.call_args_list
-            if "vendor.dependabot" in c[0][0]
-        ]
+        dependabot_calls = [c for c in mock_run.call_args_list if "vendor.dependabot" in c[0][0]]
         assert len(dependabot_calls) == 1, "Should validate dependabot.yml without ISSUE_TEMPLATE dir"
 
     def test_integration_validates_real_dependabot_yml(self):
