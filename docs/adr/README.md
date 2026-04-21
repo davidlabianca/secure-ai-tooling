@@ -17,6 +17,13 @@ If a decision is about *how the Risk Map content model is shaped*, it belongs in
 | # | Title | Status | Date |
 |---|---|---|---|
 | [001](001-adopt-adrs.md) | Adopt ADRs for tooling/infrastructure decisions | Draft | 2026-04-20 |
+| [002](002-branching-strategy.md) | Branching strategy — `develop` for content, `main` for tooling | Draft | 2026-04-20 |
+| [003](003-devcontainer-mise-architecture.md) | Devcontainer + `mise` tool-management architecture | Draft | 2026-04-20 |
+| [004](004-ai-assistant-trailer.md) | Vendor-neutral `Co-authored-by` trailer for AI-assisted commits | Draft | 2026-04-20 |
+| [005](005-pre-commit-framework.md) | Pre-commit framework adoption | Draft | 2026-04-20 |
+| [006](006-agent-architecture-pattern.md) | Vendor-neutral agent architecture under `scripts/agents/` | Draft | 2026-04-20 |
+| [007](007-content-reviewer-modes.md) | `content-reviewer` three-mode architecture | Draft | 2026-04-20 |
+| [008](008-sub-agent-orchestration.md) | Sub-agent orchestration: composition contracts and routing boundaries | Draft | 2026-04-20 |
 
 ## Conventions
 
