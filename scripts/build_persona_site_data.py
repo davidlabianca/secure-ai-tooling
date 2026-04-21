@@ -16,14 +16,15 @@ from pathlib import Path
 import jsonschema
 import yaml
 
-DEFAULT_PERSONAS_PATH = Path("risk-map/yaml/personas.yaml")
-DEFAULT_RISKS_PATH = Path("risk-map/yaml/risks.yaml")
-DEFAULT_CONTROLS_PATH = Path("risk-map/yaml/controls.yaml")
-DEFAULT_SITE_DIR = Path("site")
+REPO_ROOT = Path(__file__).resolve().parent.parent
+DEFAULT_PERSONAS_PATH = REPO_ROOT / "risk-map" / "yaml" / "personas.yaml"
+DEFAULT_RISKS_PATH = REPO_ROOT / "risk-map" / "yaml" / "risks.yaml"
+DEFAULT_CONTROLS_PATH = REPO_ROOT / "risk-map" / "yaml" / "controls.yaml"
+DEFAULT_SITE_DIR = REPO_ROOT / "site"
 DEFAULT_OUTPUT_NAME = "persona-site-data.json"
 GUIDED_QUESTION_THRESHOLD = 5
 
-SCHEMAS_DIR = Path(__file__).resolve().parent.parent / "risk-map" / "schemas"
+SCHEMAS_DIR = REPO_ROOT / "risk-map" / "schemas"
 PERSONA_SITE_DATA_SCHEMA_PATH = SCHEMAS_DIR / "persona-site-data.schema.json"
 
 
@@ -232,6 +233,7 @@ def write_site_data(data: dict, output_path: Path) -> None:
         ) from exc
     output_path.parent.mkdir(parents=True, exist_ok=True)
     with output_path.open("w", encoding="utf-8") as handle:
+        # Insertion-order deterministic; do not rely on alphabetical key sort.
         json.dump(data, handle, indent=2)
         handle.write("\n")
 
@@ -239,11 +241,39 @@ def write_site_data(data: dict, output_path: Path) -> None:
 def parse_args() -> argparse.Namespace:
     """Parse CLI arguments."""
     parser = argparse.ArgumentParser(description="Generate CoSAI-RM persona site data JSON.")
-    parser.add_argument("--personas-path", type=Path, default=DEFAULT_PERSONAS_PATH)
-    parser.add_argument("--risks-path", type=Path, default=DEFAULT_RISKS_PATH)
-    parser.add_argument("--controls-path", type=Path, default=DEFAULT_CONTROLS_PATH)
-    parser.add_argument("--site-dir", type=Path, default=DEFAULT_SITE_DIR)
-    parser.add_argument("--output", type=Path, default=None)
+    parser.add_argument(
+        "--personas-path",
+        type=Path,
+        default=DEFAULT_PERSONAS_PATH,
+        help=f"Path to personas YAML (default: {DEFAULT_PERSONAS_PATH.relative_to(REPO_ROOT)})",
+    )
+    parser.add_argument(
+        "--risks-path",
+        type=Path,
+        default=DEFAULT_RISKS_PATH,
+        help=f"Path to risks YAML (default: {DEFAULT_RISKS_PATH.relative_to(REPO_ROOT)})",
+    )
+    parser.add_argument(
+        "--controls-path",
+        type=Path,
+        default=DEFAULT_CONTROLS_PATH,
+        help=f"Path to controls YAML (default: {DEFAULT_CONTROLS_PATH.relative_to(REPO_ROOT)})",
+    )
+    parser.add_argument(
+        "--site-dir",
+        type=Path,
+        default=DEFAULT_SITE_DIR,
+        help=(
+            f"Site asset directory (default: {DEFAULT_SITE_DIR.relative_to(REPO_ROOT)}); "
+            "generated JSON lands under <site-dir>/generated/"
+        ),
+    )
+    parser.add_argument(
+        "--output",
+        type=Path,
+        default=None,
+        help="Exact output-JSON path (overrides the --site-dir/generated/ default)",
+    )
     return parser.parse_args()
 
 

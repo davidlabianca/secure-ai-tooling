@@ -17,9 +17,11 @@ sys.path.insert(0, str(REPO_ROOT))
 
 from scripts.build_persona_site_data import (  # noqa: E402
     build_site_data,
+    humanize_identifier,
     load_yaml,
     normalize_control_risk_ids,
     normalize_text_entries,
+    parse_args,
     resolve_output_path,
     write_site_data,
 )
@@ -479,3 +481,202 @@ def test_persona_site_data_schema_rejects_structural_violations(
 
     with pytest.raises(jsonschema.ValidationError):
         jsonschema.validate(instance=bad, schema=schema)
+
+
+# ============================================================================
+# Phase 3: Builder ergonomics polish (REC-11, REC-12, REC-14, REC-15, REC-16)
+# ============================================================================
+#
+# These tests cover:
+# - humanize_identifier: direct coverage of label-construction helper (REC-15)
+# - write_site_data: parent-dir creation + trailing-newline contract (REC-15)
+# - normalize_control_risk_ids: None / "none" branches (REC-14)
+# - parse_args: every CLI flag ships a non-empty help= string (REC-11)
+# - main(): end-to-end subprocess from a non-repo-root cwd (REC-12 + REC-16)
+
+
+@pytest.mark.parametrize(
+    "identifier,prefix,expected",
+    [
+        ("riskDataPoisoning", "risk", "Data Poisoning"),
+        ("controlModelIntegrity", "control", "Model Integrity"),
+        ("riskRogueActions", "risk", "Rogue Actions"),
+        ("controlsData", "controls", "Data"),
+        ("risksRuntimeOutputSecurity", "risks", "Runtime Output Security"),
+    ],
+)
+def test_humanize_identifier_splits_camelcase(identifier: str, prefix: str, expected: str):
+    """
+    Test that humanize_identifier strips a prefix and splits camelCase into words.
+
+    Given: A schema-like camelCase identifier and its category prefix
+    When: humanize_identifier(identifier, prefix) is called
+    Then: The prefix is stripped and remaining camelCase is split into a space-
+          delimited title-cased label
+    """
+    assert humanize_identifier(identifier, prefix) == expected
+
+
+def test_humanize_identifier_replaces_hyphens():
+    """
+    Test that humanize_identifier converts kebab-case to space-delimited output.
+
+    Given: A kebab-case identifier with no prefix
+    When: humanize_identifier is called with an empty prefix
+    Then: Hyphens are replaced with spaces
+    """
+    assert humanize_identifier("my-kebab-id", "") == "my kebab id"
+
+
+def test_humanize_identifier_with_empty_input():
+    """
+    Test that humanize_identifier tolerates empty-string input without raising.
+
+    Given: An empty string identifier and an empty prefix
+    When: humanize_identifier is called
+    Then: An empty string is returned with no exception
+    """
+    assert humanize_identifier("", "") == ""
+
+
+def test_humanize_identifier_leaves_non_matching_prefix_alone():
+    """
+    Test that humanize_identifier preserves inputs that do not start with the prefix.
+
+    Given: An identifier that does not start with the supplied prefix
+    When: humanize_identifier(identifier, prefix) is called
+    Then: The original identifier is returned unchanged (strip is a no-op)
+    """
+    assert humanize_identifier("aardvark", "risk") == "aardvark"
+
+
+def test_write_site_data_creates_parent_and_writes_trailing_newline(tmp_path: Path):
+    """
+    Test that write_site_data creates missing parent dirs and ends output with a newline.
+
+    Given: A minimal-valid site data dict and a target path several levels deep
+           inside a directory tree that does not yet exist
+    When: write_site_data(data, output_path) is called
+    Then: All missing parent directories are created, the file exists and is
+          non-empty, the file content ends with a trailing newline, and the
+          JSON parses back to the input dict unchanged
+    """
+    data = _minimal_valid_site_data()
+    output_path = tmp_path / "nested" / "dir" / "out.json"
+
+    write_site_data(data, output_path)
+
+    assert output_path.parent.exists(), "write_site_data should create missing parent directories"
+    assert output_path.exists(), "write_site_data should produce an output file"
+    content = output_path.read_text(encoding="utf-8")
+    assert content, "write_site_data output should be non-empty"
+    assert content.endswith("\n"), "write_site_data output should end with a trailing newline"
+    assert json.loads(content) == data
+
+
+def test_normalize_control_risk_ids_returns_empty_for_none():
+    """
+    Test that normalize_control_risk_ids maps Python None to an empty list.
+
+    Given: A control whose `risks` field is absent (yielding None via .get())
+    When: normalize_control_risk_ids(None, all_risk_ids) is called
+    Then: An empty list is returned (no risks linked)
+    """
+    assert normalize_control_risk_ids(None, ["riskA", "riskB"]) == []
+
+
+def test_normalize_control_risk_ids_returns_empty_for_string_none():
+    """
+    Test that normalize_control_risk_ids maps the literal string "none" to an empty list.
+
+    Given: A control whose `risks` field is the sentinel string "none"
+    When: normalize_control_risk_ids("none", all_risk_ids) is called
+    Then: An empty list is returned (no risks linked)
+    """
+    assert normalize_control_risk_ids("none", ["riskA", "riskB"]) == []
+
+
+def test_main_produces_valid_json_when_invoked_as_subprocess(tmp_path: Path, repo_root: Path):
+    """
+    Test that the builder works end-to-end when invoked from a non-repo-root cwd.
+
+    Given: The build_persona_site_data.py script invoked via subprocess with
+           `cwd=tmp_path` (intentionally NOT the repository root) and only the
+           `--site-dir` flag supplied
+    When: The subprocess runs to completion
+    Then: The process exits successfully, the expected output JSON file is
+          written, and its top-level keys match the persona-site-data contract.
+
+    This pins REC-12: default input paths must be resolved relative to the
+    script location so the builder does not require being launched from the
+    repo root. It also serves as the REC-16 end-to-end smoke test.
+    """
+    script_path = repo_root / "scripts" / "build_persona_site_data.py"
+    site_dir = tmp_path / "siteout"
+
+    result = subprocess.run(
+        [sys.executable, str(script_path), "--site-dir", str(site_dir)],
+        cwd=tmp_path,  # intentionally NOT repo root
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 0, (
+        f"Builder must succeed from a non-repo-root cwd.\nstderr:\n{result.stderr}\nstdout:\n{result.stdout}"
+    )
+
+    output_json = site_dir / "generated" / "persona-site-data.json"
+    assert output_json.exists(), f"Expected output file at {output_json}"
+
+    data = json.loads(output_json.read_text(encoding="utf-8"))
+    assert set(data.keys()) == {
+        "personas",
+        "questions",
+        "manualFallbackPersonaIds",
+        "riskCategories",
+        "controlCategories",
+        "risks",
+        "controls",
+    }
+
+
+def test_parse_args_help_strings_present(monkeypatch):
+    """
+    Test that every user-defined CLI flag ships a non-empty help= string.
+
+    Given: The CLI argument parser constructed by parse_args()
+    When: parse_args() is invoked with no user-supplied arguments and we
+          introspect the resulting argparse.ArgumentParser via a captured
+          reference to its __init__
+    Then: All five user-defined flags (--personas-path, --risks-path,
+          --controls-path, --site-dir, --output) have non-empty help strings,
+          so `--help` output is useful to operators (REC-11).
+    """
+    import argparse as _argparse
+
+    captured: dict = {}
+    real_init = _argparse.ArgumentParser.__init__
+
+    def capture_init(self, *args, **kwargs):
+        captured["parser"] = self
+        real_init(self, *args, **kwargs)
+
+    monkeypatch.setattr(_argparse.ArgumentParser, "__init__", capture_init)
+    monkeypatch.setattr("sys.argv", ["build_persona_site_data.py"])
+
+    parse_args()
+
+    parser = captured["parser"]
+    user_flags = [
+        action for action in parser._actions if action.option_strings and action.option_strings != ["-h", "--help"]
+    ]
+
+    assert len(user_flags) == 5, (
+        f"expected 5 user-defined flags, got {len(user_flags)}: {[a.option_strings for a in user_flags]}"
+    )
+
+    for action in user_flags:
+        assert action.help and action.help.strip(), (
+            f"{action.option_strings} has no non-whitespace help= string (REC-11)"
+        )
