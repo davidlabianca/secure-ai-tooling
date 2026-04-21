@@ -574,3 +574,41 @@ code {
 .details-panel .subsection > p {
   margin: 0.4rem 0;
 }
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.primary-button:focus-visible,
+.ghost-button:focus-visible,
+.tab-button:focus-visible,
+.step-pill:focus-visible,
+.answer-option:focus-visible,
+.manual-card:focus-visible,
+.review-card:focus-visible,
+.inline-link:focus-visible {
+  outline: 2px solid var(--teal-deep);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

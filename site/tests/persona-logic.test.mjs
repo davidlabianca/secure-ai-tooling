@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { buildResultsModel, getSelectedPersonas } from "../assets/persona-logic.mjs";
+import { buildResultsModel, dedupeInOrder, getSelectedPersonas } from "../assets/persona-logic.mjs";
 
 function createFixture() {
   return {
@@ -194,4 +194,73 @@ test("buildResultsModel keeps governance controls even when no direct risks are 
     results.directRisklessPersonas.map((persona) => persona.id),
     ["personaGovernance"],
   );
+});
+
+test("dedupeInOrder returns empty for empty input", () => {
+  assert.deepEqual(dedupeInOrder([]), []);
+});
+
+test("dedupeInOrder preserves first occurrence across duplicates", () => {
+  assert.deepEqual(dedupeInOrder(["a", "b", "a", "c", "b", "d"]), ["a", "b", "c", "d"]);
+});
+
+test("dedupeInOrder handles all-duplicates input returning one element", () => {
+  assert.deepEqual(dedupeInOrder(["x", "x", "x"]), ["x"]);
+});
+
+test("buildResultsModel drops items whose category is not in categoryDefinitions", () => {
+  const fixture = {
+    controlCategories: [{ id: "controlsData", title: "Data Controls" }],
+    controls: [
+      {
+        id: "controlTraining",
+        title: "Training",
+        category: "controlsData",
+        description: ["x"],
+        personaIds: ["personaA"],
+        riskIds: ["riskUnknownCategory"],
+      },
+    ],
+    manualFallbackPersonaIds: [],
+    personas: [
+      {
+        id: "personaA",
+        title: "Persona A",
+        description: ["y"],
+        questionIds: ["q1"],
+        matchMode: "guided",
+        riskIds: ["riskUnknownCategory"],
+        controlIds: ["controlTraining"],
+        riskCount: 1,
+        controlCount: 1,
+      },
+    ],
+    questions: [{ id: "q1", personaId: "personaA", personaTitle: "Persona A", prompt: "q?" }],
+    riskCategories: [{ id: "risksKnown", title: "Known Risks" }],
+    risks: [
+      {
+        id: "riskUnknownCategory",
+        title: "Orphan",
+        category: "risksSomeUnknown",
+        shortDescription: ["x"],
+        longDescription: [],
+        examples: [],
+        controlIds: ["controlTraining"],
+        personaIds: ["personaA"],
+      },
+    ],
+  };
+
+  const results = buildResultsModel(fixture, { q1: "yes" });
+
+  assert.ok(
+    results.risks.some((risk) => risk.id === "riskUnknownCategory"),
+    "risk appears in flat results.risks list",
+  );
+  const allGroupedRiskIds = results.riskGroups.flatMap((group) => group.items.map((risk) => risk.id));
+  assert.ok(
+    !allGroupedRiskIds.includes("riskUnknownCategory"),
+    "risk is excluded from grouped risks because its category has no definition",
+  );
+  assert.equal(results.riskGroups.length, 0, "no known categories matched");
 });

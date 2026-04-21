@@ -30,6 +30,13 @@ function escapeHtml(value) {
   });
 }
 
+function announceStatus(message) {
+  const statusElement = document.getElementById("app-status");
+  if (statusElement) {
+    statusElement.textContent = message;
+  }
+}
+
 function getResultsModel() {
   if (!state.data) {
     return null;
@@ -95,7 +102,7 @@ function renderIntroduction() {
     <section class="step-panel intro-panel">
       <div class="hero-panel">
         <p class="eyebrow">CoSAI-RM Persona Navigator</p>
-        <h1>Find the CoSAI personas that fit your work, then browse the risks and controls that follow.</h1>
+        <h1>Find the CoSAI-RM personas that fit your work.</h1>
         <p class="hero-copy">
           This GitHub Pages MVP is built for framework adoption, not for scoring. It uses the existing CoSAI-RM
           personas, risks, and controls as the source of truth and keeps every answer in your browser only.
@@ -431,7 +438,7 @@ function renderRiskGroups(resultsModel) {
                     ${
                       risk.longDescription.length || risk.examples.length
                         ? `<details class="details-panel">
-                            <summary>Read the CoSAI-RM detail</summary>
+                            <summary>See CoSAI-RM content</summary>
                             ${renderRichParagraphs(risk.longDescription)}
                             ${
                               risk.examples.length
@@ -485,7 +492,17 @@ function renderControlGroups(resultsModel) {
                       </div>
                       <span class="micro-tag">${escapeHtml(group.category.title)}</span>
                     </div>
-                    ${renderRichParagraphs(control.description)}
+                    ${
+                      control.description.length > 1
+                        ? `
+                          ${renderRichParagraphs(control.description.slice(0, 1))}
+                          <details class="details-panel">
+                            <summary>See CoSAI-RM content</summary>
+                            ${renderRichParagraphs(control.description.slice(1))}
+                          </details>
+                        `
+                        : renderRichParagraphs(control.description)
+                    }
                     <div class="chip-row">
                       ${renderPersonaBadges(
                         resultsModel.includedPersonas.filter((persona) => control.personaIds.includes(persona.id)),
@@ -677,7 +694,11 @@ appElement.addEventListener("click", (event) => {
   if (stepTrigger) {
     state.step = Number(stepTrigger.dataset.goStep);
     renderApp();
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    announceStatus(`Step: ${STEP_TITLES[state.step]}`);
+    window.scrollTo({
+      top: 0,
+      behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth",
+    });
     return;
   }
 
@@ -691,23 +712,37 @@ appElement.addEventListener("click", (event) => {
   if (event.target.closest("[data-reset]")) {
     resetSession();
     renderApp();
+    announceStatus("Session reset. Returned to introduction.");
   }
 });
 
 appElement.addEventListener("change", (event) => {
   const questionInput = event.target.closest("[data-question-id]");
   if (questionInput) {
-    state.answers[questionInput.dataset.questionId] = questionInput.value;
+    const questionId = questionInput.dataset.questionId;
+    state.answers[questionId] = questionInput.value;
     renderApp();
+    const question = state.data?.questions.find((item) => item.id === questionId);
+    if (question) {
+      announceStatus(`Answer recorded: ${question.prompt}`);
+    }
     return;
   }
 
   const manualInput = event.target.closest("[data-manual-persona-id]");
   if (manualInput) {
+    const personaId = manualInput.dataset.manualPersonaId;
+    const persona = state.data?.personas.find((item) => item.id === personaId);
     if (manualInput.checked) {
-      state.manualSelectedIds.add(manualInput.dataset.manualPersonaId);
+      state.manualSelectedIds.add(personaId);
+      if (persona) {
+        announceStatus(`Added persona: ${persona.title}`);
+      }
     } else {
-      state.manualSelectedIds.delete(manualInput.dataset.manualPersonaId);
+      state.manualSelectedIds.delete(personaId);
+      if (persona) {
+        announceStatus(`Removed persona: ${persona.title}`);
+      }
     }
 
     renderApp();
