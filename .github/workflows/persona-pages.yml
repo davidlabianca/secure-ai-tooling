@@ -2,47 +2,50 @@ name: CoSAI Persona Pages
 
 on:
   pull_request:
-    branches: [main]
+    branches: [main, develop]
     paths:
-      - ".github/workflows/persona-pages.yml"
-      - "site/**"
-      - "risk-map/yaml/personas.yaml"
-      - "risk-map/yaml/risks.yaml"
-      - "risk-map/yaml/controls.yaml"
-      - "risk-map/docs/persona-pages.md"
-      - "scripts/build_persona_site_data.py"
-      - "scripts/hooks/tests/test_build_persona_site_data.py"
-      - "README.md"
-      - "risk-map/README.md"
-      - "requirements.txt"
+      - '.github/workflows/persona-pages.yml'
+      - 'site/**'
+      - 'risk-map/yaml/personas.yaml'
+      - 'risk-map/yaml/risks.yaml'
+      - 'risk-map/yaml/controls.yaml'
+      - 'risk-map/schemas/**'
+      - 'risk-map/docs/persona-pages.md'
+      - 'scripts/build_persona_site_data.py'
+      - 'scripts/hooks/tests/test_build_persona_site_data.py'
+      - 'README.md'
+      - 'risk-map/README.md'
+      - 'requirements.txt'
   push:
     branches: [main]
     paths:
-      - ".github/workflows/persona-pages.yml"
-      - "site/**"
-      - "risk-map/yaml/personas.yaml"
-      - "risk-map/yaml/risks.yaml"
-      - "risk-map/yaml/controls.yaml"
-      - "risk-map/docs/persona-pages.md"
-      - "scripts/build_persona_site_data.py"
-      - "scripts/hooks/tests/test_build_persona_site_data.py"
-      - "README.md"
-      - "risk-map/README.md"
-      - "requirements.txt"
+      - '.github/workflows/persona-pages.yml'
+      - 'site/**'
+      - 'risk-map/yaml/personas.yaml'
+      - 'risk-map/yaml/risks.yaml'
+      - 'risk-map/yaml/controls.yaml'
+      - 'risk-map/schemas/**'
+      - 'risk-map/docs/persona-pages.md'
+      - 'scripts/build_persona_site_data.py'
+      - 'scripts/hooks/tests/test_build_persona_site_data.py'
+      - 'README.md'
+      - 'risk-map/README.md'
+      - 'requirements.txt'
   workflow_dispatch:
 
 permissions:
   contents: read
-  pages: write
-  id-token: write
 
 concurrency:
-  group: persona-pages
-  cancel-in-progress: true
+  group: persona-pages-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    timeout-minutes: 10
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
@@ -50,13 +53,13 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
-          python-version: "3.14"
-          cache: "pip"
+          python-version: '3.14'
+          cache: 'pip'
 
       - name: Set up Node
         uses: actions/setup-node@v6
         with:
-          node-version: "22.x"
+          node-version: '22.x'
 
       - name: Install Python dependencies
         run: pip install -r requirements.txt
@@ -72,7 +75,7 @@ jobs:
           set -euo pipefail
           rm -rf _site
           mkdir -p _site
-          cp -R site/. _site/
+          rsync -a --exclude='.DS_Store' --exclude='.gitignore' site/ _site/
           python3 scripts/build_persona_site_data.py --site-dir _site
           test -f _site/generated/persona-site-data.json
 
@@ -91,7 +94,33 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     needs: build
     runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    timeout-minutes: 5
     steps:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
+
+  pages-summary:
+    needs: [build, deploy]
+    if: always()
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Summarize pipeline outcome
+        run: |
+          {
+            echo "## CoSAI Persona Pages — pipeline summary"
+            echo ""
+            echo "| Job | Result |"
+            echo "| --- | --- |"
+            echo "| build | ${{ needs.build.result }} |"
+            echo "| deploy | ${{ needs.deploy.result }} |"
+            if [[ "${{ needs.deploy.result }}" == "success" ]]; then
+              echo ""
+              echo "Deployed: ${{ needs.deploy.outputs.page_url || 'n/a' }}"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
