@@ -170,6 +170,21 @@ repos:
         files: ^risk-map/yaml/.*\.ya?ml$
         pass_filenames: true
 
+      - id: prettier-site-assets
+        name: 'prettier: site/ assets'
+        language: system
+        entry: python3 scripts/hooks/precommit/prettier_site_assets.py
+        files: ^site/.*\.(mjs|css|html|md)$
+        pass_filenames: true
+        require_serial: true
+
+      - id: validate-persona-site-build
+        name: 'validate: persona-site builder'
+        language: system
+        entry: python3 scripts/hooks/precommit/validate_persona_site_build.py
+        files: ^(risk-map/yaml/(personas|risks|controls)\.yaml|risk-map/schemas/(risks|persona-site-data)\.schema\.json|scripts/build_persona_site_data\.py)$
+        pass_filenames: false
+
   # ---------------------------------------------------------------------------
   # Ruff lint + format for Python.
   # ---------------------------------------------------------------------------
