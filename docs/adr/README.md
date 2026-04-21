@@ -16,14 +16,14 @@ If a decision is about *how the Risk Map content model is shaped*, it belongs in
 
 | # | Title | Status | Date |
 |---|---|---|---|
-| [001](001-adopt-adrs.md) | Adopt ADRs for tooling/infrastructure decisions | Draft | 2026-04-20 |
-| [002](002-branching-strategy.md) | Branching strategy — `develop` for content, `main` for tooling | Draft | 2026-04-20 |
-| [003](003-devcontainer-mise-architecture.md) | Devcontainer + `mise` tool-management architecture | Draft | 2026-04-20 |
-| [004](004-ai-assistant-trailer.md) | Vendor-neutral `Co-authored-by` trailer for AI-assisted commits | Draft | 2026-04-20 |
-| [005](005-pre-commit-framework.md) | Pre-commit framework adoption | Draft | 2026-04-20 |
-| [006](006-agent-architecture-pattern.md) | Vendor-neutral agent architecture under `scripts/agents/` | Draft | 2026-04-20 |
-| [007](007-content-reviewer-modes.md) | `content-reviewer` three-mode architecture | Draft | 2026-04-20 |
-| [008](008-sub-agent-orchestration.md) | Sub-agent orchestration: composition contracts and routing boundaries | Draft | 2026-04-20 |
+| [001](001-adopt-adrs.md) | Adopt ADRs for tooling/infrastructure decisions | Accepted | 2026-04-21 |
+| [002](002-branching-strategy.md) | Branching strategy — `develop` for content, `main` for tooling | Accepted | 2026-04-21 |
+| [003](003-devcontainer-mise-architecture.md) | Devcontainer + `mise` tool-management architecture | Accepted | 2026-04-21 |
+| [004](004-ai-assistant-trailer.md) | Vendor-neutral `Co-authored-by` trailer for AI-assisted commits | Accepted | 2026-04-21 |
+| [005](005-pre-commit-framework.md) | Pre-commit framework adoption | Accepted | 2026-04-21 |
+| [006](006-agent-architecture-pattern.md) | Vendor-neutral agent architecture under `scripts/agents/` | Accepted | 2026-04-21 |
+| [007](007-content-reviewer-modes.md) | `content-reviewer` three-mode architecture | Accepted | 2026-04-21 |
+| [008](008-sub-agent-orchestration.md) | Sub-agent orchestration: composition contracts and routing boundaries | Accepted | 2026-04-21 |
 
 ## Conventions
 
@@ -36,4 +36,4 @@ If a decision is about *how the Risk Map content model is shaped*, it belongs in
 
 ## Contributing
 
-New ADRs are typically authored by the `architect` agent (to be introduced in a subsequent change; will live at `scripts/agents/architect.md`) when an in-flight change trips one of its triggers: schema changes, a new top-level directory, cross-module refactors, adding or removing an external tool dependency, adding or changing a CI workflow, and new features or tools that shape how the repo is built. Maintainers can also author ADRs directly. Either way, the ADR lands as `Status: Draft` and waits for sign-off before being marked `Accepted`.
+New ADRs are typically authored by the [`architect` agent](../../scripts/agents/architect.md) when an in-flight change trips one of its triggers: schema changes, a new top-level directory, cross-module refactors, adding or removing an external tool dependency, adding or changing a CI workflow, and new features or tools that shape how the repo is built. Maintainers can also author ADRs directly. Either way, the ADR lands as `Status: Draft` and waits for sign-off before being marked `Accepted`.

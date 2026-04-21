@@ -1,6 +1,6 @@
 # ADR-007: `content-reviewer` three-mode architecture
 
-**Status:** Draft
+**Status:** Accepted
 **Date:** 2026-04-20
 **Authors:** Architect agent, with maintainer review
 

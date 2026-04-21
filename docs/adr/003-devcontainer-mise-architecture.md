@@ -1,6 +1,6 @@
 # ADR-003: Devcontainer + `mise` tool-management architecture
 
-**Status:** Draft
+**Status:** Accepted
 **Date:** 2026-04-20
 **Authors:** Architect agent, with maintainer review
 

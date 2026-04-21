@@ -1,6 +1,6 @@
 # ADR-008: Sub-agent orchestration: composition contracts and routing boundaries
 
-**Status:** Draft
+**Status:** Accepted
 **Date:** 2026-04-20
 **Authors:** Architect agent, with maintainer review
 

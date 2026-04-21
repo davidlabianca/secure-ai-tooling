@@ -1,6 +1,6 @@
 # ADR-006: Vendor-neutral agent architecture under `scripts/agents/`
 
-**Status:** Draft
+**Status:** Accepted
 **Date:** 2026-04-20
 **Authors:** Architect agent, with maintainer review
 

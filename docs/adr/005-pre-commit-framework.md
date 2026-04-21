@@ -1,6 +1,6 @@
 # ADR-005: Adopt the `pre-commit` framework for hook orchestration
 
-**Status:** Draft
+**Status:** Accepted
 **Date:** 2026-04-20
 **Authors:** Architect agent, with maintainer review
 

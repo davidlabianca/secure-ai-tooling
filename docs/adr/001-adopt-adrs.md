@@ -1,6 +1,6 @@
 # ADR-001: Adopt ADRs for tooling/infrastructure decisions
 
-**Status:** Draft
+**Status:** Accepted
 **Date:** 2026-04-20
 **Authors:** Repository maintainer, with AI-assisted drafting
 

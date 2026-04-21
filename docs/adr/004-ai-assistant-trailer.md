@@ -1,6 +1,6 @@
 # ADR-004: Vendor-neutral `Co-authored-by` trailer for AI-assisted commits
 
-**Status:** Draft
+**Status:** Accepted
 **Date:** 2026-04-20
 **Authors:** Architect agent, with maintainer review
 
