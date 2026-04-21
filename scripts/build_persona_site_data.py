@@ -13,6 +13,7 @@ import json
 import re
 from pathlib import Path
 
+import jsonschema
 import yaml
 
 DEFAULT_PERSONAS_PATH = Path("risk-map/yaml/personas.yaml")
@@ -21,6 +22,18 @@ DEFAULT_CONTROLS_PATH = Path("risk-map/yaml/controls.yaml")
 DEFAULT_SITE_DIR = Path("site")
 DEFAULT_OUTPUT_NAME = "persona-site-data.json"
 GUIDED_QUESTION_THRESHOLD = 5
+
+SCHEMAS_DIR = Path(__file__).resolve().parent.parent / "risk-map" / "schemas"
+PERSONA_SITE_DATA_SCHEMA_PATH = SCHEMAS_DIR / "persona-site-data.schema.json"
+
+
+def _load_output_schema() -> dict:
+    """Load the persona site data output schema from disk."""
+    with PERSONA_SITE_DATA_SCHEMA_PATH.open("r", encoding="utf-8") as handle:
+        return json.load(handle)
+
+
+_OUTPUT_SCHEMA = _load_output_schema()
 
 
 def load_yaml(path: Path) -> dict:
@@ -210,7 +223,13 @@ def resolve_output_path(site_dir: Path, output_path: Path | None) -> Path:
 
 
 def write_site_data(data: dict, output_path: Path) -> None:
-    """Write site data JSON with stable formatting."""
+    """Write site data JSON with stable formatting, validating against the output schema first."""
+    try:
+        jsonschema.validate(data, _OUTPUT_SCHEMA)
+    except jsonschema.ValidationError as exc:
+        raise jsonschema.ValidationError(
+            f"Persona site data failed schema validation at {list(exc.absolute_path)!r}: {exc.message}",
+        ) from exc
     output_path.parent.mkdir(parents=True, exist_ok=True)
     with output_path.open("w", encoding="utf-8") as handle:
         json.dump(data, handle, indent=2)

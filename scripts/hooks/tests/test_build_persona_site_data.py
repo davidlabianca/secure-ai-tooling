@@ -3,9 +3,13 @@
 
 from __future__ import annotations
 
+import copy
+import json
+import subprocess
 import sys
 from pathlib import Path
 
+import jsonschema
 import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -17,6 +21,7 @@ from scripts.build_persona_site_data import (  # noqa: E402
     normalize_control_risk_ids,
     normalize_text_entries,
     resolve_output_path,
+    write_site_data,
 )
 
 
@@ -234,3 +239,243 @@ def test_load_yaml_raises_valueerror_on_whitespace_only_file(tmp_path: Path):
 
     with pytest.raises(ValueError, match="is empty or all-null"):
         load_yaml(null_path)
+
+
+# ============================================================================
+# Phase 2b: Output schema validation for persona-site-data.json
+# ============================================================================
+#
+# These tests pin a new contract on the persona site data builder:
+#
+# 1. A new schema file at risk-map/schemas/persona-site-data.schema.json
+#    describes the 7 top-level keys emitted by build_site_data().
+# 2. write_site_data() must validate against that schema BEFORE writing,
+#    raising jsonschema.ValidationError on structural drift.
+# 3. riskmap.schema.json#/definitions/utils/text must tighten its inner-array
+#    branch with minItems: 1 so that empty nested groups are rejected at the
+#    YAML layer (matching what normalize_text_entries drops at runtime).
+# 4. The live risks.yaml must still conform to the tightened schema.
+
+
+def _minimal_valid_site_data() -> dict:
+    """Return a minimal dict conforming to the persona-site-data schema contract."""
+    return {
+        "personas": [],
+        "questions": [],
+        "manualFallbackPersonaIds": [],
+        "riskCategories": [],
+        "controlCategories": [],
+        "risks": [],
+        "controls": [],
+    }
+
+
+def test_write_site_data_validates_against_output_schema(tmp_path: Path):
+    """
+    Test that write_site_data accepts conforming output and writes it to disk.
+
+    Given: A minimal dict matching the persona-site-data.schema.json contract
+    When: write_site_data() is called with a target path
+    Then: The file is written and round-trips back to the same dict via json.load
+    """
+    valid = _minimal_valid_site_data()
+    output_path = tmp_path / "out.json"
+
+    write_site_data(valid, output_path)
+
+    assert output_path.exists(), "write_site_data should write the file on success"
+    with output_path.open("r", encoding="utf-8") as handle:
+        loaded = json.load(handle)
+    assert loaded == valid
+
+
+def test_write_site_data_rejects_non_conforming_output(tmp_path: Path):
+    """
+    Test that write_site_data refuses to write structurally invalid data.
+
+    Given: A dict where `risks` is a string instead of a list (type violation)
+    When: write_site_data() is called
+    Then: jsonschema.ValidationError is raised and no file is written
+          (fail-before-write semantics)
+    """
+    invalid = _minimal_valid_site_data()
+    invalid["risks"] = "not a list"
+    output_path = tmp_path / "out.json"
+
+    with pytest.raises(jsonschema.ValidationError):
+        write_site_data(invalid, output_path)
+
+    assert not output_path.exists(), (
+        "write_site_data must not write a partial/invalid file when schema validation fails"
+    )
+
+
+def test_persona_site_data_schema_matches_generated_output(
+    risk_map_schemas_dir: Path,
+    personas_yaml_path: Path,
+    risks_yaml_path: Path,
+    controls_yaml_path: Path,
+):
+    """
+    Test that the live builder output conforms to persona-site-data.schema.json.
+
+    Given: The current framework YAML files and the new output schema
+    When: build_site_data() is called and the result is validated against the schema
+    Then: Validation succeeds without raising
+    """
+    schema_path = risk_map_schemas_dir / "persona-site-data.schema.json"
+    assert schema_path.exists(), f"persona-site-data schema must exist at {schema_path}"
+
+    with schema_path.open("r", encoding="utf-8") as handle:
+        schema = json.load(handle)
+
+    site_data = build_site_data(
+        load_yaml(personas_yaml_path),
+        load_yaml(risks_yaml_path),
+        load_yaml(controls_yaml_path),
+    )
+
+    jsonschema.validate(instance=site_data, schema=schema)
+
+
+def test_risks_yaml_conforms_to_tightened_prose_schema(
+    risks_yaml_path: Path,
+    risk_map_schemas_dir: Path,
+    base_uri: str,
+):
+    """
+    Test that the live risks.yaml still validates after minItems: 1 tightening.
+
+    Given: risks.yaml (which contains three nested-list longDescription entries
+           in riskInsecureIntegratedComponent, riskSensitiveDataDisclosure,
+           riskRogueActions) and the tightened riskmap.schema.json
+    When: check-jsonschema validates risks.yaml against risks.schema.json with
+          cross-file $ref resolution via --base-uri
+    Then: Validation passes (the tightening rejects only empty inner arrays,
+          which are not present in the live data)
+    """
+    schema_path = risk_map_schemas_dir / "risks.schema.json"
+    assert schema_path.exists(), "risks.schema.json must exist"
+
+    result = subprocess.run(
+        [
+            "check-jsonschema",
+            "--base-uri",
+            base_uri,
+            "--schemafile",
+            str(schema_path),
+            str(risks_yaml_path),
+        ],
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0, (
+        "Live risks.yaml must still validate after the utils/text minItems tightening.\n"
+        f"stdout:\n{result.stdout}\nstderr:\n{result.stderr}"
+    )
+
+
+def test_risks_schema_rejects_empty_nested_prose_array(
+    tmp_path: Path,
+    risk_map_schemas_dir: Path,
+    base_uri: str,
+):
+    """
+    Test that the tightened utils/text schema rejects empty inner arrays.
+
+    Given: A risks.yaml-shaped document where one risk has a longDescription
+           containing an empty nested list ([["paragraph"], []])
+    When: check-jsonschema validates it against risks.schema.json
+    Then: Validation fails due to minItems: 1 on the inner-array branch of
+          riskmap.schema.json#/definitions/utils/text
+    """
+    schema_path = risk_map_schemas_dir / "risks.schema.json"
+    assert schema_path.exists(), "risks.schema.json must exist"
+
+    yaml_content = """
+title: Test Risks
+description:
+  - Test description
+risks:
+  - id: riskPromptInjection
+    title: Prompt Injection
+    category: risksRuntimeInputSecurity
+    shortDescription:
+      - A short description.
+    longDescription:
+      - - Sub-paragraph within a group.
+      - []
+    personas:
+      - personaModelProvider
+    controls:
+      - controlInputValidationAndSanitization
+"""
+    yaml_file = tmp_path / "risks.yaml"
+    yaml_file.write_text(yaml_content)
+
+    result = subprocess.run(
+        [
+            "check-jsonschema",
+            "--base-uri",
+            base_uri,
+            "--schemafile",
+            str(schema_path),
+            str(yaml_file),
+        ],
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode != 0, (
+        "Empty inner array in longDescription should be rejected by the tightened "
+        "utils/text schema (minItems: 1 on the inner-array branch).\n"
+        f"stdout:\n{result.stdout}\nstderr:\n{result.stderr}"
+    )
+
+
+@pytest.mark.parametrize(
+    "mutator,description",
+    [
+        (
+            lambda d: d.pop("risks"),
+            "missing top-level 'risks' key",
+        ),
+        (
+            lambda d: d.__setitem__("personas", "not a list"),
+            "wrong-type top-level 'personas' value (string instead of array)",
+        ),
+        (
+            lambda d: d.__setitem__(
+                "personas",
+                [{"title": "Missing ID"}],
+            ),
+            "persona object missing required 'id' field",
+        ),
+    ],
+    ids=["missing-top-level-key", "wrong-type-top-level", "nested-object-missing-id"],
+)
+def test_persona_site_data_schema_rejects_structural_violations(
+    risk_map_schemas_dir: Path,
+    mutator,
+    description: str,
+):
+    """
+    Test that persona-site-data.schema.json rejects representative shape violations.
+
+    Given: A minimal-valid site data dict mutated to introduce a structural defect
+    When: The schema validates the mutated dict
+    Then: jsonschema.ValidationError is raised, proving the schema enforces the
+          top-level key set, top-level value types, and nested-object required fields
+    """
+    schema_path = risk_map_schemas_dir / "persona-site-data.schema.json"
+    assert schema_path.exists(), f"persona-site-data schema must exist at {schema_path}"
+
+    with schema_path.open("r", encoding="utf-8") as handle:
+        schema = json.load(handle)
+
+    bad = copy.deepcopy(_minimal_valid_site_data())
+    mutator(bad)
+
+    with pytest.raises(jsonschema.ValidationError):
+        jsonschema.validate(instance=bad, schema=schema)
