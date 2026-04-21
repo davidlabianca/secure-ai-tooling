@@ -1,5 +1,6 @@
 import { buildResultsModel } from "./persona-logic.mjs";
 
+const APP_NAME = "CoSAI Risk Map Explorer";
 const DATA_PATH = "./generated/persona-site-data.json";
 const STEP_TITLES = [
   "Introduction",
@@ -13,6 +14,7 @@ const state = {
   answers: {},
   data: null,
   errorMessage: "",
+  errorSteps: [],
   loading: true,
   manualSelectedIds: new Set(),
   personaOverrides: {},
@@ -50,6 +52,24 @@ function getResultsModel() {
 
 function renderRichParagraphs(paragraphs, className = "body-copy") {
   return paragraphs.map((paragraph) => `<p class="${className}">${paragraph}</p>`).join("");
+}
+
+function renderStatusCard({ eyebrow, title, copy, steps = [], note = "" }) {
+  return `
+    <section class="loading-card">
+      <p class="eyebrow">${escapeHtml(eyebrow)}</p>
+      <h1>${escapeHtml(title)}</h1>
+      <p>${escapeHtml(copy)}</p>
+      ${
+        steps.length
+          ? `<ul class="status-list">
+              ${steps.map((step) => `<li>${escapeHtml(step)}</li>`).join("")}
+            </ul>`
+          : ""
+      }
+      ${note ? `<p class="status-note">${escapeHtml(note)}</p>` : ""}
+    </section>
+  `;
 }
 
 function renderStepRail(resultsModel) {
@@ -96,7 +116,7 @@ function renderIntroduction() {
   return `
     <section class="step-panel intro-panel">
       <div class="hero-panel">
-        <p class="eyebrow">CoSAI-RM Persona Navigator</p>
+        <p class="eyebrow">${APP_NAME}</p>
         <h1>Find the CoSAI personas that fit your work, then browse the risks and controls that follow.</h1>
         <p class="hero-copy">
           This GitHub Pages MVP is built for framework adoption, not for scoring. It uses the existing CoSAI-RM
@@ -604,24 +624,27 @@ function renderResults(resultsModel) {
 
 function renderApp() {
   if (state.loading) {
-    appElement.innerHTML = `
-      <section class="loading-card">
-        <p class="eyebrow">CoSAI-RM</p>
-        <h1>Loading persona navigator</h1>
-        <p>Building the site data from the framework YAML keeps the app static and source-of-truth driven.</p>
-      </section>
-    `;
+    appElement.innerHTML = renderStatusCard({
+      eyebrow: APP_NAME,
+      title: "Loading framework-driven persona guidance",
+      copy: "The explorer is fetching its generated CoSAI-RM snapshot and assembling the persona, risk, and control views for this session.",
+      steps: [
+        "Fetch the generated persona dataset.",
+        "Prepare guided questions and manual fallback personas.",
+        "Build deduplicated risk and control results.",
+      ],
+      note: "Answers stay in this browser session only while the app is loading.",
+    });
     return;
   }
 
   if (state.errorMessage) {
-    appElement.innerHTML = `
-      <section class="loading-card">
-        <p class="eyebrow">Build required</p>
-        <h1>Generated site data is missing.</h1>
-        <p>${escapeHtml(state.errorMessage)}</p>
-      </section>
-    `;
+    appElement.innerHTML = renderStatusCard({
+      eyebrow: "Generated data unavailable",
+      title: "The explorer could not load its framework snapshot.",
+      copy: state.errorMessage,
+      steps: state.errorSteps,
+    });
     return;
   }
 
@@ -640,7 +663,7 @@ function renderApp() {
     <header class="site-header">
       <div>
         <p class="eyebrow">Coalition for Secure AI</p>
-        <p class="brand-title">CoSAI-RM Persona Navigator</p>
+        <p class="brand-title">${APP_NAME}</p>
       </div>
       <p class="privacy-badge">Answers stay in this browser session only</p>
     </header>
@@ -664,15 +687,29 @@ async function loadSiteData() {
     const response = await fetch(DATA_PATH, { cache: "no-store" });
 
     if (!response.ok) {
-      throw new Error(`Failed to load ${DATA_PATH}`);
+      throw new Error(`Failed to load ${DATA_PATH} (${response.status})`);
     }
 
     state.data = await response.json();
     state.loading = false;
     renderApp();
   } catch (error) {
-    state.errorMessage =
-      "Run `python3 scripts/build_persona_site_data.py` from the repository root before previewing the site locally.";
+    const isFileProtocol = window.location.protocol === "file:";
+
+    state.errorMessage = isFileProtocol
+      ? "Open the explorer through a local web server instead of loading index.html directly from the filesystem."
+      : "The generated persona dataset is missing or unreadable, so the explorer cannot render the CoSAI-RM questions and results.";
+    state.errorSteps = isFileProtocol
+      ? [
+          "Generate the site data with `python3 scripts/build_persona_site_data.py` from the repository root.",
+          "Preview with `python3 -m http.server --directory risk-map/site 8000`.",
+          "Reload the explorer at `http://localhost:8000`.",
+        ]
+      : [
+          "Confirm that `generated/persona-site-data.json` exists in the published site artifact.",
+          "Rebuild locally with `python3 scripts/build_persona_site_data.py` if you are previewing from the repository.",
+          `Technical detail: ${error instanceof Error ? error.message : "unknown fetch error"}`,
+        ];
     state.loading = false;
     renderApp();
     console.error(error);

@@ -1,4 +1,4 @@
-# CoSAI-RM Persona Pages MVP
+# CoSAI Risk Map Explorer
 
 This document describes the static GitHub Pages experience for CoSAI-RM persona matching and persona-driven risk/control browsing.
 
@@ -61,12 +61,17 @@ python3 scripts/build_persona_site_data.py
 
 The Python tests cover YAML loading and transformation. The Node tests cover persona matching, manual fallback behavior, and deduplication logic.
 
+These focused checks are the validation bar for the explorer itself. Some broader repository tests are currently environment-sensitive and may fail locally even when the explorer changes are correct:
+
+- `scripts/hooks/tests/test_verify_deps.py -k all_dependencies_present_exit_0` expects a Python 3.14 environment on `PATH`.
+- `scripts/hooks/tests/test_install_deps.py::TestSkipChromiumWhenPresent::test_chromium_in_cache_emits_skip` depends on local Chromium cache state.
+
 ## GitHub Pages Deployment
 
 The workflow at `.github/workflows/persona-pages.yml` handles this MVP:
 
-- Pull requests to `main` run the focused Python and Node tests and build a Pages artifact.
-- Pushes to `main` rebuild the site artifact and deploy it to GitHub Pages.
+- Pull requests to `main` run the focused Python and Node tests and validate that the static site artifact can be assembled.
+- Pushes to `main` rebuild the site artifact, enable GitHub Pages if needed, and deploy the explorer.
 - Deployment builds from a clean `_site/` copy so generated JSON does not need to be committed.
 
 ## Maintenance Notes

@@ -5,9 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta
       name="description"
-      content="CoSAI-RM persona navigator for identifying the risks and controls that apply to your role in the AI ecosystem."
+      content="CoSAI Risk Map Explorer helps users identify CoSAI-RM personas and browse the linked risks and controls for their role in the AI ecosystem."
     />
-    <title>CoSAI-RM Persona Navigator</title>
+    <title>CoSAI Risk Map Explorer</title>
     <link rel="stylesheet" href="./assets/styles.css" />
   </head>
   <body>
@@ -15,19 +15,24 @@
     <div class="page-grid" aria-hidden="true"></div>
     <main class="app-shell" data-app>
       <section class="loading-card">
-        <p class="eyebrow">CoSAI-RM</p>
-        <h1>Loading persona navigator</h1>
+        <p class="eyebrow">CoSAI Risk Map Explorer</p>
+        <h1>Loading framework-driven persona guidance</h1>
         <p>
-          Generate the site data first when previewing locally:
-          <code>python3 scripts/build_persona_site_data.py</code>
+          The explorer is preparing the generated CoSAI-RM dataset that drives persona matching, manual fallback
+          coverage, and deduplicated risks and controls.
         </p>
+        <ul class="status-list">
+          <li>Source of truth: framework YAML transformed into static JSON</li>
+          <li>Privacy posture: answers stay in this browser session only</li>
+          <li>Local preview hint: run <code>python3 scripts/build_persona_site_data.py</code> if this never advances</li>
+        </ul>
       </section>
     </main>
     <noscript>
       <section class="loading-card">
         <p class="eyebrow">JavaScript Required</p>
         <h1>This experience needs browser-side JavaScript.</h1>
-        <p>The CoSAI-RM persona navigator keeps answers in your browser and does not use a backend.</p>
+        <p>The CoSAI Risk Map Explorer keeps answers in your browser and does not use a backend.</p>
       </section>
     </noscript>
     <script type="module" src="./assets/app.mjs"></script>
