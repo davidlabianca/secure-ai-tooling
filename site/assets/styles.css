@@ -339,14 +339,21 @@ code {
 }
 
 .compact-list,
-.bullet-list {
+.bullet-list,
+.status-list {
   padding-left: 18px;
   margin: 0;
 }
 
 .compact-list li,
-.bullet-list li {
+.bullet-list li,
+.status-list li {
   margin-bottom: 10px;
+}
+
+.status-note {
+  margin: 18px 0 0;
+  color: var(--ink-soft);
 }
 
 .persona-card-header,

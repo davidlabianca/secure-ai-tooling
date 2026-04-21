@@ -1,5 +1,6 @@
 import { buildResultsModel } from "./persona-logic.mjs";
 
+const APP_NAME = "CoSAI Risk Map Explorer";
 const DATA_PATH = "./generated/persona-site-data.json";
 const STEP_TITLES = ["Introduction", "Persona questions", "Matched persona summary", "Risks and controls"];
 
@@ -8,6 +9,7 @@ const state = {
   answers: {},
   data: null,
   errorMessage: "",
+  errorSteps: [],
   loading: true,
   manualSelectedIds: new Set(),
   personaOverrides: {},
@@ -35,6 +37,24 @@ function announceStatus(message) {
   if (statusElement) {
     statusElement.textContent = message;
   }
+}
+
+function renderStatusCard({ eyebrow, title, copy, steps = [], note = "" }) {
+  return `
+    <section class="loading-card">
+      <p class="eyebrow">${escapeHtml(eyebrow)}</p>
+      <h1>${escapeHtml(title)}</h1>
+      <p>${escapeHtml(copy)}</p>
+      ${
+        steps.length
+          ? `<ul class="status-list">
+              ${steps.map((step) => `<li>${escapeHtml(step)}</li>`).join("")}
+            </ul>`
+          : ""
+      }
+      ${note ? `<p class="status-note">${escapeHtml(note)}</p>` : ""}
+    </section>
+  `;
 }
 
 function getResultsModel() {
@@ -101,7 +121,7 @@ function renderIntroduction() {
   return `
     <section class="step-panel intro-panel">
       <div class="hero-panel">
-        <p class="eyebrow">CoSAI Risk Map Explorer</p>
+        <p class="eyebrow">${APP_NAME}</p>
         <h1>Find the CoSAI-RM personas that fit your work.</h1>
         <p class="hero-copy">
           The explorer is built for framework adoption, not for scoring. It uses the existing CoSAI-RM
@@ -614,24 +634,26 @@ function renderResults(resultsModel) {
 
 function renderApp() {
   if (state.loading) {
-    appElement.innerHTML = `
-      <section class="loading-card">
-        <p class="eyebrow">CoSAI Risk Map Explorer</p>
-        <h1>Loading the explorer</h1>
-        <p>Building the site data from the framework YAML keeps the app static and source-of-truth driven.</p>
-      </section>
-    `;
+    appElement.innerHTML = renderStatusCard({
+      eyebrow: APP_NAME,
+      title: "Loading framework-driven persona guidance",
+      copy: "The explorer is preparing the generated CoSAI-RM dataset that drives persona matching, manual fallback coverage, and deduplicated risks and controls.",
+      steps: [
+        "Source of truth: framework YAML transformed into static JSON",
+        "Privacy posture: answers stay in this browser session only",
+        "Local preview hint: run `python3 scripts/build_persona_site_data.py` if this never advances",
+      ],
+    });
     return;
   }
 
   if (state.errorMessage) {
-    appElement.innerHTML = `
-      <section class="loading-card">
-        <p class="eyebrow">Build required</p>
-        <h1>Generated site data is missing.</h1>
-        <p>${escapeHtml(state.errorMessage)}</p>
-      </section>
-    `;
+    appElement.innerHTML = renderStatusCard({
+      eyebrow: "Build required",
+      title: "Generated site data is missing.",
+      copy: state.errorMessage,
+      steps: state.errorSteps,
+    });
     return;
   }
 
@@ -650,7 +672,7 @@ function renderApp() {
     <header class="site-header">
       <div>
         <p class="eyebrow">Coalition for Secure AI</p>
-        <p class="brand-title">CoSAI Risk Map Explorer</p>
+        <p class="brand-title">${APP_NAME}</p>
       </div>
       <p class="privacy-badge">Answers stay in this browser session only</p>
     </header>
