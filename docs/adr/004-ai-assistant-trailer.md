@@ -21,11 +21,10 @@ Co-authored-by: AI Assistant <ai-assistant@coalitionforsecureai.org>
 Evidence the convention is in force today:
 
 - **Governance issue [#149](https://github.com/cosai-oasis/secure-ai-tooling/issues/149)** is the authoritative source of the decision, raised on the umbrella `cosai-oasis/secure-ai-tooling` repository.
-- **`scripts/hooks/prepare-commit-msg`** — a tracked `prepare-commit-msg` hook that appends exactly this trailer when `AI_ASSISTED=1` is set, using a literal-string match to avoid duplication. This is the enforcement surface.
-- **The maintainer operating guide** references the convention and links to issue #149 (see the "Development Guidelines" section of the repository's local `CLAUDE.md`).
-- **ADR-001** (the ADR-adoption decision itself) lists this trailer as one of the representative tooling decisions that motivated introducing a tracked decision log.
+- **A maintainer-local `prepare-commit-msg` git hook** (at `scripts/hooks/prepare-commit-msg`, not tracked) appends exactly this trailer when `AI_ASSISTED=1` is set, using a literal-string `grep -qF` match to avoid duplication. This is the maintainer-side enforcement surface; it is not shared across contributors today.
+- **[ADR-001](001-adopt-adrs.md)** lists this trailer as one of the representative tooling decisions that motivated introducing a tracked decision log.
 
-The problem this ADR addresses is not that the convention is wrong — it is that the convention is currently *documented* only in `CLAUDE.md`, which is excluded from git via `.git/info/exclude` (entry: `CLAUDE.md`). External contributors cloning the repository have no tracked reference for the trailer, why it exists, or what rejected alternatives it supersedes. The `prepare-commit-msg` hook enforces the string, but enforcement without published rationale leaves contributors guessing — and leaves the convention vulnerable to being dropped the next time an AI-assistant harness changes its default output.
+The problem this ADR addresses is not that the convention is wrong — it is that the convention's *rationale* is currently captured only in governance issue #149 and in maintainer-local operating guides and tooling. External contributors cloning the repository have no tracked reference for why the trailer exists, what rejected alternatives it supersedes, or what governance question it settles. The maintainer-local hook enforces the string on the maintainer's own commits, but enforcement without published rationale leaves other contributors guessing — and leaves the convention vulnerable to being dropped the next time an AI-assistant harness changes its default output.
 
 This is a **retroactive** ADR: it documents reasoning behind an already-locked decision (#149), not a new decision.
 
@@ -42,7 +41,7 @@ Concrete shape:
 - **Identity:** `AI Assistant` — a generic role name, not a product or model name.
 - **Email:** `ai-assistant@coalitionforsecureai.org` — attributes the co-authorship to a neutral coalition-owned address rather than a vendor's no-reply domain.
 - **Scope:** any commit where AI assistance materially shaped the committed output. "Materially" means content the assistant generated or substantively revised; it does not include trivial assists such as autocomplete.
-- **Enforcement:** the tracked `prepare-commit-msg` hook at [`scripts/hooks/prepare-commit-msg`](../../scripts/hooks/prepare-commit-msg) appends the trailer when `AI_ASSISTED=1` is set in the commit environment. The hook is idempotent (literal-string `grep -qF` guard).
+- **Enforcement:** a maintainer-side `prepare-commit-msg` git hook appends the trailer when `AI_ASSISTED=1` is set in the commit environment; the hook is idempotent (literal-string `grep -qF` guard). The hook is currently maintainer-local and not tracked in the repository, so contributors who want the same automatic enforcement install their own copy or configure an equivalent mechanism in their AI-assistant harness. Whether the hook should itself be tracked is a separate decision (see Follow-up).
 - **Vendor defaults are replaced, not augmented.** Any AI tool whose default trailer embeds a model identifier or vendor domain must have that default suppressed or overwritten before the commit lands. Mixing the vendor default with the neutral trailer defeats the purpose.
 - **Authoritative source:** governance issue [#149](https://github.com/cosai-oasis/secure-ai-tooling/issues/149). If the trailer text ever needs to change, that issue (or its successor) is where the change is negotiated; this ADR is updated to match.
 
@@ -62,7 +61,7 @@ Concrete shape:
 
 - The published commit history reads as vendor-neutral. No reader of `git log` can infer which AI tool was used, preserving the coalition's multi-vendor posture in the artifact external parties actually see.
 - Provenance is preserved. AI-assisted commits remain grep-able via a single literal string, which supports both review calibration and any future audit of AI involvement in the codebase.
-- The rationale for the convention now lives in a tracked file. The `prepare-commit-msg` hook and `CLAUDE.md` continue to enforce and mention the trailer, but contributors without access to maintainer-local files can now read the *why* in `docs/adr/004-ai-assistant-trailer.md`.
+- The rationale for the convention now lives in a tracked file. Maintainer-local tooling (the `prepare-commit-msg` hook and the maintainer's operating guide) continues to enforce and mention the trailer, but contributors without access to those files can now read the *why* in `docs/adr/004-ai-assistant-trailer.md`.
 - The convention is insulated against harness churn. If an AI tool changes its default trailer format in a future release, the ADR and hook are unaffected; only the suppression step in the relevant tool configuration needs updating.
 
 **Negative**
@@ -73,6 +72,7 @@ Concrete shape:
 
 **Follow-up**
 
-- Contributor-facing documentation (the contributing guide work tracked separately) should surface the trailer convention and link to this ADR, so new contributors do not have to discover it via the hook or maintainer guidance.
-- A PR-level check that flags commits carrying vendor-default AI trailers would harden the convention beyond the local hook. Not part of this ADR; a candidate for a later tooling ADR if the failure mode is observed in practice.
+- Surface the trailer convention in tracked contributor-facing documentation (the logical home is `CONTRIBUTING.md`) with a link back to this ADR, so new contributors discover it without needing access to maintainer-local files.
+- Consider whether `scripts/hooks/prepare-commit-msg` should itself be tracked so every contributor applies the trailer automatically without installing their own hook. That is a separate decision with its own tradeoffs (hook installability via `core.hooksPath` or a hook manager, portability across AI-assistant harnesses, what happens when a contributor's harness already emits a conflicting trailer) and is a candidate for its own ADR.
+- A PR-level check that flags commits carrying vendor-default AI trailers would harden the convention beyond any single-contributor hook. Not part of this ADR; a candidate for a later tooling ADR if the failure mode is observed in practice.
 - If governance issue #149 is ever closed with a revised trailer text, this ADR is updated in the same change and the `prepare-commit-msg` hook's `TRAILER` constant is updated to match.

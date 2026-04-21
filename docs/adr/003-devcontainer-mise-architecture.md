@@ -17,7 +17,7 @@ The repository is also sensitive to two specific failure modes that a naive setu
 
 A contributor should be able to clone the repo, open the folder in VS Code (or in GitHub Codespaces), and have a verified working environment without running any manual commands. That requirement is what this ADR records.
 
-Today this architecture already exists — the devcontainer has been in place and iterated on through the work that produced the `pre-commit` framework adoption (PRs #211, #221, #222) and the current `feature/architect-adr-adoption` branch. The architecture is described informally in the maintainer-local `CLAUDE.md`, which is untracked. This ADR is the first tracked statement of the design.
+The architecture already exists — it was introduced in commit `ff43aa4` ("feat(infra): Refactor of devcontainer and Dockerfile", 2026-02-06) and has iterated through subsequent work including the `pre-commit` framework adoption (PRs #211, #221, #222) and the current `feature/architect-adr-adoption` branch. Setup and day-to-day usage are documented procedurally in [`risk-map/docs/setup.md`](../../risk-map/docs/setup.md), which covers prerequisites, tool versions, `install-deps.sh` / `verify-deps.sh` invocation, and platform-specific notes. What that document does not capture is the *design rationale* — why `mise` over alternatives, why Docker-in-Docker, why `remoteEnv` for VS Code Server PATH handling, why idempotency and non-interactive flags in the install script, why the 177-test devcontainer suite is structured the way it is. This ADR captures the rationale, under the practice established by [ADR-001](001-adopt-adrs.md); `risk-map/docs/setup.md` captures how to use it.
 
 ## Decision
 
@@ -71,4 +71,4 @@ This architecture is load-bearing enough that it is covered by **roughly 177 tes
 
 - [ADR-005](005-pre-commit-framework.md) captures the **pre-commit framework adoption** that landed in PRs #211, #221, #222 as its own decision. It layers on top of this one but has its own rationale (framework vs. hand-rolled hooks, the removed parity gate).
 - If the repo ever adopts an offline / airgapped build path, that is a new decision that either supersedes parts of this ADR or introduces a companion one. Out of scope here.
-- Contributor-facing documentation (the contributing guide plan tracks this) should point contributors at `install-deps.sh --dry-run` as the supported way to see what the container will do, without having to read the script itself.
+- Add the `install-deps.sh --dry-run` hint to [`risk-map/docs/setup.md`](../../risk-map/docs/setup.md) so contributors can inspect what the container will do without reading the script itself. Keep `setup.md` and this ADR in sync if the architecture changes — `setup.md` documents the procedure; this ADR documents the decision.

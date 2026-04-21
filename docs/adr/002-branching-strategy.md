@@ -10,7 +10,7 @@
 
 Work in this repository lands in two visibly different streams:
 
-- **Framework content** — edits to the risk, control, persona, and component YAML under `risk-map/yaml/` and the generated tables and design notes that track them. Authoritative review for these changes is *framework-expert*: the reviewer is judging taxonomy coherence, persona-model fit, and citation quality. The cadence is batched — content updates tend to arrive as themed sets (for example persona refinements, risk-ID migrations, framework-mapping edits) and are merged together after community review.
+- **Framework content** — edits to the risk, control, persona, and component YAML under `risk-map/yaml/`, the JSON schemas under `risk-map/schemas/` that govern them, and the generated tables and design notes that track both. Authoritative review for these changes is *framework-expert*: the reviewer is judging taxonomy coherence, persona-model fit, schema semantics, and citation quality. The cadence is batched — content updates tend to arrive as themed sets (for example persona refinements, risk-ID migrations, framework-mapping edits) and are merged together after community review.
 - **Tooling, infrastructure, and process** — devcontainer setup, pre-commit hooks, CI workflows, validators, agent definitions, issue templates, dependency bumps. Authoritative review here is *engineering*: the reviewer is judging correctness, test coverage, and blast radius. The cadence is incremental — small PRs land as soon as they pass review, not held for a themed batch.
 
 Reflog evidence of both streams existing side by side:
@@ -25,7 +25,9 @@ Forcing both streams onto a single trunk creates two specific frictions:
 1. **Review contention.** A content PR sitting in the queue under framework-expert review blocks an unrelated infrastructure fix, or vice versa. The reviewers are different people with different availability; combining queues serializes work that does not need to be serialized.
 2. **History pollution.** Content review generates long, taxonomy-specific discussion threads. Infrastructure review generates test and CI-log discussion. Merging both into one trunk makes `git log` and PR archaeology harder for both audiences — someone tracing a regression in a validator does not want to page through persona-model debate.
 
-Today this split exists in practice but is documented only in `CLAUDE.md`, which is itself a maintainer-local file excluded via `.git/info/exclude` (entry `CLAUDE.md`). Contributors who clone the repository have no tracked reference for where to branch from or where to target their PRs. This ADR is the first tracked statement of the convention, captured under the ADR practice established by [ADR-001](001-adopt-adrs.md).
+The split is documented procedurally in [`CONTRIBUTING.md`](../../CONTRIBUTING.md) — specifically the contribution workflows at lines 36-45 (Stage 1 review on `develop`, Stage 2 community review on merges to `main`) and 92-113 (content vs. non-content contribution paths), and the branch-naming conventions at lines 124-140. It is referenced from [`risk-map/docs/workflow.md`](../../risk-map/docs/workflow.md) (line 17, "Open a PR against the `develop` branch") and [`risk-map/docs/developing.md`](../../risk-map/docs/developing.md) (line 3, which explicitly defers to `CONTRIBUTING.md` for branching). The `develop` branch was introduced to `CONTRIBUTING.md` in commit `5486c59` ("Updated contributing.md to include `develop` branch").
+
+What those tracked sources document is the *procedure*: which base branch, which target branch, which naming prefix, which rebase sequence. What they do not document is the *decision* — the forces that motivated the two-branch split, the alternatives that were considered and rejected, and the consequences the project now lives with. This ADR captures the decision, under the practice established by [ADR-001](001-adopt-adrs.md); `CONTRIBUTING.md` captures how to follow it.
 
 ## Decision
 
@@ -37,7 +39,7 @@ Use a two-branch model:
 
 Concretely, when opening a PR:
 
-- If the diff touches `risk-map/yaml/**` or the generated tables and design docs derived from it, branch from `develop` and target `develop`.
+- If the diff touches Risk Map content — `risk-map/yaml/**`, `risk-map/schemas/**`, or the generated tables and design docs derived from them — branch from `develop` and target `develop`. This matches `CONTRIBUTING.md` line 157's framing of "schemas and YAML under `risk-map/`" as one content unit.
 - If the diff touches `scripts/`, `.github/`, `.devcontainer/`, `pyproject.toml`, pre-commit config, dependencies, or other repository plumbing, branch from `main` and target `main`.
 - Mixed PRs are discouraged; if a change genuinely spans both, split it, and land the tooling half on `main` first so the content half can rebase onto a `develop` that has absorbed the fix.
 
@@ -56,7 +58,7 @@ Concretely, when opening a PR:
 - Review queues stay separated by expertise. Framework reviewers see `develop` PRs; engineering reviewers see `main` PRs. Neither queue blocks the other.
 - `main`'s history reads as an engineering log; `develop`'s history reads as a content log. Both are easier to mine than a combined trunk.
 - External consumers who pull `main` get a coherent published state, not a snapshot mid-content-batch.
-- The convention is now tracked. A contributor reading `docs/adr/002-branching-strategy.md` can answer "where do I branch from?" without access to maintainer-local files.
+- The *rationale* is now tracked alongside the procedure. `CONTRIBUTING.md` answers "where do I branch from?"; this ADR answers "why is it this way?" A future contributor — or a future session proposing to collapse the two branches — can read both and judge whether the original reasoning still holds.
 
 **Negative**
 
@@ -67,6 +69,6 @@ Concretely, when opening a PR:
 
 **Follow-up**
 
-- Reflect this convention in tracked contributor-facing documentation (the contributing guide plan tracks this). The goal is that new contributors do not need to read this ADR to pick the right base branch, but the ADR remains the authoritative *why*.
+- Keep `CONTRIBUTING.md` and this ADR in sync if either changes. `CONTRIBUTING.md` is the procedural reference new contributors read first; this ADR is the decision record that explains it. A future edit to the branching convention must update both — otherwise the *why* and the *how* drift apart.
 - Consider a PR template hint ("Is this a content change or a tooling change?") to reduce mistargeted PRs. Not part of this ADR.
 - If the repository ever grows a scheduled release cadence or a published-site staging surface, revisit this ADR — a third branch may become justified, and this decision would be superseded rather than amended.

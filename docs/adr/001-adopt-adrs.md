@@ -37,7 +37,7 @@ Concrete shape:
 - **Template:** lean five-section format — *Status / Context / Decision / Alternatives Considered / Consequences*. Source at [`docs/adr/TEMPLATE.md`](TEMPLATE.md).
 - **Numbering:** classic sequential `NNN-slug.md` (zero-padded, kebab-case slug). Numbers are claimed by updating the [ADR index](README.md) in the same commit that introduces the ADR.
 - **Lifecycle:** ADRs land as `Status: Draft`. Maintainer review flips `Draft → Accepted`. When a later ADR replaces an earlier one, the earlier one's status becomes `Superseded by ADR-XXX` and the file stays in place (history is preserved; it is never deleted).
-- **Authorship:** ADRs are typically drafted by the `architect` agent (introduced in Phase 2 of the plan that produced this ADR). Maintainers may also author ADRs directly. Either way, draft status is the default until sign-off.
+- **Authorship:** ADRs are typically drafted by the `architect` agent (see [ADR-006](006-agent-architecture-pattern.md)). Maintainers may also author ADRs directly. Either way, draft status is the default until sign-off.
 - **Triggers — when to write an ADR:** schema changes, adding a new top-level directory, cross-module refactors, adding or removing an external tool dependency, adding or changing a CI workflow, and introducing new features or tools that shape how the repo is built (for example the upcoming GitHub Pages build surface).
 - **Single decision per ADR.** If a draft grows a second decision, split it.
 
@@ -68,7 +68,7 @@ A decision about how the Risk Map *content model* is shaped belongs in `risk-map
 **Positive**
 
 - Tooling decisions have a stable, tracked home with a consistent shape. Contributors and future sessions can answer "why is it this way?" without archaeology.
-- The `architect` agent (introduced in Phase 2) has a concrete output surface. Its job becomes "produce an ADR against `TEMPLATE.md`" rather than "write a document somewhere."
+- The `architect` agent has a concrete output surface. Its job becomes "produce an ADR against `TEMPLATE.md`" rather than "write a document somewhere."
 - Clear boundary between infrastructure decisions (`docs/adr/`), framework-content design (`risk-map/docs/design/`), and transient execution plans (local untracked directories). Each surface has a defined audience and does not compete with the others.
 - `Status: Superseded by ADR-XXX` preserves history. When a decision is revisited years later, the prior ADR and its reasoning remain legible.
 
@@ -81,7 +81,6 @@ A decision about how the Risk Map *content model* is shaped belongs in `risk-map
 
 **Follow-up**
 
-- The seven retroactive ADRs (ADR-002 through ADR-008) capturing prior tooling decisions, authored by the architect agent after it lands in Phase 2. Scope is defined in the implementation plan for this work.
-- The `architect` agent itself: canonical vendor-neutral source at `scripts/agents/architect.md`, following this repo's established agent-architecture pattern. Harness-specific wrappers and routing guidance, if any, are layered separately by whichever AI environment consumes the agent — they are not part of the canonical pattern. Phase 2 of the same plan.
-- Close-out of `new-sub-agent-options.md` once ADR-001 is accepted and ADR-006 (agent architecture pattern) captures the relevant conclusions. Phase 4 of the same plan.
+- Seven retroactive ADRs (ADR-002 through ADR-008) capture prior tooling decisions under the practice this ADR establishes. See the [ADR index](README.md) for the list; they land as `Status: Draft` pending maintainer acceptance.
+- The `architect` agent itself, canonical vendor-neutral source at [`scripts/agents/architect.md`](../../scripts/agents/architect.md). See [ADR-006](006-agent-architecture-pattern.md) for the agent-architecture pattern that governs the canonical-vs-wrapper split.
 - The upcoming GitHub Pages build may want to render `docs/adr/` as a navigable surface. Flagged for that work, not coupled to this ADR.
