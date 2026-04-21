@@ -1,6 +1,6 @@
 # CoSAI Risk Map Explorer
 
-This document describes the static GitHub Pages experience — the **CoSAI Risk Map Explorer** — for CoSAI-RM persona matching and persona-driven risk/control browsing. The explorer is intentionally scoped narrowly in its initial release; see the Scope section below for what this is and is not.
+The **CoSAI Risk Map Explorer** is a static GitHub Pages experience for CoSAI-RM persona matching and persona-driven risk/control browsing. Its initial release is intentionally narrow in scope.
 
 ## Prerequisites
 
@@ -80,12 +80,17 @@ python3 scripts/build_persona_site_data.py
 
 The Python tests cover YAML loading and transformation. The Node tests cover persona matching, manual fallback behavior, and deduplication logic.
 
+These focused checks are the validation bar for the explorer itself. Some broader repository tests are currently environment-sensitive and may fail locally even when the explorer changes are correct:
+
+- `scripts/hooks/tests/test_verify_deps.py -k all_dependencies_present_exit_0` expects a Python 3.14 environment on `PATH`.
+- `scripts/hooks/tests/test_install_deps.py::TestSkipChromiumWhenPresent::test_chromium_in_cache_emits_skip` depends on local Chromium cache state.
+
 ## GitHub Pages Deployment
 
 The workflow at `.github/workflows/persona-pages.yml` handles the explorer:
 
-- Pull requests to `main` run the focused Python and Node tests and build a Pages artifact.
-- Pushes to `main` rebuild the site artifact and deploy it to GitHub Pages.
+- Pull requests to `main` run the focused Python and Node tests and validate that the static site artifact can be assembled.
+- Pushes to `main` rebuild the site artifact, enable GitHub Pages if needed, and deploy the explorer.
 - Deployment builds from a clean `_site/` copy so generated JSON does not need to be committed.
 
 ## Maintenance Notes
@@ -113,13 +118,13 @@ The explorer implements:
 - Honors `prefers-reduced-motion` to suppress animations and smooth scrolling
 - Announces state changes via an aria-live status region (answer changes, step navigation, manual persona toggles, session reset)
 
-Known gap: focus is not preserved across full-app re-renders (answering a question returns focus to `<body>`). Tracked for a follow-up refactor — see [draft issue for app.mjs testing + focus-management](../../reviews/draft-app.mjs-testing-issue.md).
+Known gap: focus is not preserved across full-app re-renders (answering a question returns focus to `<body>`). Tracked as a follow-up issue filed alongside PR #223 (labels: `test-coverage`, `frontend`, `tech-debt`, `follow-up-from-pr-223`).
 
 ## Troubleshooting
 
-- "Generated site data is missing" → run `python3 scripts/build_persona_site_data.py`
-- Builder crashes with `ValueError: ... is empty or all-null` → check the named YAML file
-- Builder crashes with `TypeError: Prose items must be string or list-of-strings, got ...` (or `Nested prose items must be strings, got ...`) → one of the YAML prose fields has unexpected nested structure; inspect the named risk/control
+- `Generated site data is missing` → run `python3 scripts/build_persona_site_data.py`
+- `ValueError: ... is empty or all-null` → the named YAML file is empty or all-null; populate or remove it
+- `TypeError: Prose items must be string or list-of-strings` (or `Nested prose items must be strings`) → a YAML prose field has an unexpected nested structure; inspect the named risk/control
 - Empty risks pane for a matched persona → see the Data Flow note on governance-only personas
 
 ## Related
