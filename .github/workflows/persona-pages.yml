@@ -98,6 +98,8 @@ jobs:
       pages: write
       id-token: write
     timeout-minutes: 5
+    outputs:
+      page_url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - name: Deploy to GitHub Pages
         id: deployment
@@ -112,14 +114,20 @@ jobs:
     steps:
       - name: Summarize pipeline outcome
         run: |
+          deploy_result="${{ needs.deploy.result }}"
+          if [[ "${{ github.event_name }}" == "pull_request" && "$deploy_result" == "skipped" ]]; then
+            deploy_display="n/a (PRs don't deploy)"
+          else
+            deploy_display="$deploy_result"
+          fi
           {
             echo "## CoSAI Persona Pages — pipeline summary"
             echo ""
             echo "| Job | Result |"
             echo "| --- | --- |"
             echo "| build | ${{ needs.build.result }} |"
-            echo "| deploy | ${{ needs.deploy.result }} |"
-            if [[ "${{ needs.deploy.result }}" == "success" ]]; then
+            echo "| deploy | $deploy_display |"
+            if [[ "$deploy_result" == "success" ]]; then
               echo ""
               echo "Deployed: ${{ needs.deploy.outputs.page_url || 'n/a' }}"
             fi
