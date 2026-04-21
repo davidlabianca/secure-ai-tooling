@@ -27,7 +27,7 @@ This repository is designed to serve both human practitioners and automated syst
 
 - **For Human Review (Learn & Assess)**:
   - Use the **Markdown Tables** in [`./tables/`](./tables/) to navigate the framework. Start with the `summary` tables for context and move to `full` tables for implementation details.
-  - Use the **persona-based Pages MVP** in [`/site/`](../site/) (peer directory at the repo root) to match CoSAI-RM personas and browse the linked risks and controls. See [Persona Pages MVP](./docs/persona-pages.md) for build and preview instructions.
+  - Use the **CoSAI Risk Map Explorer** in [`/site/`](../site/) (peer directory at the repo root) to match CoSAI-RM personas and browse the linked risks and controls. See [CoSAI Risk Map Explorer](./docs/persona-pages.md) for build and preview instructions.
 - **For Tooling & LLMs (Integrate)**:
   - Use the **YAML Data Files** in [(`./yaml/`)](./yaml/) as structured context for RAG applications, GRC platforms, or automated CI/CD security checks.
 - **For Development (Build)**:
@@ -75,7 +75,7 @@ To address these needs, we developed the Securing AI Framework Map, with support
 
 To help practitioners more easily navigate the Map and documentation most relevant to them, we also created the Securing AI Risk Assessment, which gives users personalized risk information after they answer a few questions.
 
-The current GitHub Pages MVP complements that legacy assessment with a persona-first flow that maps users to CoSAI-RM personas, then shows the relevant risks and controls without introducing scoring or maturity grades. See [Persona Pages MVP](./docs/persona-pages.md) for the implementation and maintenance workflow.
+The **CoSAI Risk Map Explorer** complements that legacy assessment with a persona-first flow that maps users to CoSAI-RM personas, then shows the relevant risks and controls without introducing scoring or maturity grades. See [CoSAI Risk Map Explorer](./docs/persona-pages.md) for the implementation and maintenance workflow.
 
 ## Design
 

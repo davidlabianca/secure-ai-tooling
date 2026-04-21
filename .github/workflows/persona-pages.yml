@@ -1,4 +1,4 @@
-name: CoSAI Persona Pages
+name: CoSAI Risk Map Explorer
 
 on:
   pull_request:
@@ -121,7 +121,7 @@ jobs:
             deploy_display="$deploy_result"
           fi
           {
-            echo "## CoSAI Persona Pages — pipeline summary"
+            echo "## CoSAI Risk Map Explorer — pipeline summary"
             echo ""
             echo "| Job | Result |"
             echo "| --- | --- |"

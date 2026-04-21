@@ -1,6 +1,6 @@
-# CoSAI-RM Persona Pages MVP
+# CoSAI Risk Map Explorer
 
-This document describes the static GitHub Pages experience for CoSAI-RM persona matching and persona-driven risk/control browsing. MVP (minimum viable product) means a deliberately narrow initial scope — see the Scope section below for what this is and is not.
+This document describes the static GitHub Pages experience — the **CoSAI Risk Map Explorer** — for CoSAI-RM persona matching and persona-driven risk/control browsing. The explorer is intentionally scoped narrowly in its initial release; see the Scope section below for what this is and is not.
 
 ## Prerequisites
 
@@ -9,13 +9,13 @@ This document describes the static GitHub Pages experience for CoSAI-RM persona 
 
 ## Scope
 
-What this MVP is:
+What the explorer is:
 
 - Persona-driven navigation of risks and controls
 - Static GitHub Pages deployment
 - Zero backend, no answer storage
 
-What this MVP is NOT:
+What the explorer is NOT:
 
 - Scoring or grading of responses
 - Persistence of answers across sessions (no cookies, no localStorage)
@@ -23,7 +23,7 @@ What this MVP is NOT:
 
 ## Overview
 
-The persona site is intentionally lightweight:
+The explorer is intentionally lightweight:
 
 - `site/` contains the static HTML, CSS, and browser-side JavaScript.
 - `scripts/build_persona_site_data.py` reads `risk-map/yaml/personas.yaml`, `risk-map/yaml/risks.yaml`, and `risk-map/yaml/controls.yaml`.
@@ -42,7 +42,7 @@ The framework YAML stays the source of truth.
 5. Controls are derived from `controls.yaml.personas`.
 6. Shared risks and controls are deduplicated client-side after persona selection.
 
-The legacy `risk-map/yaml/self-assessment.yaml` remains unchanged and can coexist with this MVP.
+The legacy `risk-map/yaml/self-assessment.yaml` remains unchanged and can coexist with the explorer.
 
 ## Local Build And Preview
 
@@ -69,7 +69,7 @@ python3 scripts/build_persona_site_data.py --output /tmp/persona-site-data.json
 
 ## Validation
 
-Run the focused validations for this MVP:
+Run the focused validations for the explorer:
 
 ```bash
 ruff check .
@@ -82,7 +82,7 @@ The Python tests cover YAML loading and transformation. The Node tests cover per
 
 ## GitHub Pages Deployment
 
-The workflow at `.github/workflows/persona-pages.yml` handles this MVP:
+The workflow at `.github/workflows/persona-pages.yml` handles the explorer:
 
 - Pull requests to `main` run the focused Python and Node tests and build a Pages artifact.
 - Pushes to `main` rebuild the site artifact and deploy it to GitHub Pages.
@@ -107,7 +107,7 @@ Nested list syntax (`- - >`) encodes a logical sub-group within a prose field an
 
 ## Accessibility
 
-The MVP implements:
+The explorer implements:
 
 - Visible focus rings on all interactive elements (`:focus-visible`)
 - Honors `prefers-reduced-motion` to suppress animations and smooth scrolling

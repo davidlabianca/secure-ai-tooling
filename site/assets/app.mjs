@@ -101,10 +101,10 @@ function renderIntroduction() {
   return `
     <section class="step-panel intro-panel">
       <div class="hero-panel">
-        <p class="eyebrow">CoSAI-RM Persona Navigator</p>
+        <p class="eyebrow">CoSAI Risk Map Explorer</p>
         <h1>Find the CoSAI-RM personas that fit your work.</h1>
         <p class="hero-copy">
-          This GitHub Pages MVP is built for framework adoption, not for scoring. It uses the existing CoSAI-RM
+          The explorer is built for framework adoption, not for scoring. It uses the existing CoSAI-RM
           personas, risks, and controls as the source of truth and keeps every answer in your browser only.
         </p>
         <div class="hero-actions">
@@ -616,8 +616,8 @@ function renderApp() {
   if (state.loading) {
     appElement.innerHTML = `
       <section class="loading-card">
-        <p class="eyebrow">CoSAI-RM</p>
-        <h1>Loading persona navigator</h1>
+        <p class="eyebrow">CoSAI Risk Map Explorer</p>
+        <h1>Loading the explorer</h1>
         <p>Building the site data from the framework YAML keeps the app static and source-of-truth driven.</p>
       </section>
     `;
@@ -650,7 +650,7 @@ function renderApp() {
     <header class="site-header">
       <div>
         <p class="eyebrow">Coalition for Secure AI</p>
-        <p class="brand-title">CoSAI-RM Persona Navigator</p>
+        <p class="brand-title">CoSAI Risk Map Explorer</p>
       </div>
       <p class="privacy-badge">Answers stay in this browser session only</p>
     </header>
