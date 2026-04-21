@@ -1,6 +1,25 @@
 # CoSAI-RM Persona Pages MVP
 
-This document describes the static GitHub Pages experience for CoSAI-RM persona matching and persona-driven risk/control browsing.
+This document describes the static GitHub Pages experience for CoSAI-RM persona matching and persona-driven risk/control browsing. MVP (minimum viable product) means a deliberately narrow initial scope — see the Scope section below for what this is and is not.
+
+## Prerequisites
+
+- Python 3.14+ and Node.js 22+ (matches repo CI targets per `.mise.toml`)
+- Framework YAML in `risk-map/yaml/` passes existing schema validation
+
+## Scope
+
+What this MVP is:
+
+- Persona-driven navigation of risks and controls
+- Static GitHub Pages deployment
+- Zero backend, no answer storage
+
+What this MVP is NOT:
+
+- Scoring or grading of responses
+- Persistence of answers across sessions (no cookies, no localStorage)
+- A replacement for `risk-map/yaml/self-assessment.yaml` — the two coexist
 
 ## Overview
 
@@ -74,3 +93,39 @@ The workflow at `.github/workflows/persona-pages.yml` handles this MVP:
 - Update the framework YAML first. Rebuild the site data after persona, risk, or control changes.
 - If additional personas gain full `identificationQuestions`, they will automatically move from the manual-fallback section into the guided question flow.
 - `AI System Governance` currently has control mappings but no direct risk mappings in the framework data. The site therefore shows governance controls and a clear risks empty-state note.
+
+## YAML Prose Allowed HTML
+
+Prose fields (`longDescription`, `shortDescription`, `examples`, `description`) render as HTML without sanitization. Contributors may use:
+
+- `<a href="..." target="_blank" rel="noopener">…</a>` — for citations and references
+- `<strong>`, `<em>`, `<code>` — for emphasis and inline code
+
+Reviewers must reject YAML containing any other tags. A future allowlist validator may codify this in automation.
+
+Nested list syntax (`- - >`) encodes a logical sub-group within a prose field and renders as a visually distinct `<div class="subsection">`. Empty list entries (`- ""`) are silently dropped — do not use them as spacing hacks.
+
+## Accessibility
+
+The MVP implements:
+
+- Visible focus rings on all interactive elements (`:focus-visible`)
+- Honors `prefers-reduced-motion` to suppress animations and smooth scrolling
+- Announces state changes via an aria-live status region (answer changes, step navigation, manual persona toggles, session reset)
+
+Known gap: focus is not preserved across full-app re-renders (answering a question returns focus to `<body>`). Tracked for a follow-up refactor — see [draft issue for app.mjs testing + focus-management](../../reviews/draft-app.mjs-testing-issue.md).
+
+## Troubleshooting
+
+- "Generated site data is missing" → run `python3 scripts/build_persona_site_data.py`
+- Builder crashes with `ValueError: ... is empty or all-null` → check the named YAML file
+- Builder crashes with `TypeError: Prose items must be string or list-of-strings, got ...` (or `Nested prose items must be strings, got ...`) → one of the YAML prose fields has unexpected nested structure; inspect the named risk/control
+- Empty risks pane for a matched persona → see the Data Flow note on governance-only personas
+
+## Related
+
+- [Risk Map overview](../README.md)
+- [Developing the framework](./developing.md)
+- [Frontend test conventions](../../site/tests/README.md)
+- [Identification Questions Style Guide](./contributing/identification-questions-style-guide.md)
+- [Repository CONTRIBUTING.md](../../CONTRIBUTING.md)
