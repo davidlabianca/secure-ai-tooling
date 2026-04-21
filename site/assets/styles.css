@@ -15,8 +15,8 @@
   --radius-lg: 20px;
   --radius-md: 14px;
   --radius-sm: 10px;
-  --body-font: "Avenir Next", "Segoe UI", sans-serif;
-  --display-font: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", serif;
+  --body-font: 'Avenir Next', 'Segoe UI', sans-serif;
+  --display-font: 'Iowan Old Style', 'Palatino Linotype', 'Book Antiqua', serif;
 }
 
 * {
@@ -247,7 +247,7 @@ body {
 }
 
 .hero-panel::after {
-  content: "";
+  content: '';
   position: absolute;
   right: -80px;
   bottom: -80px;
@@ -289,7 +289,7 @@ code {
 }
 
 code {
-  font-family: "SFMono-Regular", "Menlo", monospace;
+  font-family: 'SFMono-Regular', 'Menlo', monospace;
   background: rgba(22, 50, 74, 0.07);
   border-radius: 8px;
   padding: 2px 6px;
@@ -564,4 +564,13 @@ code {
   .answer-row {
     flex-direction: column;
   }
+}
+
+.details-panel .subsection {
+  margin: 0.75rem 0;
+  padding-inline-start: 0.9rem;
+  border-inline-start: 3px solid var(--teal-deep);
+}
+.details-panel .subsection > p {
+  margin: 0.4rem 0;
 }

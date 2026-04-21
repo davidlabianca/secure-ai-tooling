@@ -38,8 +38,16 @@ function getResultsModel() {
   return buildResultsModel(state.data, state.answers, [...state.manualSelectedIds], state.personaOverrides);
 }
 
-function renderRichParagraphs(paragraphs, className = "body-copy") {
-  return paragraphs.map((paragraph) => `<p class="${className}">${paragraph}</p>`).join("");
+function renderRichParagraphs(items, className = "body-copy") {
+  return items
+    .map((item) => {
+      if (Array.isArray(item)) {
+        const inner = item.map((paragraph) => `<p class="${className}">${paragraph}</p>`).join("");
+        return `<div class="subsection">${inner}</div>`;
+      }
+      return `<p class="${className}">${item}</p>`;
+    })
+    .join("");
 }
 
 function renderStepRail(resultsModel) {

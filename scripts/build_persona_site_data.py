@@ -26,11 +26,23 @@ GUIDED_QUESTION_THRESHOLD = 5
 def load_yaml(path: Path) -> dict:
     """Load a YAML file into a Python dictionary."""
     with path.open("r", encoding="utf-8") as handle:
-        return yaml.safe_load(handle)
+        data = yaml.safe_load(handle)
+    if data is None:
+        raise ValueError(f"{path} is empty or all-null")
+    return data
 
 
-def normalize_text_entries(value) -> list[str]:
-    """Normalize YAML text scalars/lists into a stripped list of strings."""
+def normalize_text_entries(value) -> list:
+    """Normalize YAML text scalars/lists into a shape-preserving list.
+
+    Top-level string items are kept as stripped strings; top-level list items
+    are kept as lists of stripped strings (preserving YAML nested-group shape
+    so the frontend can render scoped subsection blocks).
+
+    NIT-08: Empty / whitespace-only list entries are silently dropped — do
+    not use ``- ""`` as a spacing hack. Nested sub-lists that are empty after
+    stripping are likewise dropped from the output.
+    """
     if value is None:
         return []
 
@@ -39,7 +51,25 @@ def normalize_text_entries(value) -> list[str]:
     else:
         items = [value]
 
-    return [str(item).strip() for item in items if str(item).strip()]
+    result: list = []
+    for item in items:
+        if isinstance(item, list):
+            sub: list[str] = []
+            for s in item:
+                if not isinstance(s, str):
+                    raise TypeError(f"Nested prose items must be strings, got {type(s).__name__}: {s!r}")
+                stripped = s.strip()
+                if stripped:
+                    sub.append(stripped)
+            if sub:
+                result.append(sub)
+        elif isinstance(item, str):
+            stripped = item.strip()
+            if stripped:
+                result.append(stripped)
+        else:
+            raise TypeError(f"Prose items must be string or list-of-strings, got {type(item).__name__}: {item!r}")
+    return result
 
 
 def humanize_identifier(identifier: str, prefix: str = "") -> str:
