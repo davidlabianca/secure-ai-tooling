@@ -6,9 +6,9 @@ This document describes the static GitHub Pages experience for CoSAI-RM persona 
 
 The persona site is intentionally lightweight:
 
-- `risk-map/site/` contains the static HTML, CSS, and browser-side JavaScript.
+- `site/` contains the static HTML, CSS, and browser-side JavaScript.
 - `scripts/build_persona_site_data.py` reads `risk-map/yaml/personas.yaml`, `risk-map/yaml/risks.yaml`, and `risk-map/yaml/controls.yaml`.
-- The builder writes generated JSON to `risk-map/site/generated/persona-site-data.json` for local preview, or to another site directory during CI deployment.
+- The builder writes generated JSON to `site/generated/persona-site-data.json` for local preview, or to another site directory during CI deployment.
 
 The site does not use a backend and does not store answers server-side. User answers are held in browser memory for the current session only.
 
@@ -36,12 +36,12 @@ python3 scripts/build_persona_site_data.py
 Serve the site directory locally:
 
 ```bash
-python3 -m http.server --directory risk-map/site 8000
+python3 -m http.server --directory site 8000
 ```
 
 Then open [http://localhost:8000](http://localhost:8000).
 
-If you want to build into a different staging directory instead of `risk-map/site/generated/`, pass `--site-dir` or `--output`:
+If you want to build into a different staging directory instead of `site/generated/`, pass `--site-dir` or `--output`:
 
 ```bash
 python3 scripts/build_persona_site_data.py --site-dir /tmp/cosai-persona-site
@@ -55,7 +55,7 @@ Run the focused validations for this MVP:
 ```bash
 ruff check .
 pytest scripts/hooks/tests/test_build_persona_site_data.py
-node --test risk-map/site/tests/*.test.mjs
+node --test site/tests/*.test.mjs
 python3 scripts/build_persona_site_data.py
 ```
 

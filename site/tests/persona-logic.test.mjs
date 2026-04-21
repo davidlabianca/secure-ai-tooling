@@ -159,9 +159,18 @@ test("buildResultsModel allows manual fallback selection for AI Model Serving", 
   const fixture = createFixture();
   const results = buildResultsModel(fixture, {}, ["personaModelServing"]);
 
-  assert.deepEqual(results.includedPersonas.map((persona) => persona.id), ["personaModelServing"]);
-  assert.deepEqual(results.risks.map((risk) => risk.id), ["riskShared", "riskPromptInjection"]);
-  assert.deepEqual(results.controls.map((control) => control.id), ["controlShared", "controlRuntime"]);
+  assert.deepEqual(
+    results.includedPersonas.map((persona) => persona.id),
+    ["personaModelServing"],
+  );
+  assert.deepEqual(
+    results.risks.map((risk) => risk.id),
+    ["riskShared", "riskPromptInjection"],
+  );
+  assert.deepEqual(
+    results.controls.map((control) => control.id),
+    ["controlShared", "controlRuntime"],
+  );
 });
 
 test("buildResultsModel deduplicates shared risks and controls", () => {
@@ -177,7 +186,10 @@ test("buildResultsModel keeps governance controls even when no direct risks are 
   const results = buildResultsModel(fixture, {}, ["personaGovernance"]);
 
   assert.deepEqual(results.risks, []);
-  assert.deepEqual(results.controls.map((control) => control.id), ["controlRiskGovernance"]);
+  assert.deepEqual(
+    results.controls.map((control) => control.id),
+    ["controlRiskGovernance"],
+  );
   assert.deepEqual(
     results.directRisklessPersonas.map((persona) => persona.id),
     ["personaGovernance"],

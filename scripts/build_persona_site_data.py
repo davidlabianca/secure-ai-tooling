@@ -18,7 +18,7 @@ import yaml
 DEFAULT_PERSONAS_PATH = Path("risk-map/yaml/personas.yaml")
 DEFAULT_RISKS_PATH = Path("risk-map/yaml/risks.yaml")
 DEFAULT_CONTROLS_PATH = Path("risk-map/yaml/controls.yaml")
-DEFAULT_SITE_DIR = Path("risk-map/site")
+DEFAULT_SITE_DIR = Path("site")
 DEFAULT_OUTPUT_NAME = "persona-site-data.json"
 GUIDED_QUESTION_THRESHOLD = 5
 
@@ -84,9 +84,7 @@ def build_site_data(personas_data: dict, risks_data: dict, controls_data: dict) 
                 "examples": normalize_text_entries(raw_risk.get("examples")),
                 "controlIds": list(raw_risk.get("controls", [])),
                 "personaIds": [
-                    persona_id
-                    for persona_id in raw_risk.get("personas", [])
-                    if persona_id in active_persona_ids
+                    persona_id for persona_id in raw_risk.get("personas", []) if persona_id in active_persona_ids
                 ],
             }
         )

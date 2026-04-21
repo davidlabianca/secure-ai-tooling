@@ -5,7 +5,7 @@ on:
     branches: [main]
     paths:
       - ".github/workflows/persona-pages.yml"
-      - "risk-map/site/**"
+      - "site/**"
       - "risk-map/yaml/personas.yaml"
       - "risk-map/yaml/risks.yaml"
       - "risk-map/yaml/controls.yaml"
@@ -19,7 +19,7 @@ on:
     branches: [main]
     paths:
       - ".github/workflows/persona-pages.yml"
-      - "risk-map/site/**"
+      - "site/**"
       - "risk-map/yaml/personas.yaml"
       - "risk-map/yaml/risks.yaml"
       - "risk-map/yaml/controls.yaml"
@@ -65,14 +65,14 @@ jobs:
         run: pytest scripts/hooks/tests/test_build_persona_site_data.py
 
       - name: Run persona site logic tests
-        run: node --test risk-map/site/tests/*.test.mjs
+        run: node --test site/tests/*.test.mjs
 
       - name: Prepare Pages artifact
         run: |
           set -euo pipefail
           rm -rf _site
           mkdir -p _site
-          cp -R risk-map/site/. _site/
+          cp -R site/. _site/
           python3 scripts/build_persona_site_data.py --site-dir _site
           test -f _site/generated/persona-site-data.json
 

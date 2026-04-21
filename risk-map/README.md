@@ -27,7 +27,7 @@ This repository is designed to serve both human practitioners and automated syst
 
 * **For Human Review (Learn & Assess)**: 
     * Use the **Markdown Tables** in [`./tables/`](./tables/) to navigate the framework. Start with the `summary` tables for context and move to `full` tables for implementation details.
-    * Use the **persona-based Pages MVP** in [`./site/`](./site/) to match CoSAI-RM personas and browse the linked risks and controls. See [Persona Pages MVP](./docs/persona-pages.md) for build and preview instructions.
+    * Use the **persona-based Pages MVP** in [`/site/`](../site/) (peer directory at the repo root) to match CoSAI-RM personas and browse the linked risks and controls. See [Persona Pages MVP](./docs/persona-pages.md) for build and preview instructions.
 * **For Tooling & LLMs (Integrate)**: 
     * Use the **YAML Data Files** in [(`./yaml/`)](./yaml/)  as structured context for RAG applications, GRC platforms, or automated CI/CD security checks.
 * **For Development (Build)**: 

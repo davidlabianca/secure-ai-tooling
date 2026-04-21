@@ -1,12 +1,7 @@
 import { buildResultsModel } from "./persona-logic.mjs";
 
 const DATA_PATH = "./generated/persona-site-data.json";
-const STEP_TITLES = [
-  "Introduction",
-  "Persona questions",
-  "Matched persona summary",
-  "Risks and controls",
-];
+const STEP_TITLES = ["Introduction", "Persona questions", "Matched persona summary", "Risks and controls"];
 
 const state = {
   activeTab: "risks",
@@ -40,12 +35,7 @@ function getResultsModel() {
     return null;
   }
 
-  return buildResultsModel(
-    state.data,
-    state.answers,
-    [...state.manualSelectedIds],
-    state.personaOverrides,
-  );
+  return buildResultsModel(state.data, state.answers, [...state.manualSelectedIds], state.personaOverrides);
 }
 
 function renderRichParagraphs(paragraphs, className = "body-copy") {
@@ -204,9 +194,7 @@ function renderQuestionGroups(resultsModel) {
                             <div class="answer-row">
                               <label class="answer-option ${currentAnswer === "yes" ? "is-selected" : ""}">
                                 <input
-                                  ${
-                                    currentAnswer === "yes" ? "checked" : ""
-                                  }
+                                  ${currentAnswer === "yes" ? "checked" : ""}
                                   data-question-id="${question.id}"
                                   name="${question.id}"
                                   type="radio"
@@ -216,9 +204,7 @@ function renderQuestionGroups(resultsModel) {
                               </label>
                               <label class="answer-option ${currentAnswer === "no" ? "is-selected" : ""}">
                                 <input
-                                  ${
-                                    currentAnswer === "no" ? "checked" : ""
-                                  }
+                                  ${currentAnswer === "no" ? "checked" : ""}
                                   data-question-id="${question.id}"
                                   name="${question.id}"
                                   type="radio"
@@ -375,9 +361,7 @@ function renderSummary(resultsModel) {
 }
 
 function renderPersonaBadges(personas) {
-  return personas
-    .map((persona) => `<span class="persona-chip">${escapeHtml(persona.title)}</span>`)
-    .join("");
+  return personas.map((persona) => `<span class="persona-chip">${escapeHtml(persona.title)}</span>`).join("");
 }
 
 function renderRiskGroups(resultsModel) {
@@ -426,7 +410,8 @@ function renderRiskGroups(resultsModel) {
                                 (controlId) => `
                                   <a class="inline-link" href="#${controlId}">
                                     ${escapeHtml(
-                                      resultsModel.controls.find((control) => control.id === controlId)?.title ?? controlId,
+                                      resultsModel.controls.find((control) => control.id === controlId)?.title ??
+                                        controlId,
                                     )}
                                   </a>
                                 `,
