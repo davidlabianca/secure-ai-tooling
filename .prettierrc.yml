@@ -4,11 +4,23 @@ tabWidth: 2
 useTabs: false
 semi: false
 singleQuote: true
-trailingComma: "none"
+trailingComma: 'none'
 
 # YAML specific settings
 overrides:
-  - files: "*.{yml,yaml}"
+  - files: '*.{yml,yaml}'
     options:
       tabWidth: 2
       printWidth: 120
+  # Frontend ES modules follow typical JS convention (double quotes, semicolons,
+  # trailing commas) rather than the repo-wide single-quote/no-semi defaults.
+  - files: 'site/**/*.{mjs,js}'
+    options:
+      singleQuote: false
+      semi: true
+      trailingComma: 'all'
+  # Markdown under site/ documents the .mjs convention above;
+  # leave embedded code blocks alone so examples match the real files.
+  - files: 'site/**/*.md'
+    options:
+      embeddedLanguageFormatting: 'off'

@@ -1,0 +1,16 @@
+# Synthetic personas fixture: mix of active and deprecated entries.
+# Used by test_load_deprecated_ids_returns_set_of_deprecated_entries.
+personas:
+  - id: personaActive1
+    title: Active Persona One
+
+  - id: personaActive2
+    title: Active Persona Two
+
+  - id: personaDeprecatedA
+    title: Deprecated Persona A
+    deprecated: true
+
+  - id: personaDeprecatedB
+    title: Deprecated Persona B
+    deprecated: true

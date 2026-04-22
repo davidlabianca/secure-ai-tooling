@@ -29,21 +29,21 @@ This Phase 2 implementation populates extended metadata for high-priority AI sec
 ### Populated Items
 
 **Risks (15 total):**
-- DP (Data Poisoning)
-- UTD (Unauthorized Training Data)
-- MST (Model Source Tampering)
-- EDH (Excessive Data Handling)
-- MXF (Model Exfiltration)
-- MDT (Model Deployment Tampering)
-- DMS (Denial of ML Service)
-- MRE (Model Reverse Engineering)
-- IIC (Insecure Integrated Component)
-- PIJ (Prompt Injection)
-- MEV (Model Evasion)
-- SDD (Sensitive Data Disclosure)
-- ISD (Inferred Sensitive Data)
-- IMO (Insecure Model Output)
-- RA (Rogue Actions)
+- riskDataPoisoning (Data Poisoning)
+- riskUnauthorizedTrainingData (Unauthorized Training Data)
+- riskModelSourceTampering (Model Source Tampering)
+- riskExcessiveDataHandling (Excessive Data Handling)
+- riskModelExfiltration (Model Exfiltration)
+- riskModelDeploymentTampering (Model Deployment Tampering)
+- riskDenialOfMLService (Denial of ML Service)
+- riskModelReverseEngineering (Model Reverse Engineering)
+- riskInsecureIntegratedComponent (Insecure Integrated Component)
+- riskPromptInjection (Prompt Injection)
+- riskModelEvasion (Model Evasion)
+- riskSensitiveDataDisclosure (Sensitive Data Disclosure)
+- riskInferredSensitiveData (Inferred Sensitive Data)
+- riskInsecureModelOutput (Insecure Model Output)
+- riskRogueActions (Rogue Actions)
 
 **Controls (8 total):**
 - controlTrainingDataSanitization
@@ -102,15 +102,15 @@ This is a **best-effort** initial population based on:
 
 | Risk/Control | ATLAS Technique(s) | Rationale |
 |--------------|-------------------|-----------|
-| DP (Data Poisoning) | AML.T0020, AML.T0019, AML.T0010.002 | Direct poisoning attacks on training data and datasets |
-| PIJ (Prompt Injection) | AML.T0051 | Prompt injection technique |
-| MEV (Model Evasion) | AML.T0015, AML.T0043 | Evade ML model and craft adversarial data |
-| SDD (Sensitive Data Disclosure) | AML.T0024.*, AML.T0024.000, AML.T0024.001 | Exfiltration via ML inference API techniques |
-| MXF (Model Exfiltration) | AML.T0024.002, AML.T0025, AML.T0048.004 | Extract ML model, exfiltration, IP theft |
-| DMS (Denial of ML Service) | AML.T0029, AML.T0034 | Denial of ML service and cost harvesting |
+| riskDataPoisoning (Data Poisoning) | AML.T0020, AML.T0019, AML.T0010.002 | Direct poisoning attacks on training data and datasets |
+| riskPromptInjection (Prompt Injection) | AML.T0051 | Prompt injection technique |
+| riskModelEvasion (Model Evasion) | AML.T0015, AML.T0043 | Evade ML model and craft adversarial data |
+| riskSensitiveDataDisclosure (Sensitive Data Disclosure) | AML.T0024.*, AML.T0024.000, AML.T0024.001 | Exfiltration via ML inference API techniques |
+| riskModelExfiltration (Model Exfiltration) | AML.T0024.002, AML.T0025, AML.T0048.004 | Extract ML model, exfiltration, IP theft |
+| riskDenialOfMLService (Denial of ML Service) | AML.T0029, AML.T0034 | Denial of ML service and cost harvesting |
 
 **Gaps:**
-- Some CoSAI risks (e.g., UTD, EDH, ISD, IMO) don't have direct ATLAS technique mappings as they focus on policy/compliance rather than attacks
+- Some CoSAI risks (e.g., riskUnauthorizedTrainingData, riskExcessiveDataHandling, riskInferredSensitiveData, riskInsecureModelOutput) don't have direct ATLAS technique mappings as they focus on policy/compliance rather than attacks
 - ATLAS is attack-focused; some defensive controls lack mitigation mappings
 
 ### NIST AI RMF
@@ -150,10 +150,10 @@ This is a **best-effort** initial population based on:
 
 | STRIDE Category | CoSAI Risks | Rationale |
 |-----------------|-------------|-----------|
-| tampering | DP, MST, MDT, PIJ, MEV, IMO, RA | Unauthorized modification of data, models, or outputs |
-| information-disclosure | UTD, EDH, MXF, MRE, SDD, ISD | Unauthorized access to sensitive information |
-| denial-of-service | DMS | Availability attacks on ML services |
-| elevation-of-privilege | MST, MDT, IIC, PIJ, RA | Gaining higher access than intended |
+| tampering | riskDataPoisoning, riskModelSourceTampering, riskModelDeploymentTampering, riskPromptInjection, riskModelEvasion, riskInsecureModelOutput, riskRogueActions | Unauthorized modification of data, models, or outputs |
+| information-disclosure | riskUnauthorizedTrainingData, riskExcessiveDataHandling, riskModelExfiltration, riskModelReverseEngineering, riskSensitiveDataDisclosure, riskInferredSensitiveData | Unauthorized access to sensitive information |
+| denial-of-service | riskDenialOfMLService | Availability attacks on ML services |
+| elevation-of-privilege | riskModelSourceTampering, riskModelDeploymentTampering, riskInsecureIntegratedComponent, riskPromptInjection, riskRogueActions | Gaining higher access than intended |
 
 **Gaps:**
 - STRIDE is coarse-grained; doesn't capture AI-specific nuances
@@ -185,13 +185,13 @@ This is a **best-effort** initial population based on:
 
 | OWASP LLM | CoSAI Risks | Rationale |
 |-----------|-------------|-----------|
-| LLM01 | PIJ, MEV | Prompt injection and manipulation attacks |
-| LLM02 | EDH, SDD, ISD | Sensitive data exposure and disclosure |
-| LLM03 | MST, MDT | Supply chain compromise of models/infrastructure |
-| LLM04 | DP, UTD | Training data poisoning |
-| LLM05 | IMO | Insecure model outputs |
-| LLM06 | IIC, RA | Excessive permissions and rogue agent actions |
-| LLM10 | DMS | Resource exhaustion and DoS |
+| LLM01 | riskPromptInjection, riskModelEvasion | Prompt injection and manipulation attacks |
+| LLM02 | riskExcessiveDataHandling, riskSensitiveDataDisclosure, riskInferredSensitiveData | Sensitive data exposure and disclosure |
+| LLM03 | riskModelSourceTampering, riskModelDeploymentTampering | Supply chain compromise of models/infrastructure |
+| LLM04 | riskDataPoisoning, riskUnauthorizedTrainingData | Training data poisoning |
+| LLM05 | riskInsecureModelOutput | Insecure model outputs |
+| LLM06 | riskInsecureIntegratedComponent, riskRogueActions | Excessive permissions and rogue agent actions |
+| LLM10 | riskDenialOfMLService | Resource exhaustion and DoS |
 
 **Gaps:**
 - LLM08 (Vector and Embedding Weaknesses) not yet represented in CoSAI risks
@@ -225,19 +225,19 @@ This is a **best-effort** initial population based on:
 
 | Risk/Control | Stages | Rationale |
 |--------------|--------|-----------|
-| DP (Data Poisoning) | data-preparation, model-training, maintenance | Introduced during data collection, exposed during training, recurring risk in retraining |
-| PIJ (Prompt Injection) | runtime | Runtime exploitation via user prompts |
-| MST (Model Source Tampering) | development, model-training, deployment | Supply chain attacks during model development |
+| riskDataPoisoning (Data Poisoning) | data-preparation, model-training, maintenance | Introduced during data collection, exposed during training, recurring risk in retraining |
+| riskPromptInjection (Prompt Injection) | runtime | Runtime exploitation via user prompts |
+| riskModelSourceTampering (Model Source Tampering) | development, model-training, deployment | Supply chain attacks during model development |
 | controlTrainingDataSanitization | data-preparation, model-training, evaluation | Applied during data processing and model development |
 
 **Patterns:**
-- **Supply chain risks** (DP, MST, UTD): data-preparation, model-training
-- **Runtime input risks** (PIJ, MEV, DMS): evaluation, runtime
+- **Supply chain risks** (riskDataPoisoning, riskModelSourceTampering, riskUnauthorizedTrainingData): data-preparation, model-training
+- **Runtime input risks** (riskPromptInjection, riskModelEvasion, riskDenialOfMLService): evaluation, runtime
   - Note: Evaluation stage added for risks that should be tested before deployment
-- **Data security risks** (SDD, ISD, EDH): evaluation, runtime (+ training where applicable)
-- **Infrastructure risks** (MXF, MDT): deployment, runtime
-- **Development risks** (IIC): development, deployment, runtime
-- **Output security risks** (IMO, RA): evaluation, runtime
+- **Data security risks** (riskSensitiveDataDisclosure, riskInferredSensitiveData, riskExcessiveDataHandling): evaluation, runtime (+ training where applicable)
+- **Infrastructure risks** (riskModelExfiltration, riskModelDeploymentTampering): deployment, runtime
+- **Development risks** (riskInsecureIntegratedComponent): development, deployment, runtime
+- **Output security risks** (riskInsecureModelOutput, riskRogueActions): evaluation, runtime
   - Testing and validation critical before production deployment
 
 ---
@@ -273,18 +273,18 @@ This is a **best-effort** initial population based on:
 
 | Risk/Control | Impact Types | Rationale |
 |--------------|--------------|-----------|
-| DP (Data Poisoning) | integrity, reliability, safety | Corrupts model behavior, reduces reliability, can cause unsafe outputs |
-| SDD (Sensitive Data Disclosure) | confidentiality, privacy | Exposes sensitive personal or confidential data |
-| DMS (Denial of ML Service) | availability | Makes system unavailable |
-| PIJ (Prompt Injection) | integrity, confidentiality, safety | Alters behavior, may expose data, can cause harm |
-| UTD (Unauthorized Training Data) | compliance, privacy, fairness | Legal/regulatory violations, privacy concerns, potential bias |
+| riskDataPoisoning (Data Poisoning) | integrity, reliability, safety | Corrupts model behavior, reduces reliability, can cause unsafe outputs |
+| riskSensitiveDataDisclosure (Sensitive Data Disclosure) | confidentiality, privacy | Exposes sensitive personal or confidential data |
+| riskDenialOfMLService (Denial of ML Service) | availability | Makes system unavailable |
+| riskPromptInjection (Prompt Injection) | integrity, confidentiality, safety | Alters behavior, may expose data, can cause harm |
+| riskUnauthorizedTrainingData (Unauthorized Training Data) | compliance, privacy, fairness | Legal/regulatory violations, privacy concerns, potential bias |
 
 **Patterns:**
-- **Poisoning/Tampering risks**: integrity, reliability, safety
-- **Disclosure risks**: confidentiality, privacy
-- **DoS risks**: availability
-- **Inference/Fairness risks**: fairness, privacy
-- **Policy/Legal risks**: compliance, privacy
+- **Poisoning/Tampering risks** (riskDataPoisoning, riskModelSourceTampering, riskModelDeploymentTampering): integrity, reliability, safety
+- **Disclosure risks** (riskSensitiveDataDisclosure, riskModelExfiltration, riskModelReverseEngineering): confidentiality, privacy
+- **DoS risks** (riskDenialOfMLService): availability
+- **Inference/Fairness risks** (riskInferredSensitiveData): fairness, privacy
+- **Policy/Legal risks** (riskUnauthorizedTrainingData, riskExcessiveDataHandling): compliance, privacy
 
 ---
 
@@ -317,18 +317,18 @@ This is a **best-effort** initial population based on:
 
 | Risk/Control | Access Levels | Rationale |
 |--------------|---------------|-----------|
-| DP (Data Poisoning) | supply-chain, privileged, service-provider | Requires access to training pipeline or data sources |
-| PIJ (Prompt Injection) | external, api, user | Can be executed via public-facing interfaces |
-| MXF (Model Exfiltration) | external, privileged, infrastructure-provider | Via external attack or insider/provider access |
-| SDD (Sensitive Data Disclosure) | external, api, user, agent | Exploitable by any user querying the model |
-| MEV (Model Evasion) | external, api, user, physical | Adversarial examples can be crafted externally or via physical access |
+| riskDataPoisoning (Data Poisoning) | supply-chain, privileged, service-provider | Requires access to training pipeline or data sources |
+| riskPromptInjection (Prompt Injection) | external, api, user | Can be executed via public-facing interfaces |
+| riskModelExfiltration (Model Exfiltration) | external, privileged, infrastructure-provider | Via external attack or insider/provider access |
+| riskSensitiveDataDisclosure (Sensitive Data Disclosure) | external, api, user, agent | Exploitable by any user querying the model |
+| riskModelEvasion (Model Evasion) | external, api, user, physical | Adversarial examples can be crafted externally or via physical access |
 
 **Patterns:**
-- **Supply chain risks** (DP, MST, UTD): supply-chain, service-provider
-- **Runtime API risks** (PIJ, MEV, DMS, MRE): external, api, user
-- **Data disclosure risks** (SDD, ISD): external, api, user, (agent if applicable)
-- **Infrastructure risks** (MXF, MDT): privileged, infrastructure-provider
-- **Agent risks** (RA, IIC): agent, api, external
+- **Supply chain risks** (riskDataPoisoning, riskModelSourceTampering, riskUnauthorizedTrainingData): supply-chain, service-provider
+- **Runtime API risks** (riskPromptInjection, riskModelEvasion, riskDenialOfMLService, riskModelReverseEngineering): external, api, user
+- **Data disclosure risks** (riskSensitiveDataDisclosure, riskInferredSensitiveData): external, api, user, (agent if applicable)
+- **Infrastructure risks** (riskModelExfiltration, riskModelDeploymentTampering): privileged, infrastructure-provider
+- **Agent risks** (riskRogueActions, riskInsecureIntegratedComponent): agent, api, external
 
 **Control Perspective:**
 - Control access levels indicate what level of actor the control defends against
@@ -341,7 +341,7 @@ This is a **best-effort** initial population based on:
 ### Framework Coverage Gaps
 
 1. **MITRE ATLAS**
-   - Limited coverage for policy/compliance risks (UTD, EDH)
+   - Limited coverage for policy/compliance risks (riskUnauthorizedTrainingData, riskExcessiveDataHandling)
    - Newer attack techniques (prompt injection, agent risks) still evolving in framework
    - Some CoSAI risks are broader than individual ATLAS techniques
 
@@ -364,8 +364,8 @@ This is a **best-effort** initial population based on:
 
 **Risks/controls with uncertain or incomplete mappings:**
 
-1. **EDH (Excessive Data Handling)** - Policy-focused risk with limited attack technique mappings
-2. **ISD (Inferred Sensitive Data)** - Emergent risk without established framework coverage
+1. **riskExcessiveDataHandling (Excessive Data Handling)** - Policy-focused risk with limited attack technique mappings
+2. **riskInferredSensitiveData (Inferred Sensitive Data)** - Emergent risk without established framework coverage
 3. **controlSecureByDefaultMLTooling** - Broad infrastructure control spanning many framework areas
 
 ### Areas for Future Work

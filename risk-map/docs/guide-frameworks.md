@@ -134,7 +134,7 @@ In [`risk-map/yaml/risks.yaml`](../yaml/risks.yaml):
 
 ```yaml
 risks:
-  - id: DP
+  - id: riskDataPoisoning
     title: Data Poisoning
     # ... other required fields ...
     mappings:
@@ -209,7 +209,7 @@ See [Personas Guide](guide-personas.md) for detailed persona descriptions and re
 ### Complete Risk Example
 
 ```yaml
-- id: MST
+- id: riskModelSourceTampering
   title: Model Supply Chain Compromise
   shortDescription:
     - "Compromising model artifacts or dependencies in the supply chain"
@@ -217,8 +217,8 @@ See [Personas Guide](guide-personas.md) for detailed persona descriptions and re
     - "Attackers compromise the model supply chain by injecting malicious code..."
   category: risksSupplyChainAndDevelopment
   personas:
-    - personaModelCreator
-    - personaModelConsumer
+    - personaModelProvider
+    - personaApplicationDeveloper
   controls:
     - controlVulnerabilityManagement
     - controlModelAndDataIntegrityManagement
@@ -251,14 +251,14 @@ See [Personas Guide](guide-personas.md) for detailed persona descriptions and re
     - "Implement cryptographic signing and verification for models and datasets"
   category: controlsModel
   personas:
-    - personaModelCreator
-    - personaModelConsumer
+    - personaModelProvider
+    - personaApplicationDeveloper
   components:
     - componentModelStorage
     - componentModelServing
   risks:
-    - MST
-    - MDT
+    - riskModelSourceTampering
+    - riskModelDeploymentTampering
   mappings:
     mitre-atlas:
       - AML.M0013
@@ -399,7 +399,7 @@ for risk in risks_data['risks']:
         runtime_risks.append(risk['id'])
 
 print(f"Risks occurring at runtime: {runtime_risks}")
-# Output: ['MEV', 'PIJ', 'DMS', 'MRE', 'SDD', 'ISD', 'IMO', 'RA', 'MDT', 'MXF', ...]
+# Output: ['riskModelEvasion', 'riskPromptInjection', 'riskDenialOfMLService', 'riskModelReverseEngineering', 'riskSensitiveDataDisclosure', 'riskInferredSensitiveData', 'riskInsecureModelOutput', 'riskRogueActions', 'riskModelDeploymentTampering', 'riskModelExfiltration', ...]
 ```
 
 ### Example 2: Find Risks Mapped to MITRE ATLAS Techniques
@@ -426,7 +426,7 @@ target_technique = 'AML.T0020'
 for risk_id, info in mitre_atlas_risks.items():
     if target_technique in info['techniques']:
         print(f"{risk_id}: {info['title']} -> {target_technique}")
-# Output: DP: Data Poisoning -> AML.T0020
+# Output: riskDataPoisoning: Data Poisoning -> AML.T0020
 ```
 
 ### Example 3: Query Controls by Confidentiality Impact
@@ -491,7 +491,7 @@ for risk in risks_data['risks']:
 print(f"Risks exploitable by external actors: {len(external_actor_risks)}")
 for risk in external_actor_risks[:5]:
     print(f"  - {risk['id']}: {risk['title']}")
-# Output includes: PIJ, MEV, DMS, MRE, SDD, IMO, RA, IIC...
+# Output includes: riskPromptInjection, riskModelEvasion, riskDenialOfMLService, riskModelReverseEngineering, riskSensitiveDataDisclosure, riskInsecureModelOutput, riskRogueActions, riskInsecureIntegratedComponent...
 ```
 
 ### Example 5: Construct URIs Using techniqueUriPattern
@@ -511,7 +511,7 @@ with open('risk-map/yaml/risks.yaml', 'r') as f:
 frameworks = {fw['id']: fw for fw in frameworks_data['frameworks']}
 
 # Generate URIs for risk mappings
-risk_id = 'DP'  # Data Poisoning
+risk_id = 'riskDataPoisoning'  # Data Poisoning
 risk = next(r for r in risks_data['risks'] if r['id'] == risk_id)
 mappings = risk.get('mappings', {})
 
@@ -549,7 +549,7 @@ with open('risk-map/yaml/frameworks.yaml', 'r') as f:
     frameworks = {fw['id']: fw for fw in yaml.safe_load(f)['frameworks']}
 
 # Find controls for a risk and their framework mappings
-risk_id = 'DP'
+risk_id = 'riskDataPoisoning'
 risk = risks[risk_id]
 
 print(f"Risk: {risk['title']} ({risk_id})")

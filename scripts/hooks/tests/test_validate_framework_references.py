@@ -75,26 +75,34 @@ class TestExtractRiskFrameworkReferences:
         data = {
             "risks": [
                 {
-                    "id": "DP",
+                    "id": "riskDataPoisoning",
                     "title": "Data Poisoning",
                     "mappings": {"mitre-atlas": ["AML.T0020"], "stride": ["tampering"]},
                 },
-                {"id": "UTD", "title": "Unauthorized Training Data", "mappings": {"stride": ["info-disclosure"]}},
+                {
+                    "id": "riskUnauthorizedTrainingData",
+                    "title": "Unauthorized Training Data",
+                    "mappings": {"stride": ["info-disclosure"]},
+                },
             ]
         }
         result = extract_risk_framework_references(data)
         # Convert list values to sets for order-independent comparison
-        assert {k: set(v) for k, v in result.items()} == {"DP": {"mitre-atlas", "stride"}, "UTD": {"stride"}}
+        expected = {
+            "riskDataPoisoning": {"mitre-atlas", "stride"},
+            "riskUnauthorizedTrainingData": {"stride"},
+        }
+        assert {k: set(v) for k, v in result.items()} == expected
 
     def test_extract_risk_without_mappings(self):
         """Test extraction for risks without mappings field (backward compatibility)"""
-        data = {"risks": [{"id": "DP", "title": "Data Poisoning"}]}
+        data = {"risks": [{"id": "riskDataPoisoning", "title": "Data Poisoning"}]}
         result = extract_risk_framework_references(data)
         assert result == {}
 
     def test_extract_risk_with_empty_mappings(self):
         """Test extraction for risks with empty mappings"""
-        data = {"risks": [{"id": "DP", "title": "Data Poisoning", "mappings": {}}]}
+        data = {"risks": [{"id": "riskDataPoisoning", "title": "Data Poisoning", "mappings": {}}]}
         result = extract_risk_framework_references(data)
         assert result == {}
 
@@ -150,7 +158,7 @@ class TestValidateFrameworkReferences:
     def test_validate_all_valid_references(self):
         """Test validation passes when all references are valid"""
         valid_frameworks = {"mitre-atlas", "stride", "nist-ai-rmf"}
-        risk_frameworks = {"DP": ["mitre-atlas", "stride"], "MST": ["stride"]}
+        risk_frameworks = {"riskDataPoisoning": ["mitre-atlas", "stride"], "riskModelSourceTampering": ["stride"]}
         control_frameworks = {"controlTest": ["nist-ai-rmf"]}
 
         errors = validate_framework_references(valid_frameworks, risk_frameworks, control_frameworks)
@@ -159,12 +167,12 @@ class TestValidateFrameworkReferences:
     def test_validate_invalid_risk_framework(self):
         """Test validation fails when risk references invalid framework"""
         valid_frameworks = {"mitre-atlas", "stride"}
-        risk_frameworks = {"DP": ["invalid-framework"]}
+        risk_frameworks = {"riskDataPoisoning": ["invalid-framework"]}
         control_frameworks = {}
 
         errors = validate_framework_references(valid_frameworks, risk_frameworks, control_frameworks)
         assert len(errors) == 1
-        assert "Risk 'DP'" in errors[0]
+        assert "Risk 'riskDataPoisoning'" in errors[0]
         assert "invalid-framework" in errors[0]
         assert "does not exist" in errors[0]
 
@@ -183,7 +191,10 @@ class TestValidateFrameworkReferences:
     def test_validate_multiple_errors(self):
         """Test validation reports all errors"""
         valid_frameworks = {"mitre-atlas"}
-        risk_frameworks = {"DP": ["invalid1", "mitre-atlas"], "MST": ["invalid2"]}
+        risk_frameworks = {
+            "riskDataPoisoning": ["invalid1", "mitre-atlas"],
+            "riskModelSourceTampering": ["invalid2"],
+        }
         control_frameworks = {"controlTest": ["invalid3"]}
 
         errors = validate_framework_references(valid_frameworks, risk_frameworks, control_frameworks)
@@ -336,8 +347,12 @@ class TestIntegration:
 
         risks_data = {
             "risks": [
-                {"id": "DP", "title": "Data Poisoning", "mappings": {"mitre-atlas": ["AML.T0020"]}},
-                {"id": "MST", "title": "Model Tampering", "mappings": {"stride": ["tampering"]}},
+                {"id": "riskDataPoisoning", "title": "Data Poisoning", "mappings": {"mitre-atlas": ["AML.T0020"]}},
+                {
+                    "id": "riskModelSourceTampering",
+                    "title": "Model Tampering",
+                    "mappings": {"stride": ["tampering"]},
+                },
             ]
         }
 
@@ -376,7 +391,7 @@ class TestIntegration:
         risks_data = {
             "risks": [
                 {
-                    "id": "DP",
+                    "id": "riskDataPoisoning",
                     "title": "Data Poisoning",
                     "mappings": {"invalid-framework": ["technique1"]},  # Invalid framework
                 }
@@ -409,7 +424,7 @@ class TestIntegration:
         }
 
         # Legacy data without mappings fields
-        risks_data = {"risks": [{"id": "DP", "title": "Data Poisoning"}]}
+        risks_data = {"risks": [{"id": "riskDataPoisoning", "title": "Data Poisoning"}]}
 
         controls_data = {"controls": [{"id": "controlTest", "title": "Test Control"}]}
 
@@ -781,7 +796,7 @@ frameworks:
         (yaml_dir / "risks.yaml").write_text(
             """
 risks:
-  - id: DP
+  - id: riskDataPoisoning
     title: Data Poisoning
     mappings:
       mitre-atlas:
@@ -1002,7 +1017,7 @@ frameworks:
         (yaml_dir / "risks.yaml").write_text(
             """
 risks:
-  - id: DP
+  - id: riskDataPoisoning
     title: Data Poisoning
     mappings:
       invalid-framework:
@@ -1054,7 +1069,7 @@ frameworks:
         (yaml_dir / "risks.yaml").write_text(
             """
 risks:
-  - id: DP
+  - id: riskDataPoisoning
     title: Data Poisoning
     mappings:
       nonexistent:

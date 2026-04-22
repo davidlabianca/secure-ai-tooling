@@ -14,46 +14,46 @@ graph LR
 
     subgraph risks
     subgraph risksSupplyChainAndDevelopment ["Supply Chain And Development Risks"]
-        DP[Data Poisoning]
-        EDH[Excessive Data Handling]
-        FLP[Federated/Distributed Training Privacy]
-        MLD[Malicious Loader/Deserialization]
-        MST[Model Source Tampering]
-        TSP[Tool Source Provenance]
-        UTD[Unauthorized Training Data]
+        riskDataPoisoning[Data Poisoning]
+        riskExcessiveDataHandling[Excessive Data Handling]
+        riskFederatedDistributedTrainingPrivacy[Federated/Distributed Training Privacy]
+        riskMaliciousLoaderDeserialization[Malicious Loader/Deserialization]
+        riskModelSourceTampering[Model Source Tampering]
+        riskToolSourceProvenance[Tool Source Provenance]
+        riskUnauthorizedTrainingData[Unauthorized Training Data]
     end
 
     subgraph risksRuntimeDataSecurity ["Runtime Data Security Risks"]
-        EBM[Evaluation/Benchmark Manipulation]
-        EDH-I[Excessive Data Handling During Inference]
-        ISD[Inferred Sensitive Data]
-        PCP[Prompt/Response Cache Poisoning]
-        SDD[Sensitive Data Disclosure]
+        riskEvaluationBenchmarkManipulation[Evaluation/Benchmark Manipulation]
+        riskExcessiveDataHandlingDuringInference[Excessive Data Handling During Inference]
+        riskInferredSensitiveData[Inferred Sensitive Data]
+        riskPromptResponseCachePoisoning[Prompt/Response Cache Poisoning]
+        riskSensitiveDataDisclosure[Sensitive Data Disclosure]
     end
 
     subgraph risksDeploymentAndInfrastructure ["Deployment And Infrastructure Risks"]
-        ADI[Adapter/PEFT Injection]
-        ASSC[Accelerator and System Side-channels]
-        IIC[Insecure Integrated Component]
-        MDT[Model Deployment Tampering]
-        MRE[Model Reverse Engineering]
-        MXF[Model Exfiltration]
-        TRT[Tool Registry Tampering]
+        riskAcceleratorAndSystemSideChannels[Accelerator and System Side-channels]
+        riskAdapterPEFTInjection[Adapter/PEFT Injection]
+        riskInsecureIntegratedComponent[Insecure Integrated Component]
+        riskModelDeploymentTampering[Model Deployment Tampering]
+        riskModelExfiltration[Model Exfiltration]
+        riskModelReverseEngineering[Model Reverse Engineering]
+        riskToolRegistryTampering[Tool Registry Tampering]
     end
 
     subgraph risksRuntimeInputSecurity ["Runtime Input Security Risks"]
-        DMS[Denial of ML Service]
-        EDW[Economic Denial of Wallet]
-        MEV[Model Evasion]
-        PIJ[Prompt Injection]
+        riskDenialOfMLService[Denial of ML Service]
+        riskEconomicDenialOfWallet[Economic Denial of Wallet]
+        riskModelEvasion[Model Evasion]
+        riskPromptInjection[Prompt Injection]
     end
 
     subgraph risksRuntimeOutputSecurity ["Runtime Output Security Risks"]
-        COV[Covert Channels in Model Outputs]
-        IMO[Insecure Model Output]
-        ORH[Orchestrator/Route Hijack]
-        RA[Rogue Actions]
-        RVP[Retrieval/Vector Store Poisoning]
+        riskCovertChannelsInModelOutputs[Covert Channels in Model Outputs]
+        riskInsecureModelOutput[Insecure Model Output]
+        riskOrchestratorRouteHijacking[Orchestrator/Route Hijack]
+        riskRetrievalVectorStorePoisoning[Retrieval/Vector Store Poisoning]
+        riskRogueActions[Rogue Actions]
     end
 
     end
@@ -149,100 +149,100 @@ graph LR
     end
 
     %% Risk to Control relationships
-    DP --> controlModelAndDataAccessControls
-    DP --> controlModelAndDataIntegrityManagement
-    DP --> controlModelAndDataInventoryManagement
-    DP --> controlSecureByDefaultMLTooling
-    DP --> controlTrainingDataSanitization
-    UTD --> controlTrainingDataManagement
-    UTD --> controlTrainingDataSanitization
-    MST --> controlIsolatedConfidentialComputing
-    MST --> controlModelAndDataAccessControls
-    MST --> controlModelAndDataExecutionIntegrity
-    MST --> controlModelAndDataIntegrityManagement
-    MST --> controlModelAndDataInventoryManagement
-    MST --> controlSecureByDefaultMLTooling
-    EDH --> controlTrainingDataManagement
-    EDH --> controlUserTransparencyAndControls
-    EDH-I --> controlUserDataManagement
-    EDH-I --> controlUserTransparencyAndControls
-    MXF --> controlIsolatedConfidentialComputing
-    MXF --> controlModelAndDataAccessControls
-    MXF --> controlModelAndDataIntegrityManagement
-    MXF --> controlModelAndDataInventoryManagement
-    MXF --> controlSecureByDefaultMLTooling
-    MDT --> controlIsolatedConfidentialComputing
-    MDT --> controlModelAndDataExecutionIntegrity
-    MDT --> controlOrchestratorAndRouteIntegrity
-    MDT --> controlSecureByDefaultMLTooling
-    DMS --> controlApplicationAccessManagement
-    MRE --> controlApplicationAccessManagement
-    IIC --> controlAgentPluginPermissions
-    IIC --> controlModelAndDataExecutionIntegrity
-    IIC --> controlUserPoliciesAndEducation
-    PIJ --> controlAdversarialTrainingAndTesting
-    PIJ --> controlInputValidationAndSanitization
-    PIJ --> controlOutputValidationAndSanitization
-    MEV --> controlAdversarialTrainingAndTesting
-    SDD --> controlAdversarialTrainingAndTesting
-    SDD --> controlAgentObservability
-    SDD --> controlAgentPluginPermissions
-    SDD --> controlAgentPluginUserControl
-    SDD --> controlModelPrivacyEnhancingTechnologies
-    SDD --> controlOutputValidationAndSanitization
-    SDD --> controlRuntimePrivacyEnhancingTechnologies
-    SDD --> controlUserDataManagement
-    SDD --> controlUserPoliciesAndEducation
-    SDD --> controlUserTransparencyAndControls
-    ISD --> controlAdversarialTrainingAndTesting
-    ISD --> controlOutputValidationAndSanitization
-    ISD --> controlTrainingDataManagement
-    IMO --> controlAdversarialTrainingAndTesting
-    IMO --> controlOutputValidationAndSanitization
-    RA --> controlAgentObservability
-    RA --> controlAgentPluginPermissions
-    RA --> controlAgentPluginUserControl
-    RA --> controlOutputValidationAndSanitization
-    ASSC --> controlIsolatedConfidentialComputing
-    ASSC --> controlModelAndDataAccessControls
-    ASSC --> controlSecureByDefaultMLTooling
-    EDW --> controlApplicationAccessManagement
-    FLP --> controlModelAndDataIntegrityManagement
-    FLP --> controlModelPrivacyEnhancingTechnologies
-    FLP --> controlRuntimePrivacyEnhancingTechnologies
-    FLP --> controlSecureByDefaultMLTooling
-    ADI --> controlModelAndDataAccessControls
-    ADI --> controlModelAndDataExecutionIntegrity
-    ADI --> controlModelAndDataIntegrityManagement
-    ADI --> controlSecureByDefaultMLTooling
-    TRT --> controlAgentObservability
-    TRT --> controlOrchestratorAndRouteIntegrity
-    ORH --> controlIsolatedConfidentialComputing
-    ORH --> controlModelAndDataAccessControls
-    ORH --> controlModelAndDataIntegrityManagement
-    ORH --> controlOrchestratorAndRouteIntegrity
-    ORH --> controlSecureByDefaultMLTooling
-    EBM --> controlModelAndDataIntegrityManagement
-    COV --> controlModelAndDataIntegrityManagement
-    COV --> controlOutputValidationAndSanitization
-    MLD --> controlInputValidationAndSanitization
-    MLD --> controlModelAndDataAccessControls
-    MLD --> controlModelAndDataExecutionIntegrity
-    MLD --> controlModelAndDataIntegrityManagement
-    MLD --> controlSecureByDefaultMLTooling
-    TSP --> controlAgentPluginPermissions
-    TSP --> controlModelAndDataIntegrityManagement
-    TSP --> controlSecureByDefaultMLTooling
-    PCP --> controlInputValidationAndSanitization
-    PCP --> controlModelAndDataAccessControls
-    PCP --> controlModelAndDataIntegrityManagement
-    PCP --> controlOutputValidationAndSanitization
-    PCP --> controlUserDataManagement
-    RVP --> controlInputValidationAndSanitization
-    RVP --> controlModelAndDataIntegrityManagement
-    RVP --> controlOutputValidationAndSanitization
-    RVP --> controlRetrievalAndVectorSystemIntegrity
-    RVP --> controlTrainingDataSanitization
+    riskDataPoisoning --> controlModelAndDataAccessControls
+    riskDataPoisoning --> controlModelAndDataIntegrityManagement
+    riskDataPoisoning --> controlModelAndDataInventoryManagement
+    riskDataPoisoning --> controlSecureByDefaultMLTooling
+    riskDataPoisoning --> controlTrainingDataSanitization
+    riskUnauthorizedTrainingData --> controlTrainingDataManagement
+    riskUnauthorizedTrainingData --> controlTrainingDataSanitization
+    riskModelSourceTampering --> controlIsolatedConfidentialComputing
+    riskModelSourceTampering --> controlModelAndDataAccessControls
+    riskModelSourceTampering --> controlModelAndDataExecutionIntegrity
+    riskModelSourceTampering --> controlModelAndDataIntegrityManagement
+    riskModelSourceTampering --> controlModelAndDataInventoryManagement
+    riskModelSourceTampering --> controlSecureByDefaultMLTooling
+    riskExcessiveDataHandling --> controlTrainingDataManagement
+    riskExcessiveDataHandling --> controlUserTransparencyAndControls
+    riskExcessiveDataHandlingDuringInference --> controlUserDataManagement
+    riskExcessiveDataHandlingDuringInference --> controlUserTransparencyAndControls
+    riskModelExfiltration --> controlIsolatedConfidentialComputing
+    riskModelExfiltration --> controlModelAndDataAccessControls
+    riskModelExfiltration --> controlModelAndDataIntegrityManagement
+    riskModelExfiltration --> controlModelAndDataInventoryManagement
+    riskModelExfiltration --> controlSecureByDefaultMLTooling
+    riskModelDeploymentTampering --> controlIsolatedConfidentialComputing
+    riskModelDeploymentTampering --> controlModelAndDataExecutionIntegrity
+    riskModelDeploymentTampering --> controlOrchestratorAndRouteIntegrity
+    riskModelDeploymentTampering --> controlSecureByDefaultMLTooling
+    riskDenialOfMLService --> controlApplicationAccessManagement
+    riskModelReverseEngineering --> controlApplicationAccessManagement
+    riskInsecureIntegratedComponent --> controlAgentPluginPermissions
+    riskInsecureIntegratedComponent --> controlModelAndDataExecutionIntegrity
+    riskInsecureIntegratedComponent --> controlUserPoliciesAndEducation
+    riskPromptInjection --> controlAdversarialTrainingAndTesting
+    riskPromptInjection --> controlInputValidationAndSanitization
+    riskPromptInjection --> controlOutputValidationAndSanitization
+    riskModelEvasion --> controlAdversarialTrainingAndTesting
+    riskSensitiveDataDisclosure --> controlAdversarialTrainingAndTesting
+    riskSensitiveDataDisclosure --> controlAgentObservability
+    riskSensitiveDataDisclosure --> controlAgentPluginPermissions
+    riskSensitiveDataDisclosure --> controlAgentPluginUserControl
+    riskSensitiveDataDisclosure --> controlModelPrivacyEnhancingTechnologies
+    riskSensitiveDataDisclosure --> controlOutputValidationAndSanitization
+    riskSensitiveDataDisclosure --> controlRuntimePrivacyEnhancingTechnologies
+    riskSensitiveDataDisclosure --> controlUserDataManagement
+    riskSensitiveDataDisclosure --> controlUserPoliciesAndEducation
+    riskSensitiveDataDisclosure --> controlUserTransparencyAndControls
+    riskInferredSensitiveData --> controlAdversarialTrainingAndTesting
+    riskInferredSensitiveData --> controlOutputValidationAndSanitization
+    riskInferredSensitiveData --> controlTrainingDataManagement
+    riskInsecureModelOutput --> controlAdversarialTrainingAndTesting
+    riskInsecureModelOutput --> controlOutputValidationAndSanitization
+    riskRogueActions --> controlAgentObservability
+    riskRogueActions --> controlAgentPluginPermissions
+    riskRogueActions --> controlAgentPluginUserControl
+    riskRogueActions --> controlOutputValidationAndSanitization
+    riskAcceleratorAndSystemSideChannels --> controlIsolatedConfidentialComputing
+    riskAcceleratorAndSystemSideChannels --> controlModelAndDataAccessControls
+    riskAcceleratorAndSystemSideChannels --> controlSecureByDefaultMLTooling
+    riskEconomicDenialOfWallet --> controlApplicationAccessManagement
+    riskFederatedDistributedTrainingPrivacy --> controlModelAndDataIntegrityManagement
+    riskFederatedDistributedTrainingPrivacy --> controlModelPrivacyEnhancingTechnologies
+    riskFederatedDistributedTrainingPrivacy --> controlRuntimePrivacyEnhancingTechnologies
+    riskFederatedDistributedTrainingPrivacy --> controlSecureByDefaultMLTooling
+    riskAdapterPEFTInjection --> controlModelAndDataAccessControls
+    riskAdapterPEFTInjection --> controlModelAndDataExecutionIntegrity
+    riskAdapterPEFTInjection --> controlModelAndDataIntegrityManagement
+    riskAdapterPEFTInjection --> controlSecureByDefaultMLTooling
+    riskToolRegistryTampering --> controlAgentObservability
+    riskToolRegistryTampering --> controlOrchestratorAndRouteIntegrity
+    riskOrchestratorRouteHijacking --> controlIsolatedConfidentialComputing
+    riskOrchestratorRouteHijacking --> controlModelAndDataAccessControls
+    riskOrchestratorRouteHijacking --> controlModelAndDataIntegrityManagement
+    riskOrchestratorRouteHijacking --> controlOrchestratorAndRouteIntegrity
+    riskOrchestratorRouteHijacking --> controlSecureByDefaultMLTooling
+    riskEvaluationBenchmarkManipulation --> controlModelAndDataIntegrityManagement
+    riskCovertChannelsInModelOutputs --> controlModelAndDataIntegrityManagement
+    riskCovertChannelsInModelOutputs --> controlOutputValidationAndSanitization
+    riskMaliciousLoaderDeserialization --> controlInputValidationAndSanitization
+    riskMaliciousLoaderDeserialization --> controlModelAndDataAccessControls
+    riskMaliciousLoaderDeserialization --> controlModelAndDataExecutionIntegrity
+    riskMaliciousLoaderDeserialization --> controlModelAndDataIntegrityManagement
+    riskMaliciousLoaderDeserialization --> controlSecureByDefaultMLTooling
+    riskToolSourceProvenance --> controlAgentPluginPermissions
+    riskToolSourceProvenance --> controlModelAndDataIntegrityManagement
+    riskToolSourceProvenance --> controlSecureByDefaultMLTooling
+    riskPromptResponseCachePoisoning --> controlInputValidationAndSanitization
+    riskPromptResponseCachePoisoning --> controlModelAndDataAccessControls
+    riskPromptResponseCachePoisoning --> controlModelAndDataIntegrityManagement
+    riskPromptResponseCachePoisoning --> controlOutputValidationAndSanitization
+    riskPromptResponseCachePoisoning --> controlUserDataManagement
+    riskRetrievalVectorStorePoisoning --> controlInputValidationAndSanitization
+    riskRetrievalVectorStorePoisoning --> controlModelAndDataIntegrityManagement
+    riskRetrievalVectorStorePoisoning --> controlOutputValidationAndSanitization
+    riskRetrievalVectorStorePoisoning --> controlRetrievalAndVectorSystemIntegrity
+    riskRetrievalVectorStorePoisoning --> controlTrainingDataSanitization
 
     %% Control to Component relationships (reused from ControlGraph)
     controlModelPrivacyEnhancingTechnologies --> componentsModelSubgroup

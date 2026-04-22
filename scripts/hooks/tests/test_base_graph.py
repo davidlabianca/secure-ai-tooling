@@ -1282,8 +1282,8 @@ class TestMultiEdgeStyler:
             ],
         }
         mock.config_loader = mock_config
-        mock._get_edge_style.side_effect = (
-            lambda style: f"stroke:{style.get('stroke')},stroke-width:{style.get('strokeWidth')}"
+        mock._get_edge_style.side_effect = lambda style: (
+            f"stroke:{style.get('stroke')},stroke-width:{style.get('strokeWidth')}"
         )
         return mock
 

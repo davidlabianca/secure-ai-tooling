@@ -165,9 +165,7 @@ class TestMiseConfigPython:
         Then: Value is "3.14"
         """
         python_version = str(tools.get("python", ""))
-        assert python_version == "3.14", (
-            f"Expected tools.python = '3.14', got '{python_version}'"
-        )
+        assert python_version == "3.14", f"Expected tools.python = '3.14', got '{python_version}'"
 
     def test_python_version_satisfies_minimum(self, tools):
         """
@@ -221,9 +219,7 @@ class TestMiseConfigNode:
         Then: Value is "22"
         """
         node_version = str(tools.get("node", ""))
-        assert node_version == "22", (
-            f"Expected tools.node = '22', got '{node_version}'"
-        )
+        assert node_version == "22", f"Expected tools.node = '22', got '{node_version}'"
 
     def test_node_version_satisfies_minimum(self, tools):
         """
@@ -317,6 +313,7 @@ class TestMiseConfigConsistency:
 # CI uses actions/setup-python instead of mise).
 _mise_python_latest = Path.home() / ".local/share/mise/installs/python/latest"
 
+
 @pytest.mark.skipif(
     not _mise_python_latest.exists(),
     reason="mise-installed Python not present (not running in devcontainer)",
@@ -345,8 +342,7 @@ class TestMiseInterpreterResolution:
         defaultInterpreterPath in devcontainer.json.
         """
         assert self.MISE_PYTHON_LATEST.exists(), (
-            f"mise 'latest' symlink missing: {self.MISE_PYTHON_LATEST}. "
-            f"Was 'mise install' run?"
+            f"mise 'latest' symlink missing: {self.MISE_PYTHON_LATEST}. Was 'mise install' run?"
         )
         assert self.MISE_PYTHON_LATEST.is_symlink(), (
             f"Expected symlink at {self.MISE_PYTHON_LATEST}, got regular path"
@@ -361,13 +357,10 @@ class TestMiseInterpreterResolution:
         devcontainer.json defaultInterpreterPath points here. If this fails,
         VS Code will show "could not be resolved" at startup.
         """
-        assert self.MISE_PYTHON_BIN.exists(), (
-            f"Python binary missing at {self.MISE_PYTHON_BIN}"
-        )
+        assert self.MISE_PYTHON_BIN.exists(), f"Python binary missing at {self.MISE_PYTHON_BIN}"
         import os
-        assert os.access(self.MISE_PYTHON_BIN, os.X_OK), (
-            f"Python binary not executable: {self.MISE_PYTHON_BIN}"
-        )
+
+        assert os.access(self.MISE_PYTHON_BIN, os.X_OK), f"Python binary not executable: {self.MISE_PYTHON_BIN}"
 
     def test_mise_python_latest_binary_runs(self):
         """
@@ -376,20 +369,17 @@ class TestMiseInterpreterResolution:
         Then: It executes as Python and reports a version string
         """
         import subprocess
+
         result = subprocess.run(
             [str(self.MISE_PYTHON_BIN), "--version"],
             capture_output=True,
             text=True,
             timeout=5,
         )
-        assert result.returncode == 0, (
-            f"Python binary exited with {result.returncode}: {result.stderr}"
-        )
+        assert result.returncode == 0, f"Python binary exited with {result.returncode}: {result.stderr}"
         # Python 3.4+ writes --version to stdout, but check both for robustness
         combined = result.stdout + result.stderr
-        assert "Python" in combined, (
-            f"Expected 'Python' in version output, got: {combined}"
-        )
+        assert "Python" in combined, f"Expected 'Python' in version output, got: {combined}"
 
     def test_mise_python_latest_matches_mise_toml(self):
         """
@@ -401,6 +391,7 @@ class TestMiseInterpreterResolution:
         Python version than what .mise.toml declares.
         """
         import subprocess
+
         with open(MISE_CONFIG_PATH, "rb") as f:
             config = tomllib.load(f)
         expected_minor = str(config.get("tools", {}).get("python", ""))

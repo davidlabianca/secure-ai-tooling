@@ -10,6 +10,8 @@ body:
 
         Use this template to propose changes to an existing control. Only fill out the sections relevant to your proposed changes.
 
+        📋 **Before you submit**: Skim the [Submission Readiness Guide](https://github.com/cosai-oasis/secure-ai-tooling/blob/main/risk-map/docs/contributing/submission-readiness-guide.md) — the same persona, universal-control, and framework-mapping rules apply to updates.
+
   - type: input
     id: control-permalink
     attributes:
@@ -47,7 +49,7 @@ body:
         **Examples:**
         - "Update description to clarify that this control also applies to fine-tuning scenarios"
         - "Add componentModelEvaluation to components list - this control is relevant during evaluation phase"
-        - "Remove PIJ from risks - this control doesn't effectively mitigate prompt injection"
+        - "Remove riskPromptInjection from risks - this control doesn't effectively mitigate prompt injection"
         - "Add MITRE ATLAS mapping AML.M0015 (Adversarial Input Detection)"
       placeholder: |
         Current state: [what it says now]
@@ -89,9 +91,9 @@ body:
 
         📋 [View risk list](https://github.com/cosai-oasis/secure-ai-tooling/blob/main/risk-map/tables/risks-summary.md)
       placeholder: |
-        + MEV
-        + IIC
-        - PIJ
+        + riskModelEvasion
+        + riskInsecureIntegratedComponent
+        - riskPromptInjection
 
   - type: textarea
     id: framework-mappings
@@ -101,7 +103,9 @@ body:
         Add or remove framework mappings. Use `+` to add, `-` to remove.
         Format: `+/- framework-id: mapping-value`
 
-        Valid frameworks for controls: mitre-atlas, nist-ai-rmf, owasp-top10-llm, eu-ai-act
+        Valid frameworks for controls: mitre-atlas, nist-ai-rmf, owasp-top10-llm, eu-ai-act. Controls use MITRE ATLAS **mitigations** (`AML.M####`).
+
+        📋 See the [Framework Mappings Style Guide](https://github.com/cosai-oasis/secure-ai-tooling/blob/main/risk-map/docs/contributing/framework-mappings-style-guide.md) for per-framework rules.
       placeholder: |
         + mitre-atlas: AML.M0015
         + nist-ai-rmf: GV-4.1
@@ -125,4 +129,6 @@ body:
       description: Please confirm the following
       options:
         - label: I have provided a valid GitHub permalink to the control
+          required: true
+        - label: My proposed changes conform to the Submission Readiness Guide
           required: true

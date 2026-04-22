@@ -385,7 +385,7 @@ class TestCheckDeprecatedPersonaUsage:
         risks_data = {
             "risks": [
                 {
-                    "id": "DP",
+                    "id": "riskDataPoisoning",
                     "title": "Data Poisoning",
                     "personas": ["personaModelConsumer"],  # Using deprecated persona
                 }
@@ -395,7 +395,7 @@ class TestCheckDeprecatedPersonaUsage:
         warnings = check_deprecated_persona_usage(personas_data, controls_data, risks_data)
 
         assert len(warnings) == 1
-        assert "DP" in warnings[0]
+        assert "riskDataPoisoning" in warnings[0]
         assert "personaModelConsumer" in warnings[0]
         assert "deprecated" in warnings[0].lower()
 
@@ -426,7 +426,15 @@ class TestCheckDeprecatedPersonaUsage:
             ]
         }
 
-        risks_data = {"risks": [{"id": "DP", "title": "Data Poisoning", "personas": ["personaDataProvider"]}]}
+        risks_data = {
+            "risks": [
+                {
+                    "id": "riskDataPoisoning",
+                    "title": "Data Poisoning",
+                    "personas": ["personaDataProvider"],
+                }
+            ]
+        }
 
         warnings = check_deprecated_persona_usage(personas_data, controls_data, risks_data)
 
@@ -502,7 +510,7 @@ class TestCheckDeprecatedPersonaUsage:
 
         controls_data = {"controls": []}
 
-        risks_data = {"risks": [{"id": "DP", "title": "Data Poisoning"}]}  # No personas field
+        risks_data = {"risks": [{"id": "riskDataPoisoning", "title": "Data Poisoning"}]}  # No personas field
 
         warnings = check_deprecated_persona_usage(personas_data, controls_data, risks_data)
 

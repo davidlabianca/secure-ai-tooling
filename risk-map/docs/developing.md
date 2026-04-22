@@ -43,6 +43,11 @@ This guide outlines how you can contribute to the Coalition for Secure AI (CoSAI
 - SVG generation from Mermaid diagrams
 - Handling CI validation failures
 
+**[Frontend Test Conventions](../../site/tests/README.md)**
+
+- Conventions for `node --test` ES-module tests under `site/tests/`
+- Scope, fixtures, concurrency, and escalation path for DOM or framework changes
+
 ### Contributing Content
 
 **[General Contribution Workflow](workflow.md)**
