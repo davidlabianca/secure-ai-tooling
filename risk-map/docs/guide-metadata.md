@@ -203,7 +203,7 @@ actorAccess:
 ### Risk with All Metadata Fields
 
 ```yaml
-- id: MST
+- id: riskModelSourceTampering
   title: Model Supply Chain Compromise
   shortDescription:
     - "Compromising model artifacts or dependencies in the supply chain"
@@ -211,8 +211,8 @@ actorAccess:
     - "Attackers compromise the model supply chain by injecting malicious code..."
   category: risksSupplyChainAndDevelopment
   personas:
-    - personaModelCreator
-    - personaModelConsumer
+    - personaModelProvider
+    - personaApplicationDeveloper
   controls:
     - controlVulnerabilityManagement
     - controlModelAndDataIntegrityManagement
@@ -245,14 +245,14 @@ actorAccess:
     - "Implement cryptographic signing and verification for models and datasets"
   category: controlsModel
   personas:
-    - personaModelCreator
-    - personaModelConsumer
+    - personaModelProvider
+    - personaApplicationDeveloper
   components:
     - componentModelStorage
     - componentModelServing
   risks:
-    - MST
-    - MDT
+    - riskModelSourceTampering
+    - riskModelDeploymentTampering
   mappings:
     mitre-atlas:
       - AML.M0013

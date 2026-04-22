@@ -10,7 +10,9 @@ body:
 
         Use this template to propose changes to an existing persona. Only fill out the sections relevant to your proposed changes.
 
-        **Current personas**: Model Creator, Model Consumer
+        📋 **Before you submit**: Skim the [Submission Readiness Guide](https://github.com/cosai-oasis/secure-ai-tooling/blob/main/risk-map/docs/contributing/submission-readiness-guide.md) for general conventions.
+
+        **Current personas**: see [`personas.yaml`](https://github.com/cosai-oasis/secure-ai-tooling/blob/main/risk-map/yaml/personas.yaml) for the full list.
 
   - type: input
     id: persona-permalink
@@ -33,6 +35,7 @@ body:
         - Update title (rename persona)
         - Update description (clarification or expansion)
         - Refine scope or responsibilities
+        - Update identification questions
         - Other (describe below)
     validations:
       required: true
@@ -45,10 +48,10 @@ body:
         Describe what you want to change and why. Be specific about what should be added, removed, or modified.
 
         **Examples:**
-        - "Update description to clarify that Model Creator includes both those who train from scratch and those who fine-tune existing models"
+        - "Update description to clarify that Model Provider includes both those who train from scratch and those who distribute foundation models"
         - "Expand scope to explicitly include MLOps engineers who manage model deployment pipelines"
-        - "Clarify distinction between Model Creator and Model Consumer for organizations that do both"
-        - "Update title from 'Model Creator' to 'Model Developer' for better industry alignment"
+        - "Clarify distinction between Model Provider and Application Developer for organizations that do both"
+        - "Update title from 'Model Serving' to 'Model Hosting' for better industry alignment"
       placeholder: |
         Current state: [what it says now]
         Proposed change: [what it should say]
@@ -85,6 +88,20 @@ body:
         - Role D
 
   - type: textarea
+    id: identification-questions
+    attributes:
+      label: Identification Questions Changes
+      description: |
+        Add or update identification questions for this persona. Use `+` to add, `-` to remove, or paste the full updated list.
+
+        Questions must be yes/no, second-person, and activity-based.
+
+        📋 See the [Identification Questions Style Guide](https://github.com/cosai-oasis/secure-ai-tooling/blob/main/risk-map/docs/contributing/identification-questions-style-guide.md) for required form, scoping clauses, and reviewer checklist.
+      placeholder: |
+        + Are you producing model evaluation reports that other teams act on?
+        - Do you build models? (replaced by more specific question above)
+
+  - type: textarea
     id: framework-impact
     attributes:
       label: Framework Impact Assessment
@@ -119,4 +136,6 @@ body:
       description: Please confirm the following
       options:
         - label: I have provided a valid GitHub permalink to the persona
+          required: true
+        - label: My proposed changes conform to the Submission Readiness Guide
           required: true

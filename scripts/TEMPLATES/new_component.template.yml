@@ -9,27 +9,20 @@ body:
         ## Propose a New Component
         Use this template to suggest a new AI system component for the risk framework.
 
+        📋 **Before you submit**: Read the [Submission Readiness Guide](https://github.com/cosai-oasis/secure-ai-tooling/blob/main/risk-map/docs/contributing/submission-readiness-guide.md) to understand the quality bar.
+
         **Required fields** are marked with an asterisk (*).
 
         ⚠️ **Important**: Component edges must be bidirectional. If you add `A → B`, then `B ← A` must also exist.
 
   - type: input
-    id: component-id
-    attributes:
-      label: Component ID*
-      description: |
-        Unique identifier in camelCase format
-
-        Must start with "component" (e.g., componentMyNewComponent)
-      placeholder: 'e.g., componentPromptCache'
-    validations:
-      required: true
-
-  - type: input
     id: component-title
     attributes:
       label: Component Title*
-      description: A concise, human-readable name for the component
+      description: |
+        A concise, human-readable name for the component. The ID is mechanically derived from this title.
+
+        📋 See the [Component Titles Style Guide](https://github.com/cosai-oasis/secure-ai-tooling/blob/main/risk-map/docs/contributing/component-titles-style-guide.md) for naming rules.
       placeholder: 'e.g., Prompt Cache'
     validations:
       required: true
@@ -74,7 +67,7 @@ body:
         - If you add `componentB` in "Edges To", then `componentB` will automatically get an "Edges From" entry for this component
         - If you add `componentA` in "Edges From", then `componentA` will automatically get an "Edges To" entry for this component
 
-        📋 [View component list](../../risk-map/tables/components-summary.md)
+        📋 [View component list](https://github.com/cosai-oasis/secure-ai-tooling/blob/main/risk-map/tables/components-summary.md)
 
   - type: textarea
     id: edges-to
@@ -121,4 +114,6 @@ body:
       description: Please confirm the following
       options:
         - label: I have reviewed existing components to ensure this is not a duplicate
+          required: true
+        - label: I have read the Submission Readiness Guide and believe my proposal meets the quality bar
           required: true

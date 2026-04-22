@@ -1,6 +1,6 @@
 # CI/CD Validation
 
-The repository includes automated GitHub Actions that validate all pull requests against the same standards as local pre-commit hooks.
+The repository includes automated GitHub Actions that validate all pull requests against the same standards as the local pre-commit framework hooks (configured in `.pre-commit-config.yaml`).
 
 ## Automated PR Validation
 

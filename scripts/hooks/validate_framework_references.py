@@ -495,9 +495,7 @@ def validate_frameworks(file_paths: list[Path]) -> bool:
     )
 
     # Check for deprecated persona usage (warnings only, don't fail validation)
-    deprecation_warnings = check_deprecated_persona_usage(
-        personas_yaml_data, controls_yaml_data, risks_yaml_data
-    )
+    deprecation_warnings = check_deprecated_persona_usage(personas_yaml_data, controls_yaml_data, risks_yaml_data)
 
     # Report results
     success = True

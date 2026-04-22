@@ -2,24 +2,27 @@
 
 ## Installing over existing hooks
 
-If you already have git hooks and want to replace them:
+If you already have git hooks and want to replace them with the framework hook:
 
 ```bash
-./scripts/install-precommit-hook.sh --force
+pre-commit install --overwrite
 ```
 
 ## Installing with Playwright Chromium (ARM64 Linux)
 
-For ARM64 Linux systems that need Playwright Chromium:
+The `regenerate-svgs` hook self-discovers Playwright Chromium when
+`CHROMIUM_PATH` is unset. To install Playwright Chromium:
 
 ```bash
-# Automatically install Playwright Chromium during setup
-./scripts/install-precommit-hook.sh --install-playwright
-
-# Or install manually then run setup
+# install-deps.sh installs this automatically; manual:
 npx playwright install chromium
-./scripts/install-precommit-hook.sh
+
+# Then install the framework hook (no Chromium config required):
+pre-commit install
 ```
+
+To explicitly override discovery, export `CHROMIUM_PATH` to point at any
+working Chromium binary before committing.
 
 ## Bypassing validation (emergencies only)
 
@@ -130,55 +133,45 @@ npx mmdc -i diagram.mmd -o test.svg
 Error: Could not find browser revision
 ```
 
-**Fix**: Install Playwright Chromium or system Chromium:
+**Fix**: Install Playwright Chromium (recommended) or set CHROMIUM_PATH to a system Chromium:
 
 ```bash
-# Option 1: Playwright Chromium (recommended)
+# Option 1: Playwright Chromium (auto-discovered by regenerate-svgs hook)
 npx playwright install chromium --with-deps
 
-# Option 2: System Chromium
+# Option 2: System Chromium with explicit override
 sudo apt install chromium-browser
-
-# Option 3: Re-run install with automatic Playwright setup
-./scripts/install-precommit-hook.sh --install-playwright --force
+export CHROMIUM_PATH=/usr/bin/chromium-browser
 ```
 
 ```
-✅ Found existing Playwright Chromium at: /path/to/chromium
-# But SVG generation still fails
+SVG generation fails despite Playwright being installed
 ```
 
-**Fix**: Verify the Chromium path is executable and has required dependencies:
+**Fix**: Verify the discovered Chromium is executable and has required dependencies:
 
 ```bash
-# Test Chromium directly
-/path/to/chromium --version
+# See what regenerate-svgs would use
+python3 -c "import sys; sys.path.insert(0,'scripts/hooks/precommit'); from regenerate_svgs import _discover_chromium; print(_discover_chromium())"
 
 # Install system dependencies if needed (Ubuntu/Debian)
 sudo apt install -y ca-certificates fonts-liberation libappindicator3-1 \
   libasound2 libatk-bridge2.0-0 libdrm2 libgtk-3-0 libnspr4 libnss3 \
   libxcomposite1 libxdamage1 libxrandr2 libgbm1 libxss1 libu2f-udev
-
-# Re-configure pre-commit hook
-./scripts/install-precommit-hook.sh --force
 ```
 
 ```
-⚠️ Using automatic Chrome detection
-# But no Chrome found on ARM64
+ARM64 Linux: no Chromium discovered automatically
 ```
 
-**Fix**: ARM64 Linux requires manual Chromium setup since Google Chrome isn't available:
+**Fix**: ARM64 Linux requires Playwright Chromium (Google Chrome isn't published for ARM64):
 
 ```bash
 # Check your platform
 uname -m  # Should show aarch64 or arm64
 
-# Install Playwright Chromium
+# Install Playwright Chromium (regenerate-svgs auto-discovers it)
 npx playwright install chromium --with-deps
-
-# Re-run installation to detect Chromium
-./scripts/install-precommit-hook.sh --force
 ```
 
 ## Common table generation errors

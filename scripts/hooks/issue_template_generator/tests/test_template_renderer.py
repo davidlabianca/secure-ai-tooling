@@ -101,7 +101,17 @@ def sample_schema_parser(tmp_path: Path) -> SchemaParser:
                     "id": {"enum": ["risksSupplyChainAndDevelopment", "risksDeploymentAndInfrastructure"]}
                 }
             },
-            "risk": {"properties": {"id": {"enum": ["DP", "MST", "PIJ"]}}},
+            "risk": {
+                "properties": {
+                    "id": {
+                        "enum": [
+                            "riskDataPoisoning",
+                            "riskModelSourceTampering",
+                            "riskPromptInjection",
+                        ]
+                    }
+                }
+            },
         },
     }
 
@@ -2321,3 +2331,484 @@ body:
                 assert all("label" in opt and "value" not in opt for opt in options), (
                     f"Checkboxes {item['id']} has invalid object structure"
                 )
+
+
+# ============================================================================
+# Tests for deprecated-persona filtering — TDD red phase
+#
+# These tests target the not-yet-built behaviour where:
+#   - PLACEHOLDER_MAPPINGS["PERSONAS"] gains a yaml_source key
+#   - expand_placeholders() filters deprecated IDs from enum values when
+#     yaml_source is present in a mapping
+#   - SchemaParser is constructed with yaml_data_dir so it can load the YAML
+#
+# ALL tests in these classes MUST FAIL until the implementation lands in
+# template_renderer.py and schema_parser.py.
+# ============================================================================
+
+
+class TestDeprecatedPersonaFiltering:
+    """
+    Tests for deprecated-entry filtering in expand_placeholders().
+
+    Contract under test (NOT YET IMPLEMENTED):
+        PLACEHOLDER_MAPPINGS["PERSONAS"] gains:
+            "yaml_source": ("personas.yaml", "personas")
+
+        expand_placeholders() (or a private helper) calls
+        schema_parser.load_deprecated_ids(*yaml_source) and removes any
+        matching IDs from enum_values before generating checkbox lines.
+
+        Mappings without yaml_source are unchanged.
+    """
+
+    def test_expand_personas_placeholder_excludes_deprecated_entries(
+        self,
+        tmp_path: Path,
+        sample_frameworks_data: dict[str, Any],
+    ) -> None:
+        """
+        Test that deprecated persona IDs are excluded from {{PERSONAS}} expansion.
+
+        Given: A personas schema enum containing [personaActive, personaDeprecatedX],
+               a personas.yaml marking personaDeprecatedX as deprecated: true,
+               and a SchemaParser constructed with yaml_data_dir pointing at the YAML dir
+        When:  expand_placeholders() is called with a template containing {{PERSONAS}}
+        Then:  The rendered output contains "personaActive" but NOT "personaDeprecatedX"
+        """
+        import json
+
+        schema_dir = tmp_path / "schemas"
+        schema_dir.mkdir()
+        yaml_dir = tmp_path / "yaml"
+        yaml_dir.mkdir()
+
+        # Synthetic personas schema — includes both active and deprecated IDs
+        personas_schema = {
+            "$id": "personas.schema.json",
+            "definitions": {"persona": {"properties": {"id": {"enum": ["personaActive", "personaDeprecatedX"]}}}},
+        }
+        (schema_dir / "personas.schema.json").write_text(json.dumps(personas_schema))
+
+        # Synthetic personas YAML — personaDeprecatedX is deprecated
+        import yaml as _yaml
+
+        personas_yaml = {
+            "personas": [
+                {"id": "personaActive"},
+                {"id": "personaDeprecatedX", "deprecated": True},
+            ]
+        }
+        (yaml_dir / "personas.yaml").write_text(_yaml.dump(personas_yaml))
+
+        # SchemaParser constructed with yaml_data_dir (new constructor param)
+        parser = SchemaParser(schema_dir, yaml_data_dir=yaml_dir)
+        renderer = TemplateRenderer(parser, sample_frameworks_data)
+
+        template = """options:
+        {{PERSONAS}}"""
+
+        # When
+        result = renderer.expand_placeholders(template, "controls")
+
+        # Then
+        assert "personaActive" in result
+        assert "personaDeprecatedX" not in result
+
+    def test_expand_placeholder_without_yaml_source_unchanged(
+        self,
+        sample_schema_parser: SchemaParser,
+        sample_frameworks_data: dict[str, Any],
+    ) -> None:
+        """
+        Regression guard: mappings without yaml_source must expand identically to today.
+
+        Given: A template with {{LIFECYCLE_STAGE}}, whose PLACEHOLDER_MAPPINGS entry
+               does NOT have yaml_source (no deprecation filtering applies)
+        When:  expand_placeholders() is called
+        Then:  ALL enum values from the schema appear in the output — no accidental
+               filtering occurs for mappings that do not declare yaml_source
+        """
+        # The real LIFECYCLE_STAGE schema is used via risk_map_schemas_dir; here we
+        # build a synthetic one so the test is self-contained and fast.
+        import json
+
+        schema_dir = sample_schema_parser.schema_dir
+
+        lifecycle_schema = {
+            "$id": "lifecycle-stage.schema.json",
+            "definitions": {
+                "lifecycleStage": {"properties": {"id": {"enum": ["planning", "deployment", "maintenance"]}}}
+            },
+        }
+        (schema_dir / "lifecycle-stage.schema.json").write_text(json.dumps(lifecycle_schema))
+
+        renderer = TemplateRenderer(sample_schema_parser, sample_frameworks_data)
+
+        template = """options:
+        {{LIFECYCLE_STAGE}}"""
+
+        # When
+        result = renderer.expand_placeholders(template, "controls")
+
+        # Then — all three values must be present, nothing filtered
+        assert "planning" in result
+        assert "deployment" in result
+        assert "maintenance" in result
+
+    def test_expand_personas_real_data_excludes_model_creator_and_consumer(
+        self,
+        risk_map_schemas_dir: Path,
+        repo_root: Path,
+    ) -> None:
+        """
+        Integration test: real production data must exclude deprecated personas.
+
+        Given: The real risk-map/schemas/personas.schema.json (which still lists
+               personaModelCreator and personaModelConsumer in its enum) and the
+               real risk-map/yaml/personas.yaml (which marks both as deprecated: true),
+               with SchemaParser constructed pointing at both directories
+        When:  expand_placeholders() is called on a template containing {{PERSONAS}}
+        Then:
+            - "personaModelCreator" is absent from the rendered output
+            - "personaModelConsumer" is absent from the rendered output
+            - "personaModelProvider" (an active persona) IS present in the rendered output
+        """
+        import yaml as _yaml
+
+        real_yaml_dir = repo_root / "risk-map" / "yaml"
+        real_frameworks_yaml = real_yaml_dir / "frameworks.yaml"
+
+        with open(real_frameworks_yaml, "r", encoding="utf-8") as f:
+            frameworks_data = _yaml.safe_load(f)
+
+        # SchemaParser with yaml_data_dir pointing at the real YAML directory
+        parser = SchemaParser(risk_map_schemas_dir, yaml_data_dir=real_yaml_dir)
+        renderer = TemplateRenderer(parser, frameworks_data)
+
+        template = """options:
+        {{PERSONAS}}"""
+
+        # When
+        result = renderer.expand_placeholders(template, "controls")
+
+        # Then — deprecated personas must not appear
+        assert "personaModelCreator" not in result
+        assert "personaModelConsumer" not in result
+
+        # At least one active persona must still be present
+        assert "personaModelProvider" in result
+
+
+# ============================================================================
+# Tests for exclude_ids mechanism — TDD red phase
+#
+# These tests target the not-yet-built behaviour where:
+#   - PLACEHOLDER_MAPPINGS entries gain an optional "exclude_ids" field
+#   - A new "PERSONAS_FOR_RISKS" mapping is added that references the same
+#     schema/YAML as "PERSONAS" but adds exclude_ids=("personaGovernance",)
+#   - expand_placeholders() composes deprecated-filter and exclude_ids:
+#       final_ids = enum_ids - deprecated_ids - exclude_ids
+#   - Output order follows the original schema enum order (stable)
+#
+# ALL tests marked with "MUST FAIL" below must fail until the implementation
+# lands in template_renderer.py.  Tests marked "SHOULD PASS" are structural
+# and are written to pass with the current code using .get() defensively.
+# ============================================================================
+
+
+class TestExcludeIdsMechanism:
+    """
+    Tests for the exclude_ids mechanism in PLACEHOLDER_MAPPINGS entries.
+
+    Contract under test (NOT YET IMPLEMENTED):
+        - PLACEHOLDER_MAPPINGS entries accept an optional "exclude_ids" key
+          whose value is a tuple of schema-enum IDs to omit from output.
+        - Omitting "exclude_ids" is equivalent to an empty tuple (no filtering).
+        - A new "PERSONAS_FOR_RISKS" mapping is added identical to "PERSONAS"
+          except it adds exclude_ids=("personaGovernance",).
+        - "PERSONAS" is unchanged (personaGovernance still appears for controls).
+        - expand_placeholders() applies both deprecated-filter and exclude_ids:
+            final_ids = enum_ids - deprecated_ids - exclude_ids
+          preserving original schema enum ordering.
+    """
+
+    def test_placeholder_mapping_supports_exclude_ids_field(self) -> None:
+        """
+        Structural test: PLACEHOLDER_MAPPINGS entries support an "exclude_ids" key.
+
+        Given: The PLACEHOLDER_MAPPINGS dict defined on TemplateRenderer
+        When:  The "PERSONAS_FOR_RISKS" entry is read (expected post-implementation)
+               and an existing entry ("PERSONAS") is read with .get()
+        Then:
+            - Accessing mapping.get("exclude_ids", ()) on "PERSONAS" returns ()
+              (i.e. the default/absent value is treated as an empty tuple — no-op)
+            - The "PERSONAS_FOR_RISKS" key exists in PLACEHOLDER_MAPPINGS and its
+              "exclude_ids" value contains "personaGovernance"
+
+        Note: The first assertion (PERSONAS default) SHOULD PASS immediately
+        because it uses .get() with a default.  The second assertion (presence
+        of PERSONAS_FOR_RISKS) MUST FAIL until the entry is added.
+        """
+        # Given: the existing PERSONAS entry has no exclude_ids key
+        personas_mapping = TemplateRenderer.PLACEHOLDER_MAPPINGS["PERSONAS"]
+
+        # When / Then: absent key behaves as empty tuple via .get()
+        # This assertion is structural and passes today.
+        assert personas_mapping.get("exclude_ids", ()) == ()
+
+        # When / Then: PERSONAS_FOR_RISKS must exist and declare its exclusion
+        # MUST FAIL until PERSONAS_FOR_RISKS is added to PLACEHOLDER_MAPPINGS
+        assert "PERSONAS_FOR_RISKS" in TemplateRenderer.PLACEHOLDER_MAPPINGS
+
+        personas_for_risks_mapping = TemplateRenderer.PLACEHOLDER_MAPPINGS["PERSONAS_FOR_RISKS"]
+        exclude_ids = personas_for_risks_mapping.get("exclude_ids", ())
+        assert "personaGovernance" in exclude_ids
+
+    def test_expand_placeholders_filters_exclude_ids(
+        self,
+        tmp_path: Path,
+        sample_frameworks_data: dict[str, Any],
+    ) -> None:
+        """
+        Test that exclude_ids in a mapping omits specified IDs from rendered output.
+
+        MUST FAIL until expand_placeholders() applies exclude_ids filtering.
+
+        Given: A synthetic personas schema enum ["personaA", "personaB", "personaC"],
+               a mapping with exclude_ids=("personaB",) and no yaml_source,
+               and a SchemaParser with no yaml_data_dir
+        When:  expand_placeholders() is called with a template containing
+               {{PERSONAS_EXCLUDE_TEST}} (a synthetic placeholder not in the real code)
+        Then:
+            - "personaA" appears in rendered output
+            - "personaC" appears in rendered output
+            - "personaB" does NOT appear in rendered output
+            - Order is A then C (original schema enum order preserved)
+
+        Implementation note: because we cannot add a synthetic key to
+        PLACEHOLDER_MAPPINGS without modifying production code, this test
+        patches PLACEHOLDER_MAPPINGS on the class for the duration of the
+        call, using monkeypatching at the instance level.
+        """
+        import json
+
+        schema_dir = tmp_path / "schemas"
+        schema_dir.mkdir()
+
+        # Synthetic schema with three persona IDs
+        synthetic_schema = {
+            "$id": "personas.schema.json",
+            "definitions": {"persona": {"properties": {"id": {"enum": ["personaA", "personaB", "personaC"]}}}},
+        }
+        (schema_dir / "personas.schema.json").write_text(json.dumps(synthetic_schema))
+
+        parser = SchemaParser(schema_dir)
+        renderer = TemplateRenderer(parser, sample_frameworks_data)
+
+        # Inject a synthetic mapping entry with exclude_ids onto this instance
+        # (does NOT modify the class-level dict; we replace the instance attribute)
+        import copy
+
+        custom_mappings = copy.deepcopy(TemplateRenderer.PLACEHOLDER_MAPPINGS)
+        custom_mappings["PERSONAS_EXCLUDE_TEST"] = {
+            "schema_paths": [("personas.schema.json", "definitions.persona.properties.id")],
+            "field_type": "checkbox",
+            "exclude_ids": ("personaB",),
+        }
+        renderer.PLACEHOLDER_MAPPINGS = custom_mappings
+
+        template = """options:
+        {{PERSONAS_EXCLUDE_TEST}}"""
+
+        # When
+        result = renderer.expand_placeholders(template, "controls")
+
+        # Then: personaB must be absent; A and C must be present in order A→C
+        assert "personaA" in result
+        assert "personaC" in result
+        assert "personaB" not in result
+
+        # Assert ordering: personaA must appear before personaC in the output
+        assert result.index("personaA") < result.index("personaC")
+
+    def test_expand_placeholders_composes_exclude_with_deprecated(
+        self,
+        tmp_path: Path,
+        sample_frameworks_data: dict[str, Any],
+    ) -> None:
+        """
+        Test that exclude_ids and yaml_source deprecated-filter compose correctly.
+
+        MUST FAIL until expand_placeholders() applies both filters together.
+
+        Given: A synthetic personas schema enum ["personaA", "personaB", "personaC"],
+               personas_abc_synthetic.yaml marks personaA as deprecated: true,
+               a mapping with yaml_source AND exclude_ids=("personaB",),
+               and a SchemaParser constructed with yaml_data_dir pointing at the
+               fixture directory
+        When:  expand_placeholders() is called
+        Then:
+            - Only "personaC" appears in rendered output
+            - "personaA" is absent (removed by deprecated-filter via yaml_source)
+            - "personaB" is absent (removed by exclude_ids)
+        """
+        import json
+
+        schema_dir = tmp_path / "schemas"
+        schema_dir.mkdir()
+
+        synthetic_schema = {
+            "$id": "personas.schema.json",
+            "definitions": {"persona": {"properties": {"id": {"enum": ["personaA", "personaB", "personaC"]}}}},
+        }
+        (schema_dir / "personas.schema.json").write_text(json.dumps(synthetic_schema))
+
+        # Point yaml_data_dir at the fixtures directory which contains
+        # personas_abc_synthetic.yaml (personaA is deprecated there)
+        fixtures_dir = Path(__file__).resolve().parent / "fixtures"
+
+        parser = SchemaParser(schema_dir, yaml_data_dir=fixtures_dir)
+        renderer = TemplateRenderer(parser, sample_frameworks_data)
+
+        # Inject a synthetic mapping with both yaml_source and exclude_ids
+        import copy
+
+        custom_mappings = copy.deepcopy(TemplateRenderer.PLACEHOLDER_MAPPINGS)
+        custom_mappings["PERSONAS_COMPOSE_TEST"] = {
+            "schema_paths": [("personas.schema.json", "definitions.persona.properties.id")],
+            "field_type": "checkbox",
+            "yaml_source": ("personas_abc_synthetic.yaml", "personas"),
+            "exclude_ids": ("personaB",),
+        }
+        renderer.PLACEHOLDER_MAPPINGS = custom_mappings
+
+        template = """options:
+        {{PERSONAS_COMPOSE_TEST}}"""
+
+        # When
+        result = renderer.expand_placeholders(template, "controls")
+
+        # Then: only personaC survives both filters
+        assert "personaC" in result
+        assert "personaA" not in result
+        assert "personaB" not in result
+
+    def test_personas_for_risks_placeholder_excludes_governance(
+        self,
+        risk_map_schemas_dir: Path,
+        repo_root: Path,
+    ) -> None:
+        """
+        Integration test: {{PERSONAS_FOR_RISKS}} excludes personaGovernance and deprecated.
+
+        MUST FAIL until PERSONAS_FOR_RISKS is added to PLACEHOLDER_MAPPINGS and
+        exclude_ids filtering is implemented in expand_placeholders().
+
+        Given: The real risk-map/schemas/personas.schema.json and
+               risk-map/yaml/personas.yaml (personaModelCreator and
+               personaModelConsumer marked deprecated: true), with
+               SchemaParser constructed with yaml_data_dir, and a renderer
+               that has PERSONAS_FOR_RISKS with exclude_ids=("personaGovernance",)
+        When:  expand_placeholders() is called on a template stub containing
+               only {{PERSONAS_FOR_RISKS}}
+        Then:
+            - "personaGovernance" is absent (removed by exclude_ids)
+            - "personaModelCreator" is absent (removed by deprecated-filter)
+            - "personaModelConsumer" is absent (removed by deprecated-filter)
+            - The seven remaining active non-governance personas are ALL present
+            - They appear in this exact order (schema enum order preserved):
+                1. personaModelProvider
+                2. personaDataProvider
+                3. personaPlatformProvider
+                4. personaModelServing
+                5. personaAgenticProvider
+                6. personaApplicationDeveloper
+                7. personaEndUser
+        """
+        import yaml as _yaml
+
+        real_yaml_dir = repo_root / "risk-map" / "yaml"
+        real_frameworks_yaml = real_yaml_dir / "frameworks.yaml"
+
+        with open(real_frameworks_yaml, "r", encoding="utf-8") as f:
+            frameworks_data = _yaml.safe_load(f)
+
+        parser = SchemaParser(risk_map_schemas_dir, yaml_data_dir=real_yaml_dir)
+        renderer = TemplateRenderer(parser, frameworks_data)
+
+        template = """options:
+        {{PERSONAS_FOR_RISKS}}"""
+
+        # When
+        result = renderer.expand_placeholders(template, "risks")
+
+        # Then — excluded and deprecated IDs must be absent
+        assert "personaGovernance" not in result
+        assert "personaModelCreator" not in result
+        assert "personaModelConsumer" not in result
+
+        # All seven active non-governance personas must be present
+        expected_active = [
+            "personaModelProvider",
+            "personaDataProvider",
+            "personaPlatformProvider",
+            "personaModelServing",
+            "personaAgenticProvider",
+            "personaApplicationDeveloper",
+            "personaEndUser",
+        ]
+        for persona_id in expected_active:
+            assert persona_id in result, f"Expected active persona missing: {persona_id}"
+
+        # Order must match schema enum order (stable, not set-shuffled)
+        positions = [result.index(p) for p in expected_active]
+        assert positions == sorted(positions), (
+            "Active personas must appear in original schema enum order: "
+            f"got order {[expected_active[i] for i in sorted(range(len(positions)), key=lambda x: positions[x])]}"
+        )
+
+    def test_personas_placeholder_still_includes_governance(
+        self,
+        risk_map_schemas_dir: Path,
+        repo_root: Path,
+    ) -> None:
+        """
+        Regression guard: {{PERSONAS}} still includes personaGovernance (controls path).
+
+        SHOULD PASS with the current code (personaGovernance is not deprecated in
+        personas.yaml) and MUST CONTINUE TO PASS after the exclude_ids implementation.
+        This guards against accidentally applying PERSONAS_FOR_RISKS exclusions to
+        the PERSONAS mapping.
+
+        Given: The real risk-map/schemas/personas.schema.json and
+               risk-map/yaml/personas.yaml, with SchemaParser pointing at both
+        When:  expand_placeholders() is called with a template containing {{PERSONAS}}
+        Then:
+            - "personaGovernance" IS present in rendered output
+            - "personaModelCreator" is absent (deprecated-filter still active)
+            - "personaModelConsumer" is absent (deprecated-filter still active)
+        """
+        import yaml as _yaml
+
+        real_yaml_dir = repo_root / "risk-map" / "yaml"
+        real_frameworks_yaml = real_yaml_dir / "frameworks.yaml"
+
+        with open(real_frameworks_yaml, "r", encoding="utf-8") as f:
+            frameworks_data = _yaml.safe_load(f)
+
+        parser = SchemaParser(risk_map_schemas_dir, yaml_data_dir=real_yaml_dir)
+        renderer = TemplateRenderer(parser, frameworks_data)
+
+        template = """options:
+        {{PERSONAS}}"""
+
+        # When
+        result = renderer.expand_placeholders(template, "controls")
+
+        # Then — governance must be present (controls path unchanged)
+        assert "personaGovernance" in result
+
+        # Deprecated legacy personas must still be absent
+        assert "personaModelCreator" not in result
+        assert "personaModelConsumer" not in result

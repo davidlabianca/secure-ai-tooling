@@ -838,9 +838,7 @@ def yaml_to_markdown_table(yaml_file, ytype, table_format: str = "full", flat: b
 
         if table_format not in persona_generators:
             valid = ", ".join(persona_generators.keys())
-            raise ValueError(
-                f"Invalid table format '{table_format}' for personas. Valid: {valid}"
-            )
+            raise ValueError(f"Invalid table format '{table_format}' for personas. Valid: {valid}")
         generator_class = persona_generators[table_format]
     else:
         # Handle flat control xref generators

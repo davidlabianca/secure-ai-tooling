@@ -58,8 +58,8 @@ Proposed change: Adding new entry to controls.yaml:
       metadata before deployment."
     category: controlsModel
     risks:
-      - MDT
-      - MST
+      - riskModelDeploymentTampering
+      - riskModelSourceTampering
     components:
       - componentModelRegistry
     personas:

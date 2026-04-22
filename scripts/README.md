@@ -94,16 +94,17 @@ Development tools and utilities for this project.
 
 **Key Files:**
 
-- `hooks/pre-commit` - Main git hook script orchestrating all validations
+- `../.pre-commit-config.yaml` - Declarative hook configuration (schemas, lint/format, validators, generators)
+- `hooks/precommit/` - Wrapper scripts invoked by the framework (graphs, tables, SVGs, issue templates, prettier-yaml); each stages its output via `git add`
 - `hooks/validate_riskmap.py` - Component edge validation and graph generation
 - `hooks/validate_control_risk_references.py` - Control-risk cross-reference validation
 - `hooks/validate_framework_references.py` - Framework reference validation
 - `hooks/validate_issue_templates.py` - Issue template schema validation
 - `generate_issue_templates.py` - Issue template generator from sources
 - `hooks/yaml_to_markdown.py` - Markdown table generation from YAML
-- `install-precommit-hook.sh` - Installation script for git hooks (`--auto` for non-interactive)
-- `tools/install-deps.sh` - Idempotent dependency installer for devcontainer and manual setup
+- `tools/install-deps.sh` - Idempotent dependency installer; Step 8 invokes `pre-commit install` for the framework hook
 - `tools/verify-deps.sh` - Verifies all required tools are installed and correct versions
+- `tools/validate-all.sh` - Dev helper: runs every validator with `--force` for non-staged verification (no regeneration)
 - `agents/content-reviewer.md` - Content review agent definition (LLM-neutral structured prompt)
 
 **Related Documentation:**

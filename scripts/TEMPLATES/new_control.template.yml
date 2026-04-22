@@ -9,14 +9,19 @@ body:
         ## Propose a New Control
         Use this template to suggest a new security control for the AI risk framework.
 
+        📋 **Before you submit**: Read the [Submission Readiness Guide](https://github.com/cosai-oasis/secure-ai-tooling/blob/main/risk-map/docs/contributing/submission-readiness-guide.md) to understand the quality bar and see [Common Review Findings](https://github.com/cosai-oasis/secure-ai-tooling/blob/main/risk-map/docs/contributing/common-review-findings.md) to avoid the most frequent rework requests.
+
         **Required fields** are marked with an asterisk (*).
 
   - type: input
     id: control-title
     attributes:
       label: Control Title*
-      description: A concise, descriptive name for the control
-      placeholder: 'e.g., Privacy Enhancing Technologies'
+      description: |
+        A concise noun phrase naming the defense. The ID is mechanically derived from this title.
+
+        📋 See the [Control Titles Style Guide](https://github.com/cosai-oasis/secure-ai-tooling/blob/main/risk-map/docs/contributing/control-titles-style-guide.md) for naming rules.
+      placeholder: 'e.g., Prompt Isolation'
     validations:
       required: true
 
@@ -54,7 +59,7 @@ body:
       description: |
         List component IDs this control applies to (one per line), or use "all" or "none"
 
-        📋 [View full component list](../../risk-map/tables/components-summary.md)
+        📋 [View full component list](https://github.com/cosai-oasis/secure-ai-tooling/blob/main/risk-map/tables/components-summary.md)
 
         Common components: componentDataSources, componentTrainingData, componentModelServing, componentModelStorage, componentOutputHandling, etc.
       placeholder: |
@@ -72,12 +77,12 @@ body:
 
         List risk IDs this control addresses (one per line), or use "all"
 
-        📋 [View full risk list](../../risk-map/tables/risks-summary.md)
+        📋 [View full risk list](https://github.com/cosai-oasis/secure-ai-tooling/blob/main/risk-map/tables/risks-summary.md)
 
-        Common risks: DP (Data Poisoning), MST (Model Theft), PIJ (Prompt Injection), SDD (Sensitive Data Disclosure), etc.
+        Common risks: riskDataPoisoning, riskModelSourceTampering, riskPromptInjection, riskSensitiveDataDisclosure, etc.
       placeholder: |
-        DP
-        UTD
+        riskDataPoisoning
+        riskUnauthorizedTrainingData
     validations:
       required: true
 
@@ -89,7 +94,9 @@ body:
         Map this control to external security frameworks by listing relevant mitigation or control IDs.
         Enter one ID per line. Format: `framework-id: mapping-value`
 
-        Valid frameworks for controls include: {{CONTROL_FRAMEWORKS_LIST}}
+        Valid frameworks for controls include: {{CONTROL_FRAMEWORKS_LIST}}. Controls use MITRE ATLAS **mitigations** (`AML.M####`), not techniques.
+
+        📋 See the [Framework Mappings Style Guide](https://github.com/cosai-oasis/secure-ai-tooling/blob/main/risk-map/docs/contributing/framework-mappings-style-guide.md) for per-framework rules.
       placeholder: |
         mitre-atlas: AML.M0007
         nist-ai-rmf: GV-6.2
@@ -132,4 +139,6 @@ body:
       description: Please confirm the following
       options:
         - label: I have reviewed existing controls to ensure this is not a duplicate
+          required: true
+        - label: I have read the Submission Readiness Guide and believe my proposal meets the quality bar
           required: true

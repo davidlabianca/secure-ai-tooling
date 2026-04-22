@@ -4,7 +4,7 @@ Risks represent the potential security threats that can affect the components of
 
 ## 1. Add the new risk ID to the schema
 
-First, add a unique ID for the new risk to the `risks.schema.json` file. The ID should be a short, memorable, all-caps acronym.
+First, derive the new risk ID from the risk title (`risk` + camelCase descriptor — e.g., "Data Poisoning" → `riskDataPoisoning`, "Prompt Injection" → `riskPromptInjection`) and add it to `risks.schema.json`. (The issue-template flow derives this ID automatically; when authoring YAML/schema directly via PR, apply the same convention by hand.)
 
 - **File to edit**: `schemas/risks.schema.json`
 - **Action**: Find the `enum` list under `definitions.risk.properties.id` and add your new risk ID alphabetically.
@@ -13,13 +13,15 @@ First, add a unique ID for the new risk to the `risks.schema.json` file. The ID 
 // In schemas/risks.schema.json
 "id": {
   "type": "string",
-  "enum": ["DMS", "DP", "EDH", "IIC", "IMO", "ISD", "MDT", "MEV", "MRE", "MST", "MXF", "NEW", "PIJ", "RA", "SDD", "UTD"]
+  "enum": ["riskDenialOfMLService", "riskDataPoisoning", "riskExcessiveDataHandling", "riskInsecureIntegratedComponent", "riskInsecureModelOutput", "riskInferredSensitiveData", "riskModelDeploymentTampering", "riskModelEvasion", "riskModelReverseEngineering", "riskModelSourceTampering", "riskModelExfiltration", "riskNewExample", "riskPromptInjection", "riskRogueActions", "riskSensitiveDataDisclosure", "riskUnauthorizedTrainingData"]
 },
 ```
 
 ## 2. Add the new risk definition to the YAML file
 
 Next, provide the full definition of the risk in `risks.yaml`. This includes its title, descriptions, associated personas, mitigating controls, and contextual information.
+
+> **Title convention**: Risk titles must be short noun phrases (2-5 words) that name the threat or attack vector directly. See the [Risk Titles Style Guide](contributing/risk-titles-style-guide.md) for rules and examples.
 
 - **File to edit**: `risks.yaml`
 - **Action**: Add a new entry to the `risks` list. The `personas` and `controls` lists must contain valid IDs from their respective schema files.
@@ -28,7 +30,7 @@ Next, provide the full definition of the risk in `risks.yaml`. This includes its
 
 ```yaml
 # In yaml/risks.yaml
-- id: NEW
+- id: riskNewExample
   title: New Example Risk
   shortDescription:
     - >
@@ -39,7 +41,7 @@ Next, provide the full definition of the risk in `risks.yaml`. This includes its
       and what its potential impact is.
   category: risksSupplyChainAndDevelopment # Required: Must match one of the risk categories
   personas:
-    - personaModelConsumer
+    - personaApplicationDeveloper
   controls:
     - controlNewControl
   examples: # Provide links to real-world examples or research
@@ -62,19 +64,19 @@ Next, provide the full definition of the risk in `risks.yaml`. This includes its
 The `category` field is required and must be one of the following:
 
 - `risksSupplyChainAndDevelopment` - Risks related to model development, training data, and supply chain
-  - Examples: Data Poisoning (DP), Excessive Data Handling (EDH), Model Source Tampering (MST), Unauthorized Training Data (UTD)
+  - Examples: `riskDataPoisoning`, `riskExcessiveDataHandling`, `riskModelSourceTampering`, `riskUnauthorizedTrainingData`
 
 - `risksDeploymentAndInfrastructure` - Risks in deployment environments and infrastructure
-  - Examples: Insecure Integrated Component (IIC), Model Deployment Tampering (MDT), Model Exfiltration (MXF), Model Reverse Engineering (MRE)
+  - Examples: `riskInsecureIntegratedComponent`, `riskModelDeploymentTampering`, `riskModelExfiltration`, `riskModelReverseEngineering`
 
 - `risksRuntimeInputSecurity` - Risks from malicious or adversarial inputs at runtime
-  - Examples: Denial of ML Service (DMS), Model Evasion (MEV), Prompt Injection (PIJ)
+  - Examples: `riskDenialOfMLService`, `riskModelEvasion`, `riskPromptInjection`
 
 - `risksRuntimeDataSecurity` - Risks related to data security during model operation
-  - Examples: Inferred Sensitive Data (ISD), Sensitive Data Disclosure (SDD)
+  - Examples: `riskInferredSensitiveData`, `riskSensitiveDataDisclosure`
 
 - `risksRuntimeOutputSecurity` - Risks from insecure or malicious model outputs
-  - Examples: Insecure Model Output (IMO), Rogue Actions (RA)
+  - Examples: `riskInsecureModelOutput`, `riskRogueActions`
 
 When adding a new risk, select the category that best describes where in the AI lifecycle the risk occurs. The category determines how the risk is grouped in the controls-to-risk visualization graph.
 
@@ -85,16 +87,16 @@ When adding a new risk, select the category that best describes where in the AI 
 To ensure the framework remains fully connected, every control that mitigates your new risk must be updated to include a reference back to that risk.
 
 - **File to edit**: `controls.yaml`
-- **Action**: For each control ID you listed in the previous step (e.g., `controlNewControl`), find its definition in `controls.yaml` and add your new risk's ID (`NEW`) to its `risks` list.
+- **Action**: For each control ID you listed in the previous step (e.g., `controlNewControl`), find its definition in `controls.yaml` and add your new risk's ID (`riskNewExample`) to its `risks` list.
 
 ```yaml
 # In yaml/controls.yaml, under the controlNewControl definition
 - id: controlNewControl
   # other properties
   risks:
-    - IMO
-    - PIJ
-    - NEW # Add your new risk ID here
+    - riskInsecureModelOutput
+    - riskPromptInjection
+    - riskNewExample # Add your new risk ID here
 ```
 
 ### ⚠️ Important: Do NOT List Universal Controls
@@ -185,6 +187,7 @@ Once validated, follow the [General Content Contribution Workflow](workflow.md) 
 ---
 
 **Related:**
+- [Risk Titles Style Guide](contributing/risk-titles-style-guide.md) - Title naming convention and reviewer checklist
 - [Validation Tools](validation.md) - Detailed validation commands
 - [Troubleshooting](troubleshooting.md) - Help with validation errors
 - [Best Practices](best-practices.md) - Development workflow tips

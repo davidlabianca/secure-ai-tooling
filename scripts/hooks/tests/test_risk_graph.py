@@ -92,16 +92,16 @@ class TestRiskControlMapping:
         risk_graph = RiskGraph(sample_risks, sample_controls, sample_components)
 
         # Verify mappings exist for all risks
-        assert "DP" in risk_graph.risk_to_control_map
-        assert "PIJ" in risk_graph.risk_to_control_map
-        assert "MST" in risk_graph.risk_to_control_map
-        assert "MDT" in risk_graph.risk_to_control_map
+        assert "riskDataPoisoning" in risk_graph.risk_to_control_map
+        assert "riskPromptInjection" in risk_graph.risk_to_control_map
+        assert "riskModelSourceTampering" in risk_graph.risk_to_control_map
+        assert "riskModelDeploymentTampering" in risk_graph.risk_to_control_map
 
         # Verify specific mappings
-        dp_controls = risk_graph.risk_to_control_map["DP"]
+        dp_controls = risk_graph.risk_to_control_map["riskDataPoisoning"]
         assert "controlInputValidation" in dp_controls
 
-        mst_controls = risk_graph.risk_to_control_map["MST"]
+        mst_controls = risk_graph.risk_to_control_map["riskModelSourceTampering"]
         assert "controlModelIntegrity" in mst_controls
 
     def test_universal_control_mapping(self, sample_risks, sample_components):
@@ -152,7 +152,7 @@ class TestRiskControlMapping:
                 title="Input Validation",
                 category="controlsData",
                 components=["componentDataSources", "componentDataValidation"],
-                risks=["DP", "PIJ"],
+                risks=["riskDataPoisoning", "riskPromptInjection"],
                 personas=["personaModelCreator"],
             )
         }
@@ -227,10 +227,10 @@ class TestGraphGeneration:
         mermaid_output = risk_graph.to_mermaid()
 
         # Verify all risks appear in the graph
-        assert "DP[Data Poisoning]" in mermaid_output
-        assert "PIJ[Prompt Injection]" in mermaid_output
-        assert "MST[Model Source Tampering]" in mermaid_output
-        assert "MDT[Model Deployment Tampering]" in mermaid_output
+        assert "riskDataPoisoning[Data Poisoning]" in mermaid_output
+        assert "riskPromptInjection[Prompt Injection]" in mermaid_output
+        assert "riskModelSourceTampering[Model Source Tampering]" in mermaid_output
+        assert "riskModelDeploymentTampering[Model Deployment Tampering]" in mermaid_output
 
     def test_risk_control_edges(self, sample_risks, sample_controls, sample_components):
         """Test risk-to-control edges are generated."""
@@ -238,10 +238,10 @@ class TestGraphGeneration:
         mermaid_output = risk_graph.to_mermaid()
 
         # Verify risk-to-control edges
-        assert "DP --> controlInputValidation" in mermaid_output
-        assert "PIJ --> controlInputValidation" in mermaid_output
-        assert "MST --> controlModelIntegrity" in mermaid_output
-        assert "MDT --> controlModelIntegrity" in mermaid_output
+        assert "riskDataPoisoning --> controlInputValidation" in mermaid_output
+        assert "riskPromptInjection --> controlInputValidation" in mermaid_output
+        assert "riskModelSourceTampering --> controlModelIntegrity" in mermaid_output
+        assert "riskModelDeploymentTampering --> controlModelIntegrity" in mermaid_output
 
     def test_edge_styling(self, sample_risks, sample_controls, sample_components):
         """Test edge styling is applied correctly."""
@@ -277,7 +277,7 @@ class TestGraphGeneration:
                 title="Input Validation",
                 category="controlsData",
                 components=["componentDataSources", "componentDataValidation"],
-                risks=["DP", "PIJ"],
+                risks=["riskDataPoisoning", "riskPromptInjection"],
                 personas=["personaModelCreator"],
             )
         }

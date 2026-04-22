@@ -168,7 +168,7 @@ jobs:
 
     - name: Comment on PR with results
       if: always() && steps.validate-structure.outputs.validation_skipped != 'true' && env.PRIVILEGED == 'true'
-      uses: actions/github-script@v8
+      uses: actions/github-script@v9
       with:
         script: |
           const fs = require('fs');

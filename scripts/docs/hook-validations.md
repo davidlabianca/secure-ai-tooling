@@ -1,78 +1,75 @@
 # Pre-commit Hook Validations
 
-The pre-commit hook runs ten validations and generation steps before allowing commits:
+The pre-commit framework runs the hooks declared in `.pre-commit-config.yaml`
+at the repo root. Each hook targets a specific trigger-file regex; hooks
+whose regex doesn't match any staged file are skipped. This page describes
+each hook's purpose, trigger, and output.
+
+For the canonical execution order see [Validation Flow](validation-flow.md).
+For running hooks without committing see [Manual Validation](manual-validation.md).
 
 ## 1. YAML Schema Validation
 
-Validates all YAML files against their corresponding JSON schemas.
+One `check-jsonschema` hook per yaml/schema pair. Runs when the yaml or its
+schema is staged, with `--base-uri` set to `file://./risk-map/schemas/` for
+cross-schema `$ref` resolution.
 
-**Files validated:**
+**Yaml/schema pairs covered:**
 
+- `yaml/actor-access.yaml` → `schemas/actor-access.schema.json`
 - `yaml/components.yaml` → `schemas/components.schema.json`
 - `yaml/controls.yaml` → `schemas/controls.schema.json`
+- `yaml/frameworks.yaml` → `schemas/frameworks.schema.json`
+- `yaml/impact-type.yaml` → `schemas/impact-type.schema.json`
+- `yaml/lifecycle-stage.yaml` → `schemas/lifecycle-stage.schema.json`
+- `yaml/mermaid-styles.yaml` → `schemas/mermaid-styles.schema.json`
 - `yaml/personas.yaml` → `schemas/personas.schema.json`
 - `yaml/risks.yaml` → `schemas/risks.schema.json`
 - `yaml/self-assessment.yaml` → `schemas/self-assessment.schema.json`
-- `yaml/mermaid-styles.yaml` → `schemas/mermaid-styles.schema.json`
 
-## 2. Prettier YAML Formatting
+## 2. Schema Meta-Validation
 
-Automatically formats YAML files in the `risk-map/yaml/` directory using Prettier to ensure consistent code style.
+The `check-metaschema` hook (from `python-jsonschema/check-jsonschema`)
+validates that each `risk-map/schemas/*.schema.json` file is itself a
+structurally valid JSON Schema document against its declared `$schema`
+metaschema. Runs whenever any schema file is staged. Catches typo'd
+keywords (e.g., `requried`), invalid regex patterns, and broken `$refs`
+at author time rather than at validation time.
 
-**Behavior:**
+## 3. Schema Master Trigger
 
-- **Normal mode**: Formats only staged YAML files in `risk-map/yaml/`
-- **Force mode**: Formats all YAML files in `risk-map/yaml/`
-- **Auto-staging**: Formatted files are automatically re-staged in normal mode
+When `risk-map/schemas/riskmap.schema.json` itself is staged, every yaml is
+re-validated against its schema in a single pass
+(`validate-all-yaml-on-master-schema-change` local hook). This catches
+master-schema changes that break downstream validation.
 
-**Files formatted:**
+## 4. Prettier YAML Formatting
 
-- `risk-map/yaml/components.yaml`
-- `risk-map/yaml/controls.yaml`
-- `risk-map/yaml/personas.yaml`
-- `risk-map/yaml/risks.yaml`
-- `risk-map/yaml/self-assessment.yaml`
-- `risk-map/yaml/mermaid-styles.yaml`
+`prettier-yaml` hook wraps `npx prettier --write` and `git add`s each
+reformatted file (Mode B auto-stage), so formatting changes land in the same
+commit as the source edit. Targets yaml files under `risk-map/yaml/`.
 
-## 3. Ruff Python Linting
+## 5. Ruff Lint + Format
 
-Runs ruff linting on Python files to enforce code quality and style standards.
+Published `ruff` and `ruff-format` hooks from
+`github.com/astral-sh/ruff-pre-commit`. Configuration is read from
+`.ruff.toml` at the repo root (line length 115, double quotes). Lint failure
+blocks the commit; format is applied and re-staged.
 
-**Behavior:**
+## 6. Component Edge Validation
 
-- **Normal mode**: Lints only staged Python files
-- **Force mode**: Lints all Python files in the repository
-- **Strict enforcement**: Commit fails if any linting issues are found
+`validate-component-edges` hook runs `scripts/hooks/validate_riskmap.py`
+when `risk-map/yaml/components.yaml` is staged. The validator does its own
+internal staged-file detection; the framework triggers the hook without
+passing filenames (`pass_filenames: false`).
 
-**Configuration**: Uses the project's `pyproject.toml` or `ruff.toml` configuration file.
+**Validation:**
 
-## 4. Component Edge Validation & Graph Generation
+- **Edge consistency**: if Component A has `to: [B]`, Component B must have `from: [A]`
+- **Bidirectional matching**: every `to` has a corresponding `from`
+- **Isolated component detection**: flags components with no edges
 
-Validates the consistency of component relationships in `components.yaml` and generates visual graphs:
-
-**Validation Features:**
-
-- **Edge consistency**: Ensures that if Component A has `to: [B]`, then Component B has `from: [A]`
-- **Bidirectional matching**: Verifies that all `to` edges have corresponding `from` edges and vice versa
-- **Isolated component detection**: Identifies components with no edges (neither `to` nor `from`)
-
-**Automatic Graph Generation Features:**
-
-- **Component Graph**: When `components.yaml` is staged for commit, automatically generates `./risk-map/diagrams/risk-map-graph.md`
-  - Topological ranking with `componentDataSources` always at rank 1
-  - Category-based subgraphs (Data, Infrastructure, Model, Application)
-  - Mermaid format with color coding and dynamic spacing
-- **Control Graph**: When `components.yaml` OR `controls.yaml` is staged for commit, automatically generates `./risk-map/diagrams/controls-graph.md`
-  - Shows control-to-component relationships with optimization
-  - Dynamic component clustering and category-level mappings
-  - Multi-edge styling with consistent color schemes
-- **Risk Graph**: When `components.yaml`, `controls.yaml` OR `risks.yaml` is staged for commit, automatically generates `./risk-map/diagrams/controls-to-risk-graph.md`
-  - Maps controls to risks they mitigate with component context
-  - Organizes risks into 5 color-coded category subgraphs
-  - Visualizes three-layer relationships: risks → controls → components
-- **Auto-staging**: Both generated graphs are automatically added to staged files for inclusion in commit
-
-**Example validation:**
+**Example:**
 
 ```yaml
 components:
@@ -86,21 +83,25 @@ components:
       from: [componentA] # ✅ Matches componentA's 'to' edge
 ```
 
-## 5. Control-to-Risk Reference Validation
+## 7. Control-to-Risk Reference Validation
 
-Validates cross-reference consistency between `controls.yaml` and `risks.yaml`:
+`validate-control-risk-references` hook runs
+`scripts/hooks/validate_control_risk_references.py` when
+`risk-map/yaml/controls.yaml` or `risks.yaml` is staged.
 
-- **Bidirectional consistency**: Ensures that if a control lists a risk, that risk also references the control
-- **Isolated entry detection**: Finds controls with no risk references or risks with no control references
-- **all or none awareness**: Will not flag controls that leverage the `all` or `none` risk mappings
+**Validation:**
 
-**Example validation:**
+- **Bidirectional consistency**: if a control lists a risk, that risk lists the control
+- **Isolated entry detection**: finds controls with no risks or risks with no controls
+- **all/none awareness**: does not flag controls that use the `all` or `none` risk mappings
+
+**Example:**
 
 ```yaml
 # controls.yaml
 controls:
   - id: CTRL-001
-    risks: # Control addresses these risks
+    risks:
       - RISK-001
       - RISK-002
 
@@ -111,61 +112,42 @@ risks:
       - CTRL-001 # ✅ Risk references the control back
   - id: RISK-002
     controls:
-      - CTRL-001 # ✅ Bidirectional consistency maintained
+      - CTRL-001
 ```
 
-## 6. Framework Reference Validation
+## 8. Framework Reference Validation
 
-Validates that framework mappings (MITRE ATLAS, NIST AI RMF, STRIDE, OWASP Top 10 for LLM) reference valid framework techniques and that frameworks are correctly applied to appropriate entity types:
+`validate-framework-references` hook runs
+`scripts/hooks/validate_framework_references.py` when `controls.yaml`,
+`frameworks.yaml`, `personas.yaml`, or `risks.yaml` is staged.
 
-**Validation Features:**
+**Validation:**
 
-- **Framework applicability**: Ensures frameworks are only mapped to entity types listed in their `applicableTo` configuration
-- **Valid technique references**: Verifies framework technique IDs exist in the framework definitions
-- **Bidirectional consistency**: Checks that framework mappings are consistent across entities
+- **Framework applicability**: frameworks only mapped to entity types listed in their `applicableTo`
+- **Valid technique references**: framework technique IDs exist in the framework definitions
+- **Bidirectional consistency**: framework mappings consistent across entities
 
-**Validates:**
+**Entities checked:**
 
 - `controls.yaml` framework mappings (MITRE ATLAS, NIST AI RMF, OWASP Top 10 for LLM)
 - `risks.yaml` framework mappings (MITRE ATLAS, STRIDE, OWASP Top 10 for LLM)
 - `frameworks.yaml` configuration and structure
+- `personas.yaml` framework applicability
 
-**Example validation:**
+## 9. Issue Template Regeneration
 
-```yaml
-# controls.yaml
-controls:
-  - id: controlModelValidation
-    frameworks:
-      mitre-atlas: AML.M0015  # ✅ Valid MITRE ATLAS mitigation
-      nist-ai-rmf: GV-6.2     # ✅ Valid NIST AI RMF subcategory
-      owasp-top10-llm: LLM01  # ✅ Valid OWASP mapping
+`regenerate-issue-templates` hook (`scripts/hooks/precommit/regenerate_issue_templates.py`)
+triggers when any of these is staged:
 
-# risks.yaml
-risks:
-  - id: PIJ
-    frameworks:
-      mitre-atlas: AML.T0051  # ✅ Valid MITRE ATLAS technique
-      stride: Tampering       # ✅ Valid STRIDE category
-      owasp-top10-llm: LLM01  # ✅ Valid OWASP mapping
-```
+- Template sources: `scripts/TEMPLATES/*.yml`
+- Any schema: `risk-map/schemas/*.schema.json`
+- Framework config: `risk-map/yaml/frameworks.yaml`
 
-## 7. Issue Template Generation
-
-Automatically generates GitHub issue templates when template dependencies change:
-
-**Features:**
-
-- **Source-driven generation**: Templates generated from `.template.yml` source files
-- **Dynamic placeholder expansion**: Schema enums automatically populate dropdowns and checkboxes
-- **Framework filtering**: Only shows applicable frameworks for each entity type
-- **Automatic staging**: Generated templates added to commit automatically
-
-**Generation triggers:**
-
-- Template sources: `scripts/TEMPLATES/*.template.yml` changed
-- Schema files: `risk-map/schemas/*.schema.json` changed (enum values used in dropdowns)
-- Framework configuration: `risk-map/yaml/frameworks.yaml` changed (framework applicability)
+The framework invokes the wrapper once per commit regardless of how many
+trigger files are staged (`pass_filenames: false` + `require_serial: true`),
+and the wrapper regenerates the full template set unconditionally. The
+generated `.github/ISSUE_TEMPLATE` directory is `git add`-ed so the
+regenerated templates land in the same commit.
 
 **Generated templates:**
 
@@ -175,166 +157,94 @@ Automatically generates GitHub issue templates when template dependencies change
 - `new_persona.yml`, `update_persona.yml`
 - `infrastructure.yml`
 
-**Example workflow:**
+## 10. Issue Template Validation
 
-```bash
-# Add new control category to schema
-vim risk-map/schemas/controls.schema.json
+`validate-issue-templates` hook runs
+`scripts/hooks/validate_issue_templates.py` when anything under
+`.github/ISSUE_TEMPLATE/*.yml` or `scripts/TEMPLATES/*.yml` is staged
+(including the files just regenerated in step 9).
 
-# Stage and commit
-git add risk-map/schemas/controls.schema.json
-git commit -m "Add new control category"
+**Validates against vendored schemas:**
 
-# Pre-commit hook automatically:
-# 1. Detects schema change
-# 2. Regenerates all issue templates
-# 3. new_control.yml dropdown now includes new category
-# 4. Stages updated templates for commit
-```
+- Issue forms: `vendor.github-issue-forms`
+- Template config: `vendor.github-issue-config`
+- Dependabot: `vendor.dependabot`
 
-**Behavior:**
-
-- **Normal mode**: Regenerates templates when dependencies change
-- **Force mode**: Skips generation (only runs for actual commits)
-- **Error handling**: Fails commit if generation errors occur
-
-## 8. GitHub Config File Validation
-
-Validates GitHub config files against official schemas to ensure they conform to expected structure:
-
-**Features:**
-
-- **Schema validation**: Uses `check-jsonschema` with built-in vendor schemas
-- **Issue form validation**: Validates against `vendor.github-issue-forms` schema
-- **Config validation**: Validates `config.yml` against `vendor.github-issue-config` schema
-- **Dependabot validation**: Validates `dependabot.yml` against `vendor.dependabot` schema
-- **Comprehensive checks**: Ensures field types, validation rules, and structure are correct
-
-**Files validated:**
-
-- All `.yml` files in `.github/ISSUE_TEMPLATE/` (issue forms)
-- `.github/ISSUE_TEMPLATE/config.yml` (configuration)
-- `.github/dependabot.yml` (dependency update configuration)
-
-**Example validation:**
+**Example — catches invalid structures:**
 
 ```yaml
-# Valid issue form structure
+# Valid:
 - type: dropdown
   id: category
-  attributes:
-    label: Category*
-    options:
-      - controlsData
-      - controlsModel
-  validations:
-    required: true  # ✅ Valid - dropdown supports validations
+  attributes: { label: 'Category*', options: [...] }
+  validations: { required: true }   # ✅ dropdowns support validations
 
-# Invalid structure (caught by validator)
+# Invalid:
 - type: checkboxes
   id: personas
-  validations:
-    required: true  # ❌ Invalid - checkboxes don't support top-level validations
+  validations: { required: true }   # ❌ checkboxes don't support top-level validations
 ```
 
-**Behavior:**
+## 11. Graph Regeneration
 
-- **Normal mode**: Validates only staged files
-- **Force mode**: Validates all issue templates and `dependabot.yml` if present
-- **Strict enforcement**: Commit fails if any template is invalid
-- **Clear errors**: Provides detailed error messages with remediation steps
+`regenerate-graphs` hook (`scripts/hooks/precommit/regenerate_graphs.py`)
+produces three Mermaid graph pairs based on which source yaml is staged:
+
+| Trigger | Output `.md` + `.mermaid` |
+|---|---|
+| `components.yaml` | `risk-map/diagrams/risk-map-graph.{md,mermaid}` |
+| `components.yaml` OR `controls.yaml` | `risk-map/diagrams/controls-graph.{md,mermaid}` |
+| `components.yaml` OR `controls.yaml` OR `risks.yaml` | `risk-map/diagrams/controls-to-risk-graph.{md,mermaid}` |
+
+Each output pair is `git add`-ed on success. The wrapper delegates to
+`validate_riskmap.py --to-graph / --to-controls-graph / --to-risk-graph`.
+
+## 12. Table Regeneration
+
+`regenerate-tables` hook (`scripts/hooks/precommit/regenerate_tables.py`)
+produces 8 generation operations across 4 source triggers. The ordering
+matches the prior bash hook exactly (components → risks → controls →
+personas) and cross-trigger xref refreshes are preserved for parity:
+
+| Source trigger | Generations (each followed by `git add`) |
+|---|---|
+| `components.yaml` | `components --all-formats`, `controls --format xref-components` |
+| `risks.yaml` | `risks --all-formats`, `controls --format xref-risks`, `personas --format xref-risks` |
+| `controls.yaml` | `controls --all-formats`, `personas --format xref-controls` |
+| `personas.yaml` | `personas --all-formats` |
+
+When multiple triggers are staged (e.g., components + controls), BOTH the
+xref regen (from components trigger) AND the full regen (from controls
+trigger) run — matches bash behavior.
+
+See [Table Generation](table-generation.md) for output filename conventions.
+
+## 13. Mermaid SVG Regeneration
+
+`regenerate-svgs` hook (`scripts/hooks/precommit/regenerate_svgs.py`)
+converts staged `.mmd` or `.mermaid` files under `risk-map/diagrams/` into
+SVGs under `risk-map/svg/` via `npx mmdc`, then `git add`s each output.
+
+**Chromium discovery (runtime, in this order):**
+
+1. `CHROMIUM_PATH` env var (if set and non-empty) — explicit override
+2. On Linux ARM64: recursive search under `$PLAYWRIGHT_BROWSERS_PATH`
+   (default `~/.cache/ms-playwright`) for `headless_shell` then `chrome`
+3. Otherwise: mmdc's bundled auto-detect
+
+One shared puppeteer config is written per invocation and cleaned up in a
+`finally` block.
 
 **Dependencies:**
 
-- `check-jsonschema` (installed via `pip install check-jsonschema`)
-- Internet connection (for downloading GitHub schemas on first use)
-
-## 9. Mermaid SVG Generation
-
-Automatically generates SVG files from Mermaid diagrams when `.mmd` or `.mermaid` files are staged for commit:
-
-**Features:**
-
-- **Automatic conversion**: Converts staged Mermaid files in `risk-map/docs/` to SVG format
-- **Output location**: SVG files are saved to `risk-map/svg/` with matching filenames
-- **Auto-staging**: Generated SVG files are automatically added to staged files for commit
-- **Prerequisites check**: Validates that required tools (npx, mermaid-cli, Chrome/Chromium) are available
-- **Platform-aware**: Handles Chrome/Chromium detection across different platforms
-
-**Dependencies:**
-
-- **Node.js 22+**: Required for npx and mermaid-cli execution
-- **@mermaid-js/mermaid-cli**: Installed via `npm install` (converts .mmd to .svg)
-- **Chrome/Chromium**: Used by mermaid-cli via puppeteer for rendering SVGs
-  - **Mac/Windows/Linux x64**: Automatic Chrome detection (puppeteer bundled with dependencies handles Chrome)
-  - **Linux ARM64**: Manual Chromium setup required since Google Chrome is not available for ARM64
-
-**Example workflow:**
-
-```bash
-# Stage a mermaid file for commit
-git add risk-map/docs/component-flow.mmd
-
-# Pre-commit hook automatically:
-# 1. Detects the staged .mmd file
-# 2. Converts it to risk-map/svg/component-flow.svg
-# 3. Stages the generated SVG for commit
-
-git commit -m "Add component flow diagram"
-# Both the .mmd source and generated .svg are committed
-```
-
-**Behavior:**
-
-- **Normal mode**: Only processes staged `.mmd/.mermaid` files in `risk-map/docs/`
-- **Force mode**: Skips SVG generation (generation only runs for actual commits)
-- **Error handling**: Gracefully handles missing Chrome/Chromium with clear error messages
-
-## 10. Markdown Table Generation
-
-Automatically generates markdown tables from YAML files when staged for commit:
-
-**Features:**
-
-- **Automatic conversion**: Converts staged YAML to multiple table formats
-- **Output location**: Tables saved to `risk-map/tables/` with format-specific filenames
-- **Smart regeneration**: Cross-reference tables regenerated when dependencies change
-- **Auto-staging**: Generated tables automatically added to commit
-
-**Generation rules:**
-
-- `components.yaml` staged → generates `components-full.md`, `components-summary.md`, and regenerates `controls-xref-components.md`
-- `risks.yaml` staged → generates `risks-full.md`, `risks-summary.md`, and regenerates `controls-xref-risks.md`
-- `controls.yaml` staged → generates all 4 formats: `controls-full.md`, `controls-summary.md`, `controls-xref-risks.md`, `controls-xref-components.md`
-
-**Dependencies:**
-
-- Python 3.14+
-- pandas (already in requirements.txt)
-
-**Example workflow:**
-
-```bash
-# Edit controls.yaml
-git add risk-map/yaml/controls.yaml
-
-# Pre-commit hook automatically:
-# 1. Detects staged controls.yaml
-# 2. Generates all 4 control table formats
-# 3. Stages the generated markdown files
-
-git commit -m "Update controls"
-# Both YAML and 4 generated tables are committed
-```
-
-**Behavior:**
-
-- **Normal mode**: Only processes staged YAML files in `risk-map/yaml/`
-- **Force mode**: Skips table generation (generation only runs for actual commits)
+- `@mermaid-js/mermaid-cli` via `npx mmdc`
+- A working Chromium (see discovery above)
+- On Linux ARM64: Playwright Chromium (installed by `install-deps.sh` Step 7)
 
 ---
 
 **Related:**
-- [Validation Flow](validation-flow.md) - When each validation runs
-- [Manual Validation](manual-validation.md) - Running validations manually
-- [Troubleshooting](troubleshooting.md) - Common validation errors
+
+- [Validation Flow](validation-flow.md) — Execution order and framework semantics
+- [Manual Validation](manual-validation.md) — Running validators without committing
+- [Troubleshooting](troubleshooting.md) — Common validation errors
