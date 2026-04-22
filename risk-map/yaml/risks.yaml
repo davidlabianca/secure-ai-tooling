@@ -509,6 +509,7 @@ risks:
       - controlModelAndDataExecutionIntegrity
       - controlOrchestratorAndRouteIntegrity
       - controlSecureByDefaultMLTooling
+      - controlInterComponentTransportSecurity
     examples:
       - >
         <a href="https://www.wiz.io/blog/wiz-and-hugging-face-address-risks-to-ai-infrastructure#what-did-we-find-11"
@@ -720,6 +721,15 @@ risks:
           integrated application that calls another service and uses content from that
           service to construct an input to a model.
       - >
+        In agentic systems using the Model Context Protocol, tool parameters
+        passed by agents to MCP servers represent a specific injection surface.
+        MCP payloads include structured data (JSON schemas, file paths, SQL
+        fragments) that may be trusted after tool selection without further
+        validation. Classical injection attacks — command injection, path
+        traversal, SQL injection, unsafe deserialization — can reach backend
+        systems through this path when MCP servers fail to validate and sanitize
+        parameters independently of the agent's intent.
+      - >
         Insecure Integrated Component is related to <a href="#riskPromptInjection">Prompt Injection</a>
         but these are different. Although attacks exploiting an Insecure Integrated
         Component often involve prompt injection, those could be also done via other
@@ -737,6 +747,8 @@ risks:
       - controlAgentPluginPermissions
       - controlModelAndDataExecutionIntegrity
       - controlUserPoliciesAndEducation
+      - controlInputValidationAndSanitization
+      - controlInterComponentTransportSecurity
     examples:
       - >
         By uploading a malicious Alexa skill / Google action (plugins), <a href="https://www.theverge.com/2019/10/21/20924886/alexa-google-home-security-vulnerability-srlabs-phishing-eavesdropping"
@@ -1230,9 +1242,9 @@ risks:
     title: Rogue Actions
     shortDescription:
       - >
-        Unintentional model-based actions executed via extensions. Rogue Actions can
-        create a cascading, risk to organizational reputation, user trust, security,
-        and safety.
+        Unintended or manipulated model-based actions executed via extensions.
+        Rogue Actions can cascade across systems with severe impact on
+        organizational reputation, user trust, security, and safety.
     longDescription:
       - >
         Unintended actions executed by a model-based agent via extensions, whether
@@ -1252,19 +1264,30 @@ risks:
           can cause rogue actions, such as an agent emailing the wrong "Mike," 
           unintentionally sharing private data.
         - >
-          <strong>Malicious actions:</strong> This risk could include manipulating model 
-          output using attacks such as indirect prompt injection, poisoning, or evasion. 
-          The threat can be amplified in multi-agent systems, where the attacker can 
-          potentially hijack the communication between two agents to execute arbitrary 
-          malicious code, even if the individual agents are secured against direct attacks. 
-          Malicious actions may also be asynchronous. An attacker can plant a dormant 
-          "named trigger" that activates later during an unrelated task—for instance, 
-          a rule hidden in a calendar invite that opens the front door whenever the user 
-          says an unrelated keyword. Other actions may be time-based, occurring after a 
-          set number of interactions, making the rogue action appear spontaneous and 
+          <strong>Malicious actions:</strong> This risk could include manipulating model
+          output using attacks such as indirect prompt injection, poisoning, or evasion.
+          The threat can be amplified in multi-agent systems, where the attacker can
+          potentially hijack the communication between two agents to execute arbitrary
+          malicious code, even if the individual agents are secured against direct attacks.
+          Malicious actions may also be asynchronous. An attacker can plant a dormant
+          "named trigger" that activates later during an unrelated task—for instance,
+          a rule hidden in a calendar invite that opens the front door whenever the user
+          says an unrelated keyword. Other actions may be time-based, occurring after a
+          set number of interactions, making the rogue action appear spontaneous and
           disconnected from the malicious source.
+        - >
+          <strong>Over-permissioned agent capability amplification:</strong> Standing
+          broad privileges granted to high-reasoning-capability agents create an
+          elevated blast radius even absent direct compromise. An agent's ability to
+          autonomously discover, plan, and chain tool invocations means that
+          coarse-grained or long-lived permissions — such as persistent OAuth scopes
+          in MCP environments — allow a single agent, whether manipulated or operating
+          within its intended parameters, to traverse privilege boundaries across
+          systems. Authorization design for agentic systems must be ephemeral and
+          context-scoped, re-evaluated per action rather than granted at
+          initialization.
       - >
-        Rogue Actions are related to Insecure Integrated Components, but differ by the 
+        Rogue Actions are related to Insecure Integrated Components, but differ by the
         degree of model functionality or agency.  The severity of a rogue action is 
         directly proportional to the agent's capabilities, and the possibility that an 
         agent has excessive functionality or permissions available to it increases the 
@@ -1289,6 +1312,16 @@ risks:
         <a href="https://embracethered.com/blog/posts/2023/chatgpt-plugin-vulns-chat-with-code/"
         target="_blank" rel="noopener">Plugin Vulnerabilities: Visit a Website and
         Have Your Source Code Stolen</a>.
+      - >
+        The <a href="https://generalanalysis.com/blog/supabase-mcp-blog"
+        target="_blank" rel="noopener">Supabase/Cursor data exfiltration (2025)</a>
+        demonstrated capability amplification through over-permissioned agents: a
+        developer's Cursor IDE agent connected to Supabase using service_role
+        credentials that bypassed all Row-Level Security. An attacker embedded SQL
+        exfiltration commands in a support ticket, and when the agent summarized
+        tickets it executed the attacker's commands with its elevated permissions,
+        traversing privilege boundaries the ticket author could never cross
+        directly.
     tourContent:
       introduced:
         - >
@@ -1301,9 +1334,11 @@ risks:
           inadvertently trigger unintended actions in another extension.
       mitigated:
         - >
-          Mitigation involves model output handling and granting minimal permissions
-          to agents and plugins. Involving humans in the scoping process may be necessary
-          for added oversight and control.
+          Mitigation involves model output handling and granting minimal, ephemeral,
+          context-scoped permissions to agents and plugins — re-evaluated per action
+          rather than granted at initialization. Human review of delegated actions
+          remains necessary for added oversight, particularly for capability
+          amplification across trust boundaries.
     mappings:
       mitre-atlas:
         - AML.T0051
@@ -1319,6 +1354,7 @@ risks:
       - integrity
       - safety
       - confidentiality
+      - availability
     actorAccess:
       - external
       - api
@@ -1437,6 +1473,7 @@ risks:
       - personaModelConsumer
     controls:
       - controlApplicationAccessManagement
+      - controlAgentExecutionBounds
     examples:
       - >
         Research has shown <a href="https://arxiv.org/abs/2410.10760" target="_blank"
@@ -1659,6 +1696,7 @@ risks:
     controls:
       - controlOrchestratorAndRouteIntegrity
       - controlAgentObservability
+      - controlInterComponentTransportSecurity
     examples:
       - >
         <a href="https://www.paloaltonetworks.com/blog/cloud-security/model-context-protocol-mcp-a-security-overview/"
@@ -1762,6 +1800,7 @@ risks:
       - controlModelAndDataAccessControls
       - controlSecureByDefaultMLTooling
       - controlOrchestratorAndRouteIntegrity
+      - controlInterComponentTransportSecurity
     examples:
       - >
         Security research shows <a href="https://arxiv.org/abs/2501.01818" target="_blank"
@@ -2249,3 +2288,967 @@ risks:
           during ingestion, maintaining data integrity through cryptographic verification,
           and filtering both inputs and outputs to detect and prevent malicious content
           retrieval.
+  - id: riskAgentDelegationChainOpacity
+    title: Agent Delegation Chain Opacity
+    shortDescription:
+      - >
+        Multi-hop agent delegation chains become opaque when intermediate agents
+        do not emit structured delegation events, making it impossible to
+        determine which human, agent, or system authorized or performed an
+        action — even when individual authentication steps succeed.
+    longDescription:
+      - >
+        Agentic systems frequently involve multi-hop delegation where one agent
+        acts on behalf of another (or a human) across tools and MCP servers.
+        Agent Delegation Chain Opacity occurs when the delegation chain is
+        cryptographically valid — each hop holds a properly scoped token — but
+        invisible to forensics because intermediate agents do not emit structured
+        delegation events. The root cause is the absence of structured delegation
+        event emission at each hop, not the failure of individual authentication
+        steps.
+      - >
+        This risk extends classical identity federation accountability failures
+        to the agentic domain. In traditional systems, delegation chain integrity
+        is a known challenge: Kerberos constrained delegation struggles with
+        tracing initiators through multiple hops, multi-hop OAuth OBO flows lose
+        the original actor claim when intermediate services fail to propagate it,
+        and RFC 8693 Token Exchange is vulnerable to delegation chain splicing
+        where a compromised intermediary can forge chains that never occurred.
+        The AI-specific amplifier is that agentic orchestration creates delegation
+        chains that are longer, more dynamic, and less predictable than classical
+        flows — agents may spawn sub-agents autonomously based on LLM reasoning,
+        the chain topology is not known at design time, and intermediate agents
+        make non-deterministic decisions about whether and how to delegate.
+      - >
+        The vulnerability manifests through missing or incomplete delegation
+        metadata at the IAM, orchestration, or MCP layers — for example,
+        omitting the original caller, intermediate agents, or token exchange
+        steps in log records. Even when individual agents authenticate correctly,
+        the provenance of a given action becomes opaque if correlation IDs and
+        delegation context are not preserved in immutable, queryable logs.
+      - >
+        Potential impacts include inability to investigate incidents (the full
+        actor path cannot be reconstructed), inability to attribute actions for
+        compliance or forensics, failure to detect anomalous delegation patterns,
+        and inability to perform effective credential revocation for a specific
+        delegation chain. Consequences include accountability failures, regulatory
+        violations, prolonged breach dwell time, and erosion of trust in
+        autonomous agent systems.
+      - >
+        This risk is distinct from riskRogueActions, which addresses what an
+        agent does wrong; Agent Delegation Chain Opacity addresses the inability
+        to determine who authorized the action. riskAgenticDelegationConfusedDeputy
+        addresses authorization failure at delegation boundaries; this risk
+        addresses visibility failure across the full chain.
+        riskCrossTenantCredentialPropagation addresses credential propagation
+        across tenant boundaries, which may be a consequence of delegation chain
+        opacity but is a distinct threat surface.
+    category: risksDeploymentAndInfrastructure
+    personas:
+      - personaAgenticProvider
+      - personaApplicationDeveloper
+      - personaPlatformProvider
+      - personaEndUser
+    controls:
+      - controlAgentObservability
+      - controlAgentIntegrityManagement
+      - controlAgentInventoryManagement
+    examples:
+      - >
+        Palo Alto Networks Unit 42 <a
+        href="https://unit42.paloaltonetworks.com/agent-session-smuggling-in-agent2agent-systems/"
+        target="_blank" rel="noopener">demonstrated "agent session smuggling"
+        (2025)</a> in Google's Agent-to-Agent (A2A) protocol, where a malicious
+        remote agent injects hidden instructions during established cross-agent
+        communication sessions. The smuggled instructions trigger unauthorized
+        tool execution while remaining invisible to end users who only see the
+        final consolidated response — the delegation chain is opaque because no
+        mechanism exposes intermediate agent activity or attributes the
+        unauthorized action to the originating malicious agent.
+    tourContent:
+      introduced:
+        - >
+          Introduced during deployment when delegation chain architecture is
+          configured — specifically when orchestration layers, IAM policies,
+          and MCP server configurations do not require structured delegation
+          event emission at each hop.
+      exposed:
+        - >
+          Exposed at runtime when multi-hop agent delegation occurs without
+          correlation ID propagation or structured delegation events. The
+          opacity persists until an incident requires forensic reconstruction
+          of the actor chain, at which point the gap becomes visible.
+      mitigated:
+        - >
+          Mitigated by requiring orchestrators to emit signed delegation spans
+          per hop with correlation IDs, actor identifiers, scope deltas, and
+          timestamps, bound to an append-only store. Real-time detection of
+          missing or out-of-order spans shifts the control from post-incident
+          reconstruction to in-flight chain integrity monitoring.
+    relevantQuestions:
+      - Does every agent action carry an immutable delegation chain with correlation IDs?
+      - Can you reconstruct the full actor path (human to agent1 to agent2 to tool) after the fact?
+      - Do intermediate agents in your delegation chains emit structured delegation events that downstream consumers and auditors can independently verify?
+      - Are delegation logs tamper-proof and accessible only to authorized auditors?
+      - How do you detect broken or shadowed delegation chains in real time?
+    mappings:
+      stride:
+        - repudiation
+    lifecycleStage:
+      - deployment
+      - runtime
+      - maintenance
+    impactType:
+      - accountability
+      - compliance
+      - integrity
+    actorAccess:
+      - agent
+      - privileged
+  - id: riskStaleAgentIdentityBinding
+    title: Stale Agent Identity Binding
+    shortDescription:
+      - >
+        Agent identity credentials persist unchanged after the underlying model
+        artifact is replaced, allowing a substituted model to operate with the
+        original agent's full permissions because no cryptographic binding ties
+        identity to a specific model version.
+    longDescription:
+      - >
+        In agentic systems, agents are assigned persistent identities with
+        associated credentials and OAuth/MCP tokens granting access to tools
+        and resources. Stale Agent Identity Binding occurs when the underlying
+        model (weights, architecture, or inference endpoint) is replaced without
+        invalidating the agent's credentials or identity. The substituted model
+        inherits the original agent's full privileges because agent identity
+        and model artifact exist on separate infrastructure layers with no
+        cryptographic binding between them.
+      - >
+        This risk is the AI/agentic extension of classical stale credential
+        binding failures. In Kubernetes, long-lived service account tokens
+        persist after pods are replaced — a new pod running entirely different
+        code inherits the previous workload's identity and RBAC permissions.
+        In container orchestration, mutable image tags allow the artifact behind
+        a tag to be replaced while the service identity persists unchanged. In
+        VM environments, machine clones inherit the original's domain credentials
+        and certificates. The AI-specific amplifier is that agent identity and
+        model artifact are managed by entirely separate infrastructure layers
+        (IAM vs. model serving) with no standard binding mechanism. A model can
+        be swapped through supply-chain compromise, container replacement, or
+        CI/CD manipulation, and the agent's credentials remain valid because
+        the identity layer has no awareness of the artifact layer.
+      - >
+        This risk is distinct from riskModelSourceTampering and
+        riskModelDeploymentTampering, which cover the tampering mechanics
+        themselves. Stale Agent Identity Binding covers the identity lifecycle
+        failure that persists after a swap — the agent continues to authenticate
+        with valid credentials regardless of the model behind it.
+        riskShadowAndUnknownAgents addresses agents that were never registered;
+        this risk addresses registered agents whose identity binding becomes
+        stale after the underlying artifact changes.
+      - >
+        Potential impacts include stealthy behavioral changes (data exfiltration,
+        decision manipulation) under legitimate identity, compromise of connected
+        tools and MCP servers, and accountability failures because actions are
+        attributed to the original authorized model. Consequences include loss
+        of integrity, safety incidents, regulatory violations, and systemic
+        distrust in deployed agentic systems.
+    category: risksDeploymentAndInfrastructure
+    personas:
+      - personaAgenticProvider
+      - personaApplicationDeveloper
+      - personaModelProvider
+      - personaPlatformProvider
+      - personaEndUser
+    controls:
+      - controlModelAndDataIntegrityManagement
+      - controlAgentIntegrityManagement
+      - controlAgentCredentialIsolation
+      - controlComponentIdentityProvenance
+    examples:
+      - >
+        Zhou's framework for <a href="https://arxiv.org/abs/2603.14332"
+        target="_blank" rel="noopener">governing dynamic AI agent capabilities
+        (2026)</a> identifies the "capability-identity gap" as the central
+        governance failure: an agent's capabilities can change after
+        authorization — through silent escalation, underlying model
+        substitution, or runtime behavioral drift — without any mechanism to
+        detect that the identity credentials still authorizing the agent are
+        now bound to a different capability set. The paper evaluates 12 such
+        attack scenarios and proposes capability-bound certificates and
+        reproducibility commitments as the cryptographic-binding mechanisms
+        that close the gap.
+    tourContent:
+      introduced:
+        - >
+          Introduced during deployment when agent identities are provisioned
+          without cryptographic binding to the specific model artifact they
+          authorize, or when model serving infrastructure permits artifact
+          replacement without triggering credential re-issuance.
+      exposed:
+        - >
+          Exposed at runtime when the underlying model is replaced — through
+          supply-chain compromise, serving infrastructure manipulation, or
+          routine model updates — and the agent continues operating with the
+          original identity and credentials. The stale binding persists through
+          maintenance cycles if re-binding is not part of the update lifecycle.
+      mitigated:
+        - >
+          Mitigated by cryptographic binding of agent identity to specific signed
+          model manifests, runtime attestation of the model artifact before
+          authorizing tool access, and automated credential invalidation on any
+          change to the bound model artifact.
+    relevantQuestions:
+      - Is the agent identity cryptographically bound to a specific signed model artifact or manifest?
+      - Does a model update or swap automatically invalidate or re-scope the agent's credentials?
+      - Does the system perform runtime attestation of the model artifact before authorizing tool access?
+      - How do you detect model substitution after initial credential issuance?
+    mappings:
+      stride:
+        - spoofing
+      mitre-atlas:
+        - AML.T0012
+    lifecycleStage:
+      - deployment
+      - runtime
+      - maintenance
+    impactType:
+      - integrity
+      - confidentiality
+      - accountability
+      - compliance
+    actorAccess:
+      - supply-chain
+      - privileged
+      - infrastructure-provider
+  - id: riskMCPTransportHijacking
+    title: MCP Transport Hijacking
+    shortDescription:
+      - >
+        Transport-layer attacks on MCP connections — including man-in-the-middle,
+        session hijacking, DNS rebinding, and replay — intercept or modify
+        agent-to-tool communication because the MCP specification does not
+        mandate transport encryption or mutual authentication.
+    longDescription:
+      - >
+        The Model Context Protocol enables agents to discover and invoke tools
+        by communicating with MCP servers over HTTP or stdio. MCP Transport
+        Hijacking occurs when these connections lack transport-layer protections,
+        allowing attackers to intercept, modify, or replay messages between the
+        agent and the tool server.
+      - >
+        This risk extends classical transport-layer attacks to the MCP protocol.
+        TLS stripping, man-in-the-middle interception, and DNS rebinding against
+        locally-running services are well-documented attack patterns. The
+        AI-specific amplifier is that the MCP specification (2025-11-25) does
+        not mandate TLS for Streamable HTTP connections, uses "SHOULD" rather
+        than "MUST" for authentication and localhost binding, and provides zero
+        transport security for the stdio transport. Agents autonomously connect
+        to MCP servers discovered at runtime without human verification of
+        transport security properties. Session identifiers transmitted in HTTP
+        headers are exposed to interception without mandatory TLS.
+      - >
+        Attack vectors include man-in-the-middle on unencrypted or weakly
+        configured MCP connections, DNS rebinding against locally-running MCP
+        servers (acknowledged in the MCP specification's own Security Warning),
+        replay of captured JSON-RPC messages, and session hijacking via
+        intercepted session identifiers.
+      - >
+        This risk is distinct from riskInsecureIntegratedComponent, which covers
+        vulnerabilities within MCP server implementations (e.g., path traversal).
+        This risk covers the transport channel between agent and server. It is
+        distinct from riskOrchestratorRouteHijacking, which covers routing and
+        configuration manipulation. It is distinct from riskToolRegistryTampering,
+        which covers integrity of tool registration and discovery.
+      - >
+        Potential impacts include theft of tool schemas and sensitive data
+        flowing between agents and tools, injection of malicious tool responses,
+        unauthorized execution of agent actions, and compromise of the entire
+        agent workflow. The breach may be difficult to detect because the agent
+        identity remains valid while its communication channel is compromised.
+    category: risksDeploymentAndInfrastructure
+    personas:
+      - personaAgenticProvider
+      - personaApplicationDeveloper
+      - personaPlatformProvider
+      - personaEndUser
+    controls:
+      - controlSecureByDefaultMLTooling
+      - controlInterComponentTransportSecurity
+      - controlComponentIdentityProvenance
+    examples:
+      - >
+        The <a href="https://modelcontextprotocol.io/specification/2025-11-25/basic/transports"
+        target="_blank" rel="noopener">MCP specification (2025-11-25)</a>
+        includes a Security Warning acknowledging DNS rebinding as an attack
+        vector against local MCP servers. Authentication and localhost binding
+        are "SHOULD" rather than "MUST" requirements, TLS is not mandated for
+        Streamable HTTP connections, and the stdio transport provides zero
+        transport security. These protocol-level gaps make transport hijacking
+        a design-level concern, not just an implementation oversight.
+      - >
+        The MCP specification's backward compatibility section advises that
+        servers wanting to support older clients "continue to host both the
+        SSE and POST endpoints of the old transport, alongside the new MCP
+        endpoint." The deprecated HTTP+SSE transport placed session identifiers
+        in URL parameters, exposing them in server logs, browser history, and
+        proxy logs. Deployments following this backward compatibility guidance
+        inherit the weaker transport's attack surface.
+    tourContent:
+      introduced:
+        - >
+          Introduced during deployment when MCP connections are configured
+          without mandatory TLS, mutual authentication, or origin validation —
+          particularly when MCP servers run locally or in environments where
+          agents connect to third-party endpoints.
+      exposed:
+        - >
+          Exposed at runtime when an attacker intercepts, modifies, or replays
+          MCP messages on the transport channel. DNS rebinding attacks target
+          locally-running MCP servers from remote websites.
+      mitigated:
+        - >
+          Mitigated by enforcing mutual TLS for all MCP connections, binding
+          session tokens to transport-layer identifiers, validating Origin
+          headers on all incoming connections, restricting local servers to
+          localhost binding, and implementing replay protection with short-lived
+          sessions.
+    relevantQuestions:
+      - Is mutual TLS enforced for all MCP connections?
+      - Are session tokens bound to transport-layer identifiers?
+      - Do you enforce strict replay protection and short-lived sessions?
+      - Do MCP servers validate the Origin header on all incoming connections to prevent DNS rebinding?
+    mappings:
+      stride:
+        - tampering
+        - information-disclosure
+    lifecycleStage:
+      - deployment
+      - runtime
+    impactType:
+      - confidentiality
+      - integrity
+    actorAccess:
+      - external
+      - agent
+  - id: riskShadowAndUnknownAgents
+    title: Shadow and Unknown Agents
+    shortDescription:
+      - >
+        Unregistered agents operate with inherited or valid credentials outside
+        identity lifecycle controls, creating persistent blind spots in agentic
+        systems.
+    longDescription:
+      - >
+        In dynamic agentic environments, agents can be created ad-hoc or spawned
+        through orchestration layers without central registration. Shadow and
+        Unknown Agents describes the risk when these unregistered agents retain
+        or inherit credentials and tokens, allowing them to interact with tools
+        and MCP servers undetected. This breaks the identity lifecycle and
+        creates persistent blind spots in monitoring, attribution, and
+        revocation.
+      - >
+        This risk is the AI-specific extension of two classical security
+        challenges: Shadow IT (unauthorized systems operating outside governance
+        processes) and orphaned account management (failure to tombstone
+        decommissioned credentials). The key AI-specific amplifier is that
+        orchestration layers can dynamically spawn credentialed agents without
+        human approval — a capability with no direct classical equivalent.
+      - >
+        The vulnerability arises from incomplete provisioning controls,
+        credential reuse across sessions, or weak network isolation. Attack
+        vectors include compromised orchestration components that spawn hidden
+        agents and failure to decommission old agent instances (creating "zombie"
+        agents). Supply-chain injection of backdoored agent templates is a
+        related vector addressed by riskToolSourceProvenance and
+        riskToolRegistryTampering; this risk covers the downstream identity
+        lifecycle failure when such agents persist undetected.
+      - >
+        The insider threat dimension is also relevant: a compromised or rogue
+        insider can create shadow agents that persist beyond their own access
+        revocation, analogous to classical insider threats via undocumented
+        service accounts or orphaned API keys.
+      - >
+        Potential impacts include stealthy data exfiltration, unauthorized
+        actions across tenants, and long-term attacker persistence. Consequences
+        include accountability gaps (actions cannot be reliably attributed),
+        compliance violations, and increased difficulty in incident response.
+      - >
+        riskZombieShadowMCPServers addresses decommissioned tool server
+        endpoints; this risk addresses unregistered agent identities. Both share
+        the lifecycle management failure mode but differ in the entity type
+        affected.
+    category: risksDeploymentAndInfrastructure
+    personas:
+      - personaAgenticProvider
+      - personaApplicationDeveloper
+      - personaPlatformProvider
+      - personaEndUser
+    controls:
+      - controlSecureByDefaultMLTooling
+      - controlAgentObservability
+      - controlAgentInventoryManagement
+      - controlAgentIntegrityManagement
+      - controlAgentCredentialIsolation
+    examples:
+      - >
+        A <a href="https://www.gartner.com/en/newsroom/press-releases/2025-11-19-gartner-identifies-critical-genai-blind-spots-that-cios-must-urgently-address"
+        target="_blank" rel="noopener">Gartner survey of 302 cybersecurity
+        leaders (2025)</a> found that 69% of organizations suspect or have
+        evidence that employees are using prohibited public GenAI. Gartner
+        predicts that by 2030, more than 40% of enterprises will experience
+        security or compliance incidents linked to unauthorized shadow AI.
+    tourContent:
+      introduced:
+        - >
+          Introduced during deployment when orchestration layers or development
+          teams create agents without central registration, or when provisioning
+          controls do not require identity lifecycle enrollment before credential
+          issuance.
+      exposed:
+        - >
+          Exposed at runtime when unregistered agents interact with tools, MCP
+          servers, or other agents using inherited or shared credentials. The
+          exposure persists through maintenance cycles when decommissioning
+          processes fail to revoke credentials for retired agents.
+      mitigated:
+        - >
+          Mitigated by central agent inventory management requiring registration
+          before credential issuance, cryptographic attestation of agent identity,
+          runtime detection of unregistered agents, and automated credential
+          revocation on lifecycle state changes.
+    relevantQuestions:
+      - Are all agents required to register with a central identity service before receiving credentials?
+      - Can you detect and block actions from unregistered or decommissioned agents?
+      - How do you handle credential reuse across ephemeral agents?
+      - How do you handle credential inheritance when orchestration layers spawn new agents dynamically?
+    mappings:
+      stride:
+        - spoofing
+        - repudiation
+      mitre-atlas:
+        - AML.T0012
+    lifecycleStage:
+      - deployment
+      - runtime
+      - maintenance
+    impactType:
+      - confidentiality
+      - integrity
+      - accountability
+      - compliance
+    actorAccess:
+      - agent
+      - privileged
+      - supply-chain
+      - infrastructure-provider
+  - id: riskRunawayAgentToolLoops
+    title: Runaway Agent Tool Loops
+    shortDescription:
+      - >
+        Agents enter uncontrolled recursive tool-calling cycles at the
+        orchestration layer, exhausting context windows, compute resources, and
+        API budgets through emergent autonomous behavior or adversarial trigger.
+    longDescription:
+      - >
+        In agentic systems, autonomous agents invoke tools in sequence or
+        recursively based on LLM reasoning. Runaway Agent Tool Loops occur when
+        agents enter uncontrolled tool-calling cycles because termination
+        conditions are absent, broken, or never satisfied. The primary failure
+        mode is emergent: agents that loop because validation functions never
+        return satisfying results, max_turns defaults are not set, or tool
+        responses trigger further reasoning without convergence. No adversary
+        is required.
+      - >
+        This risk extends classical infinite loop and fork bomb patterns to the
+        agentic domain. In traditional systems, runaway processes are constrained
+        by watchdog timers, process resource limits (ulimit, cgroups), and
+        OS-level scheduling. The AI-specific amplifier is that LLM-driven agents
+        make non-deterministic decisions about when to stop, and each tool call
+        generates reasoning traces and tool response pairs that accumulate in
+        the context window. The loop degrades the agent's ability to reason
+        about stopping even as it continues — context-window saturation creates
+        a feedback loop where the agent can no longer process enough history to
+        recognize it should terminate.
+      - >
+        This risk is distinct from riskEconomicDenialOfWallet, which addresses
+        adversarial resource exhaustion at the API billing layer through
+        attacks on pricing models and billing mechanisms. Runaway Agent Tool
+        Loops addresses autonomous agent behavior at the MCP orchestration
+        layer, where impacts include context-window exhaustion (task fails
+        silently or incompletely), availability degradation for co-tenants, and
+        safety failures in time-sensitive systems — impacts with no financial
+        dimension. Prompt injection can trigger runaway loops (see
+        riskPromptInjection), but the underlying vulnerability is the absence
+        of loop bounds at the orchestration layer.
+      - >
+        Potential impacts include context-window exhaustion leading to silent
+        task failure, massive unexpected costs, service degradation for other
+        users on shared infrastructure, and safety risks when time-sensitive
+        agent tasks are delayed or never complete. Consequences range from
+        financial damage to availability failures and loss of trust in
+        autonomous agent systems.
+    category: risksRuntimeInputSecurity
+    personas:
+      - personaAgenticProvider
+      - personaApplicationDeveloper
+      - personaPlatformProvider
+      - personaEndUser
+    controls:
+      - controlAgentObservability
+      - controlAgentExecutionBounds
+    examples:
+      - >
+        The <a href="https://github.com/microsoft/autogen/issues/108"
+        target="_blank" rel="noopener">Microsoft AutoGen infinite loop issue
+        (#108)</a> documented agents entering infinite tool-calling cycles
+        because the termination condition checked for exact "TERMINATE" text,
+        but agents generated variations that never matched. The loop continued
+        until OpenAI rate limits triggered. No adversary was involved — the
+        failure was emergent from a broken termination function, demonstrating
+        the autonomous failure mode that distinguishes this risk from
+        adversarial cost-spike attacks.
+    tourContent:
+      introduced:
+        - >
+          Introduced during deployment when agent orchestration frameworks are
+          configured without default tool-call limits, context-window budgets,
+          or termination condition validation.
+      exposed:
+        - >
+          Exposed at runtime when an agent enters a recursive tool-calling cycle
+          that consumes context window, compute, and API budget without
+          converging on a result or triggering a termination condition.
+      mitigated:
+        - >
+          Mitigated by enforcing per-agent, per-session, and per-tool-call
+          resource budgets; setting mandatory max_turns defaults in orchestration
+          frameworks; monitoring for context-window saturation and loop patterns;
+          and implementing circuit breakers that halt agent execution when
+          cumulative resource thresholds are exceeded.
+    relevantQuestions:
+      - Do you enforce per-agent, per-session, or per-tool-call resource budgets and rate limits?
+      - Are recursive or deeply nested tool chains automatically bounded or human-approved?
+      - Can MCP servers reject or throttle requests based on cumulative context or cost?
+      - Do you monitor for context-window saturation during agent tool-calling sequences?
+    mappings:
+      stride:
+        - denial-of-service
+      mitre-atlas:
+        - AML.T0034.002
+      owasp-top10-llm:
+        - LLM10
+    lifecycleStage:
+      - runtime
+    impactType:
+      - availability
+      - safety
+    actorAccess:
+      - agent
+  - id: riskAgenticDelegationConfusedDeputy
+    title: Agentic Delegation Confused Deputy
+    shortDescription:
+      - >
+        A high-privilege agent acts on behalf of a less-privileged caller
+        without validating the caller's authorization at the delegation
+        boundary, allowing the caller to escalate privileges through the
+        deputy's own permissions.
+    longDescription:
+      - >
+        In agentic systems, agents with elevated privileges frequently act on
+        behalf of other agents, users, or external inputs through delegation
+        mechanisms such as OAuth token exchange and MCP tool invocation. The
+        Agentic Delegation Confused Deputy occurs when a high-privilege agent
+        (the deputy) performs an action that the caller could not do directly,
+        because the deputy does not validate the caller's authorization at the
+        delegation boundary. The deputy uses its own permissions without
+        distinguishing the caller's authority from its own.
+      - >
+        This risk is a direct extension of the classical confused deputy
+        problem, first identified by Norm Hardy in 1988 when a compiler with
+        file system privileges was tricked into overwriting its billing file by
+        a user who supplied a system path as the output filename. The pattern
+        recurs across computing eras: CSRF exploits the browser as a confused
+        deputy (using session cookies on behalf of a malicious cross-origin
+        caller), and <a href="https://docs.aws.amazon.com/IAM/latest/UserGuide/confused-deputy.html"
+        target="_blank" rel="noopener">AWS cross-account role assumption</a>
+        without ExternalId validation allows a third-party vendor to be tricked
+        into assuming a victim's IAM role. The AI-specific amplifier is
+        threefold: (1) the deputy's capability set expands dynamically at
+        runtime via MCP server discovery, making the attack surface
+        unpredictable; (2) the deputy autonomously decides which tools to invoke
+        based on LLM reasoning, not static dispatch; (3) multi-hop delegation
+        can chain multiple confused deputies, amplifying the privilege
+        escalation.
+      - >
+        Attack vectors include indirect prompt injection via user-submitted
+        data, poisoned MCP tool descriptions, crafted tool responses, and
+        legitimate-looking API calls from less-privileged agents. The trigger
+        mechanism varies (see riskPromptInjection for injection attacks
+        specifically), but the underlying vulnerability is the same: the deputy
+        does not check the caller's authorization scope before acting.
+      - >
+        This risk is distinct from riskRogueActions, which covers unintended
+        agent actions broadly (accidental and malicious). The confused deputy
+        specifically addresses the authorization failure at delegation
+        boundaries — the caller could not perform the action directly, but the
+        deputy does it using its own permissions. Rogue actions can occur in
+        single-agent systems; the confused deputy requires asymmetric privilege
+        across a delegation boundary. riskAgentDelegationChainOpacity addresses
+        the inability to see who authorized an action; this risk addresses the
+        failure to check whether the caller was authorized.
+      - >
+        Potential impacts include unauthorized data access across trust
+        boundaries, financial transactions executed on behalf of unauthorized
+        callers, infrastructure modifications, and privilege escalation chains
+        in multi-agent systems. Consequences include accountability failures,
+        regulatory non-compliance, and amplified blast radius when the deputy's
+        permissions span multiple services or tenants.
+    category: risksDeploymentAndInfrastructure
+    personas:
+      - personaAgenticProvider
+      - personaApplicationDeveloper
+      - personaPlatformProvider
+      - personaEndUser
+    controls:
+      - controlSecureByDefaultMLTooling
+      - controlAgentPluginPermissions
+      - controlAgentObservability
+    examples:
+      - >
+        In the <a href="https://generalanalysis.com/blog/supabase-mcp-blog"
+        target="_blank" rel="noopener">Supabase/Cursor data exfiltration
+        (2025)</a>, a developer's Cursor IDE agent connected to Supabase using
+        service_role credentials that bypassed all Row-Level Security. An
+        attacker embedded SQL exfiltration commands in a support ticket. When
+        the agent summarized tickets, it executed the attacker's commands with
+        its elevated permissions, exfiltrating OAuth secrets the ticket author
+        could never access directly — a textbook confused deputy where the
+        agent used its own root-level database access without validating the
+        caller's authorization.
+      - >
+        In the <a href="https://invariantlabs.ai/blog/whatsapp-mcp-exploited"
+        target="_blank" rel="noopener">Invariant Labs WhatsApp MCP exploit
+        (2025)</a>, a malicious MCP server poisoned its tool descriptions with
+        hidden instructions targeting a co-installed WhatsApp MCP server. The
+        agent — which had legitimate WhatsApp send authority — exfiltrated chat
+        history to an attacker-controlled number. The malicious server had no
+        WhatsApp access of its own; it exploited the agent as a confused deputy
+        to launder its requests through the agent's cross-server authority.
+    tourContent:
+      introduced:
+        - >
+          Introduced during deployment when agent delegation boundaries are
+          configured without caller authorization validation — specifically when
+          high-privilege agents accept delegation requests without verifying
+          whether the caller's authority matches the requested action's
+          privilege level.
+      exposed:
+        - >
+          Exposed at runtime when a less-privileged caller (another agent,
+          external input, or low-privilege user) submits a request that the
+          high-privilege deputy fulfills using its own permissions. The deputy
+          cannot distinguish the caller's authorization scope from its own.
+      mitigated:
+        - >
+          Mitigated by enforcing caller authorization validation at every
+          delegation boundary, scoping the deputy's effective permissions to
+          the intersection of its own permissions and the caller's
+          authorization, and applying least-privilege narrowing at each
+          delegation hop.
+    relevantQuestions:
+      - Does every delegation step enforce least-privilege narrowing and explicit caller authorization?
+      - Can you detect when an agent executes an action that exceeds the caller's authorization scope at runtime?
+      - Are confused deputy protections enforced at both the IAM and MCP layers?
+      - Can the deputy distinguish the caller's authorization scope from its own permissions when selecting which tools to invoke?
+    mappings:
+      stride:
+        - elevation-of-privilege
+        - spoofing
+      mitre-atlas:
+        - AML.T0053
+      owasp-top10-llm:
+        - LLM06
+    lifecycleStage:
+      - deployment
+      - runtime
+    impactType:
+      - confidentiality
+      - integrity
+      - accountability
+      - compliance
+    actorAccess:
+      - agent
+      - external
+      - user
+  - id: riskCrossTenantCredentialPropagation
+    title: Cross-Tenant Credential Propagation
+    shortDescription:
+      - >
+        Shared or insufficiently tenant-scoped agent credentials allow a
+        compromise in one tenant to propagate access across tenant boundaries
+        through the identity layer.
+    longDescription:
+      - >
+        Multi-tenant agentic platforms frequently share infrastructure
+        components across tenants for efficiency — base models, credential
+        pools, MCP tool server endpoints, and OAuth token caches. Cross-Tenant
+        Credential Propagation occurs when agent identities or credentials are
+        not strictly scoped to individual tenants, allowing a compromise in one
+        tenant to authenticate to another tenant's resources through the shared
+        identity layer.
+      - >
+        This risk extends what the Cloud Security Alliance identifies as
+        "Insufficient Identity, Credential, and Access Management" — a top
+        cloud threat — to the agentic domain. Multi-tenant SaaS systems have
+        long struggled with shared service accounts, wildcard TLS certificates,
+        shared OAuth client credentials, and connection pool credentials that
+        cross tenant boundaries. CWE-653 (Insufficient Compartmentalization)
+        captures the general pattern of failing to isolate security domains.
+        The AI-specific amplifier is that agentic platforms additionally share
+        model serving endpoints, MCP tool registries, and OAuth token pools
+        across tenants, and the dynamic nature of agent delegation means a
+        compromised credential can propagate through delegation chains across
+        tenant boundaries — agents autonomously use credentials without human
+        verification at each hop.
+      - >
+        The vulnerability arises from insufficient tenant scoping at the agent
+        identity layer: shared OAuth client credentials, MCP tokens that are
+        valid across tenants, or agent identity pools that serve multiple
+        organizations. A compromise in one tenant — through credential theft,
+        infrastructure exploitation, or insider access — yields credentials
+        that work across tenant boundaries because nothing restricts their
+        scope to the originating tenant.
+      - >
+        This risk is distinct from riskAcceleratorAndSystemSideChannels, which
+        covers hardware-layer cross-tenant leakage (timing, cache, speculative
+        execution). It is also distinct from riskPromptResponseCachePoisoning,
+        which covers cross-user contamination via shared LLM caches. This risk
+        specifically addresses the identity and credential layer — shared or
+        unscoped credentials that allow authentication across tenant boundaries.
+      - >
+        Potential impacts include widespread data breaches spanning multiple
+        tenants, unauthorized cross-tenant actions, intellectual property theft,
+        and complete breakdown of multi-tenancy guarantees. Consequences include
+        major compliance violations (GDPR, SOC 2), loss of customer trust, and
+        systemic risk across the shared platform.
+    category: risksDeploymentAndInfrastructure
+    personas:
+      - personaAgenticProvider
+      - personaApplicationDeveloper
+      - personaPlatformProvider
+      - personaEndUser
+    controls:
+      - controlSecureByDefaultMLTooling
+      - controlAgentPluginPermissions
+      - controlIsolatedConfidentialComputing
+      - controlAgentCredentialIsolation
+    examples:
+      - >
+        The <a
+        href="https://www.bleepingcomputer.com/news/security/asana-warns-mcp-ai-feature-exposed-customer-data-to-other-orgs/"
+        target="_blank" rel="noopener">Asana MCP cross-tenant data exposure
+        (2025)</a> demonstrated this pattern directly in the agentic domain:
+        a logic flaw in Asana's MCP server feature exposed data from one
+        organization's instance to other organizations' MCP users for
+        approximately 1,000 customers, because tenant context was not
+        maintained across MCP sessions.
+      - >
+        Wiz researchers discovered the <a
+        href="https://www.wiz.io/blog/azure-active-directory-bing-misconfiguration"
+        target="_blank" rel="noopener">BingBang vulnerability (2023)</a>
+        affecting approximately 25% of Azure AD multi-tenant application
+        registrations, which accepted valid OAuth tokens from any Azure tenant
+        without checking the tenant ID claim. A token issued for an attacker's
+        tenant was accepted by apps belonging to other tenants, including
+        Microsoft's internal Bing management applications — a cross-tenant
+        credential propagation through the identity layer where the credential
+        itself was valid across tenant boundaries.
+      - >
+        In the <a
+        href="https://www.valencesecurity.com/resources/blogs/salesforce-oauth-token-breach-what-every-security-team-must-know"
+        target="_blank" rel="noopener">UNC6395/Salesloft Drift breach (2025)</a>,
+        a threat actor compromised Salesloft's infrastructure and stole
+        per-customer OAuth tokens that Drift stored for approximately 700
+        Salesforce organizations. Each bearer token granted direct Salesforce
+        API access bypassing MFA — a single compromise of a multi-tenant
+        intermediary's centralized credential store yielded cross-tenant access
+        through the identity layer.
+    tourContent:
+      introduced:
+        - >
+          Introduced during deployment when agent identities, credential pools,
+          or MCP server endpoints are configured to serve multiple tenants
+          without strict tenant-scoped isolation at the identity layer.
+      exposed:
+        - >
+          Exposed at runtime when a compromise in one tenant (credential theft,
+          infrastructure exploitation, or insider access) yields credentials
+          that authenticate to other tenants' resources because the credentials
+          are not tenant-scoped.
+      mitigated:
+        - >
+          Mitigated by issuing strictly tenant-scoped agent credentials with no
+          cross-tenant validity, enforcing tenant boundary validation at every
+          MCP hop and delegation step, and isolating credential pools, token
+          caches, and MCP endpoints per tenant.
+    relevantQuestions:
+      - Are agent identities strictly scoped to a single tenant with no shared credentials?
+      - Does the system enforce tenant boundaries at every MCP hop and delegation step?
+      - Can a compromised agent in one tenant affect resources in another?
+      - Are credential pools, OAuth token caches, and MCP server endpoints isolated per tenant?
+    mappings:
+      stride:
+        - elevation-of-privilege
+        - information-disclosure
+      mitre-atlas:
+        - AML.T0012
+        - AML.T0055
+      owasp-top10-llm:
+        - LLM06
+    lifecycleStage:
+      - deployment
+      - runtime
+    impactType:
+      - confidentiality
+      - integrity
+      - compliance
+      - privacy
+    actorAccess:
+      - agent
+      - privileged
+      - infrastructure-provider
+  - id: riskZombieShadowMCPServers
+    title: Zombie / Shadow MCP Servers
+    shortDescription:
+      - >
+        Decommissioned or unregistered MCP servers remain accessible and respond
+        to agent tool calls, allowing attackers to intercept or redirect
+        legitimate requests.
+    longDescription:
+      - >
+        MCP servers expose tools to agents and are frequently created, scaled,
+        or retired during operations. Zombie / Shadow MCP Servers occur when
+        decommissioned servers are not fully removed from service discovery,
+        DNS, load balancers, or tool registries, leaving stale endpoints that
+        remain responsive to agent connections. An attacker who claims the
+        abandoned endpoint receives all tool calls that agents route to it.
+      - >
+        This risk is the agentic extension of dangling DNS and subdomain
+        takeover — a <a
+        href="https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/02-Configuration_and_Deployment_Management_Testing/10-Test_for_Subdomain_Takeover"
+        target="_blank" rel="noopener">well-documented vulnerability pattern</a>
+        where orphaned DNS records to decommissioned cloud services allow
+        attackers to claim abandoned resources and intercept traffic. The
+        AI-specific amplifier is that agents autonomously discover and invoke
+        tool servers without human verification at each call. In classical
+        systems, a developer would notice a stale API endpoint returning
+        unexpected responses; in agentic systems, the agent silently processes
+        the zombie server's responses as legitimate tool output, potentially
+        poisoning reasoning chains that influence downstream actions.
+      - >
+        Transport security alone does not close this gap: an attacker who
+        controls DNS for a stale endpoint can obtain a valid ACME-issued
+        certificate, and mTLS will authenticate them as a "valid" server.
+        Transport security works as specified — the missing layer is provenance
+        binding to the registered principal. This is why the risk requires a
+        registry-bound provenance control (controlComponentIdentityProvenance)
+        in addition to transport security and inventory management.
+      - >
+        The vulnerability stems from incomplete lifecycle management: tool
+        server entries persist in registries, DNS, or agent configurations
+        after the legitimate server is decommissioned. Dynamic discovery
+        mechanisms that do not require runtime attestation or liveness
+        verification exacerbate the risk — agents trust registry presence as
+        proof of legitimacy.
+      - >
+        This risk is distinct from riskToolSourceProvenance, which addresses
+        adopting unvetted tool sources — zombie servers were previously vetted
+        and legitimate. It is distinct from riskToolRegistryTampering, which
+        addresses active modification of registry entries — zombie servers
+        involve stale entries that were never cleaned up. It is distinct from
+        riskInsecureIntegratedComponent, which addresses vulnerabilities in
+        running tool implementations — zombie servers involve the absence of a
+        legitimate tool at an endpoint now controlled by an attacker.
+        riskShadowAndUnknownAgents addresses unregistered agent identities;
+        this risk addresses decommissioned tool server endpoints.
+      - >
+        Potential impacts include stealthy interception of tool calls, injection
+        of malicious schemas or responses, data exfiltration from agent
+        interactions, and persistent attacker access long after official
+        decommissioning. Consequences include undetected breaches, compliance
+        failures, and erosion of trust in the agentic infrastructure.
+    category: risksDeploymentAndInfrastructure
+    personas:
+      - personaAgenticProvider
+      - personaApplicationDeveloper
+      - personaPlatformProvider
+      - personaEndUser
+    controls:
+      - controlAgentObservability
+      - controlAgentInventoryManagement
+      - controlInterComponentTransportSecurity
+      - controlComponentIdentityProvenance
+    examples:
+      - >
+        Dangling DNS and subdomain takeover is a <a
+        href="https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/02-Configuration_and_Deployment_Management_Testing/10-Test_for_Subdomain_Takeover"
+        target="_blank" rel="noopener">well-documented vulnerability pattern
+        (OWASP)</a> where orphaned DNS CNAME records to decommissioned cloud
+        services allow attackers to claim the abandoned resource and intercept
+        all traffic. The MCP equivalent: a tool registry entry persists after
+        server decommissioning, and an attacker claims the stale endpoint URL —
+        agents route tool calls to the attacker automatically because they
+        trust registry presence without runtime liveness verification.
+      - >
+        ACME certificate authorities (e.g., Let's Encrypt) automate issuance of
+        domain-validated certificates based solely on control of the DNS record
+        at issuance time. An attacker who claims a decommissioned subdomain can
+        obtain a valid ACME certificate within minutes, and mTLS between agent
+        and the reclaimed endpoint will succeed. Transport security is not
+        broken in this scenario — it is working exactly as specified. The
+        missing control is runtime attestation that the authenticated key
+        holder is the currently registered, non-revoked principal for the role,
+        not merely the holder of a key bound to the domain.
+    tourContent:
+      introduced:
+        - >
+          Introduced during deployment when MCP servers are provisioned and
+          registered in tool registries, DNS, or agent configurations.
+      exposed:
+        - >
+          Exposed at runtime when decommissioned servers are not fully removed
+          from all discovery mechanisms. Agents continue calling stale endpoints
+          because registry presence implies legitimacy. The exposure persists
+          through maintenance cycles when decommissioning processes are
+          incomplete.
+      mitigated:
+        - >
+          Mitigated by requiring cryptographic attestation and runtime liveness
+          verification for all MCP server endpoints, automating removal from
+          all discovery mechanisms on decommission, and monitoring for agent
+          calls to unresponsive or unverified endpoints.
+    relevantQuestions:
+      - Are all MCP servers required to register with cryptographic attestation before being discoverable?
+      - Does the system automatically detect and block calls to decommissioned or unverified MCP endpoints?
+      - How do you ensure complete removal of MCP servers from all discovery mechanisms?
+      - Do agents verify tool server liveness and identity at invocation time, not just at discovery time?
+    mappings:
+      stride:
+        - spoofing
+        - tampering
+        - information-disclosure
+      mitre-atlas:
+        - AML.T0010.001
+      owasp-top10-llm:
+        - LLM03
+    lifecycleStage:
+      - deployment
+      - runtime
+      - maintenance
+    impactType:
+      - confidentiality
+      - integrity
+    actorAccess:
+      - external
+      - supply-chain

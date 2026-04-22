@@ -1,10 +1,16 @@
 | Persona ID                  | Persona Title                            | Control ID                                 | Control Title                                     |
 |:----------------------------|:-----------------------------------------|:-------------------------------------------|:--------------------------------------------------|
+| personaAgenticProvider      | Agentic Platform and Framework Providers | controlAgentCredentialIsolation            | Agent Credential Isolation                        |
+| personaAgenticProvider      | Agentic Platform and Framework Providers | controlAgentExecutionBounds                | Agent Execution Bounds                            |
+| personaAgenticProvider      | Agentic Platform and Framework Providers | controlAgentIntegrityManagement            | Agent Integrity Management                        |
+| personaAgenticProvider      | Agentic Platform and Framework Providers | controlAgentInventoryManagement            | Agent Inventory Management                        |
 | personaAgenticProvider      | Agentic Platform and Framework Providers | controlAgentObservability                  | Agent Observability                               |
 | personaAgenticProvider      | Agentic Platform and Framework Providers | controlAgentPluginPermissions              | Agent Permissions                                 |
 | personaAgenticProvider      | Agentic Platform and Framework Providers | controlAgentPluginUserControl              | Agent User Control                                |
+| personaAgenticProvider      | Agentic Platform and Framework Providers | controlComponentIdentityProvenance         | Component Identity Provenance                     |
 | personaAgenticProvider      | Agentic Platform and Framework Providers | controlIncidentResponseManagement          | Incident Response Management                      |
 | personaAgenticProvider      | Agentic Platform and Framework Providers | controlInputValidationAndSanitization      | Input Validation and Sanitization                 |
+| personaAgenticProvider      | Agentic Platform and Framework Providers | controlInterComponentTransportSecurity     | Inter-Component Transport Security                |
 | personaAgenticProvider      | Agentic Platform and Framework Providers | controlIsolatedConfidentialComputing       | Isolated and Confidential Computing               |
 | personaAgenticProvider      | Agentic Platform and Framework Providers | controlOrchestratorAndRouteIntegrity       | Orchestrator and Route Integrity                  |
 | personaAgenticProvider      | Agentic Platform and Framework Providers | controlRedTeaming                          | Red Teaming                                       |
@@ -12,12 +18,16 @@
 | personaAgenticProvider      | Agentic Platform and Framework Providers | controlSecureByDefaultMLTooling            | Secure-by-Default ML Tooling                      |
 | personaAgenticProvider      | Agentic Platform and Framework Providers | controlUserTransparencyAndControls         | User Transparency and Controls                    |
 | personaApplicationDeveloper | Application Developer                    | controlAdversarialTrainingAndTesting       | Adversarial Training and Testing                  |
+| personaApplicationDeveloper | Application Developer                    | controlAgentCredentialIsolation            | Agent Credential Isolation                        |
+| personaApplicationDeveloper | Application Developer                    | controlAgentExecutionBounds                | Agent Execution Bounds                            |
 | personaApplicationDeveloper | Application Developer                    | controlAgentObservability                  | Agent Observability                               |
 | personaApplicationDeveloper | Application Developer                    | controlAgentPluginPermissions              | Agent Permissions                                 |
 | personaApplicationDeveloper | Application Developer                    | controlAgentPluginUserControl              | Agent User Control                                |
 | personaApplicationDeveloper | Application Developer                    | controlApplicationAccessManagement         | Application Access and Resource Management        |
+| personaApplicationDeveloper | Application Developer                    | controlComponentIdentityProvenance         | Component Identity Provenance                     |
 | personaApplicationDeveloper | Application Developer                    | controlIncidentResponseManagement          | Incident Response Management                      |
 | personaApplicationDeveloper | Application Developer                    | controlInputValidationAndSanitization      | Input Validation and Sanitization                 |
+| personaApplicationDeveloper | Application Developer                    | controlInterComponentTransportSecurity     | Inter-Component Transport Security                |
 | personaApplicationDeveloper | Application Developer                    | controlIsolatedConfidentialComputing       | Isolated and Confidential Computing               |
 | personaApplicationDeveloper | Application Developer                    | controlOrchestratorAndRouteIntegrity       | Orchestrator and Route Integrity                  |
 | personaApplicationDeveloper | Application Developer                    | controlOutputValidationAndSanitization     | Output Validation and Sanitization                |
@@ -41,6 +51,10 @@
 | personaEndUser              | AI System Users                          | controlUserDataManagement                  | User Data Management                              |
 | personaEndUser              | AI System Users                          | controlUserPoliciesAndEducation            | User Policies and Education                       |
 | personaEndUser              | AI System Users                          | controlVulnerabilityManagement             | Vulnerability Management                          |
+| personaGovernance           | AI System Governance                     | controlAgentCredentialIsolation            | Agent Credential Isolation                        |
+| personaGovernance           | AI System Governance                     | controlAgentIntegrityManagement            | Agent Integrity Management                        |
+| personaGovernance           | AI System Governance                     | controlAgentInventoryManagement            | Agent Inventory Management                        |
+| personaGovernance           | AI System Governance                     | controlComponentIdentityProvenance         | Component Identity Provenance                     |
 | personaGovernance           | AI System Governance                     | controlIncidentResponseManagement          | Incident Response Management                      |
 | personaGovernance           | AI System Governance                     | controlInternalPoliciesAndEducation        | Internal Policies and Education                   |
 | personaGovernance           | AI System Governance                     | controlProductGovernance                   | Product Governance                                |
@@ -107,8 +121,10 @@
 | personaModelProvider        | Model Provider                           | controlTrainingDataManagement              | Training Data Management                          |
 | personaModelProvider        | Model Provider                           | controlTrainingDataSanitization            | Training Data Sanitization                        |
 | personaModelServing         | AI Model Serving                         | controlApplicationAccessManagement         | Application Access and Resource Management        |
+| personaModelServing         | AI Model Serving                         | controlComponentIdentityProvenance         | Component Identity Provenance                     |
 | personaModelServing         | AI Model Serving                         | controlIncidentResponseManagement          | Incident Response Management                      |
 | personaModelServing         | AI Model Serving                         | controlInputValidationAndSanitization      | Input Validation and Sanitization                 |
+| personaModelServing         | AI Model Serving                         | controlInterComponentTransportSecurity     | Inter-Component Transport Security                |
 | personaModelServing         | AI Model Serving                         | controlIsolatedConfidentialComputing       | Isolated and Confidential Computing               |
 | personaModelServing         | AI Model Serving                         | controlModelAndDataAccessControls          | Model and Data Access Controls                    |
 | personaModelServing         | AI Model Serving                         | controlModelAndDataExecutionIntegrity      | Model and Data Execution Integrity                |
@@ -119,9 +135,15 @@
 | personaModelServing         | AI Model Serving                         | controlRuntimePrivacyEnhancingTechnologies | Privacy Enhancing Technologies for Inference      |
 | personaModelServing         | AI Model Serving                         | controlSecureByDefaultMLTooling            | Secure-by-Default ML Tooling                      |
 | personaModelServing         | AI Model Serving                         | controlUserTransparencyAndControls         | User Transparency and Controls                    |
+| personaPlatformProvider     | AI Platform Provider                     | controlAgentCredentialIsolation            | Agent Credential Isolation                        |
+| personaPlatformProvider     | AI Platform Provider                     | controlAgentExecutionBounds                | Agent Execution Bounds                            |
+| personaPlatformProvider     | AI Platform Provider                     | controlAgentIntegrityManagement            | Agent Integrity Management                        |
+| personaPlatformProvider     | AI Platform Provider                     | controlAgentInventoryManagement            | Agent Inventory Management                        |
 | personaPlatformProvider     | AI Platform Provider                     | controlApplicationAccessManagement         | Application Access and Resource Management        |
+| personaPlatformProvider     | AI Platform Provider                     | controlComponentIdentityProvenance         | Component Identity Provenance                     |
 | personaPlatformProvider     | AI Platform Provider                     | controlIncidentResponseManagement          | Incident Response Management                      |
 | personaPlatformProvider     | AI Platform Provider                     | controlInputValidationAndSanitization      | Input Validation and Sanitization                 |
+| personaPlatformProvider     | AI Platform Provider                     | controlInterComponentTransportSecurity     | Inter-Component Transport Security                |
 | personaPlatformProvider     | AI Platform Provider                     | controlIsolatedConfidentialComputing       | Isolated and Confidential Computing               |
 | personaPlatformProvider     | AI Platform Provider                     | controlModelAndDataExecutionIntegrity      | Model and Data Execution Integrity                |
 | personaPlatformProvider     | AI Platform Provider                     | controlOrchestratorAndRouteIntegrity       | Orchestrator and Route Integrity                  |

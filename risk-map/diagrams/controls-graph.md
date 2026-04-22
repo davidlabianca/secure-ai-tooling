@@ -23,6 +23,8 @@ graph LR
     end
 
     subgraph controlsInfrastructure ["Infrastructure Controls"]
+        controlComponentIdentityProvenance[Component Identity Provenance]
+        controlInterComponentTransportSecurity[Inter-Component Transport Security]
         controlIsolatedConfidentialComputing[Isolated and Confidential Computing]
         controlModelAndDataAccessControls[Model and Data Access Controls]
         controlModelAndDataExecutionIntegrity[Model and Data Execution Integrity]
@@ -39,6 +41,10 @@ graph LR
     end
 
     subgraph controlsApplication ["Application Controls"]
+        controlAgentCredentialIsolation[Agent Credential Isolation]
+        controlAgentExecutionBounds[Agent Execution Bounds]
+        controlAgentIntegrityManagement[Agent Integrity Management]
+        controlAgentInventoryManagement[Agent Inventory Management]
         controlAgentObservability[Agent Observability]
         controlAgentPluginPermissions[Agent Permissions]
         controlAgentPluginUserControl[Agent User Control]
@@ -76,16 +82,18 @@ graph LR
     end
 
     subgraph componentsModel ["Model Components"]
-        componentMemory[Model Memory]
         componentModelFrameworksAndCode[Model Frameworks and Code]
-        componentOrchestrationInputHandling[Input Handling]
-        componentOrchestrationOutputHandling[Output Handling]
         componentRAGContent[Retrieval Augmented Generation & Content]
         componentTheModel[The Model]
-        componentTools[External Tools and Services]
         subgraph componentsModelSubgroup ["Model Subgroup"]
             componentModelEvaluation[Model Evaluation]
             componentModelTrainingTuning[Training and Tuning]
+        end
+        subgraph componentsSubgroup4 ["Subgroup4"]
+            componentMemory[Model Memory]
+            componentOrchestrationInputHandling[Input Handling]
+            componentOrchestrationOutputHandling[Output Handling]
+            componentTools[External Tools and Services]
         end
     end
 
@@ -150,6 +158,29 @@ graph LR
     controlRetrievalAndVectorSystemIntegrity --> componentDataStorage
     controlOrchestratorAndRouteIntegrity --> componentApplication
     controlOrchestratorAndRouteIntegrity --> componentModelServing
+    controlAgentInventoryManagement --> componentOrchestrationInputHandling
+    controlAgentInventoryManagement --> componentOrchestrationOutputHandling
+    controlAgentInventoryManagement --> componentReasoningCore
+    controlAgentInventoryManagement --> componentTools
+    controlAgentIntegrityManagement --> componentModelServing
+    controlAgentIntegrityManagement --> componentOrchestrationInputHandling
+    controlAgentIntegrityManagement --> componentReasoningCore
+    controlAgentIntegrityManagement --> componentTools
+    controlAgentCredentialIsolation --> componentReasoningCore
+    controlAgentCredentialIsolation --> componentsSubgroup4
+    controlInterComponentTransportSecurity --> componentApplication
+    controlInterComponentTransportSecurity --> componentModelServing
+    controlInterComponentTransportSecurity --> componentOrchestrationInputHandling
+    controlInterComponentTransportSecurity --> componentOrchestrationOutputHandling
+    controlInterComponentTransportSecurity --> componentTools
+    controlComponentIdentityProvenance --> componentApplication
+    controlComponentIdentityProvenance --> componentModelServing
+    controlComponentIdentityProvenance --> componentOrchestrationInputHandling
+    controlComponentIdentityProvenance --> componentOrchestrationOutputHandling
+    controlComponentIdentityProvenance --> componentTools
+    controlAgentExecutionBounds --> componentOrchestrationInputHandling
+    controlAgentExecutionBounds --> componentOrchestrationOutputHandling
+    controlAgentExecutionBounds --> componentReasoningCore
 
     %% Apply styling to controls mapped to 'all'
     controlIncidentResponseManagement:::allControl
@@ -159,11 +190,11 @@ graph LR
 
     %% Edge styling
     linkStyle 29,30,31,32 stroke:#4285f4,stroke-width:3px,stroke-dasharray: 8 4
-    linkStyle 0,4,7,8,9,10,11,12,14,15,16 stroke:#34a853,stroke-width:2px
-    linkStyle 2,25,33,37,38,42 stroke:#9c27b0,stroke-width:2px
-    linkStyle 3,26,34,39,43 stroke:#ff9800,stroke-width:2px,stroke-dasharray: 5 5
-    linkStyle 27,35,40,44 stroke:#e91e63,stroke-width:2px,stroke-dasharray: 10 2
-    linkStyle 28,36,41 stroke:#C95792,stroke-width:2px,stroke-dasharray: 10 5
+    linkStyle 0,4,7,8,9,10,11,12,14,15,16,56 stroke:#34a853,stroke-width:2px
+    linkStyle 2,25,33,37,38,42,47,51,57,61,62,66,67 stroke:#9c27b0,stroke-width:2px
+    linkStyle 3,26,34,39,43,48,52,58,63,68 stroke:#ff9800,stroke-width:2px,stroke-dasharray: 5 5
+    linkStyle 27,35,40,44,49,53,59,64,69 stroke:#e91e63,stroke-width:2px,stroke-dasharray: 10 2
+    linkStyle 28,36,41,50,54,60,65 stroke:#C95792,stroke-width:2px,stroke-dasharray: 10 5
 
 %% Node style definitions
     style components fill:#f0f0f0,stroke:#666666,stroke-width:3px,stroke-dasharray: 10 5
@@ -173,4 +204,5 @@ graph LR
     style componentsModel fill:#ffe6e6,stroke:#333333,stroke-width:2px
     style componentsModels fill:#d4e6d4,stroke:#333,stroke-width:1px
     style componentsModelSubgroup fill:#f0e6e6,stroke:#333,stroke-width:1px
+    style componentsSubgroup4 fill:#f0e6e6,stroke:#333,stroke-width:1px
 ```
