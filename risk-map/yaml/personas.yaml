@@ -57,7 +57,7 @@ personas:
       - Model artifact integrity and availability for distribution
     identificationQuestions:
       - Are you training or fine-tuning AI/ML models for use by others, including classical ML, statistical, optimization, and rule-based models?
-      - Do you modify existing models (e.g., distillation, quantization, or adaptation) for use by others?
+      - Do you modify, extend, or wrap existing models (e.g., distillation, quantization, adaptation, or adding guardrails) for use by others as a distributable model artifact?
       - Do you evaluate, benchmark, or perform quality assurance on AI/ML models as part of training, adaptation, or distribution decisions?
       - Are you making models available for others to download, license, or integrate?
       - Do you host or curate a catalog of AI/ML models provided by third parties?

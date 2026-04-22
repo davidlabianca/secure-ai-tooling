@@ -45,7 +45,7 @@ Actors that also operate runtime environments serving model predictions are addi
 Use these questions to determine if this persona applies to your organization:
 
 1. Are you training or fine-tuning AI/ML models for use by others, including classical ML, statistical, optimization, and rule-based models?
-2. Do you modify existing models (e.g., distillation, quantization, or adaptation) for use by others?
+2. Do you modify, extend, or wrap existing models (e.g., distillation, quantization, adaptation, or adding guardrails) for use by others as a distributable model artifact?
 3. Do you evaluate, benchmark, or perform quality assurance on AI/ML models as part of training, adaptation, or distribution decisions?
 4. Are you making models available for others to download, license, or integrate?
 5. Do you host or curate a catalog of AI/ML models provided by third parties?
