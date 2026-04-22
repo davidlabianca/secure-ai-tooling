@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="CoSAI Risk Map Explorer for identifying the CoSAI-RM personas, risks, and controls that apply to your role in the AI ecosystem."
+    />
+    <title>CoSAI Risk Map Explorer</title>
+    <link rel="stylesheet" href="./assets/styles.css" />
+  </head>
+  <body>
+    <div class="page-backdrop" aria-hidden="true"></div>
+    <div class="page-grid" aria-hidden="true"></div>
+    <div id="app-status" class="visually-hidden" role="status" aria-live="polite" aria-atomic="true"></div>
+    <main class="app-shell" data-app>
+      <section class="loading-card">
+        <p class="eyebrow">CoSAI Risk Map Explorer</p>
+        <h1>Loading framework-driven persona guidance</h1>
+        <p>
+          The explorer is preparing the generated CoSAI-RM dataset that drives persona matching, manual fallback
+          coverage, and deduplicated risks and controls.
+        </p>
+        <ul class="status-list">
+          <li>Source of truth: framework YAML transformed into static JSON</li>
+          <li>Privacy posture: answers stay in this browser session only</li>
+          <li>
+            Local preview hint: run <code>python3 scripts/build_persona_site_data.py</code> if this never advances
+          </li>
+        </ul>
+      </section>
+    </main>
+    <noscript>
+      <section class="loading-card">
+        <p class="eyebrow">JavaScript Required</p>
+        <h1>This experience needs browser-side JavaScript.</h1>
+        <p>The CoSAI Risk Map Explorer keeps answers in your browser and does not use a backend.</p>
+      </section>
+    </noscript>
+    <script type="module" src="./assets/app.mjs"></script>
+  </body>
+</html>
