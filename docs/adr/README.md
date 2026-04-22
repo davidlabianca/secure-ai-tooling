@@ -1,0 +1,44 @@
+# Architecture Decision Records
+
+This directory holds Architecture Decision Records (ADRs) for **tooling, infrastructure, and process** decisions in the CoSAI Risk Map repository. Each ADR captures the context that motivated a choice, the choice itself, alternatives that were considered, and the consequences the project is now living with.
+
+ADRs complement — not replace — two other surfaces in this repo:
+
+| Surface | Lives in | Audience | Scope |
+|---|---|---|---|
+| **ADRs** (this directory) | `docs/adr/` | Maintainers, contributors, tool integrators | Tooling, infra, CI/CD, agent architecture, repo-wide conventions |
+| **Framework design docs** | [`risk-map/docs/design/`](../../risk-map/docs/design/) | Risk-map framework authors and consumers | Risk taxonomy, persona model, schema semantics, migration logic |
+| **Implementation plans** | Local untracked plans directory (template source at [`docs/contributing/plan-template.md`](../contributing/plan-template.md)) | Maintainer, in-flight sessions | Phased execution of a specific piece of work |
+
+If a decision is about *how the Risk Map content model is shaped*, it belongs in `risk-map/docs/design/`. If it is about *how the repository itself is built, tested, released, or extended*, it belongs here.
+
+## Index
+
+| # | Title | Status | Date |
+|---|---|---|---|
+| [001](001-adopt-adrs.md) | Adopt ADRs for tooling/infrastructure decisions | Accepted | 2026-04-21 |
+| [002](002-branching-strategy.md) | Branching strategy — `develop` for content, `main` for tooling | Accepted | 2026-04-21 |
+| [003](003-devcontainer-mise-architecture.md) | Devcontainer + `mise` tool-management architecture | Accepted | 2026-04-21 |
+| [004](004-ai-assistant-trailer.md) | Vendor-neutral `Co-authored-by` trailer for AI-assisted commits | Accepted | 2026-04-21 |
+| [005](005-pre-commit-framework.md) | Pre-commit framework adoption | Accepted | 2026-04-21 |
+| [006](006-agent-architecture-pattern.md) | Vendor-neutral agent architecture under `scripts/agents/` | Accepted | 2026-04-21 |
+| [007](007-content-reviewer-modes.md) | `content-reviewer` three-mode architecture | Accepted | 2026-04-21 |
+| [008](008-sub-agent-orchestration.md) | Sub-agent orchestration: composition contracts and routing boundaries | Accepted | 2026-04-21 |
+| [009](009-persona-pages-workflow-topology.md) | GitHub Pages deploy surface and persona-pages workflow topology | Accepted | 2026-04-21 |
+| [010](010-site-repo-root-module-boundary.md) | `site/` as a repo-root peer of `risk-map/` | Accepted | 2026-04-21 |
+| [011](011-persona-site-data-schema-contract.md) | `persona-site-data.schema.json` as a versioned producer/consumer contract | Accepted | 2026-04-21 |
+| [012](012-static-spa-architecture.md) | Static client-side SPA — no backend, vanilla ESM, `node --test`, progressive-enhancement a11y | Accepted | 2026-04-21 |
+| [013](013-site-precommit-hooks.md) | Extend the `pre-commit` framework with `site/**` hooks | Accepted | 2026-04-21 |
+
+## Conventions
+
+- **File name:** `NNN-slug.md` — zero-padded sequential number, kebab-case slug.
+- **Numbering:** claim the next number by adding a row to the index table in the same commit that introduces the ADR.
+- **Template:** start from [`TEMPLATE.md`](TEMPLATE.md). Sections are Status / Context / Decision / Alternatives Considered / Consequences.
+- **Lifecycle:** `Draft` on first commit → `Accepted` after maintainer sign-off → `Superseded by ADR-XXX` when replaced. Superseded ADRs stay in place; do not delete history.
+- **Single decision per ADR.** If the draft grows two decisions, split it.
+- **Cite sources.** Retroactive ADRs in particular must cite the commits, PRs, and issues they summarize.
+
+## Contributing
+
+New ADRs are typically authored by the [`architect` agent](../../scripts/agents/architect.md) when an in-flight change trips one of its triggers: schema changes, a new top-level directory, cross-module refactors, adding or removing an external tool dependency, adding or changing a CI workflow, and new features or tools that shape how the repo is built. Maintainers can also author ADRs directly. Either way, the ADR lands as `Status: Draft` and waits for sign-off before being marked `Accepted`.
