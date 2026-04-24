@@ -2467,17 +2467,15 @@ risks:
       - controlComponentIdentityProvenance
     examples:
       - >
-        Zhou's framework for <a href="https://arxiv.org/abs/2603.14332"
+        Zhou's framework on <a href="https://arxiv.org/abs/2603.14332"
         target="_blank" rel="noopener">governing dynamic AI agent capabilities
-        (2026)</a> identifies the "capability-identity gap" as the central
-        governance failure: an agent's capabilities can change after
-        authorization — through silent escalation, underlying model
-        substitution, or runtime behavioral drift — without any mechanism to
-        detect that the identity credentials still authorizing the agent are
-        now bound to a different capability set. The paper evaluates 12 such
-        attack scenarios and proposes capability-bound certificates and
-        reproducibility commitments as the cryptographic-binding mechanisms
-        that close the gap.
+        (2026)</a> frames this as a capability-context separation problem: an
+        agent's capabilities can change after authorization — through silent
+        escalation, underlying model substitution, or runtime behavioral drift
+        — without any mechanism to detect that the identity credentials still
+        authorizing the agent are now bound to a different capability set. The
+        paper proposes cryptographic binding between agent identity and the
+        specific tool set authorized at issuance as the mitigation.
     tourContent:
       introduced:
         - >
@@ -2692,7 +2690,7 @@ risks:
       - controlAgentCredentialIsolation
     examples:
       - >
-        A <a href="https://www.gartner.com/en/newsroom/press-releases/2025-11-19-gartner-identifies-critical-genai-blind-spots-that-cios-must-urgently-address"
+        A <a href="https://www.gartner.com/en/newsroom/press-releases/2025-11-19-gartner-identifies-critical-genai-blind-spots-that-cios-must-urgently-address0"
         target="_blank" rel="noopener">Gartner survey of 302 cybersecurity
         leaders (2025)</a> found that 69% of organizations suspect or have
         evidence that employees are using prohibited public GenAI. Gartner
