@@ -29,6 +29,7 @@ If a decision is about *how the Risk Map content model is shaped*, it belongs in
 | [011](011-persona-site-data-schema-contract.md) | `persona-site-data.schema.json` as a versioned producer/consumer contract | Accepted | 2026-04-21 |
 | [012](012-static-spa-architecture.md) | Static client-side SPA — no backend, vanilla ESM, `node --test`, progressive-enhancement a11y | Accepted | 2026-04-21 |
 | [013](013-site-precommit-hooks.md) | Extend the `pre-commit` framework with `site/**` hooks | Accepted | 2026-04-21 |
+| [014](014-yaml-content-security-posture.md) | YAML content security posture for the CoSAI Risk Map | Accepted | 2026-04-24 |
 
 ## Conventions
 
