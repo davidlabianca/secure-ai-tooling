@@ -30,6 +30,9 @@ If a decision is about *how the Risk Map content model is shaped*, it belongs in
 | [012](012-static-spa-architecture.md) | Static client-side SPA — no backend, vanilla ESM, `node --test`, progressive-enhancement a11y | Accepted | 2026-04-21 |
 | [013](013-site-precommit-hooks.md) | Extend the `pre-commit` framework with `site/**` hooks | Accepted | 2026-04-21 |
 | [014](014-yaml-content-security-posture.md) | YAML content security posture for the CoSAI Risk Map | Accepted | 2026-04-24 |
+| [015](015-site-content-sanitization-invariants.md) | `/site/` render-time sanitization invariants — DOM allowlist with bounded emission + mandatory fixture tests | Accepted | 2026-04-25 |
+| [016](016-reference-strategy.md) | Intra-document `{{idXxx}}` sentinels + structured `externalReferences` for outbound citations | Accepted | 2026-04-25 |
+| [017](017-yaml-prose-authoring-subset.md) | Canonical YAML prose authoring subset — markdown tokens authors may write in prose fields | Accepted | 2026-04-25 |
 
 ## Conventions
 
