@@ -41,6 +41,7 @@ If a decision is about *how the Risk Map content model is shaped*, it belongs in
 - **Template:** start from [`TEMPLATE.md`](TEMPLATE.md). Sections are Status / Context / Decision / Alternatives Considered / Consequences.
 - **Lifecycle:** `Draft` on first commit → `Accepted` after maintainer sign-off → `Superseded by ADR-XXX` when replaced. Superseded ADRs stay in place; do not delete history.
 - **Single decision per ADR.** If the draft grows two decisions, split it.
+- **Decision sub-sections use a `D` prefix** (`### D1.`, `### D2.`, with sub-sub-sections like `#### D3a.` only when needed). Cross-references use the same IDs (`D3`, `D3b`). See [`TEMPLATE.md`](TEMPLATE.md) for the example shape.
 - **Cite sources.** Retroactive ADRs in particular must cite the commits, PRs, and issues they summarize.
 
 ## Contributing

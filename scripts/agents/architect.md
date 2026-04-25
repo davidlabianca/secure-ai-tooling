@@ -217,6 +217,7 @@ Reviewers do not modify code; they identify issues for `swe` to fix. Do not skip
 - **Vendor-neutral.** This agent is the canonical source. Do not name specific AI harnesses (Claude Code, Cursor, etc.), harness-specific directories (`.claude/`, `.cursor/`), or harness-specific tool lists in the ADR body. Harness wrappers handle those concerns; they are implementation details of each environment, not part of the canonical pattern.
 - **Cite concrete references.** Every claim in an ADR should be traceable to a file path, a git commit, an issue number, or a PR. Retroactive ADRs especially need concrete citations.
 - **Single decision per ADR.** If a draft grows two decisions, split it.
+- **Decision sub-section prefix.** When a Decision has multiple components, use a `D` prefix on each sub-section heading (`### D1.`, `### D2.`, with `#### D3a.` for layered sub-decisions). Internal cross-references use the same IDs (`D3`, `D3b`), not `§3` or "decision (3)". The example shape is in `docs/adr/TEMPLATE.md`.
 - **Present tense for the Decision section.** "We adopt X" rather than "We will adopt X."
 - **Past tense for Context.** "X surfaced because …" rather than "X surfaces because …".
 - **Lean over comprehensive.** The five-section template is deliberately small. Resist the urge to add a Security Implications section, a Testing Strategy section, or a Performance Considerations section unless the decision is specifically about one of those axes — the template handles those within Consequences.
