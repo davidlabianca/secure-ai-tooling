@@ -17,7 +17,7 @@ Two pieces of related state matter to this ADR:
 - **`risk-map/yaml/self-assessment.yaml` is locked to the legacy two-persona model.** `self-assessment.schema.json:28-31` constrains the persona-set `value` enum to `[1, 2]`, and `self-assessment.yaml:24-28` populates the two slots with `personaModelCreator: 1` and `personaModelConsumer: 2`. Every question in the file lists `personaModelCreator` and/or `personaModelConsumer` in its `personas` array; no question references any of the eight current personas. The schema's per-question `personas` array (`self-assessment.schema.json:53-56`) `$ref`s the personas-schema `id` enum, which means a contributor *could* add a question targeting a current persona — but the persona-set header at the top of the file would still only accept the two legacy IDs. The artifact is consistent only in the legacy model.
 - **`risk-map/docs/contributing/identification-questions-style-guide.md` exists** and codifies the rules for `identificationQuestions` (5–7 questions per persona, second-person framing, scoping clauses, parenthetical examples with "e.g.", etc.). Neither `personas.schema.json` nor any pre-commit hook reads this guide. The guide itself notes "currently three of eight non-deprecated personas have them"; the remaining five gaps are content work, not schema work, but the systemic gap surfaced by the discovery report is that the *style* rules are prose-only with no machine check.
 
-The discovery work that motivated this Phase 1 epic surfaced personas-specific gaps:
+The discovery work that motivated this set of architectural ADRs surfaced personas-specific gaps:
 
 - **GAP-9 (BLOCKER) — `self-assessment.yaml` legacy persona lock.** Resolved here.
 - **Identification-questions style consistency.** The style guide lives in prose only.
@@ -63,7 +63,7 @@ The schema closes the persona identifier surface against typos by enumeration:
 
   **Decision.** Keep the single-enum + `deprecated` flag pattern. Rationale: (a) the `deprecated` flag is read by the existing builder and is the contract `self-assessment.yaml` archiving (D6) preserves for backward compatibility; (b) splitting the enum into `id-current` and `id-legacy` would force every consumer schema (risks, controls) to choose which enum to `$ref`, and the natural choice (`id-current`) would reject any pre-existing risk that legitimately references a legacy persona during the transition; (c) JSON Schema cannot express "a `risks[].personas` array may not reference an entry whose `deprecated` flag is true" without a cross-file conditional, so the constraint belongs in a validator if it lands at all (see D8).
 
-  The conformance sweep does not split the enum. A future sweep that audits cross-file references for deprecated-persona drift is a candidate validator extension; this ADR scopes it as a follow-up rather than a Phase 1 deliverable.
+  The conformance sweep does not split the enum. A future sweep that audits cross-file references for deprecated-persona drift is a candidate validator extension; this ADR scopes it as a follow-up rather than an in-ADR deliverable.
 
 - **`mappings` property names.** `propertyNames` `$ref`s `frameworks.schema.json#/definitions/framework/properties/id`, the same closed framework-ID enum risks and controls use. Personas inherits the framework single-source-of-truth pattern at zero additional cost.
 
@@ -175,11 +175,11 @@ The style guide at `risk-map/docs/contributing/identification-questions-style-gu
 
 | Style-guide rule | Mechanism | Status |
 |---|---|---|
-| **Count 5–7 questions per persona (when present)** | new `validate-identification-questions.py` pre-commit hook | Phase 2 conformance-sweep deliverable; warn-only until coverage reaches 8 of 8 |
+| **Count 5–7 questions per persona (when present)** | new `validate-identification-questions.py` pre-commit hook | Conformance-sweep deliverable; warn-only until coverage reaches 8 of 8 |
 | **Each question is non-empty** | schema `minLength: 1` per item | Machine-enforced (existing) |
-| **Second-person opener (`Do you`, `Are you`, `Does your`)** | new lint, regex match on prefix | Phase 2 conformance-sweep deliverable |
-| **No exhaustive parenthetical catalogs (≤ 4 items between `(` and `)`)** | new lint, regex on parenthetical bodies | Phase 2 conformance-sweep deliverable |
-| **`e.g.` not `i.e.` for parentheticals** | new lint | Phase 2 conformance-sweep deliverable |
+| **Second-person opener (`Do you`, `Are you`, `Does your`)** | new lint, regex match on prefix | Conformance-sweep deliverable |
+| **No exhaustive parenthetical catalogs (≤ 4 items between `(` and `)`)** | new lint, regex on parenthetical bodies | Conformance-sweep deliverable |
+| **`e.g.` not `i.e.` for parentheticals** | new lint | Conformance-sweep deliverable |
 | **Activities not titles** | reviewer checklist, content-reviewer agent | Prose-only (editorial) |
 | **Scoping clauses for boundary-shared activities** | content-reviewer agent | Prose-only (editorial) |
 | **Question ordering (distinguishing first, boundary-clarifying last)** | content-reviewer agent | Prose-only (editorial) |
@@ -189,7 +189,7 @@ The **structural** rules (count, opener prefix, parenthetical-list cardinality, 
 
 **Coordination with the existing `audit-identification-questions` skill.** The repository carries an existing skill that audits identification questions during content review. The new lint is the *machine-enforcement* layer; the skill is the *editorial-review* layer. They overlap on the structural rules — the skill is welcome to flag a count of 4 in its review output, and the lint is welcome to block the same count. The skill remains authoritative for the editorial rules.
 
-**The `validate-identification-questions.py` hook (Phase 2 deliverable).** Pattern matches [ADR-013](013-site-precommit-hooks.md)'s pre-commit-hook conventions. Walks `personas.yaml`, reads the personas `id` enum from the schema, walks each non-deprecated persona's `identificationQuestions`, applies the four structural rules, blocks on violations. Ships in **warn-only** mode for the duration of the sweep (because the count-5-to-7 rule will fail today for 5 of 8 personas; the warn phase gives content authors time to write the missing questions); flips to block in the same commit that completes the personas-related sweep, including the gap-fill content. This staging mirrors [ADR-016](016-reference-strategy.md) D6's and [ADR-017](017-yaml-prose-authoring-subset.md) D4's warn-then-block staging patterns.
+**The `validate-identification-questions.py` hook (conformance-sweep deliverable).** Pattern matches [ADR-013](013-site-precommit-hooks.md)'s pre-commit-hook conventions. Walks `personas.yaml`, reads the personas `id` enum from the schema, walks each non-deprecated persona's `identificationQuestions`, applies the four structural rules, blocks on violations. Ships in **warn-only** mode for the duration of the sweep (because the count-5-to-7 rule will fail today for 5 of 8 personas; the warn-only stage gives content authors time to write the missing questions); flips to block in the same commit that completes the personas-related sweep, including the gap-fill content. This staging mirrors [ADR-016](016-reference-strategy.md) D6's and [ADR-017](017-yaml-prose-authoring-subset.md) D4's warn-then-block staging patterns.
 
 The hook is a personas-specific concern; it does not generalize to risks/controls/components style rules. A future per-content style guide (if one emerges) gets its own hook by the same pattern.
 
@@ -201,11 +201,11 @@ Smaller personas-specific gaps surfaced by the discovery work, scoped to the con
 
 - **Persona ordering.** The persona-site builder reads personas in source order (`build_persona_site_data.py:108`). Today's ordering — providers first, governance and end-user last, legacy at the bottom — is the UX order. The schema does not constrain order; an author who reordered the entries would change the SPA's display order silently. **Decision: stays an authoring convention.** Encoding the order in the schema (e.g., via a per-persona `displayOrder: integer` field) is a content-model change owned by `risk-map/docs/design/`. The content-reviewer agent flags reordering during review; that is the enforcement layer.
 
-- **Deprecated-persona reference enforcement.** The schema does not enforce that `risks[].personas` and `controls[].personas` arrays reference only non-deprecated personas. Today's content complies; a regression would be invisible to validation. **Decision: scope a follow-up validator.** A new `validate_persona_active_references.py` (or a check inside `validate_control_risk_references.py`) that fails when a structured persona reference points at a `deprecated: true` entry. Phase 2 conformance-sweep deliverable, separate from D6's archiving work.
+- **Deprecated-persona reference enforcement.** The schema does not enforce that `risks[].personas` and `controls[].personas` arrays reference only non-deprecated personas. Today's content complies; a regression would be invisible to validation. **Decision: scope a follow-up validator.** A new `validate_persona_active_references.py` (or a check inside `validate_control_risk_references.py`) that fails when a structured persona reference points at a `deprecated: true` entry. Conformance-sweep deliverable, separate from D6's archiving work.
 
 - **Required `identificationQuestions`.** The schema marks `identificationQuestions` as optional. Today's content has 3 of 8 current personas with questions, 5 without. The style guide says "All non-deprecated personas should eventually have identification questions" — an aspirational rule, not an enforced one. **Decision: stays optional in the schema.** Making the field required-when-not-deprecated is a conditional constraint that JSON Schema can express (`if not deprecated then required: identificationQuestions`) but the content does not yet satisfy it; tightening the schema before the gap-fill content lands would block every commit. The style-guide gap-fill is content work owned by future PRs; once 8 of 8 current personas have questions, the schema can tighten in a coordinated commit.
 
-- **`additionalProperties: false` on the persona object.** The schema today does **not** set `additionalProperties: false` on the `persona` definition. A typo'd field name (`identificationQuestion` singular, `responsabilities` misspelled) would silently pass and silently produce nothing in the persona-site builder's output. The Phase 2 sweep adds `"additionalProperties": false` to the `persona` definition. Coordinated with the analogous tightening in ADR-019 D8 for risks.
+- **`additionalProperties: false` on the persona object.** The schema today does **not** set `additionalProperties: false` on the `persona` definition. A typo'd field name (`identificationQuestion` singular, `responsabilities` misspelled) would silently pass and silently produce nothing in the persona-site builder's output. The conformance sweep adds `"additionalProperties": false` to the `persona` definition. Coordinated with the analogous tightening in ADR-019 D8 for risks.
 
 ### D9. Per-rule machine-enforcement summary
 
@@ -217,25 +217,25 @@ Smaller personas-specific gaps surfaced by the discovery work, scoped to the con
 | D2 `deprecated` is boolean | schema | Machine-enforced (existing) |
 | D2 current vs. legacy partition | `deprecated: true` flag, no schema-level partition | Convention (deliberate per D2) |
 | D3 cross-file persona references resolve to known IDs | schema `$ref` from risks/controls/self-assessment | Machine-enforced (existing) |
-| D3 active-only persona references in cross-file arrays | recommended new validator | Phase 2 sweep deliverable (D8) |
+| D3 active-only persona references in cross-file arrays | recommended new validator | Conformance-sweep deliverable (D8) |
 | D4 prose shape (`description` `array<string \| array<string>>`) | `riskmap.schema.json#/definitions/utils/text` | Machine-enforced (existing); tightened in sweep per ADR-019 D4 |
 | D4 `responsibilities`/`identificationQuestions` non-empty per item | schema `minLength: 1` | Machine-enforced (existing) |
-| D4 prose content subset (markdown subset, no inline URLs) | `validate-yaml-prose-subset` ([ADR-017](017-yaml-prose-authoring-subset.md)) | Machine-enforced (Phase 2 sweep) |
-| D4 sentinel-ID resolution in prose | `validate_prose_references.py` ([ADR-016](016-reference-strategy.md)) | Machine-enforced (Phase 2 sweep) |
+| D4 prose content subset (markdown subset, no inline URLs) | `validate-yaml-prose-subset` ([ADR-017](017-yaml-prose-authoring-subset.md)) | Machine-enforced (conformance sweep) |
+| D4 sentinel-ID resolution in prose | `validate_prose_references.py` ([ADR-016](016-reference-strategy.md)) | Machine-enforced (conformance sweep) |
 | D4 schema-side `<>()` coarse reject on prose | `definitions/prose` pattern (optional) | Deferred (D4 rationale; aligned with ADRs 018/019) |
-| D5 `externalReferences` shape | shared schema `external-references.schema.json` `$ref` ([ADR-016](016-reference-strategy.md)) | Machine-enforced once Phase 2 sweep lands |
-| D6 `self-assessment.yaml` archived under `risk-map/yaml/archive/` | conformance-sweep file move + header marker | Phase 2 sweep deliverable |
-| D6 `self-assessment.schema.json` frozen | conformance-sweep file move | Phase 2 sweep deliverable |
-| D7 identification-questions count 5–7 (when present) | new `validate-identification-questions.py` lint | Phase 2 sweep deliverable; warn-only until 8/8 coverage |
-| D7 second-person opener | new lint | Phase 2 sweep deliverable |
-| D7 parenthetical cardinality ≤ 4, "e.g." not "i.e." | new lint | Phase 2 sweep deliverable |
+| D5 `externalReferences` shape | shared schema `external-references.schema.json` `$ref` ([ADR-016](016-reference-strategy.md)) | Machine-enforced once the conformance sweep lands |
+| D6 `self-assessment.yaml` archived under `risk-map/yaml/archive/` | conformance-sweep file move + header marker | Conformance-sweep deliverable |
+| D6 `self-assessment.schema.json` frozen | conformance-sweep file move | Conformance-sweep deliverable |
+| D7 identification-questions count 5–7 (when present) | new `validate-identification-questions.py` lint | Conformance-sweep deliverable; warn-only until 8/8 coverage |
+| D7 second-person opener | new lint | Conformance-sweep deliverable |
+| D7 parenthetical cardinality ≤ 4, "e.g." not "i.e." | new lint | Conformance-sweep deliverable |
 | D7 activities-not-titles, scoping clauses, ordering, anti-patterns | content-reviewer agent + audit-identification-questions skill | Prose-only (editorial) |
 | D8 `mappings` value shape | not enforced; framework-content design question | Prose-only (deferred to design) |
 | D8 persona ordering | not enforced; authoring convention | Prose-only (editorial) |
-| D8 `additionalProperties: false` on `persona` | schema constraint | Phase 2 sweep deliverable |
+| D8 `additionalProperties: false` on `persona` | schema constraint | Conformance-sweep deliverable |
 | D8 `identificationQuestions` required when not deprecated | not enforced today; revisit after gap-fill | Deferred (D8 rationale) |
 
-Every machine-enforceable rule is enforced or has a named Phase 2 mechanism. The rows that resolve to "prose-only" are explicit editorial-judgment carve-outs (the four D7 editorial rules, the two D8 design questions) rather than rot-prone gaps.
+Every machine-enforceable rule is enforced or has a named conformance-sweep mechanism. The rows that resolve to "prose-only" are explicit editorial-judgment carve-outs (the four D7 editorial rules, the two D8 design questions) rather than rot-prone gaps.
 
 ## Alternatives Considered
 
@@ -270,14 +270,14 @@ Every machine-enforceable rule is enforced or has a named Phase 2 mechanism. The
 
 **Follow-up**
 
-- **Phase 2 conformance sweep — personas-specific deliverables.** A coordinated commit (or sequence) that:
+- **Conformance sweep — personas-specific deliverables.** A coordinated commit (or sequence) that:
   1. Adds `personas.schema.json` `externalReferences` `$ref` line per D5 (depends on `external-references.schema.json` being authored first per [ADR-016](016-reference-strategy.md) D3).
   2. Adds `additionalProperties: false` to the `persona` definition per D8.
   3. Authors `scripts/hooks/precommit/validate_identification_questions.py` per D7 (Python, TDD via the testing agent per [ADR-005](005-pre-commit-framework.md) / [ADR-013](013-site-precommit-hooks.md) patterns). Ships warn-only; flips to block in the sweep-closing commit, after the content gap-fill (below) lands.
-- **Phase 2 conformance sweep — self-assessment archive (D6).** Move `self-assessment.yaml` to `risk-map/yaml/archive/self-assessment-legacy.yaml`. Move `self-assessment.schema.json` to `risk-map/schemas/archive/self-assessment-legacy.schema.json`. Add header markers (`_legacy: true`, supersession pointer to this ADR). Update `.pre-commit-config.yaml` to validate (or exclude) the archived files. Update `risk-map/docs/` cross-references.
+- **Conformance sweep — self-assessment archive (D6).** Move `self-assessment.yaml` to `risk-map/yaml/archive/self-assessment-legacy.yaml`. Move `self-assessment.schema.json` to `risk-map/schemas/archive/self-assessment-legacy.schema.json`. Add header markers (`_legacy: true`, supersession pointer to this ADR). Update `.pre-commit-config.yaml` to validate (or exclude) the archived files. Update `risk-map/docs/` cross-references.
 - **Content sweep — identification-questions gap-fill.** Author 5–7 questions each for `personaDataProvider`, `personaModelServing`, `personaApplicationDeveloper`, `personaGovernance`, and any other current persona without questions. Per the style guide. Content-reviewer agent owns the review; the existing `audit-identification-questions` skill is the editorial gate. Lands before the lint flips to block.
-- **Phase 2 conformance sweep — deprecated-persona reference validator (D8).** A new check (in `validate_control_risk_references.py` or a sibling) that fails when `risks[].personas` or `controls[].personas` references a `deprecated: true` persona. TDD. Ships block-mode from day one (today's content already complies).
-- **Epic follow-up — formal removal of the two legacy personas.** Sequenced strictly **after** the self-assessment archive (D6) lands, since `self-assessment.yaml`'s `value: [1, 2]` persona-set enum is the only remaining hard dependency on the legacy IDs. Once the archive is complete and the deprecated-persona reference validator (above) confirms no active risk/control content references the legacy IDs, a follow-up PR removes `personaModelCreator` and `personaModelConsumer` from `personas.yaml`, removes them from the `personas.schema.json` `id` enum (changing the closed enum from 10 values to 8), and clears any remaining cross-references. The removal is a single coordinated commit touching the schema and the YAML. This work is **out of the current epic's Phase 2 scope** — the epic archives the self-assessment and lands the validator; legacy-persona removal is the clean follow-on once both are in place. Track it as a separate issue or roll into the next content-sweep cycle per maintainer preference.
+- **Conformance sweep — deprecated-persona reference validator (D8).** A new check (in `validate_control_risk_references.py` or a sibling) that fails when `risks[].personas` or `controls[].personas` references a `deprecated: true` persona. TDD. Ships block-mode from day one (today's content already complies).
+- **Follow-on — formal removal of the two legacy personas.** Sequenced strictly **after** the self-assessment archive (D6) lands, since `self-assessment.yaml`'s `value: [1, 2]` persona-set enum is the only remaining hard dependency on the legacy IDs. Once the archive is complete and the deprecated-persona reference validator (above) confirms no active risk/control content references the legacy IDs, a follow-up PR removes `personaModelCreator` and `personaModelConsumer` from `personas.yaml`, removes them from the `personas.schema.json` `id` enum (changing the closed enum from 10 values to 8), and clears any remaining cross-references. The removal is a single coordinated commit touching the schema and the YAML. This work is **out of the conformance sweep's scope** — the sweep archives the self-assessment and lands the validator; legacy-persona removal is the clean follow-on once both are in place. Track it as a separate issue or roll into the next content-sweep cycle per maintainer preference.
 - **Successor self-assessment design (deferred).** If the framework concludes that the persona-site explorer is *not* a sufficient successor for the legacy quiz, a future framework-content ADR in `risk-map/docs/design/` designs the successor artifact and a future tooling-side ADR adds its schema. This ADR does not pre-empt either decision; it archives the legacy and clears the path.
 - **`definitions/utils/text` schema-pattern call (sweep-wide).** The optional `<>()` reject pattern in [ADR-017](017-yaml-prose-authoring-subset.md) D3 lives on the shared `riskmap.schema.json#/definitions/utils/text`. A sweep-wide decision applies to risks, controls, components, and personas at once. If adopted, personas inherits via the existing `$ref` with no further edit.
 - **Persona-design framework-content ADR (out of this ADR's scope).** Open questions on `mappings` value shape (D8), persona ordering (D8), `lifecycleRole` enum (alternative considered), and successor self-assessment design (D6) all belong in `risk-map/docs/design/persona-design.md` rather than `docs/adr/`. Tracked as a separate concern; this ADR records the deliberate split.
