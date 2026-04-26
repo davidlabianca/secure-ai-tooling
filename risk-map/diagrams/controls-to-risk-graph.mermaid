@@ -33,11 +33,18 @@ graph LR
     subgraph risksDeploymentAndInfrastructure ["Deployment And Infrastructure Risks"]
         riskAcceleratorAndSystemSideChannels[Accelerator and System Side-channels]
         riskAdapterPEFTInjection[Adapter/PEFT Injection]
+        riskAgentDelegationChainOpacity[Agent Delegation Chain Opacity]
+        riskAgenticDelegationConfusedDeputy[Agentic Delegation Confused Deputy]
+        riskCrossTenantCredentialPropagation[Cross-Tenant Credential Propagation]
         riskInsecureIntegratedComponent[Insecure Integrated Component]
+        riskMCPTransportHijacking[MCP Transport Hijacking]
         riskModelDeploymentTampering[Model Deployment Tampering]
         riskModelExfiltration[Model Exfiltration]
         riskModelReverseEngineering[Model Reverse Engineering]
+        riskShadowAndUnknownAgents[Shadow and Unknown Agents]
+        riskStaleAgentIdentityBinding[Stale Agent Identity Binding]
         riskToolRegistryTampering[Tool Registry Tampering]
+        riskZombieShadowMCPServers[Zombie / Shadow MCP Servers]
     end
 
     subgraph risksRuntimeInputSecurity ["Runtime Input Security Risks"]
@@ -45,6 +52,7 @@ graph LR
         riskEconomicDenialOfWallet[Economic Denial of Wallet]
         riskModelEvasion[Model Evasion]
         riskPromptInjection[Prompt Injection]
+        riskRunawayAgentToolLoops[Runaway Agent Tool Loops]
     end
 
     subgraph risksRuntimeOutputSecurity ["Runtime Output Security Risks"]
@@ -68,6 +76,8 @@ graph LR
     end
 
     subgraph controlsInfrastructure ["Infrastructure Controls"]
+        controlComponentIdentityProvenance[Component Identity Provenance]
+        controlInterComponentTransportSecurity[Inter-Component Transport Security]
         controlIsolatedConfidentialComputing[Isolated and Confidential Computing]
         controlModelAndDataAccessControls[Model and Data Access Controls]
         controlModelAndDataExecutionIntegrity[Model and Data Execution Integrity]
@@ -84,6 +94,10 @@ graph LR
     end
 
     subgraph controlsApplication ["Application Controls"]
+        controlAgentCredentialIsolation[Agent Credential Isolation]
+        controlAgentExecutionBounds[Agent Execution Bounds]
+        controlAgentIntegrityManagement[Agent Integrity Management]
+        controlAgentInventoryManagement[Agent Inventory Management]
         controlAgentObservability[Agent Observability]
         controlAgentPluginPermissions[Agent Permissions]
         controlAgentPluginUserControl[Agent User Control]
@@ -121,16 +135,18 @@ graph LR
     end
 
     subgraph componentsModel ["Model Components"]
-        componentMemory[Model Memory]
         componentModelFrameworksAndCode[Model Frameworks and Code]
-        componentOrchestrationInputHandling[Input Handling]
-        componentOrchestrationOutputHandling[Output Handling]
         componentRAGContent[Retrieval Augmented Generation & Content]
         componentTheModel[The Model]
-        componentTools[External Tools and Services]
         subgraph componentsModelSubgroup ["Model Subgroup"]
             componentModelEvaluation[Model Evaluation]
             componentModelTrainingTuning[Training and Tuning]
+        end
+        subgraph componentsSubgroup4 ["Subgroup4"]
+            componentMemory[Model Memory]
+            componentOrchestrationInputHandling[Input Handling]
+            componentOrchestrationOutputHandling[Output Handling]
+            componentTools[External Tools and Services]
         end
     end
 
@@ -170,6 +186,7 @@ graph LR
     riskModelExfiltration --> controlModelAndDataIntegrityManagement
     riskModelExfiltration --> controlModelAndDataInventoryManagement
     riskModelExfiltration --> controlSecureByDefaultMLTooling
+    riskModelDeploymentTampering --> controlInterComponentTransportSecurity
     riskModelDeploymentTampering --> controlIsolatedConfidentialComputing
     riskModelDeploymentTampering --> controlModelAndDataExecutionIntegrity
     riskModelDeploymentTampering --> controlOrchestratorAndRouteIntegrity
@@ -177,6 +194,8 @@ graph LR
     riskDenialOfMLService --> controlApplicationAccessManagement
     riskModelReverseEngineering --> controlApplicationAccessManagement
     riskInsecureIntegratedComponent --> controlAgentPluginPermissions
+    riskInsecureIntegratedComponent --> controlInputValidationAndSanitization
+    riskInsecureIntegratedComponent --> controlInterComponentTransportSecurity
     riskInsecureIntegratedComponent --> controlModelAndDataExecutionIntegrity
     riskInsecureIntegratedComponent --> controlUserPoliciesAndEducation
     riskPromptInjection --> controlAdversarialTrainingAndTesting
@@ -205,6 +224,7 @@ graph LR
     riskAcceleratorAndSystemSideChannels --> controlIsolatedConfidentialComputing
     riskAcceleratorAndSystemSideChannels --> controlModelAndDataAccessControls
     riskAcceleratorAndSystemSideChannels --> controlSecureByDefaultMLTooling
+    riskEconomicDenialOfWallet --> controlAgentExecutionBounds
     riskEconomicDenialOfWallet --> controlApplicationAccessManagement
     riskFederatedDistributedTrainingPrivacy --> controlModelAndDataIntegrityManagement
     riskFederatedDistributedTrainingPrivacy --> controlModelPrivacyEnhancingTechnologies
@@ -215,7 +235,9 @@ graph LR
     riskAdapterPEFTInjection --> controlModelAndDataIntegrityManagement
     riskAdapterPEFTInjection --> controlSecureByDefaultMLTooling
     riskToolRegistryTampering --> controlAgentObservability
+    riskToolRegistryTampering --> controlInterComponentTransportSecurity
     riskToolRegistryTampering --> controlOrchestratorAndRouteIntegrity
+    riskOrchestratorRouteHijacking --> controlInterComponentTransportSecurity
     riskOrchestratorRouteHijacking --> controlIsolatedConfidentialComputing
     riskOrchestratorRouteHijacking --> controlModelAndDataAccessControls
     riskOrchestratorRouteHijacking --> controlModelAndDataIntegrityManagement
@@ -242,6 +264,34 @@ graph LR
     riskRetrievalVectorStorePoisoning --> controlOutputValidationAndSanitization
     riskRetrievalVectorStorePoisoning --> controlRetrievalAndVectorSystemIntegrity
     riskRetrievalVectorStorePoisoning --> controlTrainingDataSanitization
+    riskAgentDelegationChainOpacity --> controlAgentIntegrityManagement
+    riskAgentDelegationChainOpacity --> controlAgentInventoryManagement
+    riskAgentDelegationChainOpacity --> controlAgentObservability
+    riskStaleAgentIdentityBinding --> controlAgentCredentialIsolation
+    riskStaleAgentIdentityBinding --> controlAgentIntegrityManagement
+    riskStaleAgentIdentityBinding --> controlComponentIdentityProvenance
+    riskStaleAgentIdentityBinding --> controlModelAndDataIntegrityManagement
+    riskMCPTransportHijacking --> controlComponentIdentityProvenance
+    riskMCPTransportHijacking --> controlInterComponentTransportSecurity
+    riskMCPTransportHijacking --> controlSecureByDefaultMLTooling
+    riskShadowAndUnknownAgents --> controlAgentCredentialIsolation
+    riskShadowAndUnknownAgents --> controlAgentIntegrityManagement
+    riskShadowAndUnknownAgents --> controlAgentInventoryManagement
+    riskShadowAndUnknownAgents --> controlAgentObservability
+    riskShadowAndUnknownAgents --> controlSecureByDefaultMLTooling
+    riskRunawayAgentToolLoops --> controlAgentExecutionBounds
+    riskRunawayAgentToolLoops --> controlAgentObservability
+    riskAgenticDelegationConfusedDeputy --> controlAgentObservability
+    riskAgenticDelegationConfusedDeputy --> controlAgentPluginPermissions
+    riskAgenticDelegationConfusedDeputy --> controlSecureByDefaultMLTooling
+    riskCrossTenantCredentialPropagation --> controlAgentCredentialIsolation
+    riskCrossTenantCredentialPropagation --> controlAgentPluginPermissions
+    riskCrossTenantCredentialPropagation --> controlIsolatedConfidentialComputing
+    riskCrossTenantCredentialPropagation --> controlSecureByDefaultMLTooling
+    riskZombieShadowMCPServers --> controlAgentInventoryManagement
+    riskZombieShadowMCPServers --> controlAgentObservability
+    riskZombieShadowMCPServers --> controlComponentIdentityProvenance
+    riskZombieShadowMCPServers --> controlInterComponentTransportSecurity
 
     %% Control to Component relationships (reused from ControlGraph)
     controlModelPrivacyEnhancingTechnologies --> componentsModelSubgroup
@@ -291,12 +341,35 @@ graph LR
     controlRetrievalAndVectorSystemIntegrity --> componentDataStorage
     controlOrchestratorAndRouteIntegrity --> componentApplication
     controlOrchestratorAndRouteIntegrity --> componentModelServing
+    controlAgentInventoryManagement --> componentOrchestrationInputHandling
+    controlAgentInventoryManagement --> componentOrchestrationOutputHandling
+    controlAgentInventoryManagement --> componentReasoningCore
+    controlAgentInventoryManagement --> componentTools
+    controlAgentIntegrityManagement --> componentModelServing
+    controlAgentIntegrityManagement --> componentOrchestrationInputHandling
+    controlAgentIntegrityManagement --> componentReasoningCore
+    controlAgentIntegrityManagement --> componentTools
+    controlAgentCredentialIsolation --> componentReasoningCore
+    controlAgentCredentialIsolation --> componentsSubgroup4
+    controlInterComponentTransportSecurity --> componentApplication
+    controlInterComponentTransportSecurity --> componentModelServing
+    controlInterComponentTransportSecurity --> componentOrchestrationInputHandling
+    controlInterComponentTransportSecurity --> componentOrchestrationOutputHandling
+    controlInterComponentTransportSecurity --> componentTools
+    controlComponentIdentityProvenance --> componentApplication
+    controlComponentIdentityProvenance --> componentModelServing
+    controlComponentIdentityProvenance --> componentOrchestrationInputHandling
+    controlComponentIdentityProvenance --> componentOrchestrationOutputHandling
+    controlComponentIdentityProvenance --> componentTools
+    controlAgentExecutionBounds --> componentOrchestrationInputHandling
+    controlAgentExecutionBounds --> componentOrchestrationOutputHandling
+    controlAgentExecutionBounds --> componentReasoningCore
 
     %% Edge styling
-    linkStyle 0,4,8,12,16,20,24,28,32,36,40,44,48,52,56,60,64,68,72,76,80,84,88,92 stroke:#e6cbce,stroke-width:2px,stroke-dasharray: 5 3
-    linkStyle 1,5,9,13,17,21,25,29,33,37,41,45,49,53,57,61,65,69,73,77,81,85,89,93 stroke:#b66871,stroke-width:2px,stroke-dasharray: 8 4
-    linkStyle 2,6,10,14,18,22,26,30,34,38,42,46,50,54,58,62,66,70,74,78,82,86,90 stroke:#b66871,stroke-width:2px,stroke-dasharray: 10 2
-    linkStyle 3,7,11,15,19,23,27,31,35,39,43,47,51,55,59,63,67,71,75,79,83,87,91 stroke:#1c0d0f,stroke-width:2px,stroke-dasharray: 12 5
+    linkStyle 0,4,8,12,16,20,24,28,32,36,40,44,48,52,56,60,64,68,72,76,80,84,88,92,96,100,104,108,112,116,120,124 stroke:#e6cbce,stroke-width:2px,stroke-dasharray: 5 3
+    linkStyle 1,5,9,13,17,21,25,29,33,37,41,45,49,53,57,61,65,69,73,77,81,85,89,93,97,101,105,109,113,117,121,125 stroke:#b66871,stroke-width:2px,stroke-dasharray: 8 4
+    linkStyle 2,6,10,14,18,22,26,30,34,38,42,46,50,54,58,62,66,70,74,78,82,86,90,94,98,102,106,110,114,118,122,126 stroke:#b66871,stroke-width:2px,stroke-dasharray: 10 2
+    linkStyle 3,7,11,15,19,23,27,31,35,39,43,47,51,55,59,63,67,71,75,79,83,87,91,95,99,103,107,111,115,119,123,127 stroke:#1c0d0f,stroke-width:2px,stroke-dasharray: 12 5
 
 %% Node style definitions
     style risksSupplyChainAndDevelopment fill:#ffeef0,stroke:#e91e63,stroke-width:2px
