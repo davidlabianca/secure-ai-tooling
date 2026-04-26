@@ -34,7 +34,7 @@ If a decision is about *how the Risk Map content model is shaped*, it belongs in
 | [016](016-reference-strategy.md) | Intra-document `{{idXxx}}` sentinels + structured `externalReferences` for outbound citations | Accepted | 2026-04-25 |
 | [017](017-yaml-prose-authoring-subset.md) | Canonical YAML prose authoring subset — markdown tokens authors may write in prose fields | Accepted | 2026-04-25 |
 | [018](018-components-schema.md) | `components.schema.json` design — closed enums, edge validator boundary, no ghost fields | Accepted | 2026-04-25 |
-| [019](019-risks-schema-design.md) | `risks.schema.json` design — `relevantQuestions` retirement, mapping patterns, BLOCK-02 input tightening | Accepted | 2026-04-25 |
+| [019](019-risks-schema.md) | `risks.schema.json` design — `relevantQuestions` retirement, mapping patterns, BLOCK-02 input tightening | Accepted | 2026-04-25 |
 | [020](020-controls-schema.md) | `controls.schema.json` design — closed enums, controls↔components mirror, folded-bullet drift heuristic | Accepted | 2026-04-25 |
 | [021](021-personas-and-self-assessment-schema.md) | `personas.schema.json` design + `self-assessment.yaml` archiving (GAP-9) | Accepted | 2026-04-25 |
 | [022](022-supporting-schemas.md) | Supporting schemas grouped — actor-access, impact-type, lifecycle-stage, frameworks (mapping-ID regex), mermaid-styles | Accepted | 2026-04-25 |
