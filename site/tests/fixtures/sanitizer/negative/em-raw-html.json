@@ -1,0 +1,7 @@
+{
+  "negativeForTag": "em",
+  "description": "Raw <em> HTML in input must be escaped per ADR-015 D4. Only the markdown subset forms (*italic* / _italic_) are allowed.",
+  "input": "<em>raw italic</em>",
+  "expectedSubstring": "&lt;em&gt;raw italic&lt;/em&gt;",
+  "mustNotContain": "<em>raw"
+}

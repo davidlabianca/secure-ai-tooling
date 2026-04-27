@@ -1,0 +1,6 @@
+{
+  "vector": "schemeless-bare-domain",
+  "description": "Bare domain without scheme (evil.com/path) is not a valid absolute URL but some parsers accept it. The renderer must reject any URL that does not begin with https://.",
+  "input": {"type": "link", "title": "evil", "url": "evil.example.com/page"},
+  "mustNotContain": "<a "
+}

@@ -1,0 +1,6 @@
+{
+  "tag": "em",
+  "description": "Underscore italic delimiter is also allowed per ADR-017 D1 and renders as <em>.",
+  "input": "This is _italic_ text.",
+  "expectedSubstring": "<em>italic</em>"
+}

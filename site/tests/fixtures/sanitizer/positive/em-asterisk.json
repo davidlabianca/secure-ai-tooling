@@ -1,0 +1,6 @@
+{
+  "tag": "em",
+  "description": "Single-asterisk italic renders as <em> with no attributes.",
+  "input": "This is *italic* text.",
+  "expectedSubstring": "<em>italic</em>"
+}
