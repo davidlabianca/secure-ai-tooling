@@ -1,0 +1,6 @@
+{
+  "vector": "url-null-byte",
+  "description": "A null byte (U+0000) embedded in the URL string between the scheme and the rest. A naive startsWith check on https:// passes because the scheme appears before the null. JSON.parse decodes \\u0000 to an actual null byte in the url string.",
+  "input": {"type": "link", "title": "null-byte-test", "url": "https://\u0000evil.example.com"},
+  "mustNotContain": "<a "
+}

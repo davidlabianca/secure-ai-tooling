@@ -1,4 +1,5 @@
 import { buildResultsModel } from "./persona-logic.mjs";
+import { renderProse } from "./sanitizer.mjs";
 
 const APP_NAME = "CoSAI Risk Map Explorer";
 const DATA_PATH = "./generated/persona-site-data.json";
@@ -69,10 +70,10 @@ function renderRichParagraphs(items, className = "body-copy") {
   return items
     .map((item) => {
       if (Array.isArray(item)) {
-        const inner = item.map((paragraph) => `<p class="${className}">${paragraph}</p>`).join("");
+        const inner = item.map((paragraph) => `<p class="${className}">${renderProse(paragraph)}</p>`).join("");
         return `<div class="subsection">${inner}</div>`;
       }
-      return `<p class="${className}">${item}</p>`;
+      return `<p class="${className}">${renderProse(item)}</p>`;
     })
     .join("");
 }

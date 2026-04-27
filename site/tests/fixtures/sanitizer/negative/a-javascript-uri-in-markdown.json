@@ -1,0 +1,7 @@
+{
+  "negativeForTag": "a",
+  "description": "A markdown link [text](javascript:alert(1)) must not produce an <a> tag. The javascript: scheme is blocked per ADR-015 D5; the whole link must be escaped.",
+  "input": "[click me](javascript:alert(1))",
+  "mustNotContain": "<a ",
+  "mustNotContain2": "javascript:"
+}

@@ -1,0 +1,6 @@
+{
+  "vector": "javascript-uri-lowercase",
+  "description": "Lowercase javascript: URI in a structured link item. The renderer must reject the href and must not emit <a href=\"javascript:...\">. This is the canonical XSS vector via href.",
+  "input": {"type": "link", "title": "xss", "url": "javascript:alert(document.cookie)"},
+  "mustNotContain": "<a "
+}
