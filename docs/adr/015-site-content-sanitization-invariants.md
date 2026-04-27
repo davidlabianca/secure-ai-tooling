@@ -96,6 +96,7 @@ The site-specific threat model this ADR addresses:
 - **XSS via `innerHTML`.** `renderRichParagraphs` is the only un-escaped `innerHTML` write path for content the site renders today. Routing every paragraph through `renderProse` closes that path by construction.
 - **`target="_blank"` rel discipline.** Outbound anchors must carry `rel="noopener noreferrer"` to prevent the new-tab page from accessing `window.opener` and to suppress referrer leakage. The renderer constructs these attributes; authors cannot omit them.
 - **URL scheme escape.** A `javascript:` or `data:` URL in an author-written link is a script-execution vector. `renderProse` rejects any non-`https:` scheme even though ADR-017 also rejects it upstream; the duplicate check is intentional defense-in-depth.
+- **RFC-3986 conformance on URL contents.** A URL containing characters that RFC 3986 § 2 requires to be percent-encoded (`"`, `<`, `>`, `\`, `` ` ``, internal whitespace including space/`\t`/`\n`/`\r`) is rejected at render time as malformed. The single quote `'` is not rejected — it is less risky (the renderer never emits single-quoted attributes) and smart-quote paste-from-document creates a non-trivial false-positive concern. The duplicate check is intentional defense-in-depth: `escapeHtml` neutralizes these characters at the HTML layer at emit time, but rejection at the URL layer matches D3a's bounded-emission posture (no copied-through input) and removes URL-parser-confusion vectors (`\` → `/` substitution in legacy parsers; `\t`/`\n`/`\r` stripped by the WHATWG URL parser per § 4.1, which can change the destination authority).
 
 This is a render-time threat model. Threats specific to the YAML source contract (third-party-renderer hostility, redistribution safety) are ADR-014's domain and ADR-017's responsibility to address upstream.
 
@@ -108,7 +109,8 @@ Every render-time rule in this ADR is machine-enforced by `renderProse`; none ar
 | HTML allowlist limited to `<strong>`, `<em>`, `<a>` (with restricted attributes) | `renderProse` construct + escape disallowed |
 | Allowlist is a hard-coded literal constant in `sanitizer.mjs`, not a runtime parameter | Code structure; reviewer-enforced; meta-test asserts allowlist matches fixture set |
 | URL scheme restricted to `https:` (defense-in-depth; also enforced upstream by ADR-017) | `renderProse` rejects non-`https:` |
-| `<a>` attribute values constructed by renderer, not copied from input | `renderProse` (literal `rel`/`target`; validated `href`) |
+| URL contents are RFC-3986 conformant before emit (rejects `"`, `<`, `>`, `\`, `` ` ``, internal whitespace) | `validateUrl` second-layer check; defense-in-depth on top of emit-time `escapeHtml` |
+| `<a>` attribute values constructed by renderer, not copied from input | `renderProse` (literal `rel`/`target`; validated + HTML-escaped `href`) |
 | Outbound links get `rel="noopener noreferrer" target="_blank"` | `renderProse` constructs attributes |
 | Disallowed markup is escaped, not stripped | `renderProse` |
 | Console warning on escaped input | `renderProse` |
