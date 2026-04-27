@@ -225,6 +225,13 @@ repos:
         files: ^risk-map/yaml/(controls|frameworks|personas|risks)\.yaml$
         pass_filenames: false
 
+      - id: validate-identification-questions
+        name: 'validate: identification-questions structural rules'
+        entry: python3 scripts/hooks/precommit/validate_identification_questions.py
+        language: system
+        files: ^risk-map/yaml/personas\.yaml$
+        pass_filenames: true
+
   # ---------------------------------------------------------------------------
   # Issue template regeneration. Runs before the validator so freshly
   # regenerated templates are validated in the same commit. Triggers on
