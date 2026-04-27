@@ -29,6 +29,15 @@ If a decision is about *how the Risk Map content model is shaped*, it belongs in
 | [011](011-persona-site-data-schema-contract.md) | `persona-site-data.schema.json` as a versioned producer/consumer contract | Accepted | 2026-04-21 |
 | [012](012-static-spa-architecture.md) | Static client-side SPA — no backend, vanilla ESM, `node --test`, progressive-enhancement a11y | Accepted | 2026-04-21 |
 | [013](013-site-precommit-hooks.md) | Extend the `pre-commit` framework with `site/**` hooks | Accepted | 2026-04-21 |
+| [014](014-yaml-content-security-posture.md) | YAML content security posture for the CoSAI Risk Map | Accepted | 2026-04-24 |
+| [015](015-site-content-sanitization-invariants.md) | `/site/` render-time sanitization invariants — DOM allowlist with bounded emission + mandatory fixture tests | Accepted | 2026-04-25 |
+| [016](016-reference-strategy.md) | Intra-document `{{idXxx}}` sentinels + structured `externalReferences` for outbound citations | Accepted | 2026-04-25 |
+| [017](017-yaml-prose-authoring-subset.md) | Canonical YAML prose authoring subset — markdown tokens authors may write in prose fields | Accepted | 2026-04-25 |
+| [018](018-components-schema.md) | `components.schema.json` design — closed enums, edge validator boundary, no ghost fields | Accepted | 2026-04-25 |
+| [019](019-risks-schema.md) | `risks.schema.json` design — `relevantQuestions` retirement, mapping patterns, BLOCK-02 input tightening | Accepted | 2026-04-25 |
+| [020](020-controls-schema.md) | `controls.schema.json` design — closed enums, controls↔components mirror, folded-bullet drift heuristic | Accepted | 2026-04-25 |
+| [021](021-personas-and-self-assessment-schema.md) | `personas.schema.json` design + `self-assessment.yaml` archiving (GAP-9) | Accepted | 2026-04-25 |
+| [022](022-supporting-schemas.md) | Supporting schemas grouped — actor-access, impact-type, lifecycle-stage, frameworks (mapping-ID regex), mermaid-styles | Accepted | 2026-04-25 |
 
 ## Conventions
 
@@ -37,6 +46,7 @@ If a decision is about *how the Risk Map content model is shaped*, it belongs in
 - **Template:** start from [`TEMPLATE.md`](TEMPLATE.md). Sections are Status / Context / Decision / Alternatives Considered / Consequences.
 - **Lifecycle:** `Draft` on first commit → `Accepted` after maintainer sign-off → `Superseded by ADR-XXX` when replaced. Superseded ADRs stay in place; do not delete history.
 - **Single decision per ADR.** If the draft grows two decisions, split it.
+- **Decision sub-sections use a `D` prefix** (`### D1.`, `### D2.`, with sub-sub-sections like `#### D3a.` only when needed). Cross-references use the same IDs (`D3`, `D3b`). See [`TEMPLATE.md`](TEMPLATE.md) for the example shape.
 - **Cite sources.** Retroactive ADRs in particular must cite the commits, PRs, and issues they summarize.
 
 ## Contributing
