@@ -10,8 +10,54 @@
         "oneOf": [
           { "type": "string" },
           {
+            "type": "object",
+            "description": "Intra-document sentinel resolution: {{idXxx}} expands to a typed reference.",
+            "required": ["type", "id", "title"],
+            "additionalProperties": false,
+            "properties": {
+              "type": { "type": "string", "const": "ref" },
+              "id": { "type": "string", "minLength": 1 },
+              "title": { "type": "string", "minLength": 1 }
+            }
+          },
+          {
+            "type": "object",
+            "description": "External sentinel resolution: {{ref:identifier}} expands to a URL from matching externalReferences entry.",
+            "required": ["type", "title", "url"],
+            "additionalProperties": false,
+            "properties": {
+              "type": { "type": "string", "const": "link" },
+              "title": { "type": "string", "minLength": 1 },
+              "url": { "type": "string", "pattern": "^https://" }
+            }
+          },
+          {
             "type": "array",
-            "items": { "type": "string" },
+            "items": {
+              "oneOf": [
+                { "type": "string" },
+                {
+                  "type": "object",
+                  "required": ["type", "id", "title"],
+                  "additionalProperties": false,
+                  "properties": {
+                    "type": { "type": "string", "const": "ref" },
+                    "id": { "type": "string", "minLength": 1 },
+                    "title": { "type": "string", "minLength": 1 }
+                  }
+                },
+                {
+                  "type": "object",
+                  "required": ["type", "title", "url"],
+                  "additionalProperties": false,
+                  "properties": {
+                    "type": { "type": "string", "const": "link" },
+                    "title": { "type": "string", "minLength": 1 },
+                    "url": { "type": "string", "pattern": "^https://" }
+                  }
+                }
+              ]
+            },
             "minItems": 1
           }
         ]
@@ -83,6 +129,9 @@
           "controlCount": {
             "type": "integer",
             "minimum": 0
+          },
+          "externalReferences": {
+            "$ref": "external-references.schema.json#/definitions/externalReferences"
           }
         },
         "additionalProperties": false
@@ -158,6 +207,9 @@
           "personaIds": {
             "type": "array",
             "items": { "type": "string" }
+          },
+          "externalReferences": {
+            "$ref": "external-references.schema.json#/definitions/externalReferences"
           }
         },
         "additionalProperties": false
@@ -180,6 +232,9 @@
           "riskIds": {
             "type": "array",
             "items": { "type": "string" }
+          },
+          "externalReferences": {
+            "$ref": "external-references.schema.json#/definitions/externalReferences"
           }
         },
         "additionalProperties": false
