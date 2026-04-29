@@ -87,10 +87,10 @@ Representation decisions (locked; the implementation must match):
 
 Test Summary
 ============
-Total fixture-parametrized pairs: 42
+Total fixture-parametrized pairs: 55
 - accepting/: 7 fixture pairs (inc. double_underscore_not_bold)
 - sentinels/: 7 fixture pairs
-- rejecting/: 16 fixture pairs
+- rejecting/: 16 fixture pairs (existing) + 14 new URL fixture pairs (commit 5)
 - folded_bullets/: 2 fixture pairs
 - bare_camelcase/: 6 fixture pairs (inc. 3 non-flagging cases)
 - malformed_sentinels/: 4 fixture pairs
@@ -100,6 +100,19 @@ Additional non-fixture tests:
 - TestNestingRules: 6 tests (inc. __bold__ rejection and sentinel-inside-bold)
 - TestMixedRuns: 3 tests
 - TestEmptyAndWhitespace: 4 tests
+- TestCategoricalUrlRejection: 66 tests total (commit 5 — ADR-017 D4 rule 2)
+  - Primary-regex scheme-with-authority: 9 fixture pairs × 2 parametrized = 18 + 8 inline = 26
+  - Named-list opaque-data: 5 fixture pairs × 2 parametrized = 10 + 5 inline = 15
+  - Boundary / edge cases: 10 tests
+  - Negative cases (must not reject): 6 tests
+  - Regression: 3 tests
+  - Gap closures (commit 5 review): 6 tests
+    - Gap 1: test_git_plus_https_full_token_value (full-prefix value lock)
+    - Gap 2: url_ftp_trailing_period fixture pair (2) + test_url_at_end_of_sentence_absorbs_trailing_period (1)
+    - Gap 3: test_url_followed_immediately_by_sentinel_does_not_absorb_sentinel (1)
+  Note: includes 21 permissive boundary tests (accepting either of two
+  implementation choices for URL detection inside bold/italic spans,
+  regression guards, and a strict full-token-value lock for git+https://...).
 
 Coverage target: 90%+ of _prose_tokens.py on green.
 """
@@ -359,6 +372,34 @@ _REJECTING_FIXTURES = [
     "rejecting/image",
     "rejecting/blockquote",
     "rejecting/pipe_table",
+]
+
+# ---------------------------------------------------------------------------
+# Commit 5 — ADR-017 D4 rule 2: categorical URL rejection fixtures
+# ---------------------------------------------------------------------------
+
+# Primary: scheme-with-authority regex  \b[a-z][a-z0-9+.\-]*://\S+
+# These extend http/https coverage to every authority-bearing scheme.
+_URL_PRIMARY_SCHEME_FIXTURES = [
+    "rejecting/url_ftp",  # ftp://example.com/file — dead-scheme drift signal
+    "rejecting/url_file",  # file:///etc/passwd — local-path exposure
+    "rejecting/url_gs",  # gs://bucket/key — cloud ref (belongs in externalReferences per ADR-016)
+    "rejecting/url_s3",  # s3://bucket/key.tar.gz — cloud ref
+    "rejecting/url_ssh",  # ssh://user@host:22/path — SSH URL
+    "rejecting/url_scheme_plus",  # git+https://github.com/user/repo — + in scheme char class
+    "rejecting/url_scheme_dash",  # myscheme-v2://something — - in scheme char class
+    "rejecting/url_scheme_dot",  # myscheme.2://something — . in scheme char class
+    "rejecting/url_ftp_trailing_period",  # ftp://example.com. — trailing period absorbed by \S+ greediness
+]
+
+# Secondary: opaque-data named list (colon-only; no // authority component).
+# These would escape the primary regex, hence the separate named-list rule.
+_URL_OPAQUE_DATA_FIXTURES = [
+    "rejecting/url_opaque_mailto",  # mailto:user@example.com — contact-exposure vector
+    "rejecting/url_opaque_mailto_query",  # mailto:user@example.com?subject=Hello — with query
+    "rejecting/url_opaque_javascript",  # javascript:alert(1) — XSS vector
+    "rejecting/url_opaque_data",  # data:image/png;base64,... — XSS via data URI
+    "rejecting/url_opaque_tel",  # tel:+1-555-0100 — contact-exposure vector
 ]
 
 _FOLDED_BULLET_FIXTURES = [
@@ -1061,6 +1102,770 @@ class TestMixedRuns:
         assert result == expected
         reconstructed = "".join(t.value for t in tokens)
         assert reconstructed == input_text
+
+
+class TestCategoricalUrlRejection:
+    """
+    Verify ADR-017 D4 rule 2: categorical inline-URL rejection.
+
+    The rule has two components:
+      1. Primary — scheme-with-authority regex: \\b[a-z][a-z0-9+.\\-]*://\\S+
+         Catches every RFC-3986 authority-bearing scheme: ftp://, file://, gs://,
+         s3://, ssh://, git+https://, and any future scheme matching the character
+         class. The existing http:// / https:// coverage is a strict subset.
+      2. Secondary — opaque-data named list for colon-only schemes that have no
+         // authority component and would escape the primary regex: mailto:,
+         javascript:, data:, tel:. The named list is non-exhaustive by design;
+         adding to it is a tokenizer change with a one-line ADR amendment.
+
+    Case-sensitivity: case-insensitive matching applies. Real authors write
+    HTTP://, MAILTO:, Ftp:// etc. (typically copy-pasted from vendor docs or
+    browser address bars). A purely lowercase-anchored regex would silently
+    pass HTTP:// as TEXT, defeating the categorical intent. Tests for uppercase
+    and mixed-case forms assert INVALID_URL, which requires case folding
+    (re.IGNORECASE, str.lower() pre-check, or an alternation) before both the
+    primary-regex and named-list checks.
+
+    Token emitted on rejection: INVALID_URL (existing kind, line 56 of
+    _prose_tokens.py). No new TokenKind is introduced — the URL rejection
+    category is INVALID_URL regardless of which scheme triggered the rule.
+
+    Existing http:// / https:// regression tests are in TestRejectingTokens;
+    this class adds the new-scheme coverage without duplicating those.
+    """
+
+    # ------------------------------------------------------------------
+    # Primary-regex fixtures (scheme-with-authority)
+    # ------------------------------------------------------------------
+
+    @pytest.mark.parametrize("fixture_path", _URL_PRIMARY_SCHEME_FIXTURES)
+    def test_primary_scheme_fixture_token_stream(self, fixture_path: str):
+        """
+        Given: input from rejecting/<name>.txt containing a non-http/https scheme URL
+        When: tokenize() is called
+        Then: output matches rejecting/<name>.tokens.json exactly (INVALID_URL for the URL span)
+        """
+        input_text, expected = _load_fixture_pair(fixture_path)
+        result = _tokens_to_dicts(tokenize(input_text))
+        assert result == expected, f"Fixture {fixture_path!r}: expected {expected!r}, got {result!r}"
+
+    @pytest.mark.parametrize("fixture_path", _URL_PRIMARY_SCHEME_FIXTURES)
+    def test_primary_scheme_fixture_has_invalid_url_token(self, fixture_path: str):
+        """
+        Given: a primary-scheme fixture input
+        When: tokenize() is called
+        Then: at least one token has kind INVALID_URL
+        """
+        input_text, _ = _load_fixture_pair(fixture_path)
+        assert any(t.kind == TokenKind.INVALID_URL for t in tokenize(input_text)), (
+            f"Fixture {fixture_path!r}: expected INVALID_URL token, got none"
+        )
+
+    def test_ftp_url_in_prose_emits_invalid_url_token(self):
+        """
+        Given: "ftp://example.com/file" in prose (dead-scheme drift signal)
+        When: tokenize() is called
+        Then: INVALID_URL token with value "ftp://example.com/file"
+
+        ftp:// is a dead-scheme in modern browsers; its presence in YAML prose
+        indicates a URL that belongs in externalReferences per ADR-016.
+        """
+        _require_module()
+        tokens = tokenize("see ftp://example.com/file here")
+        url_tokens = [t for t in tokens if t.kind == TokenKind.INVALID_URL]
+        assert url_tokens, "ftp:// URL must produce INVALID_URL"
+        assert url_tokens[0].value == "ftp://example.com/file"
+
+    def test_file_url_in_prose_emits_invalid_url_token(self):
+        """
+        Given: "file:///etc/passwd" in prose
+        When: tokenize() is called
+        Then: INVALID_URL token with value "file:///etc/passwd"
+
+        file:// URLs have no valid use in YAML prose; they are local-path
+        references that are useless in a browser context and a local-path
+        exposure vector.
+        """
+        _require_module()
+        tokens = tokenize("see file:///etc/passwd here")
+        url_tokens = [t for t in tokens if t.kind == TokenKind.INVALID_URL]
+        assert url_tokens, "file:// URL must produce INVALID_URL"
+        assert url_tokens[0].value == "file:///etc/passwd"
+
+    def test_gs_url_in_prose_emits_invalid_url_token(self):
+        """
+        Given: "gs://bucket/key" in prose (Google Cloud Storage)
+        When: tokenize() is called
+        Then: INVALID_URL token with value "gs://bucket/key"
+
+        Cloud storage references belong in the structured externalReferences
+        field per ADR-014 P3 / ADR-016 D4. The gs:// scheme is specifically
+        called out in ADR-016 D4 as a legitimate cloud reference that still
+        belongs in the structured field.
+        """
+        _require_module()
+        tokens = tokenize("see gs://bucket/key here")
+        url_tokens = [t for t in tokens if t.kind == TokenKind.INVALID_URL]
+        assert url_tokens, "gs:// URL must produce INVALID_URL"
+        assert url_tokens[0].value == "gs://bucket/key"
+
+    def test_s3_url_in_prose_emits_invalid_url_token(self):
+        """
+        Given: "s3://bucket/key.tar.gz" in prose (AWS S3)
+        When: tokenize() is called
+        Then: INVALID_URL token with value "s3://bucket/key.tar.gz"
+        """
+        _require_module()
+        tokens = tokenize("see s3://bucket/key.tar.gz here")
+        url_tokens = [t for t in tokens if t.kind == TokenKind.INVALID_URL]
+        assert url_tokens, "s3:// URL must produce INVALID_URL"
+        assert url_tokens[0].value == "s3://bucket/key.tar.gz"
+
+    def test_ssh_url_in_prose_emits_invalid_url_token(self):
+        """
+        Given: "ssh://user@host:22/path" in prose
+        When: tokenize() is called
+        Then: INVALID_URL token with value "ssh://user@host:22/path"
+        """
+        _require_module()
+        tokens = tokenize("see ssh://user@host:22/path here")
+        url_tokens = [t for t in tokens if t.kind == TokenKind.INVALID_URL]
+        assert url_tokens, "ssh:// URL must produce INVALID_URL"
+        assert url_tokens[0].value == "ssh://user@host:22/path"
+
+    def test_git_plus_https_url_emits_invalid_url_token(self):
+        """
+        Given: "git+https://github.com/user/repo" in prose
+        When: tokenize() is called
+        Then: INVALID_URL token containing the full URL
+
+        The '+' character in the scheme proves the [a-z0-9+.\\-]* character
+        class in the primary regex; the scheme character class must not be
+        restricted to [a-z0-9] only.
+        """
+        _require_module()
+        tokens = tokenize("see git+https://github.com/user/repo here")
+        url_tokens = [t for t in tokens if t.kind == TokenKind.INVALID_URL]
+        assert url_tokens, "git+https:// URL must produce INVALID_URL"
+        assert url_tokens[0].value == "git+https://github.com/user/repo"
+
+    def test_scheme_with_dash_emits_invalid_url_token(self):
+        """
+        Given: "myscheme-v2://something" in prose
+        When: tokenize() is called
+        Then: INVALID_URL token with value "myscheme-v2://something"
+
+        The '-' character in the scheme proves the [a-z0-9+.\\-]* character
+        class (dash). Future schemes like 'coap+tcp://' also rely on this.
+        """
+        _require_module()
+        tokens = tokenize("see myscheme-v2://something here")
+        url_tokens = [t for t in tokens if t.kind == TokenKind.INVALID_URL]
+        assert url_tokens, "myscheme-v2:// must produce INVALID_URL"
+        assert url_tokens[0].value == "myscheme-v2://something"
+
+    def test_scheme_with_dot_emits_invalid_url_token(self):
+        """
+        Given: "myscheme.2://something" in prose
+        When: tokenize() is called
+        Then: INVALID_URL token with value "myscheme.2://something"
+
+        The '.' character in the scheme proves the [a-z0-9+.\\-]* character
+        class (dot). RFC-3986 allows dots in scheme names.
+        """
+        _require_module()
+        tokens = tokenize("see myscheme.2://something here")
+        url_tokens = [t for t in tokens if t.kind == TokenKind.INVALID_URL]
+        assert url_tokens, "myscheme.2:// must produce INVALID_URL"
+        assert url_tokens[0].value == "myscheme.2://something"
+
+    # ------------------------------------------------------------------
+    # Named-list fixtures (opaque-data, no // authority)
+    # ------------------------------------------------------------------
+
+    @pytest.mark.parametrize("fixture_path", _URL_OPAQUE_DATA_FIXTURES)
+    def test_opaque_scheme_fixture_token_stream(self, fixture_path: str):
+        """
+        Given: input from rejecting/<name>.txt containing an opaque-data scheme
+        When: tokenize() is called
+        Then: output matches rejecting/<name>.tokens.json exactly (INVALID_URL for the span)
+        """
+        input_text, expected = _load_fixture_pair(fixture_path)
+        result = _tokens_to_dicts(tokenize(input_text))
+        assert result == expected, f"Fixture {fixture_path!r}: expected {expected!r}, got {result!r}"
+
+    @pytest.mark.parametrize("fixture_path", _URL_OPAQUE_DATA_FIXTURES)
+    def test_opaque_scheme_fixture_has_invalid_url_token(self, fixture_path: str):
+        """
+        Given: an opaque-data fixture input
+        When: tokenize() is called
+        Then: at least one token has kind INVALID_URL
+        """
+        input_text, _ = _load_fixture_pair(fixture_path)
+        assert any(t.kind == TokenKind.INVALID_URL for t in tokenize(input_text)), (
+            f"Fixture {fixture_path!r}: expected INVALID_URL token, got none"
+        )
+
+    def test_mailto_plain_emits_invalid_url_token(self):
+        """
+        Given: "mailto:user@example.com" in prose
+        When: tokenize() is called
+        Then: INVALID_URL token with value "mailto:user@example.com"
+
+        mailto: is a contact-exposure vector; it resolves to the user's mail
+        client in browsers. All contact references belong in externalReferences.
+        """
+        _require_module()
+        tokens = tokenize("contact mailto:user@example.com here")
+        url_tokens = [t for t in tokens if t.kind == TokenKind.INVALID_URL]
+        assert url_tokens, "mailto: must produce INVALID_URL"
+        assert url_tokens[0].value == "mailto:user@example.com"
+
+    def test_mailto_with_query_emits_invalid_url_token(self):
+        """
+        Given: "mailto:user@example.com?subject=Hello" in prose
+        When: tokenize() is called
+        Then: INVALID_URL token covering the full mailto: span including query string
+        """
+        _require_module()
+        tokens = tokenize("contact mailto:user@example.com?subject=Hello here")
+        url_tokens = [t for t in tokens if t.kind == TokenKind.INVALID_URL]
+        assert url_tokens, "mailto: with query must produce INVALID_URL"
+        assert url_tokens[0].value == "mailto:user@example.com?subject=Hello"
+
+    def test_javascript_scheme_emits_invalid_url_token(self):
+        """
+        Given: "javascript:alert(1)" in prose
+        When: tokenize() is called
+        Then: INVALID_URL token with value "javascript:alert(1)"
+
+        javascript: is an XSS vector; it executes script when used as an href.
+        The named list catches it as a defense-in-depth measure even if the
+        primary regex would also match (javascript: lacks //; primary regex
+        requires ://).
+        """
+        _require_module()
+        tokens = tokenize("avoid javascript:alert(1) here")
+        url_tokens = [t for t in tokens if t.kind == TokenKind.INVALID_URL]
+        assert url_tokens, "javascript: must produce INVALID_URL"
+        assert url_tokens[0].value == "javascript:alert(1)"
+
+    def test_data_uri_emits_invalid_url_token(self):
+        """
+        Given: "data:image/png;base64,iVBORw0KGgo..." in prose
+        When: tokenize() is called
+        Then: INVALID_URL token covering the full data: span
+
+        data: URIs are an XSS vector via the data URI scheme; they embed
+        executable content directly in prose.
+        """
+        _require_module()
+        tokens = tokenize("avoid data:image/png;base64,iVBORw0KGgo... here")
+        url_tokens = [t for t in tokens if t.kind == TokenKind.INVALID_URL]
+        assert url_tokens, "data: URI must produce INVALID_URL"
+        assert url_tokens[0].value == "data:image/png;base64,iVBORw0KGgo..."
+
+    def test_tel_scheme_emits_invalid_url_token(self):
+        """
+        Given: "tel:+1-555-0100" in prose
+        When: tokenize() is called
+        Then: INVALID_URL token with value "tel:+1-555-0100"
+
+        tel: is a contact-exposure vector; it resolves to the device's phone
+        dialler in mobile browsers.
+        """
+        _require_module()
+        tokens = tokenize("call tel:+1-555-0100 here")
+        url_tokens = [t for t in tokens if t.kind == TokenKind.INVALID_URL]
+        assert url_tokens, "tel: must produce INVALID_URL"
+        assert url_tokens[0].value == "tel:+1-555-0100"
+
+    # ------------------------------------------------------------------
+    # Boundary and edge cases
+    # ------------------------------------------------------------------
+
+    def test_uppercase_http_rejected_case_insensitively(self):
+        """
+        Given: "HTTP://EXAMPLE.COM" in prose (uppercase scheme)
+        When: tokenize() is called
+        Then: INVALID_URL token is produced
+
+        Case-sensitivity: case-insensitive matching applies. Real-world authors
+        write HTTP://, HTTPS://, MAILTO: etc. A lowercase-only rule would
+        silently pass these as TEXT, defeating the categorical intent of
+        ADR-017 D4 rule 2. Implementations must apply case-insensitive detection
+        (re.IGNORECASE flag or str.lower() pre-check).
+        """
+        _require_module()
+        tokens = tokenize("see HTTP://EXAMPLE.COM here")
+        assert any(t.kind == TokenKind.INVALID_URL for t in tokens), (
+            "HTTP:// (uppercase) must produce INVALID_URL (case-insensitive rule)"
+        )
+
+    def test_uppercase_mailto_rejected_case_insensitively(self):
+        """
+        Given: "MAILTO:user@example.com" in prose (uppercase opaque scheme)
+        When: tokenize() is called
+        Then: INVALID_URL token is produced
+
+        Same case-sensitivity decision as for scheme-with-authority URLs.
+        The named list must be matched case-insensitively.
+        """
+        _require_module()
+        tokens = tokenize("contact MAILTO:user@example.com here")
+        assert any(t.kind == TokenKind.INVALID_URL for t in tokens), (
+            "MAILTO: (uppercase) must produce INVALID_URL (case-insensitive rule)"
+        )
+
+    def test_mixed_case_ftp_rejected_case_insensitively(self):
+        """
+        Given: "Ftp://example.com" in prose (mixed-case scheme)
+        When: tokenize() is called
+        Then: INVALID_URL token is produced
+
+        Case normalisation applies to the scheme part regardless of the case
+        pattern. Ftp://, FTP://, fTp:// are all the same scheme.
+        """
+        _require_module()
+        tokens = tokenize("see Ftp://example.com here")
+        assert any(t.kind == TokenKind.INVALID_URL for t in tokens), (
+            "Ftp:// (mixed case) must produce INVALID_URL (case-insensitive rule)"
+        )
+
+    def test_ftp_url_inside_bold_is_flagged(self):
+        """
+        Given: "**ftp://example.com**" (URL inside bold span)
+        When: tokenize() is called
+        Then: INVALID_URL token is produced OR the BOLD token value contains the URL
+
+        This test is permissive: it accepts either of two implementation
+        choices — emitting INVALID_URL nested inside the bold span, or
+        absorbing the URL into the BOLD token's value. The current tokenizer
+        absorbs into BOLD. Once a follow-up decides whether URL detection
+        inside bold spans belongs at the tokenizer level or in the wrapper
+        linter, a tighter assertion can replace this one.
+        """
+        _require_module()
+        tokens = tokenize("**ftp://example.com**")
+        has_invalid_url = any(t.kind == TokenKind.INVALID_URL for t in tokens)
+        # If BOLD swallows the URL, check the BOLD token's value contains it
+        has_url_in_bold = any(t.kind == TokenKind.BOLD and "ftp://" in t.value for t in tokens)
+        assert has_invalid_url or has_url_in_bold, (
+            "ftp:// URL inside **bold** must be detectable — "
+            "either as INVALID_URL token or embedded in BOLD token value"
+        )
+
+    def test_mailto_inside_italic_is_flagged(self):
+        """
+        Given: "*mailto:foo@bar*" (opaque-scheme URL inside italic span)
+        When: tokenize() is called
+        Then: INVALID_URL token is produced OR the ITALIC token value contains the URL
+
+        This test is permissive: it accepts either of two implementation
+        choices — emitting INVALID_URL nested inside the italic span, or
+        absorbing the URL into the ITALIC token's value. The current
+        tokenizer absorbs into ITALIC. Once a follow-up decides whether URL
+        detection inside italic spans belongs at the tokenizer level or in
+        the wrapper linter, a tighter assertion can replace this one.
+        """
+        _require_module()
+        tokens = tokenize("*mailto:foo@bar*")
+        has_invalid_url = any(t.kind == TokenKind.INVALID_URL for t in tokens)
+        has_url_in_italic = any(t.kind == TokenKind.ITALIC and "mailto:" in t.value for t in tokens)
+        assert has_invalid_url or has_url_in_italic, (
+            "mailto: URL inside *italic* must be detectable — "
+            "either as INVALID_URL token or embedded in ITALIC token value"
+        )
+
+    def test_url_adjacent_to_sentinel_both_processed(self):
+        """
+        Given: "See {{ref:cve-2024-1234}} or ftp://backup"
+               (sentinel in first span, URL in tail text)
+        When: tokenize() is called
+        Then: stream contains SENTINEL_REF and INVALID_URL as separate tokens;
+              the sentinel resolves first without interference from the URL
+
+        This tests that the sentinel-first precedence model does not suppress
+        URL detection in the trailing text.
+        """
+        _require_module()
+        tokens = tokenize("See {{ref:cve-2024-1234}} or ftp://backup")
+        kinds = [t.kind for t in tokens]
+        assert TokenKind.SENTINEL_REF in kinds, "Expected SENTINEL_REF in stream"
+        assert TokenKind.INVALID_URL in kinds, "Expected INVALID_URL for ftp:// in tail text after sentinel"
+
+    def test_ref_colon_inside_sentinel_does_not_trip_named_list(self):
+        """
+        Given: "{{ref:cwe-89}}" (ref: prefix inside sentinel braces)
+        When: tokenize() is called
+        Then: stream contains SENTINEL_REF, NOT INVALID_URL
+
+        The 'ref:' prefix lives inside the sentinel braces. The named-list
+        rule must not match it, because the sentinel tokenisation runs first
+        at higher precedence (Rule 11 before URL rules). This is a regression
+        guard for the named-list implementation: naive substring matching on
+        ':' would misfire on valid sentinel syntax.
+        """
+        _require_module()
+        tokens = tokenize("{{ref:cwe-89}}")
+        kinds = [t.kind for t in tokens]
+        assert TokenKind.SENTINEL_REF in kinds, "Expected SENTINEL_REF for {{ref:cwe-89}}"
+        assert TokenKind.INVALID_URL not in kinds, "ref: inside sentinel must NOT produce INVALID_URL"
+
+    def test_unknown_scheme_at_start_of_string_is_rejected(self):
+        """
+        Given: "xftp://example.com" (unknown scheme name "xftp" at start of string)
+        When: tokenize() is called
+        Then: INVALID_URL token with value "xftp://example.com"
+
+        Per ADR-017 D4 rule 2, the categorical regex
+        \\b[a-z][a-z0-9+.\\-]*:// rejects any RFC-3986 authority-bearing
+        scheme — known or unknown. "xftp" is a syntactically valid scheme
+        name; the rule is intentionally scheme-name-agnostic, because the
+        architectural answer is the same in every case: a scheme in prose
+        means a structured externalReferences entry was missed (ADR-016 D4).
+        Start-of-string is always a word boundary, so the \\b anchor fires.
+        """
+        _require_module()
+        tokens = tokenize("xftp://example.com")
+        url_tokens = [t for t in tokens if t.kind == TokenKind.INVALID_URL]
+        assert len(url_tokens) == 1, (
+            f"xftp://example.com must produce exactly one INVALID_URL; got {len(url_tokens)}"
+        )
+        assert url_tokens[0].value == "xftp://example.com", (
+            f"INVALID_URL value must be the full URL; got {url_tokens[0].value!r}"
+        )
+
+    def test_scheme_with_space_after_authority_separator_not_matched(self):
+        """
+        Given: "ftp:// example.com" (space immediately after ://)
+        When: tokenize() is called
+        Then: NO INVALID_URL token is produced
+
+        The primary regex uses \\S+ after ://, requiring at least one
+        non-whitespace character immediately after the authority separator.
+        "ftp:// example.com" has a space at that position; the regex should
+        not match, and the text should pass through as TEXT tokens.
+
+        This prevents false positives on prose like "two colons: // in text".
+        """
+        _require_module()
+        tokens = tokenize("ftp:// example.com")
+        assert not any(t.kind == TokenKind.INVALID_URL for t in tokens), (
+            "ftp:// with trailing space (no authority) must NOT produce INVALID_URL"
+        )
+
+    def test_mailto_alone_with_trailing_space_not_matched(self):
+        """
+        Given: "mailto: " (opaque scheme token with no recipient, trailing space)
+        When: tokenize() is called
+        Then: NO INVALID_URL token is produced
+
+        The named-list rule must match a complete mailto: token that has
+        content after the colon. "mailto:" followed by whitespace has no
+        recipient and is an incomplete, harmless fragment. This prevents
+        false positives if an author writes e.g. "the mailto: scheme is..."
+
+        Implementation note: the exact boundary is implementation-defined.
+        The rule may require at least one non-whitespace char after the colon
+        (similar to \\S+ for the primary regex). Lock in non-rejection here.
+        """
+        _require_module()
+        tokens = tokenize("the mailto: scheme")
+        assert not any(t.kind == TokenKind.INVALID_URL for t in tokens), (
+            "'mailto: ' (no recipient, trailing space) must NOT produce INVALID_URL"
+        )
+
+    def test_ftp_url_at_start_of_string_emits_invalid_url(self):
+        """
+        Given: "ftp://example.com is gone now." (URL at start of paragraph)
+        When: tokenize() is called
+        Then: INVALID_URL token at position 0 in the stream
+        """
+        _require_module()
+        tokens = tokenize("ftp://example.com is gone now.")
+        assert tokens[0].kind == TokenKind.INVALID_URL, (
+            f"URL at start of string must be the first token; got {tokens[0]!r}"
+        )
+
+    def test_s3_url_at_end_of_string_emits_invalid_url(self):
+        """
+        Given: "Use the s3://bucket reference." (URL at end of paragraph)
+        When: tokenize() is called
+        Then: INVALID_URL token appears in the stream; the trailing '.' is absorbed
+              into the URL or left as TEXT — either is acceptable, but INVALID_URL
+              must be present
+        """
+        _require_module()
+        tokens = tokenize("Use the s3://bucket reference.")
+        assert any(t.kind == TokenKind.INVALID_URL for t in tokens), (
+            "s3:// URL at end of string must produce INVALID_URL"
+        )
+
+    def test_multiple_urls_per_paragraph_both_flagged(self):
+        """
+        Given: "Try ftp://a or gs://b" (two URLs in one paragraph)
+        When: tokenize() is called
+        Then: exactly two INVALID_URL tokens are produced, one per URL
+
+        This verifies that the tokenizer does not stop at the first URL
+        rejection and that the partition-of-input invariant holds for
+        multi-URL inputs.
+        """
+        _require_module()
+        tokens = tokenize("Try ftp://a or gs://b")
+        url_tokens = [t for t in tokens if t.kind == TokenKind.INVALID_URL]
+        assert len(url_tokens) == 2, (
+            f"Expected 2 INVALID_URL tokens for two URLs, got {len(url_tokens)}: {url_tokens!r}"
+        )
+        values = {t.value for t in url_tokens}
+        assert "ftp://a" in values, f"Expected ftp://a in INVALID_URL values; got {values!r}"
+        assert "gs://b" in values, f"Expected gs://b in INVALID_URL values; got {values!r}"
+
+    # ------------------------------------------------------------------
+    # Gap 1 — git+https full-token value (scheme-prefix lock)
+    # ------------------------------------------------------------------
+
+    def test_git_plus_https_full_token_value(self):
+        """
+        Given: "see git+https://github.com/user/repo for more"
+        When: tokenize() is called
+        Then: exactly one INVALID_URL token whose value is the full
+              "git+https://github.com/user/repo" string (prefix included)
+
+        This test locks in that the `git+` prefix is treated as part of the
+        scheme and therefore part of the token value. The existing tokenizer's
+        narrow `https?://\\S+` regex partial-matches the `https://github.com/user/repo`
+        substring inside `git+https://github.com/user/repo` (splitting at the `+`),
+        producing INVALID_URL("https://github.com/user/repo") — missing the `git+`
+        prefix. The categorical regex `\\b[a-z][a-z0-9+.\\-]*://\\S+` must
+        produce exactly one token with value "git+https://github.com/user/repo".
+
+        The parametrized `test_primary_scheme_fixture_has_invalid_url_token` for
+        `rejecting/url_scheme_plus` passes against a narrow `https?://` regex
+        because `any(kind == INVALID_URL)` fires on the partial match. This
+        standalone test closes that leak by asserting the exact token value.
+        """
+        _require_module()
+        tokens = list(tokenize("see git+https://github.com/user/repo for more"))
+        url_tokens = [t for t in tokens if t.kind == TokenKind.INVALID_URL]
+        assert len(url_tokens) == 1, f"Expected exactly 1 INVALID_URL token, got {len(url_tokens)}: {url_tokens!r}"
+        assert url_tokens[0].value == "git+https://github.com/user/repo", (
+            f"Expected full git+https:// token value; got {url_tokens[0].value!r} "
+            "(existing tokenizer produces 'https://...' without the 'git+' prefix)"
+        )
+
+    # ------------------------------------------------------------------
+    # Gap 2 — trailing punctuation absorbed by \S+ greediness
+    # ------------------------------------------------------------------
+
+    def test_url_at_end_of_sentence_absorbs_trailing_period(self):
+        """
+        Given: "Visit ftp://example.com." (URL exactly at end of string, period terminates)
+        When: tokenize() is called
+        Then: INVALID_URL token value is "ftp://example.com." (period IS part of the value)
+
+        Architectural decision: lock in the simpler greedy-with-period-absorbed
+        behaviour. The primary regex `\\S+` is non-whitespace greedy and includes the
+        trailing period. No special-case stripping logic is required — the linter
+        rejects the URL regardless of whether the period is part of the value; the
+        token value is for diagnostic output only.
+
+        The fixture `rejecting/url_ftp_trailing_period` encodes the same decision for
+        the mid-sentence variant ("ftp://example.com. for more"). This inline test
+        covers the end-of-string variant where no trailing text follows the period.
+        """
+        _require_module()
+        tokens = list(tokenize("Visit ftp://example.com."))
+        url_tokens = [t for t in tokens if t.kind == TokenKind.INVALID_URL]
+        assert len(url_tokens) == 1, f"Expected exactly 1 INVALID_URL token, got {len(url_tokens)}: {url_tokens!r}"
+        assert url_tokens[0].value == "ftp://example.com.", (
+            f"Expected period absorbed into URL value; got {url_tokens[0].value!r}"
+        )
+
+    # ------------------------------------------------------------------
+    # Gap 3 — URL-then-sentinel with no space (sentinel precedence)
+    # ------------------------------------------------------------------
+
+    def test_url_followed_immediately_by_sentinel_does_not_absorb_sentinel(self):
+        """
+        Given: "see ftp://example.com{{ref:cve-2024-1234}} done"
+               (URL and sentinel adjacent with no space between them)
+        When: tokenize() is called
+        Then: exactly one INVALID_URL token with value "ftp://example.com" (stops at {),
+              and a SENTINEL_REF token for {{ref:cve-2024-1234}};
+              the URL token must NOT absorb the sentinel characters
+
+        This locks in the representational decision that sentinel tokenisation runs
+        first (higher precedence) over URL-regex greediness. Without this, `\\S+` in
+        the primary regex would absorb the entire `{{ref:cve-2024-1234}}` suffix into
+        the URL token value, swallowing the sentinel and suppressing SENTINEL_REF.
+
+        Precedence source: project_a3_launch_context.md locked representational
+        decision — "sentinel tokenisation runs first".
+        """
+        _require_module()
+        tokens = list(tokenize("see ftp://example.com{{ref:cve-2024-1234}} done"))
+        url_tokens = [t for t in tokens if t.kind == TokenKind.INVALID_URL]
+        sentinel_tokens = [t for t in tokens if t.kind == TokenKind.SENTINEL_REF]
+        assert len(url_tokens) == 1, f"Expected exactly 1 INVALID_URL token, got {len(url_tokens)}: {url_tokens!r}"
+        assert url_tokens[0].value == "ftp://example.com", (
+            f"URL token must stop at the sentinel boundary; got {url_tokens[0].value!r} "
+            "(if sentinel chars were absorbed, value would contain '{{ref:...')"
+        )
+        assert len(sentinel_tokens) == 1, (
+            f"Expected exactly 1 SENTINEL_REF token, got {len(sentinel_tokens)}: {sentinel_tokens!r}; "
+            "sentinel must not be swallowed by URL greediness"
+        )
+
+    # ------------------------------------------------------------------
+    # Negative cases — must NOT produce INVALID_URL
+    # These lock in the "named list is non-exhaustive" boundary per
+    # ADR-017 D4 rule 2 ("at minimum" wording).
+    # ------------------------------------------------------------------
+
+    def test_urn_scheme_not_in_named_list_is_allowed(self):
+        """
+        Given: "urn:cve:2024:1234" in prose
+        When: tokenize() is called
+        Then: NO INVALID_URL token is produced
+
+        urn: is NOT in the named list at minimum {mailto:, javascript:, data:, tel:}.
+        Current behaviour is to pass it as TEXT. This test locks in that boundary
+        and documents the intentional gap: adding urn: to the named list is a
+        future tokenizer change + one-line ADR amendment per ADR-017 D4 rule 2.
+        If urn: is added to the named list, this test must be updated to
+        expect INVALID_URL and the ADR amendment cited.
+        """
+        _require_module()
+        tokens = tokenize("see urn:cve:2024:1234 here")
+        assert not any(t.kind == TokenKind.INVALID_URL for t in tokens), (
+            "urn: is not in the named list (non-exhaustive by design); must NOT produce INVALID_URL"
+        )
+
+    def test_doi_scheme_not_in_named_list_is_allowed(self):
+        """
+        Given: "doi:10.1234/foo" in prose
+        When: tokenize() is called
+        Then: NO INVALID_URL token is produced
+
+        doi: is a scholarly-citation scheme not in the named list. Same
+        intentional-gap rationale as urn:.
+        """
+        _require_module()
+        tokens = tokenize("see doi:10.1234/foo here")
+        assert not any(t.kind == TokenKind.INVALID_URL for t in tokens), (
+            "doi: is not in the named list; must NOT produce INVALID_URL"
+        )
+
+    def test_isbn_scheme_not_in_named_list_is_allowed(self):
+        """
+        Given: "isbn:978-0-306-40615-7" in prose
+        When: tokenize() is called
+        Then: NO INVALID_URL token is produced
+        """
+        _require_module()
+        tokens = tokenize("see isbn:978-0-306-40615-7 here")
+        assert not any(t.kind == TokenKind.INVALID_URL for t in tokens), (
+            "isbn: is not in the named list; must NOT produce INVALID_URL"
+        )
+
+    def test_arn_scheme_not_in_named_list_is_allowed(self):
+        """
+        Given: "arn:aws:s3:::bucket" in prose
+        When: tokenize() is called
+        Then: NO INVALID_URL token is produced
+
+        ARN identifiers are used in AWS contexts. arn: has no // component
+        and is not in the named list. Architects noted that cloud references
+        belong in externalReferences (ADR-016 D4), but the enforcement path
+        is the named list, which does not yet include arn:. Lock in current
+        behaviour with this note.
+        """
+        _require_module()
+        tokens = tokenize("see arn:aws:s3:::bucket here")
+        assert not any(t.kind == TokenKind.INVALID_URL for t in tokens), (
+            "arn: is not in the named list; must NOT produce INVALID_URL"
+        )
+
+    def test_colon_after_category_word_is_not_a_scheme(self):
+        """
+        Given: "Category: subcategory" (colon after a word, space follows)
+        When: tokenize() is called
+        Then: NO INVALID_URL token is produced
+
+        A colon followed by a space is a common prose pattern (e.g., headers,
+        enumeration labels). The named list must not fire on arbitrary words
+        that contain a colon.
+        """
+        _require_module()
+        tokens = tokenize("Category: subcategory")
+        assert not any(t.kind == TokenKind.INVALID_URL for t in tokens), (
+            "'Category: subcategory' must not produce INVALID_URL — colon-space is not a scheme"
+        )
+
+    def test_double_colon_is_not_a_scheme(self):
+        """
+        Given: "time::now" (double colon, C++ scope-resolution style)
+        When: tokenize() is called
+        Then: NO INVALID_URL token is produced
+
+        A double colon (::) has no scheme structure. The primary regex requires
+        :// and the named list matches specific scheme prefixes with a single
+        colon; neither should match :: alone.
+        """
+        _require_module()
+        tokens = tokenize("time::now")
+        assert not any(t.kind == TokenKind.INVALID_URL for t in tokens), (
+            "'time::now' must not produce INVALID_URL — :: is not a URI scheme separator"
+        )
+
+    # ------------------------------------------------------------------
+    # Regression — existing http/https/markdown-link coverage must hold
+    # ------------------------------------------------------------------
+
+    def test_regression_http_still_produces_invalid_url(self):
+        """
+        Regression: existing http:// detection must still fire after the
+        categorical rule replaces the narrow _RE_RAW_URL = re.compile(r'https?://\\S+').
+
+        Given: "http://example.com" in prose
+        When: tokenize() is called
+        Then: INVALID_URL token (identical behaviour to current tokenizer)
+        """
+        _require_module()
+        tokens = tokenize("http://example.com")
+        assert any(t.kind == TokenKind.INVALID_URL for t in tokens), (
+            "http:// regression: must still produce INVALID_URL after categorical rule lands"
+        )
+
+    def test_regression_https_still_produces_invalid_url(self):
+        """
+        Regression: existing https:// detection must still fire.
+
+        Given: "https://example.com" in prose
+        When: tokenize() is called
+        Then: INVALID_URL token
+        """
+        _require_module()
+        tokens = tokenize("https://example.com")
+        assert any(t.kind == TokenKind.INVALID_URL for t in tokens), (
+            "https:// regression: must still produce INVALID_URL after categorical rule lands"
+        )
+
+    def test_regression_markdown_link_still_produces_invalid_url(self):
+        """
+        Regression: existing [text](url) markdown-link detection must still fire.
+
+        Given: "[click here](https://example.com)" in prose
+        When: tokenize() is called
+        Then: INVALID_URL token covering the full [text](url) span
+        """
+        _require_module()
+        tokens = tokenize("[click here](https://example.com)")
+        assert any(t.kind == TokenKind.INVALID_URL for t in tokens), (
+            "markdown link regression: must still produce INVALID_URL after categorical rule lands"
+        )
 
 
 class TestEmptyAndWhitespace:

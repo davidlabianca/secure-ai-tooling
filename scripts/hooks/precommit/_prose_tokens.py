@@ -111,8 +111,21 @@ _RE_IMAGE = re.compile(r"!\[[^\]]*\]\([^)]*\)")
 # Markdown link: [text](url) — the ] immediately followed by ( pattern ADR-017 D2 cites
 _RE_MARKDOWN_LINK = re.compile(r"\[[^\]]*\]\([^)]*\)")
 
-# Raw URL: http:// or https:// followed by non-whitespace characters
-_RE_RAW_URL = re.compile(r"https?://\S+")
+# Primary URL — scheme-with-authority (ADR-017 D4 rule 2 tier 1).
+# Matches \b[a-z][a-z0-9+.\-]*://  followed by non-whitespace-non-brace chars.
+# The [^\s{]+ stop-at-brace variant prevents \S+ from absorbing a following
+# {{sentinel}} span — sentinels get their own token (Rule 11, higher precedence
+# at the character level once the URL is consumed up to the { boundary).
+# re.IGNORECASE covers authors who paste HTTP://, Ftp://, etc. from browser bars.
+_RE_PRIMARY_URL = re.compile(r"\b[a-z][a-z0-9+.\-]*://[^\s{]+", re.IGNORECASE)
+
+# Opaque-data named list (ADR-017 D4 rule 2 tier 2).
+# Colon-only schemes that lack // and escape the primary regex.
+# Exactly four schemes per the ADR: mailto, javascript, data, tel.
+# Requires at least one non-whitespace-non-brace char after the colon to avoid
+# matching "mailto: " (scheme word alone in prose) as a false positive.
+# re.IGNORECASE covers MAILTO:, DATA:, etc.
+_RE_OPAQUE_URL = re.compile(r"\b(?:mailto|javascript|data|tel):[^\s{]+", re.IGNORECASE)
 
 # HTML tag: opening (<tag ...>), closing (</tag>), or self-closing (<br/>)
 # Matches '<' followed by alpha or '/' and continues through the closing '>'
@@ -303,9 +316,23 @@ def tokenize(text: str) -> list[Token]:
                 emit(TokenKind.INVALID_URL, m.group())
                 continue
 
-        # --- Rule 4b: Raw URL https?:// ---
-        if ch == "h" and text[i : i + 5] in ("http:", "https"):
-            m = _RE_RAW_URL.match(text, i)
+        # --- Rule 4b: Categorical URL rejection (ADR-017 D4 rule 2) ---
+        # Fast-path gate: scheme names start with an ASCII letter. Both regexes
+        # anchor on \b, so re.match() only succeeds at word-boundary positions.
+        # The regex engine handles the "embedded mid-word" case naturally — at
+        # positions inside a word (between two word chars) \b does not fire and
+        # match() returns None. At i=0 \b always fires (start-of-string is a
+        # boundary), which is intentional per ADR-017 D4 rule 2: any scheme
+        # name — known or unknown — is rejected when it begins at a token
+        # boundary. Primary catches authority-bearing schemes (http://, ftp://,
+        # gs://, ...); opaque catches mailto:/javascript:/data:/tel:. Both
+        # case-insensitive (re.IGNORECASE) for HTTP://, MAILTO:, etc.
+        if ch.isalpha():
+            m = _RE_PRIMARY_URL.match(text, i)
+            if m:
+                emit(TokenKind.INVALID_URL, m.group())
+                continue
+            m = _RE_OPAQUE_URL.match(text, i)
             if m:
                 emit(TokenKind.INVALID_URL, m.group())
                 continue
