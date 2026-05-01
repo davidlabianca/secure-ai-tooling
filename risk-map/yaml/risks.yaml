@@ -991,46 +991,56 @@ risks:
         integrated systems, like emails, texts, or system prompts) and leakage of data 
         used for training and tuning of the model.
       - - >
-          <strong>AI Systems:</strong> AI systems can leak sensitive data sourced from 
-          three primary sources: 
-          - data provided by the user
-          - data used in model training and deployment including system prompts
-          - data accessed or produced via tool call responses and external system usage 
-
-          Data leakage occurs due to gaps in the system, application and deployment 
-          security controls and is analogous to the leakage vectors that exist in 
-          classical applications.  
-
-          Data leakage can occur through several vectors: 
-          - Application Logs: Logs may store entire interactions, including sensitive data 
-            retrieved by tools
-          - Retraining Data: User conversations retained for model retraining can create a 
-            vulnerable database of sensitive information
-          - Prompt Stealing: Attackers can use carefully crafted queries to trick the 
-            model into revealing its confidential system prompts or instructions
-          - Memorization: A model may inadvertently reveal parts of its training data 
-            verbatim. This phenomenon, also called recitation, can expose sensitive 
-            details like names, addresses, or other Personally Identifiable 
-            Information (PII).
-            Note: The risk of memorization is significantly higher when a model is 
-            retrained on private user data and then used by others, as it could expose one 
-            user's information to another.
-
-          <strong>Agents:</strong> For agentic systems, the risk of sensitive data 
-          disclosure is exponentially multiplied, since agents may access user data that 
-          passes through integrated systems, like emails, texts, or proprietary 
-          organizational information. In extreme cases, agents can even reveal credentials 
-          and API keys they have been trusted with. Additionally, agents may use tools to 
-          not only access sensitive data on behalf of the user, but also use those tools 
-          to leak sensitive data. For example, an agent can leak information by: 
-          - creating and sharing a document with an attacker 
-          - writing an email
-          - opening a website and leaking information in the URL or a markdown image
-          - through any tool that allows it to pass information to the outside world. 
-
-          Context-hijacking attacks show that an adversary can potentially confuse the 
-          agent to reveal data that is not appropriate for a specific context, such as 
-          sharing health history when the agent should be booking a restaurant reservation.
+          <strong>AI Systems:</strong> AI systems can leak sensitive data sourced from
+          three primary sources:
+        - >
+          Data provided by the user.
+        - >
+          Data used in model training and deployment, including system prompts.
+        - >
+          Data accessed or produced via tool call responses and external system usage.
+      - - >
+          Data leakage occurs due to gaps in the system, application and deployment
+          security controls and is analogous to the leakage vectors that exist in
+          classical applications.
+      - - >
+          Data leakage can occur through several vectors:
+        - >
+          <strong>Application Logs:</strong> Logs may store entire interactions, including
+          sensitive data retrieved by tools.
+        - >
+          <strong>Retraining Data:</strong> User conversations retained for model
+          retraining can create a vulnerable database of sensitive information.
+        - >
+          <strong>Prompt Stealing:</strong> Attackers can use carefully crafted queries to
+          trick the model into revealing its confidential system prompts or instructions.
+        - >
+          <strong>Memorization:</strong> A model may inadvertently reveal parts of its
+          training data verbatim. This phenomenon, also called recitation, can expose
+          sensitive details like names, addresses, or other Personally Identifiable
+          Information (PII). Note: The risk of memorization is significantly higher when a
+          model is retrained on private user data and then used by others, as it could
+          expose one user's information to another.
+      - - >
+          <strong>Agents:</strong> For agentic systems, the risk of sensitive data
+          disclosure is exponentially multiplied, since agents may access user data that
+          passes through integrated systems, like emails, texts, or proprietary
+          organizational information. In extreme cases, agents can even reveal credentials
+          and API keys they have been trusted with. Additionally, agents may use tools to
+          not only access sensitive data on behalf of the user, but also use those tools to
+          leak sensitive data. For example, an agent can leak information by:
+        - >
+          Creating and sharing a document with an attacker.
+        - >
+          Writing an email.
+        - >
+          Opening a website and leaking information in the URL or a markdown image.
+        - >
+          Using any tool that allows it to pass information to the outside world.
+      - - >
+          Context-hijacking attacks show that an adversary can potentially confuse the agent
+          to reveal data that is not appropriate for a specific context, such as sharing
+          health history when the agent should be booking a restaurant reservation.
     category: risksRuntimeDataSecurity
     personas:
       - personaModelProvider
