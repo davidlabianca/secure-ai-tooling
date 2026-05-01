@@ -1,0 +1,7 @@
+{
+  "vector": "attribute-injection-quote-in-text",
+  "description": "If link title contains a double-quote, naive string interpolation breaks the attribute context: title '\" onclick=\"alert(1)' would close the href and inject a new attribute. The renderer must HTML-escape title text when emitting the anchor's text content.",
+  "input": {"type": "link", "title": "\" onclick=\"alert(1)", "url": "https://safe.example.com"},
+  "mustNotContain": "onclick=",
+  "expectedSubstring": "&quot;"
+}

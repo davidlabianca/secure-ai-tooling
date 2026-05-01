@@ -1,0 +1,8 @@
+{
+  "vector": "url-trailing-whitespace",
+  "description": "Trailing whitespace after the URL (e.g., 'https://example.com  ') should not affect scheme detection but tests that the renderer handles trimming symmetrically.",
+  "input": {"type": "link", "title": "trick", "url": "https://safe.example.com  "},
+  "note": "A4 (locked): renderer trims trailing whitespace before scheme validation; trimmed URL has scheme https://, must be emitted as <a href> with the trimmed URL.",
+  "mustNotContain": "href=\"https://safe.example.com  \"",
+  "expectedSubstring": "<a href=\"https://safe.example.com\""
+}

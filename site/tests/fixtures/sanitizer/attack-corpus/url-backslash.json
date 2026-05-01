@@ -1,0 +1,6 @@
+{
+  "vector": "url-backslash",
+  "description": "Backslash in URL is RFC 3986-illegal. Some legacy URL parsers (older IE, embedded WebViews) treat `\\` as `/`, allowing `https://safe.example\\@evil.com` to authenticate `safe.example` as user-info to host `evil.com`. Rejection at the URL layer prevents parser-confusion redirects. Per ADR-015 D5.",
+  "input": {"type": "link", "title": "safe", "url": "https://example.com\\@evil.com"},
+  "mustNotContain": "<a "
+}

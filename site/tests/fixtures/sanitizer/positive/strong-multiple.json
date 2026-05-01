@@ -1,0 +1,6 @@
+{
+  "tag": "strong",
+  "description": "Multiple bold spans in one paragraph each render as <strong>.",
+  "input": "**first** and **second** are both bold.",
+  "expectedSubstring": "<strong>first</strong>"
+}

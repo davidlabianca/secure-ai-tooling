@@ -1,0 +1,6 @@
+{
+  "vector": "javascript-uri-mixedcase",
+  "description": "Mixed-case JaVaScRiPt: URI bypasses naive case-sensitive scheme checks. The renderer must normalise or check case-insensitively and must not emit the anchor.",
+  "input": {"type": "link", "title": "xss", "url": "JaVaScRiPt:alert(1)"},
+  "mustNotContain": "<a "
+}
