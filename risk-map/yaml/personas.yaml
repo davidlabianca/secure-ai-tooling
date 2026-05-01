@@ -243,6 +243,25 @@ personas:
       - Compliance enforcement
       - Risk assessment and management
       - Incident response coordination
+    identificationQuestions:
+      - Do you define security, compliance, or risk management requirements that AI systems in your organization must satisfy?
+      - >
+        Do you assess whether AI controls are implemented effectively across
+        teams or systems you do not directly operate, including through audits,
+        control testing, metrics reviews, or compliance checks?
+      - >
+        Do you approve, gate, or oversee the use of AI systems based on policy,
+        legal, regulatory, or enterprise risk assessments?
+      - >
+        Do you maintain processes for AI incidents, exceptions, or risk
+        acceptances (e.g., escalation procedures, documentation requirements, or
+        corrective-action tracking) at an organizational or program level?
+      - >
+        Do you assign or review accountability for AI risks and controls across
+        multiple teams, systems, or organizational boundaries?
+      - >
+        Do you monitor conformance to AI policies or external obligations over
+        time, including standards, internal policies, or regulatory commitments?
 
   - id: personaEndUser
     title: AI System Users
