@@ -256,11 +256,14 @@ controls:
         provenance and lineage and not modified from known-good sources in unexpected ways
         at inference time.
       - >
-        Examples include ...
-        - validating expected code and model signatures / hashes at inference-time
-        - limit and immutably record all modifications to runtime AI system components via
-          oversight processes
-        - etc
+        Examples include:
+      - - >
+          Validating expected code and model signatures / hashes at inference-time.
+        - >
+          Limiting and immutably recording all modifications to runtime AI system components
+          via oversight processes.
+        - >
+          Other integrity controls appropriate to the deployment context.
     category: controlsInfrastructure
     personas:
       - personaPlatformProvider
