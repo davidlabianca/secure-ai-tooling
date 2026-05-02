@@ -460,6 +460,37 @@ class TestShapeMixedStringAndNestedArray:
 
 
 # ---------------------------------------------------------------------------
+# Over-deep nesting — schema-illegal triple-nesting probe
+#
+# riskmap.schema.json#/definitions/utils/text permits exactly one level of
+# nested array (oneOf: [string, array<string>]).  Triple-nested input like
+# ``[[["x"]]]`` is schema-illegal but reachable if a contributor edits YAML
+# without running check-jsonschema.  This test pins the iteration contract:
+# the helper does not recurse past depth 1, so the depth-1 item (a list) is
+# silently dropped and zero ProseFields are yielded.
+# ---------------------------------------------------------------------------
+
+
+class TestShapeOverDeepNesting:
+    r"""Defensive: triple-nested input yields nothing — schema permits only one nesting level."""
+
+    @pytest.mark.parametrize("linter_factory", _LINTER_PARAMS)
+    def test_triple_nested_input_yields_zero_prose_fields(self, tmp_path, linter_factory):
+        r"""
+        Given: a schema-illegal prose field ``[[["x"]]]`` (depth-2 nesting)
+        When:  find_prose_fields() walks the file
+        Then:  zero ProseField records are yielded — the depth-1 item is itself
+               a list (not a string), so the helper drops it without recursing
+               into the depth-2 strings; no recursion path beyond the single
+               nested level the schema admits.
+        """
+        linter = linter_factory()
+        yaml_path, schema_dir = _build_corpus(tmp_path, field_value=[[["x"]]])
+        fields = list(linter.find_prose_fields(yaml_path, schema_dir))
+        assert fields == []
+
+
+# ---------------------------------------------------------------------------
 # Wrapper-description gap — top-level prose keyed at the YAML document root
 # ---------------------------------------------------------------------------
 
@@ -533,49 +564,21 @@ class TestShapeWrapperDescription:
 
 
 # ---------------------------------------------------------------------------
-# Linter symmetry — both linters share find_prose_fields shape behaviour
+# Linter symmetry — both linters share find_prose_fields via shared helper
 # ---------------------------------------------------------------------------
-
-# Shape factories — each returns the kwargs for ``_build_corpus``.  Using a
-# factory lets us regenerate fresh list literals per call so YAML serialisation
-# never observes shared mutable state.
-_SHAPE_FACTORIES = [
-    pytest.param(lambda: {"field_value": None, "omit_field": True}, id="missing"),
-    pytest.param(lambda: {"field_value": None, "omit_field": False}, id="null"),
-    pytest.param(lambda: {"field_value": []}, id="empty-list"),
-    pytest.param(lambda: {"field_value": ["p0", "p1"]}, id="flat-array"),
-    pytest.param(lambda: {"field_value": [["a", "b"], ["c", "d"]]}, id="pure-nested"),
-    pytest.param(lambda: {"field_value": ["intro", ["a", "b"], "outro"]}, id="mixed"),
-]
 
 
 class TestLinterSymmetry:
-    r"""Both linters yield the same number of ProseField records for every shape."""
+    r"""Both linters re-export the same find_prose_fields helper from _prose_fields."""
 
-    @pytest.mark.parametrize("shape_factory", _SHAPE_FACTORIES)
-    def test_linters_yield_same_field_count_for_each_shape(self, tmp_path, shape_factory):
+    def test_linters_share_find_prose_fields_helper(self):
         r"""
-        Given: a single shape variant written into a fresh corpus
-        When:  both validate_yaml_prose_subset.find_prose_fields() and
-               validate_prose_references.find_prose_fields() walk the same file
-        Then:  the two ProseField counts are equal — any divergence in shape
-               handling between the two linters surfaces here.
+        Given: validate_yaml_prose_subset.py and validate_prose_references.py
+               both ``from ._prose_fields import find_prose_fields``
+        When:  the two module-level attributes are compared by identity
+        Then:  they refer to the same function object — symmetry is structural,
+               not behavioral.  Any future re-duplication of the helper into
+               either wrapper module would flip ``is`` to ``False`` and fail
+               this test immediately.
         """
-        kwargs = shape_factory()
-        # Each linter needs an isolated tmp_path to avoid stem collisions when
-        # PyYAML writes ``risks.yaml`` twice; pytest's ``tmp_path`` is shared
-        # within one test, so we sub-divide it.
-        subset_dir = tmp_path / "subset"
-        refs_dir = tmp_path / "refs"
-        subset_dir.mkdir()
-        refs_dir.mkdir()
-
-        subset_yaml, subset_schemas = _build_corpus(subset_dir, **kwargs)
-        refs_yaml, refs_schemas = _build_corpus(refs_dir, **kwargs)
-
-        subset_count = len(list(subset_module.find_prose_fields(subset_yaml, subset_schemas)))
-        refs_count = len(list(references_module.find_prose_fields(refs_yaml, refs_schemas)))
-
-        assert subset_count == refs_count, (
-            f"linter divergence on shape: subset yielded {subset_count}, references yielded {refs_count}"
-        )
+        assert subset_module.find_prose_fields is references_module.find_prose_fields
