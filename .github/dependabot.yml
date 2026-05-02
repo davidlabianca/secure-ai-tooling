@@ -49,6 +49,8 @@ updates:
           - "patch"
 
   # GitHub Actions - .github/workflows/*.yml
+  # Workflows pin Actions to full commit SHAs per ADR-024. Keep semver
+  # comments on those uses: lines so Dependabot can update the pins.
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
