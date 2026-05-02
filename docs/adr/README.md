@@ -39,7 +39,7 @@ If a decision is about *how the Risk Map content model is shaped*, it belongs in
 | [021](021-personas-and-self-assessment-schema.md) | `personas.schema.json` design + `self-assessment.yaml` archiving (GAP-9) | Accepted | 2026-04-25 |
 | [022](022-supporting-schemas.md) | Supporting schemas grouped — actor-access, impact-type, lifecycle-stage, frameworks (mapping-ID regex), mermaid-styles | Accepted | 2026-04-25 |
 | 023 | Devcontainer dependency-pinning policy and lifecycle cadence | Reserved ([#248](https://github.com/cosai-oasis/secure-ai-tooling/issues/248)) | — |
-| [024](024-github-actions-pinning-posture.md) | GitHub Actions pinning posture | Draft | 2026-05-01 |
+| [024](024-github-actions-pinning-posture.md) | GitHub Actions pinning posture | Accepted | 2026-05-01 |
 
 ## Conventions
 

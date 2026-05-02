@@ -1,8 +1,8 @@
 # ADR-024: GitHub Actions pinning posture
 
-**Status:** Draft
+**Status:** Accepted
 **Date:** 2026-05-01
-**Authors:** Codex agent, with maintainer review pending
+**Authors:** Codex agent, with maintainer review
 
 ---
 
