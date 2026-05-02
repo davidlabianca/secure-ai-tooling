@@ -16,13 +16,9 @@ Exit codes:
 """
 
 import argparse
-import json
 import sys
-from collections.abc import Iterator
 from pathlib import Path
 from typing import NoReturn
-
-import yaml
 
 # Ensure the scripts/hooks directory is on sys.path so ``precommit.*`` imports
 # work both when this file is executed directly (e.g. by the test subprocess)
@@ -32,7 +28,8 @@ if str(_HOOKS_DIR) not in sys.path:
     sys.path.insert(0, str(_HOOKS_DIR))
 
 from precommit._linter_types import Diagnostic, ProseField  # noqa: E402
-from precommit._prose_tokens import TokenKind, tokenize  # noqa: E402
+from precommit._prose_fields import find_prose_fields  # noqa: E402
+from precommit._prose_tokens import TokenKind  # noqa: E402
 
 # Re-export so callers can import ProseField and Diagnostic from this module
 # (the test suite imports both from here, not from _linter_types).
@@ -41,11 +38,8 @@ __all__ = ["ProseField", "Diagnostic", "find_prose_fields", "check_prose_field",
 # Hook identifier used as the prefix in every diagnostic line.
 _HOOK_ID = "validate-yaml-prose-subset"
 
-# $ref value that marks a field as a prose field in schema definitions.
-_PROSE_REF = "riskmap.schema.json#/definitions/utils/text"
-
 # Default schema directory relative to the repository root.
-# Four levels up from this file: precommit/ → hooks/ → scripts/ → repo root
+# Four levels up from this file: precommit/ -> hooks/ -> scripts/ -> repo root
 _DEFAULT_SCHEMA_DIR = Path(__file__).resolve().parent.parent.parent.parent / "risk-map" / "schemas"
 
 # Token kinds that the subset linter rejects.
@@ -89,209 +83,6 @@ assert _REJECTED_KINDS == set(_REASONS.keys()), (
     "_REJECTED_KINDS and _REASONS keys must match. "
     "If you added a new INVALID_* kind to _REJECTED_KINDS, add its reason to _REASONS too."
 )
-
-
-def _is_prose_ref(ref: str) -> bool:
-    """Return True if the $ref value marks a prose field."""
-    return ref == _PROSE_REF
-
-
-def _walk_property(path: str, prop_schema: dict, names: list[str]) -> None:
-    """Recursively collect prose-marked field paths.
-
-    Handles three cases:
-    - Leaf prose ref (e.g. shortDescription → $ref: .../utils/text)
-    - Array of objects (e.g. entries[].description) — walks items.properties
-    - Nested object (e.g. tourContent.introduced) — walks its properties
-
-    Args:
-        path:       Dotted field path accumulated so far.
-        prop_schema: The JSON schema fragment for this property.
-        names:      Accumulator list; prose field paths are appended here.
-    """
-    ref = prop_schema.get("$ref")
-    if ref and _is_prose_ref(ref):
-        names.append(path)
-        return
-    # Array of objects: descend into items.properties (e.g. entries[].text)
-    if prop_schema.get("type") == "array":
-        items = prop_schema.get("items", {})
-        for sub_name, sub_schema in items.get("properties", {}).items():
-            _walk_property(f"{path}.{sub_name}", sub_schema, names)
-        return
-    # Nested object: descend into its properties (e.g. tourContent.introduced)
-    if prop_schema.get("type") == "object":
-        for sub_name, sub_schema in prop_schema.get("properties", {}).items():
-            _walk_property(f"{path}.{sub_name}", sub_schema, names)
-
-
-def _find_prose_field_names_in_schema(schema: dict) -> list[str]:
-    """Return path-qualified prose field names found in the schema.
-
-    Walks definitions[*]/properties for the prose $ref marker, recursing
-    into object-typed properties so nested prose fields like
-    tourContent.introduced are discovered. Returns dotted-path field names
-    (e.g. 'longDescription', 'tourContent.introduced').
-
-    Args:
-        schema: Parsed JSON schema dict.
-
-    Returns:
-        List of dotted-path field names marked as prose fields.
-    """
-    names: list[str] = []
-    for _defname, defdata in schema.get("definitions", {}).items():
-        if not isinstance(defdata, dict):
-            continue
-        for prop_name, prop_schema in defdata.get("properties", {}).items():
-            if isinstance(prop_schema, dict):
-                _walk_property(prop_name, prop_schema, names)
-    return names
-
-
-def _infer_schema_name(yaml_path: Path, schema_dir: Path) -> Path | None:
-    """Attempt to locate a schema file for the given YAML by name matching.
-
-    Looks for ``<stem>.schema.json`` in schema_dir (e.g. risks.yaml → risks.schema.json).
-    Falls back to iterating all ``*.schema.json`` files and finding one whose
-    top-level array property name matches the YAML's top-level key.
-
-    Args:
-        yaml_path:  Path to the YAML file being linted.
-        schema_dir: Directory containing JSON schema files.
-
-    Returns:
-        Path to the matched schema, or None if no schema is found.
-    """
-    # Primary: stem-based match (risks.yaml → risks.schema.json)
-    candidate = schema_dir / f"{yaml_path.stem}.schema.json"
-    if candidate.is_file():
-        return candidate
-
-    # Secondary: not expected to be reached for canonical risk-map/yaml/*.yaml files
-    # (their stem matches *.schema.json). Used for non-canonical paths or test fixtures.
-    try:
-        with open(yaml_path, "r", encoding="utf-8") as fh:
-            data = yaml.safe_load(fh)
-        if not isinstance(data, dict):
-            return None
-        yaml_top_keys = set(data.keys())
-    except Exception:
-        return None
-
-    for schema_file in sorted(schema_dir.glob("*.schema.json")):
-        try:
-            with open(schema_file, "r", encoding="utf-8") as fh:
-                schema = json.load(fh)
-        except Exception:
-            continue
-        schema_props = set(schema.get("properties", {}).keys())
-        if yaml_top_keys & schema_props:
-            return schema_file
-
-    return None
-
-
-def _collect_entries(data: dict, schema: dict) -> Iterator[tuple[str, dict]]:
-    """Yield (array_key, entry) pairs for every entity entry in the YAML.
-
-    Looks for top-level keys in the YAML that correspond to array-typed
-    properties in the schema, then yields each element of those arrays together
-    with the array key name.
-
-    Args:
-        data:   Parsed YAML dict.
-        schema: Parsed JSON schema dict.
-
-    Yields:
-        (array_key, entry_dict) pairs.
-    """
-    schema_array_keys = {
-        k for k, v in schema.get("properties", {}).items() if isinstance(v, dict) and v.get("type") == "array"
-    }
-    for key in schema_array_keys:
-        entries = data.get(key)
-        if isinstance(entries, list):
-            for entry in entries:
-                if isinstance(entry, dict):
-                    yield key, entry
-
-
-def find_prose_fields(yaml_path: Path, schema_dir: Path) -> Iterator[ProseField]:
-    """Yield ProseField objects for every prose array element in a YAML file.
-
-    Schema introspection drives field discovery: only properties marked with
-    ``$ref: riskmap.schema.json#/definitions/utils/text`` are treated as prose
-    fields. The YAML file is matched to a schema by stem name first, then by
-    top-level array-key overlap.
-
-    Prose fields are expected to be YAML arrays of strings (one element per
-    paragraph). Each string element is yielded as a separate ProseField with its
-    array index. If a prose field value is a bare string rather than a list, it
-    is yielded once with index 0.
-
-    Args:
-        yaml_path:  Path to the YAML file to lint.
-        schema_dir: Directory containing JSON schema files.
-
-    Yields:
-        ProseField for each prose string found.
-    """
-    schema_path = _infer_schema_name(yaml_path, schema_dir)
-    if schema_path is None:
-        return
-
-    try:
-        with open(schema_path, "r", encoding="utf-8") as fh:
-            schema = json.load(fh)
-    except Exception:
-        return
-
-    prose_field_names = _find_prose_field_names_in_schema(schema)
-    if not prose_field_names:
-        return
-
-    try:
-        with open(yaml_path, "r", encoding="utf-8") as fh:
-            data = yaml.safe_load(fh)
-    except Exception:
-        return
-
-    if not isinstance(data, dict):
-        return
-
-    for _array_key, entry in _collect_entries(data, schema):
-        entry_id = entry.get("id", "<unknown>")
-        for field_name in prose_field_names:
-            # Resolve dotted paths (e.g. "tourContent.introduced") by walking segments.
-            field_value: object = entry
-            for segment in field_name.split("."):
-                if not isinstance(field_value, dict):
-                    field_value = None
-                    break
-                field_value = field_value.get(segment)
-            if field_value is None:
-                continue
-            if isinstance(field_value, list):
-                for idx, item in enumerate(field_value):
-                    if isinstance(item, str):
-                        yield ProseField(
-                            file_path=yaml_path,
-                            entry_id=entry_id,
-                            field_name=field_name,
-                            index=idx,
-                            raw_text=item,
-                            tokens=tokenize(item),
-                        )
-            elif isinstance(field_value, str):
-                yield ProseField(
-                    file_path=yaml_path,
-                    entry_id=entry_id,
-                    field_name=field_name,
-                    index=0,
-                    raw_text=field_value,
-                    tokens=tokenize(field_value),
-                )
 
 
 def check_prose_field(field: ProseField) -> list[Diagnostic]:

@@ -22,14 +22,19 @@ class ProseField(NamedTuple):
     """A single prose field value extracted from a YAML entry.
 
     Attributes:
-        file_path:  Path to the source YAML file.
-        entry_id:   Value of the entry's 'id' field.
-        field_name: Schema property name (e.g. 'shortDescription').
-        index:      Position of this string within its containing array (0-based),
-                    or None if the field value is a bare scalar (not currently used
-                    by the real schemas, but kept for forward-compatibility).
-        raw_text:   The decoded string value as returned by PyYAML.
-        tokens:     Token stream produced by tokenize(raw_text).
+        file_path:    Path to the source YAML file.
+        entry_id:     Value of the entry's 'id' field.
+        field_name:   Schema property name (e.g. 'shortDescription').
+        index:        Position of this string within its containing array (0-based),
+                      or None if the field value is a bare scalar (not currently used
+                      by the real schemas, but kept for forward-compatibility).
+        raw_text:     The decoded string value as returned by PyYAML.
+        tokens:       Token stream produced by tokenize(raw_text).
+        nested_index: When the prose field shape uses one level of nesting
+                      (``items: oneOf [string, array<string>]``) and this record
+                      came from an inner-list string, this is the inner index
+                      within that list; ``index`` then holds the outer index.
+                      ``None`` for flat-array entries and bare-scalar entries.
     """
 
     file_path: Path
@@ -38,6 +43,7 @@ class ProseField(NamedTuple):
     index: int | None
     raw_text: str
     tokens: list[Token]
+    nested_index: int | None = None
 
 
 class Diagnostic(NamedTuple):
