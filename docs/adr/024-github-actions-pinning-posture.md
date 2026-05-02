@@ -30,6 +30,10 @@ uses: owner/repo@0123456789abcdef0123456789abcdef01234567 # v1.2.3
 
 The part after `@` is the 40-character commit SHA that GitHub Actions resolves and executes. The trailing comment is not executable workflow input; it is a maintainer and Dependabot hint that records the upstream release tag corresponding to the pin.
 
+The same rule applies to subpath references such as `owner/repo/path/to/action@<sha> # vX.Y.Z`; only the SHA portion is what GitHub Actions resolves and executes, so the pinning rule is identical regardless of subpath.
+
+This ADR does not address `docker://image:tag` references in `uses:` fields. The repository does not currently use that shape; if a workflow ever introduces a containerized Action, that reference's pinning policy is governed by the future devcontainer / Docker-image policy in ADR-023, not by this ADR.
+
 This applies to GitHub-owned Actions and third-party Actions alike. The repository currently uses both (`actions/*` and `browser-actions/setup-chrome`), and a single rule is easier to review and enforce than a split policy.
 
 ### D2. Do not use floating refs for external Actions
@@ -48,6 +52,8 @@ Those references are mutable. They may still be acceptable for local reusable wo
 The `github-actions` entry in `.github/dependabot.yml` remains enabled. Dependabot version updates can update SHA-pinned Actions when the line includes a version comment, so the semver comment is required whenever a SHA pin corresponds to a tagged release.
 
 Reviewers should reject SHA-pinned Action updates that drop the version comment. Without the comment, the pin remains immutable but maintenance becomes manual and Dependabot cannot produce useful version-update PRs.
+
+The comment format is ` # vX.Y.Z` (single leading space, `#`, single space, `v` prefix, semver). Dependabot's update-comments-in-workflows feature parses that shape; deviations may degrade silently to a SHA-only diff with no version context.
 
 ### D4. Treat security alerts and version updates as separate signals
 
@@ -80,15 +86,17 @@ This ADR does not decide Docker image digest pinning, devcontainer feature exact
 - Workflow `uses:` lines are less readable because the executable reference is a SHA.
 - Maintainers must preserve the version comments during manual edits.
 - Reviewers must verify that a SHA update corresponds to the commented release tag when a change is not produced by Dependabot.
+- Routine Action-update PRs are SHA diffs rather than tag bumps; the volume is dominated by GitHub-published `actions/*` updates, which a third-party-only pinning policy would have left on tag pins. The repository accepts this review surface in exchange for a uniform rule that does not require reviewers to remember per-publisher exceptions.
 
 **Follow-up**
 
-- Add an automated lint that rejects external `uses:` references not pinned to 40-character SHAs and rejects SHA pins without semver comments.
-- Once ADR-023 lands, keep `docs/devcontainer-maintenance.md` and this ADR cross-linked so dependency maintenance decisions for workflows and devcontainers remain discoverable together.
+- Add an automated lint that rejects external `uses:` references not pinned to 40-character SHAs and rejects SHA pins without semver comments. Tracked at [#264](https://github.com/cosai-oasis/secure-ai-tooling/issues/264).
+- Once ADR-023 lands and creates `docs/devcontainer-maintenance.md` with cadence content, add a back-link from there to this ADR so dependency maintenance decisions for workflows and devcontainers remain discoverable together.
 
 ## References
 
 - [Issue #251: GitHub Actions pinning posture](https://github.com/cosai-oasis/secure-ai-tooling/issues/251)
+- [Issue #248: devcontainer lifecycle maintenance (ADR-023 parent)](https://github.com/cosai-oasis/secure-ai-tooling/issues/248) — sibling decision; ADR-023 will cover devcontainer / Docker-image pinning deferred from D5
 - [GitHub Actions security hardening guidance](https://docs.github.com/en/actions/security-guides/security-hardening-for-github-actions)
 - [Dependabot changelog: update comments in SHA-pinned GitHub Actions workflows](https://github.blog/changelog/2022-10-31-dependabot-now-updates-comments-in-github-actions-workflows-referencing-action-versions/)
 - [OpenSSF Scorecard pinned-dependencies check](https://github.com/ossf/scorecard/blob/main/docs/checks.md#pinned-dependencies)
