@@ -198,9 +198,9 @@ repos:
 
   # ---------------------------------------------------------------------------
   # Local validators. Each runs only when its dependency files are staged
-  # (framework filters via `files:`); validators do their own internal staged-
-  # file detection, which is now redundant but harmless and preserves bash
-  # behavior. pass_filenames is false because each validator scans the repo.
+  # (framework filters via `files:`). The risk-map validators self-scan the
+  # repo and therefore use pass_filenames: false; file-scoped validators such
+  # as workflow pinning keep pass_filenames: true.
   # ---------------------------------------------------------------------------
   - repo: local
     hooks:
