@@ -122,6 +122,8 @@ class TestFailingReferences:
         ("line", "expected"),
         [
             ("uses: actions/checkout@v6", "full 40-character commit SHA"),
+            ('"uses": actions/checkout@v6', "full 40-character commit SHA"),
+            ("'uses': actions/checkout@v6", "full 40-character commit SHA"),
             (f"uses: actions/checkout@{SHORT_SHA} # v6.0.2", "full 40-character commit SHA"),
             ("uses: actions/checkout", "full 40-character commit SHA"),
             (f"uses: actions/checkout@{FULL_SHA}", "missing required ` # vX.Y.Z`"),
@@ -151,6 +153,27 @@ jobs:
 
         assert len(violations) == 1
         assert expected in violations[0].message
+
+    def test_quoted_job_level_uses_key_fails(self, tmp_path):
+        """
+        Given: A job-level reusable workflow reference with a quoted `uses` key
+        When: validate_file scans the workflow
+        Then: It treats the quoted key as a real GitHub Actions `uses` field
+        """
+        workflow = _write_workflow(
+            tmp_path,
+            """
+name: quoted job key
+jobs:
+  reusable:
+    "uses": octo-org/example/.github/workflows/build.yml@main
+""".lstrip(),
+        )
+
+        violations = validate_file(workflow)
+
+        assert len(violations) == 1
+        assert "full 40-character commit SHA" in violations[0].message
 
     def test_docker_action_reference_fails_for_maintainer_review(self, tmp_path):
         """

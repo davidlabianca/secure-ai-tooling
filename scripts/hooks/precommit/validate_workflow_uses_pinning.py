@@ -18,7 +18,7 @@ from pathlib import Path
 
 HOOK_NAME = "validate-workflow-uses-pinning"
 
-USES_LINE_RE = re.compile(r"^\s*(?:-\s*)?uses\s*:\s*(?P<rest>.*?)\s*$")
+USES_LINE_RE = re.compile(r"^\s*(?:-\s*)?(?:uses|\"uses\"|'uses')\s*:\s*(?P<rest>.*?)\s*$")
 PINNED_EXTERNAL_REF_RE = re.compile(r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)*@[0-9A-Fa-f]{40}$")
 SEMVER_COMMENT_RE = re.compile(
     r"v(0|[1-9]\d*)\."
