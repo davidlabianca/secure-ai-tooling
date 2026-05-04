@@ -3,11 +3,17 @@ on:
   push:
     paths:
       - '**.py'
+      - '.github/workflows/*.yml'
+      - '.github/workflows/**/*.yml'
+      - '.pre-commit-config.yaml'
       - 'requirements*.txt'
       - 'pyproject.toml'
   pull_request:
     paths:
       - '**.py'
+      - '.github/workflows/*.yml'
+      - '.github/workflows/**/*.yml'
+      - '.pre-commit-config.yaml'
       - 'requirements*.txt'
       - 'pyproject.toml'
 
@@ -94,11 +100,37 @@ jobs:
           echo "status=failed" >> $GITHUB_OUTPUT
           exit 1
         fi
+  workflow-uses-pinning:
+    runs-on: ubuntu-latest
+    name: GitHub Actions Uses Pinning
+    needs: setup
+    outputs:
+      pinning_status: ${{ steps.workflow-pinning.outputs.status }}
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+    - name: Set up Python
+      uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
+      with:
+        python-version: '3.14'
+    - name: Validate GitHub Actions uses pinning
+      id: workflow-pinning
+      run: |
+        echo "🔍 Validating GitHub Actions uses pinning..."
+        if python scripts/hooks/precommit/validate_workflow_uses_pinning.py; then
+          echo "✅ GitHub Actions uses pinning validation completed successfully"
+          echo "status=success" >> $GITHUB_OUTPUT
+        else
+          echo "❌ GitHub Actions uses pinning validation failed"
+          echo "::error::GitHub Actions uses pinning validation failed"
+          echo "status=failed" >> $GITHUB_OUTPUT
+          exit 1
+        fi
   # Summary job that requires all other jobs but doesn't fail
   validation-summary:
     runs-on: ubuntu-latest
     name: Validation Summary
-    needs: [python-linting, python-testing]
+    needs: [python-linting, python-testing, workflow-uses-pinning]
     if: always()
     steps:
     - name: Generate Summary
@@ -109,8 +141,10 @@ jobs:
         # Check individual job results
         lint_result="${{ needs.python-linting.result }}"
         test_result="${{ needs.python-testing.result }}"
+        pinning_result="${{ needs.workflow-uses-pinning.result }}"
         lint_status="${{ needs.python-linting.outputs.lint_status }}"
         test_status="${{ needs.python-testing.outputs.test_status }}"
+        pinning_status="${{ needs.workflow-uses-pinning.outputs.pinning_status }}"
         overall_success=true
         
         echo "## Individual Job Results:" >> $GITHUB_STEP_SUMMARY
@@ -127,6 +161,13 @@ jobs:
           echo "- ✅ **Python test validation**: Passed" >> $GITHUB_STEP_SUMMARY
         else
           echo "- ❌ **Python test validation**: $test_result" >> $GITHUB_STEP_SUMMARY
+          overall_success=false
+        fi
+
+        if [ "$pinning_result" = "success" ]; then
+          echo "- ✅ **GitHub Actions uses pinning validation**: Passed" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "- ❌ **GitHub Actions uses pinning validation**: $pinning_result" >> $GITHUB_STEP_SUMMARY
           overall_success=false
         fi
         

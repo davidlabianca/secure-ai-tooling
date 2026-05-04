@@ -8,7 +8,7 @@
 #   1. Schema validation (check-jsonschema, per yaml/schema pair)
 #   2. Prettier formatting (yaml in risk-map/yaml/)
 #   3. Ruff linting (Python)
-#   4. Local validators (component edges, control-risk, framework refs)
+#   4. Local validators (component edges, control-risk, framework refs, workflow action pins)
 #   5. Issue template regeneration + validation
 #   6. Mermaid graph, markdown table, and SVG regeneration (Mode B auto-stage)
 
@@ -224,6 +224,13 @@ repos:
         entry: python3 scripts/hooks/validate_framework_references.py
         files: ^risk-map/yaml/(controls|frameworks|personas|risks)\.yaml$
         pass_filenames: false
+
+      - id: validate-workflow-uses-pinning
+        name: 'github-actions: enforce SHA-pinned uses references'
+        language: system
+        entry: python3 scripts/hooks/precommit/validate_workflow_uses_pinning.py
+        files: ^\.github/workflows/.*\.yml$
+        pass_filenames: true
 
       - id: validate-identification-questions
         name: 'validate: identification-questions structural rules'

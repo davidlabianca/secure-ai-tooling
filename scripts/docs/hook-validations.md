@@ -134,7 +134,39 @@ risks:
 - `frameworks.yaml` configuration and structure
 - `personas.yaml` framework applicability
 
-## 9. Issue Template Regeneration
+## 9. GitHub Actions `uses:` Pinning Validation
+
+`validate-workflow-uses-pinning` hook runs
+`scripts/hooks/precommit/validate_workflow_uses_pinning.py` when a workflow
+file under `.github/workflows/*.yml` or `.github/workflows/**/*.yml` is
+staged.
+
+**Validation:**
+
+- External `uses:` references must use
+  `owner/repo@<40-character-SHA> # vX.Y.Z`
+- External action subpaths and reusable workflows must use
+  `owner/repo/path@<40-character-SHA> # vX.Y.Z`
+- Local `./...` references are allowed without a SHA or version comment
+- `docker://` action references fail until a separate Docker pinning policy is
+  defined
+
+**Example:**
+
+```yaml
+# Valid external action reference
+- uses: actions/checkout@0123456789abcdef0123456789abcdef01234567 # v6.0.2
+
+# Valid local reference
+- uses: ./.github/actions/build
+
+# Invalid: mutable tag
+- uses: actions/checkout@v6
+```
+
+Violations name the offending workflow file and line number.
+
+## 10. Issue Template Regeneration
 
 `regenerate-issue-templates` hook (`scripts/hooks/precommit/regenerate_issue_templates.py`)
 triggers when any of these is staged:
@@ -157,12 +189,12 @@ regenerated templates land in the same commit.
 - `new_persona.yml`, `update_persona.yml`
 - `infrastructure.yml`
 
-## 10. Issue Template Validation
+## 11. Issue Template Validation
 
 `validate-issue-templates` hook runs
 `scripts/hooks/validate_issue_templates.py` when anything under
 `.github/ISSUE_TEMPLATE/*.yml` or `scripts/TEMPLATES/*.yml` is staged
-(including the files just regenerated in step 9).
+(including the files just regenerated in step 10).
 
 **Validates against vendored schemas:**
 
@@ -185,7 +217,7 @@ regenerated templates land in the same commit.
   validations: { required: true }   # ❌ checkboxes don't support top-level validations
 ```
 
-## 11. Graph Regeneration
+## 12. Graph Regeneration
 
 `regenerate-graphs` hook (`scripts/hooks/precommit/regenerate_graphs.py`)
 produces three Mermaid graph pairs based on which source yaml is staged:
@@ -199,7 +231,7 @@ produces three Mermaid graph pairs based on which source yaml is staged:
 Each output pair is `git add`-ed on success. The wrapper delegates to
 `validate_riskmap.py --to-graph / --to-controls-graph / --to-risk-graph`.
 
-## 12. Table Regeneration
+## 13. Table Regeneration
 
 `regenerate-tables` hook (`scripts/hooks/precommit/regenerate_tables.py`)
 produces 8 generation operations across 4 source triggers. The ordering
@@ -219,7 +251,7 @@ trigger) run — matches bash behavior.
 
 See [Table Generation](table-generation.md) for output filename conventions.
 
-## 13. Mermaid SVG Regeneration
+## 14. Mermaid SVG Regeneration
 
 `regenerate-svgs` hook (`scripts/hooks/precommit/regenerate_svgs.py`)
 converts staged `.mmd` or `.mermaid` files under `risk-map/diagrams/` into
