@@ -1,15 +1,19 @@
 """
-Core validation logic for component edge consistency.
+Core validation logic for component edge consistency and lifecycle stage ordering.
 
 Provides the ComponentEdgeValidator class that validates bidirectional
-edge consistency in component relationship YAML files.
+edge consistency in component relationship YAML files, and the
+check_lifecycle_stage_order_uniqueness function that validates order
+uniqueness across lifecycle stage entries.
 
 Dependencies:
     - PyYAML: For YAML file parsing
     - .models: ComponentNode data model
 """
 
+from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any
 
 from .models import ComponentNode
 from .utils import parse_components_yaml
@@ -215,3 +219,65 @@ class ComponentEdgeValidator:
         except EdgeValidationError as e:
             self.log(f"Validation error: {e}", "error")
             return False
+
+
+# ---------------------------------------------------------------------------
+# Lifecycle stage order uniqueness check (ADR-022 D4)
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class LifecycleOrderCheckResult:
+    """
+    Result of a lifecycle stage order uniqueness check.
+
+    Attributes:
+        is_valid: True when all order values are unique, False if any duplicate found.
+        errors: List of human-readable error strings, empty on success.
+    """
+
+    is_valid: bool
+    errors: list[str] = field(default_factory=list)
+
+
+def check_lifecycle_stage_order_uniqueness(data: dict[str, Any]) -> LifecycleOrderCheckResult:
+    """
+    Check that every lifecycleStage carries a unique order value.
+
+    Per ADR-022 D4: uniqueness across array items is awkward in JSON Schema;
+    this validator check is the cleaner path. This function blocks immediately
+    on any duplicate — there is no warn-only mode, because the corpus is clean
+    at landing.
+
+    The function assumes each stage dict contains an 'order' key (integer). Structural
+    validation (missing keys, wrong types) is the schema layer's responsibility.
+
+    Args:
+        data: Parsed lifecycle-stage YAML content, expected shape:
+              {"lifecycleStages": [{"id": str, "order": int, ...}, ...]}
+
+    Returns:
+        LifecycleOrderCheckResult with is_valid=True and empty errors if all
+        order values are unique; is_valid=False and a non-empty errors list
+        identifying each set of colliding stage IDs and the duplicated value.
+    """
+    stages: list[dict[str, Any]] = data.get("lifecycleStages", [])
+
+    # Map each order value to the list of stage IDs that carry it.
+    order_to_ids: dict[int, list[str]] = {}
+    for stage in stages:
+        order = stage["order"]
+        stage_id = stage["id"]
+        order_to_ids.setdefault(order, []).append(stage_id)
+
+    errors: list[str] = []
+    for order_value, ids in order_to_ids.items():
+        if len(ids) > 1:
+            # Include both the duplicated value and all colliding IDs so a developer
+            # reading CI output can locate the defect without inspecting the YAML directly.
+            colliders = ", ".join(ids)
+            errors.append(
+                f"Duplicate lifecycleStage order value {order_value}: stages [{colliders}] all carry this order"
+            )
+
+    return LifecycleOrderCheckResult(is_valid=len(errors) == 0, errors=errors)

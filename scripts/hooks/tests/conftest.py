@@ -166,6 +166,20 @@ def personas_schema_path(risk_map_schemas_dir: Path) -> Path:
 
 
 @pytest.fixture(scope="session")
+def lifecycle_stage_yaml_path(risk_map_yaml_dir: Path) -> Path:
+    """
+    Path to lifecycle-stage.yaml file.
+
+    Args:
+        risk_map_yaml_dir: YAML directory path fixture
+
+    Returns:
+        Path: Absolute path to lifecycle-stage.yaml
+    """
+    return risk_map_yaml_dir / "lifecycle-stage.yaml"
+
+
+@pytest.fixture(scope="session")
 def base_uri(risk_map_schemas_dir: Path) -> str:
     """
     Base URI for schema validation with check-jsonschema.
