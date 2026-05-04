@@ -436,8 +436,14 @@ def validate_framework_consistency(frameworks_data: dict[str, Any]) -> list[str]
     return errors
 
 
-def validate_frameworks(file_paths: list[Path]) -> bool:
-    """Validate framework reference consistency including persona mappings."""
+def validate_frameworks(file_paths: list[Path], block_deprecated_personas: bool = False) -> bool:
+    """Validate framework reference consistency including persona mappings.
+
+    Args:
+        file_paths: Ordered list of YAML file paths: frameworks, risks, controls, personas.
+        block_deprecated_personas: When True, deprecated-persona warnings are promoted to
+            errors and cause this function to return False (exit 1 in main).
+    """
     print(f"   Validating framework references in: {', '.join(map(str, file_paths))}")
 
     # Load YAML files
@@ -524,11 +530,13 @@ def validate_frameworks(file_paths: list[Path]) -> bool:
             print(f"     - {error}")
         success = False
 
-    # Report deprecation warnings (don't fail validation)
+    # Report deprecation warnings; promote to errors when --block is active.
     if deprecation_warnings:
         print(f"   ⚠️  Found {len(deprecation_warnings)} deprecated persona usage warnings:")
         for warning in deprecation_warnings:
             print(f"     - {warning}")
+        if block_deprecated_personas:
+            success = False
 
     if success:
         print("  ✅ Framework references and applicability are consistent")
@@ -561,6 +569,12 @@ Examples:
         action="store_true",
         help="Force validation of framework references even if not staged",
     )
+    parser.add_argument(
+        "--block",
+        action="store_true",
+        default=False,
+        help="Promote deprecated-persona warnings to errors and exit 1.",
+    )
     return parser.parse_args()
 
 
@@ -583,7 +597,7 @@ def main() -> None:
     print("   Found staged framework-related YAML files (frameworks, risks, controls, personas)")
 
     # Validate framework references
-    if not validate_frameworks(yaml_files):
+    if not validate_frameworks(yaml_files, block_deprecated_personas=args.block):
         print("   ❌ Framework reference validation failed!")
         print("   Fix the above errors before committing.")
         sys.exit(1)
