@@ -1,17 +1,8 @@
 {
   "dependencies": {
     "prettier": "^3.8.3",
+    "puppeteer": "24.42.0",
+    "playwright": "1.59.1",
     "@mermaid-js/mermaid-cli": "^11.14.0"
-  },
-  "overrides": {
-    "chevrotain": {
-      "lodash-es": "4.18.1"
-    },
-    "@chevrotain/cst-dts-gen": {
-      "lodash-es": "4.18.1"
-    },
-    "@chevrotain/gast": {
-      "lodash-es": "4.18.1"
-    }
   }
 }
