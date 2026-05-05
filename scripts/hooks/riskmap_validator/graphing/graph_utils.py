@@ -342,6 +342,54 @@ class MermaidConfigLoader:
         result = self._get_safe_value("sharedElements", "componentCategories", default={})
         return result if isinstance(result, dict) else {}
 
+    def get_missing_category_warnings(self, schema_categories: set[str]) -> list[str]:
+        """
+        Return one warning string per schema category absent from styling config.
+
+        Checks schema_categories against the keys in
+        sharedElements.componentCategories in the loaded config (or emergency
+        defaults). Direction is schema → styling only: extra styling keys that
+        the schema does not enumerate are ignored and produce no warning.
+
+        Args:
+            schema_categories: Set of category IDs declared by
+                components.schema.json (e.g. from the "id" enum). Caller is
+                responsible for deriving this set; this method does not load
+                the schema itself.
+
+        Returns:
+            List of warning strings, one per missing category. Each string
+            contains the missing category ID. Returns [] when every schema
+            category has a styling entry, or when schema_categories is empty.
+        """
+        if not schema_categories:
+            return []
+
+        styled_keys = set(self.get_component_category_styles().keys())
+        return [
+            f"Missing styling entry for component category '{cat}' in componentCategories config"
+            for cat in schema_categories
+            if cat not in styled_keys
+        ]
+
+    def emit_missing_category_warnings(self, schema_categories: set[str]) -> None:
+        """
+        Emit a warning for each schema category absent from styling config.
+
+        Thin wrapper around get_missing_category_warnings() that surfaces
+        warnings via the standard warnings module so they are visible to
+        operators at runtime without requiring callers to inspect the return
+        value.
+
+        Args:
+            schema_categories: Set of category IDs declared by
+                components.schema.json. See get_missing_category_warnings().
+        """
+        import warnings
+
+        for message in self.get_missing_category_warnings(schema_categories):
+            warnings.warn(message, stacklevel=2)
+
     def get_css_classes(self) -> dict:
         """
         Get CSS class definitions for graph styling.
