@@ -150,6 +150,18 @@ _RE_PIPE_TABLE_ROW = re.compile(r"\|[^\n]*(?:\n|$)")
 # Folded-bullet drift (ADR-020 D4): at least one leading whitespace char, then "- ",
 # then the rest of the line up to (and including) the trailing \n or end of string.
 # Leading whitespace distinguishes this from column-0 list markers (INVALID_LIST).
+#
+# Source-form vs. parsed-form drift distinction:
+#   Source-form drift: the raw decoded string retains indentation (e.g. from quoted
+#   scalars or literal-block scalars), so "   - item" lines arrive with leading
+#   whitespace — caught here as INVALID_FOLDED_BULLET.
+#
+#   Parsed-form drift: YAML's ">" folded-scalar parser collapses indentation, so
+#   embedded "- item" lines arrive at column 0 in the Python string.  These fire
+#   INVALID_LIST (Rule 5), not INVALID_FOLDED_BULLET.  Both real-world cases from
+#   issue #225 use ">" folded scalars and therefore surface as INVALID_LIST.
+#   The INVALID_LIST diagnostic message cross-references ADR-020 D4 so readers
+#   understand the connection between the two code paths.
 _RE_FOLDED_BULLET = re.compile(r"\s+\-\s[^\n]*(?:\n|$)")
 
 # Sentinel ref identifier: letters, digits, hyphens, underscores, and dots.
