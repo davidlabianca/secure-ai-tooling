@@ -65,9 +65,10 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO_ROOT))
 
 # ---------------------------------------------------------------------------
-# Guarded imports — RED phase: wiring and new helpers do not exist yet.
-# Both import blocks use guarded patterns so individual tests fail with
-# informative messages rather than a module-level collection error.
+# Decoupled imports: if the sentinel helper or new yaml_to_markdown symbols
+# fail to import (e.g. dependency drift), tests fail individually with clear
+# messages rather than producing a collection-time error. Mirrors the A3
+# pattern in test_prose_tokens.py.
 # ---------------------------------------------------------------------------
 
 _SENTINEL_MODULE_ERROR: ImportError | None = None

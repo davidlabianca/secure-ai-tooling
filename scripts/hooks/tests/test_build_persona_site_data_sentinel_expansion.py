@@ -53,8 +53,9 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO_ROOT))
 
 # ---------------------------------------------------------------------------
-# Guarded import — RED phase: helper does not exist yet; builder signature
-# changes not yet applied.
+# Decoupled import for the helper: if it fails to import (e.g. dependency
+# drift), tests fail individually with a clear message rather than at
+# collection time. Mirrors the A3 pattern in test_prose_tokens.py.
 # ---------------------------------------------------------------------------
 _IMPORT_ERROR: ImportError | None = None
 try:
@@ -72,9 +73,7 @@ from scripts.build_persona_site_data import (  # noqa: E402
 def _require_sentinel_module() -> None:
     """Fail with a clear message if the sentinel helper is not importable."""
     if _IMPORT_ERROR is not None:
-        pytest.fail(
-            f"scripts/hooks/_sentinel_expansion.py is not importable (expected in RED phase): {_IMPORT_ERROR}"
-        )
+        pytest.fail(f"scripts/hooks/_sentinel_expansion.py is not importable: {_IMPORT_ERROR}")
 
 
 # ---------------------------------------------------------------------------

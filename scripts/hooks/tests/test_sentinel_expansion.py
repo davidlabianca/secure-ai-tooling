@@ -43,8 +43,9 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO_ROOT))
 
 # ---------------------------------------------------------------------------
-# Guarded import — RED-phase: helper does not exist yet.
-# Tests fail with ImportError until SWE creates the module.
+# Decoupled import: if the helper module fails to import (e.g. dependency
+# drift), tests fail individually with a clear message instead of a
+# collection-time error. Mirrors the A3 pattern in test_prose_tokens.py.
 # ---------------------------------------------------------------------------
 _IMPORT_ERROR: ImportError | None = None
 try:
@@ -61,11 +62,9 @@ except ImportError as _e:
 
 
 def _require_module() -> None:
-    """Skip-with-fail if the module is missing; produces clear RED failure."""
+    """Fail clearly if the helper module is missing (decoupled-import pattern)."""
     if _IMPORT_ERROR is not None:
-        pytest.fail(
-            f"scripts/hooks/_sentinel_expansion.py is not importable (expected in RED phase): {_IMPORT_ERROR}"
-        )
+        pytest.fail(f"scripts/hooks/_sentinel_expansion.py is not importable: {_IMPORT_ERROR}")
 
 
 # ---------------------------------------------------------------------------
