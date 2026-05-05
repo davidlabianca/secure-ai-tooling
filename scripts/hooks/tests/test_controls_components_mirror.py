@@ -168,22 +168,37 @@ def _make_control(
 # ---------------------------------------------------------------------------
 
 # Minimal components.yaml whose two components reference each other so
-# ComponentEdgeValidator does not fail on missing back-edges.
+# ComponentEdgeValidator does not fail on missing back-edges. The categories
+# block + subcategory fields make this corpus opaque to task 2.3.9's nesting
+# check (after 2.3.9 wires, every component has a valid (category, subcategory)
+# pair so the nesting check stays silent and the mirror behavior remains
+# isolated).
 _MINIMAL_COMPONENTS: dict[str, Any] = {
     "components": [
         {
             "id": "componentAlpha",
             "title": "Alpha",
             "category": "componentsInfrastructure",
+            "subcategory": "componentsData",
             "edges": {"to": ["componentBeta"], "from": []},
         },
         {
             "id": "componentBeta",
             "title": "Beta",
             "category": "componentsInfrastructure",
+            "subcategory": "componentsData",
             "edges": {"to": [], "from": ["componentAlpha"]},
         },
-    ]
+    ],
+    "categories": [
+        {
+            "id": "componentsInfrastructure",
+            "title": "Infrastructure",
+            "subcategory": [
+                {"id": "componentsData", "title": "Data"},
+            ],
+        },
+    ],
 }
 
 # controls.yaml that references only IDs present in _MINIMAL_COMPONENTS.

@@ -4,9 +4,11 @@ Core validation logic for component edge consistency and lifecycle stage orderin
 Provides the ComponentEdgeValidator class that validates bidirectional
 edge consistency in component relationship YAML files, the
 check_lifecycle_stage_order_uniqueness function that validates order
-uniqueness across lifecycle stage entries, and check_controls_components_mirror
+uniqueness across lifecycle stage entries, check_controls_components_mirror
 that validates control→component references against the component ID set
-(ADR-020 D7).
+(ADR-020 D7), and check_category_subcategory_nesting that validates each
+component's (category, subcategory) pair against the categories block
+declaration (ADR-018 D6).
 
 Dependencies:
     - PyYAML: For YAML file parsing
@@ -325,6 +327,61 @@ def check_controls_components_mirror(
                 warnings.append(
                     f"Control '{control_id}' references component '{component_ref}' "
                     f"which does not exist in components.yaml"
+                )
+
+    return warnings
+
+
+# ---------------------------------------------------------------------------
+# Category/subcategory nesting check (ADR-018 D6 / task 2.3.9)
+# ---------------------------------------------------------------------------
+
+
+def check_category_subcategory_nesting(
+    components: dict[str, ComponentNode],
+    category_to_subcategories: dict[str, set[str]],
+) -> list[str]:
+    """
+    Check that every component's (category, subcategory) pair is declared in the
+    categories block.
+
+    Per ADR-018 D6: the schema enforces individual enum membership but not
+    cross-field nesting (e.g., a component can pass schema with category=A,
+    subcategory=B even when B is nested under category=C). This validator closes
+    that gap.
+
+    Two warning classes are emitted (Path A, orchestrator-pinned):
+      Class 1 (mismatch): subcategory is present but not nested under the
+        claimed category.  Covers unknown categories too — a category absent
+        from category_to_subcategories has no valid subcategories.
+      Class 2 (absent): subcategory is None (missing).
+
+    The component ID in warnings is the dict key, not ComponentNode.title.
+
+    Args:
+        components: Dict mapping component IDs to ComponentNode objects, as
+                    returned by parse_components_yaml().
+        category_to_subcategories: Maps each top-level category ID to the set
+                    of valid subcategory IDs declared under it.  Build this from
+                    the YAML's top-level ``categories:`` block.
+
+    Returns:
+        List of human-readable warning strings; empty when all pairs are valid.
+    """
+    warnings: list[str] = []
+
+    for component_id, node in components.items():
+        if node.subcategory is None:
+            # Class 2: subcategory absent — surface for content debt tracking.
+            warnings.append(f"Component '{component_id}' (category '{node.category}') is missing a subcategory")
+        else:
+            # Class 1: subcategory present — check it is nested under the claimed category.
+            # An unknown category is treated as having no valid subcategories.
+            valid_subcategories = category_to_subcategories.get(node.category, set())
+            if node.subcategory not in valid_subcategories:
+                warnings.append(
+                    f"Component '{component_id}' claims category '{node.category}' "
+                    f"but subcategory '{node.subcategory}' is not nested under that category"
                 )
 
     return warnings
