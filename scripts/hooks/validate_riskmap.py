@@ -29,7 +29,11 @@ from pathlib import Path
 from riskmap_validator.config import DEFAULT_COMPONENTS_FILE
 from riskmap_validator.graphing import ComponentGraph, ControlGraph, RiskGraph
 from riskmap_validator.utils import get_staged_yaml_files, parse_controls_yaml, parse_risks_yaml
-from riskmap_validator.validator import ComponentEdgeValidator, check_controls_components_mirror
+from riskmap_validator.validator import (
+    ComponentEdgeValidator,
+    check_category_subcategory_nesting,
+    check_controls_components_mirror,
+)
 
 
 def parse_args() -> argparse.Namespace:
@@ -173,18 +177,26 @@ def main() -> None:
         if not args.quiet:
             print("✅ All YAML files passed component edge validation")
 
-        # Run controls↔components mirror check (ADR-020 D7 / task 2.3.8).
-        # Loads controls.yaml relative to cwd; derives component_ids from the
-        # already-parsed validator.components so no second parse of components.yaml.
-        # Skip mirror check when no components are loaded — avoids a vacuous run
-        # and prevents triggering file I/O in test contexts where open() is mocked.
+        # Run warn-only checks: controls↔components mirror (ADR-020 D7 / task 2.3.8)
+        # and category/subcategory nesting (ADR-018 D6 / task 2.3.9).
+        #
+        # Both checks collect warnings independently. The exit decision is deferred
+        # until after both have run so the user sees all warnings in one pass even
+        # when --block is set.  The guard (controls_path.exists() and components
+        # loaded) stays the same as before to avoid vacuous runs and file I/O in
+        # test contexts where components are unavailable.
         controls_path = Path("risk-map/yaml/controls.yaml")
+        components_path = Path("risk-map/yaml/components.yaml")
+
+        # Track whether any warn-only check produced output that --block should
+        # promote to a hard failure.
+        _warn_block_triggered = False
+
         if controls_path.exists() and validator.components:
-            # Broad except wraps both the parse and the check; mirrors the
-            # surrounding graph-generation blocks (lines 227, 251, 278). Lets
-            # malformed controls.yaml or unexpected mock state in tests degrade
-            # to a skip rather than crashing the script. SystemExit (raised
-            # below for --block) is excluded so the block-mode exit propagates.
+            # Broad except wraps both the parse and the check. Lets malformed
+            # controls.yaml or unexpected mock state in tests degrade to a skip
+            # rather than crashing the script. SystemExit is excluded so the
+            # block-mode exit below propagates correctly.
             try:
                 controls = parse_controls_yaml(controls_path)
                 component_ids = set(validator.components.keys())
@@ -195,8 +207,7 @@ def main() -> None:
                     for warning in mirror_warnings:
                         print(f"     - {warning}")
                     if args.block:
-                        print("   ❌ Mirror check failures promoted to errors (--block).")
-                        sys.exit(1)
+                        _warn_block_triggered = True
                 elif not args.quiet:
                     print("✅ Controls↔components mirror check passed")
             except SystemExit:
@@ -204,6 +215,46 @@ def main() -> None:
             except Exception as e:
                 if not args.quiet:
                     print(f"   ⚠️  Controls↔components mirror check skipped: {e}")
+
+        # Category/subcategory nesting check (ADR-018 D6 / task 2.3.9).
+        # Runs regardless of whether the mirror check found issues so both sets
+        # of warnings are visible before the exit decision below.
+        if components_path.exists() and validator.components:
+            try:
+                import yaml as _yaml  # already installed; local import keeps top-level imports minimal
+
+                with open(components_path, encoding="utf-8") as _fh:
+                    _components_data = _yaml.safe_load(_fh)
+                category_to_subcategories: dict[str, set[str]] = {}
+                for _cat in _components_data.get("categories", []):
+                    _cat_id = _cat.get("id")
+                    if not isinstance(_cat_id, str):
+                        continue
+                    category_to_subcategories[_cat_id] = {
+                        _sub.get("id") for _sub in _cat.get("subcategory", []) if isinstance(_sub.get("id"), str)
+                    }
+                nesting_warnings = check_category_subcategory_nesting(
+                    validator.components, category_to_subcategories
+                )
+                if nesting_warnings:
+                    label = "❌" if args.block else "⚠️"
+                    print(f"   {label} Category/subcategory nesting check found {len(nesting_warnings)} issue(s):")
+                    for warning in nesting_warnings:
+                        print(f"     - {warning}")
+                    if args.block:
+                        _warn_block_triggered = True
+                elif not args.quiet:
+                    print("✅ Category/subcategory nesting check passed")
+            except SystemExit:
+                raise
+            except Exception as e:
+                if not args.quiet:
+                    print(f"   ⚠️  Category/subcategory nesting check skipped: {e}")
+
+        # Unified exit for warn-only checks — fires after both checks have printed.
+        if _warn_block_triggered:
+            print("   ❌ Warn-only check failures promoted to errors (--block).")
+            sys.exit(1)
 
         if args.to_graph:
             graph = ComponentGraph(validator.forward_map, validator.components, debug=args.debug)
