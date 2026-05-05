@@ -450,12 +450,22 @@ class PersonaSummaryTableGenerator(TableGenerator):
 
         items = yaml_data.get("personas", [])
         rows = []
-        for item in items:
+        for idx, item in enumerate(items):
             desc = item.get("description", "")
+            if desc and self.intra_lookup is not None and self.ref_lookup is not None:
+                # Expand sentinels in description; field_path uses insertion-order index.
+                collapsed = collapse_column(
+                    desc,
+                    intra_lookup=self.intra_lookup,
+                    ref_lookup=self.ref_lookup,
+                    field_path=f"personas[{idx}].description",
+                )
+            else:
+                collapsed = collapse_column(desc) if desc else ""
             row = {
                 "ID": item.get("id", ""),
                 "Title": item.get("title", ""),
-                "Description": collapse_column(desc) if desc else "",
+                "Description": collapsed,
                 "Status": "Deprecated" if item.get("deprecated", False) else "",
             }
             rows.append(row)
@@ -465,7 +475,16 @@ class PersonaSummaryTableGenerator(TableGenerator):
             df = pd.DataFrame(columns=["ID", "Title", "Description", "Status"])
         else:
             df = pd.DataFrame(rows).sort_values("ID")
-        return df.to_markdown(index=False)
+        table = df.to_markdown(index=False)
+
+        # Append per-persona References sub-sections in insertion order.
+        sections = [table]
+        for entry in items:
+            refs = entry.get("externalReferences")
+            if refs:
+                sections.append(f"\n## References for {entry['id']}\n{_references_bullets_only(refs)}")
+
+        return "\n".join(sections)
 
 
 class PersonaFullDetailTableGenerator(TableGenerator):
@@ -490,14 +509,49 @@ class PersonaFullDetailTableGenerator(TableGenerator):
 
         items = yaml_data.get("personas", [])
         rows = []
-        for item in items:
+        for idx, item in enumerate(items):
+            desc = item.get("description", "")
+            if self.intra_lookup is not None and self.ref_lookup is not None:
+                # Expand sentinels in description; field_path uses insertion-order index.
+                collapsed_desc = collapse_column(
+                    desc,
+                    intra_lookup=self.intra_lookup,
+                    ref_lookup=self.ref_lookup,
+                    field_path=f"personas[{idx}].description",
+                )
+                # Expand sentinels in each responsibilities item before passing to format_list.
+                expanded_resp = [
+                    expand_sentinels_to_text(
+                        r,
+                        intra_lookup=self.intra_lookup,
+                        ref_lookup=self.ref_lookup,
+                        field_path=f"personas[{idx}].responsibilities[{i}]",
+                    )
+                    for i, r in enumerate(item.get("responsibilities", []))
+                ]
+                # Expand sentinels in each identificationQuestions item.
+                expanded_idq = [
+                    expand_sentinels_to_text(
+                        q,
+                        intra_lookup=self.intra_lookup,
+                        ref_lookup=self.ref_lookup,
+                        field_path=f"personas[{idx}].identificationQuestions[{i}]",
+                    )
+                    for i, q in enumerate(item.get("identificationQuestions", []))
+                ]
+            else:
+                # No lookups: pass through unchanged (pre-A7 backward compat).
+                collapsed_desc = collapse_column(desc)
+                expanded_resp = item.get("responsibilities", [])
+                expanded_idq = item.get("identificationQuestions", [])
+
             row = {
                 "ID": item.get("id", ""),
                 "Title": item.get("title", ""),
-                "Description": collapse_column(item.get("description", "")),
+                "Description": collapsed_desc,
                 "Status": "Deprecated" if item.get("deprecated", False) else "",
-                "Responsibilities": format_list(item.get("responsibilities", []), prefix="- "),
-                "Identification Questions": format_list(item.get("identificationQuestions", []), prefix="- "),
+                "Responsibilities": format_list(expanded_resp, prefix="- "),
+                "Identification Questions": format_list(expanded_idq, prefix="- "),
                 "Mappings": format_mappings(item.get("mappings", {})),
             }
             rows.append(row)
@@ -517,7 +571,16 @@ class PersonaFullDetailTableGenerator(TableGenerator):
             )
         else:
             df = pd.DataFrame(rows).sort_values("ID")
-        return df.to_markdown(index=False)
+        table = df.to_markdown(index=False)
+
+        # Append per-persona References sub-sections in insertion order.
+        sections = [table]
+        for entry in items:
+            refs = entry.get("externalReferences")
+            if refs:
+                sections.append(f"\n## References for {entry['id']}\n{_references_bullets_only(refs)}")
+
+        return "\n".join(sections)
 
 
 class PersonaXRefTableGenerator(TableGenerator):
