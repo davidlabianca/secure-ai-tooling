@@ -2,20 +2,22 @@
 Core validation logic for component edge consistency and lifecycle stage ordering.
 
 Provides the ComponentEdgeValidator class that validates bidirectional
-edge consistency in component relationship YAML files, and the
+edge consistency in component relationship YAML files, the
 check_lifecycle_stage_order_uniqueness function that validates order
-uniqueness across lifecycle stage entries.
+uniqueness across lifecycle stage entries, and check_controls_components_mirror
+that validates control→component references against the component ID set
+(ADR-020 D7).
 
 Dependencies:
     - PyYAML: For YAML file parsing
-    - .models: ComponentNode data model
+    - .models: ComponentNode and ControlNode data models
 """
 
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from .models import ComponentNode
+from .models import ComponentNode, ControlNode
 from .utils import parse_components_yaml
 
 
@@ -281,3 +283,48 @@ def check_lifecycle_stage_order_uniqueness(data: dict[str, Any]) -> LifecycleOrd
             )
 
     return LifecycleOrderCheckResult(is_valid=len(errors) == 0, errors=errors)
+
+
+# ---------------------------------------------------------------------------
+# Controls↔components mirror check (ADR-020 D7 / task 2.3.8)
+# ---------------------------------------------------------------------------
+
+# Literals that are valid component values but do not reference a real component ID.
+# "all" means the control applies to every component; "none" means no specific component.
+_COMPONENT_ESCAPE_HATCHES: frozenset[str] = frozenset({"all", "none"})
+
+
+def check_controls_components_mirror(
+    controls: dict[str, ControlNode],
+    component_ids: set[str],
+) -> list[str]:
+    """
+    Check that every component ID in controls[].components exists in component_ids.
+
+    Per ADR-020 D7: direction is one-way (control → component). The literals
+    "all" and "none" are escape hatches and must not be flagged as missing.
+
+    Args:
+        controls: Dict mapping control IDs to ControlNode objects, as returned
+                  by parse_controls_yaml().
+        component_ids: Set of valid top-level component IDs, typically
+                       set(parse_components_yaml(...).keys()).
+
+    Returns:
+        List of human-readable warning strings, one per (control_id,
+        missing_component_id) pair.  Empty list when all references resolve.
+    """
+    warnings: list[str] = []
+
+    for control_id, node in controls.items():
+        for component_ref in node.components:
+            # Skip documented escape hatches — they are not real component IDs.
+            if component_ref in _COMPONENT_ESCAPE_HATCHES:
+                continue
+            if component_ref not in component_ids:
+                warnings.append(
+                    f"Control '{control_id}' references component '{component_ref}' "
+                    f"which does not exist in components.yaml"
+                )
+
+    return warnings

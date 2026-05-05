@@ -29,7 +29,7 @@ from pathlib import Path
 from riskmap_validator.config import DEFAULT_COMPONENTS_FILE
 from riskmap_validator.graphing import ComponentGraph, ControlGraph, RiskGraph
 from riskmap_validator.utils import get_staged_yaml_files, parse_controls_yaml, parse_risks_yaml
-from riskmap_validator.validator import ComponentEdgeValidator
+from riskmap_validator.validator import ComponentEdgeValidator, check_controls_components_mirror
 
 
 def parse_args() -> argparse.Namespace:
@@ -101,6 +101,13 @@ Exit Codes:
         help="Output risk-to-control-to-component graph visualization to specified file",
     )
 
+    parser.add_argument(
+        "--block",
+        action="store_true",
+        default=False,
+        help="Promote warn-only check warnings to errors and exit 1.",
+    )
+
     parser.add_argument("--debug", action="store_true", help="Include rank comments in graph output")
 
     parser.add_argument(
@@ -165,6 +172,38 @@ def main() -> None:
 
         if not args.quiet:
             print("✅ All YAML files passed component edge validation")
+
+        # Run controls↔components mirror check (ADR-020 D7 / task 2.3.8).
+        # Loads controls.yaml relative to cwd; derives component_ids from the
+        # already-parsed validator.components so no second parse of components.yaml.
+        # Skip mirror check when no components are loaded — avoids a vacuous run
+        # and prevents triggering file I/O in test contexts where open() is mocked.
+        controls_path = Path("risk-map/yaml/controls.yaml")
+        if controls_path.exists() and validator.components:
+            # Broad except wraps both the parse and the check; mirrors the
+            # surrounding graph-generation blocks (lines 227, 251, 278). Lets
+            # malformed controls.yaml or unexpected mock state in tests degrade
+            # to a skip rather than crashing the script. SystemExit (raised
+            # below for --block) is excluded so the block-mode exit propagates.
+            try:
+                controls = parse_controls_yaml(controls_path)
+                component_ids = set(validator.components.keys())
+                mirror_warnings = check_controls_components_mirror(controls, component_ids)
+                if mirror_warnings:
+                    label = "❌" if args.block else "⚠️"
+                    print(f"   {label} Controls↔components mirror check found {len(mirror_warnings)} issue(s):")
+                    for warning in mirror_warnings:
+                        print(f"     - {warning}")
+                    if args.block:
+                        print("   ❌ Mirror check failures promoted to errors (--block).")
+                        sys.exit(1)
+                elif not args.quiet:
+                    print("✅ Controls↔components mirror check passed")
+            except SystemExit:
+                raise
+            except Exception as e:
+                if not args.quiet:
+                    print(f"   ⚠️  Controls↔components mirror check skipped: {e}")
 
         if args.to_graph:
             graph = ComponentGraph(validator.forward_map, validator.components, debug=args.debug)
