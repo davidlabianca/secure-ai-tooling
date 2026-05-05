@@ -67,7 +67,9 @@ _REASONS: dict[TokenKind, str] = {
     TokenKind.INVALID_URL: "inline URL not permitted in prose; use externalReferences + {{ref:...}} sentinel",
     TokenKind.INVALID_HTML: "raw HTML tag not permitted in prose",
     TokenKind.INVALID_HEADING: "markdown heading not permitted in prose",
-    TokenKind.INVALID_LIST: "markdown list marker at column 0 not permitted in prose",
+    TokenKind.INVALID_LIST: (
+        "list marker at column 0 not permitted in prose (may be folded-bullet drift — see ADR-020 D4)"
+    ),
     TokenKind.INVALID_CODE: "code block / inline code not permitted in prose",
     TokenKind.INVALID_IMAGE: "markdown image not permitted in prose",
     TokenKind.INVALID_BLOCKQUOTE: "markdown blockquote not permitted in prose",
