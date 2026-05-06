@@ -1,9 +1,46 @@
+import json
 from pathlib import Path
 from typing import Any
 
 import yaml
 
 from ..config import DEFAULT_MERMAID_CONFIG_FILE
+
+# ---------------------------------------------------------------------------
+# Schema category helper
+# ---------------------------------------------------------------------------
+
+_schema_categories_cache: set[str] | None = None
+
+
+def _get_schema_categories() -> set[str]:
+    """
+    Read component category IDs from components.schema.json, with caching.
+
+    Resolves the schema path relative to this file's location:
+    scripts/hooks/riskmap_validator/graphing/graph_utils.py
+    parents[4] is the worktree root, giving:
+    <root>/risk-map/schemas/components.schema.json
+
+    Returns:
+        Set of category ID strings declared in the schema enum.
+        Returns empty set on any error (file missing, JSON parse error,
+        unexpected key structure) so callers degrade gracefully.
+    """
+    global _schema_categories_cache
+    if _schema_categories_cache is not None:
+        return _schema_categories_cache
+
+    try:
+        schema_path = Path(__file__).resolve().parents[4] / "risk-map" / "schemas" / "components.schema.json"
+        with open(schema_path, encoding="utf-8") as fh:
+            schema = json.load(fh)
+        _schema_categories_cache = set(schema["definitions"]["category"]["properties"]["id"]["enum"])
+    except Exception:
+        # Degrade gracefully: missing file, bad JSON, or unexpected key structure.
+        _schema_categories_cache = set()
+
+    return _schema_categories_cache
 
 
 class MermaidConfigLoader:

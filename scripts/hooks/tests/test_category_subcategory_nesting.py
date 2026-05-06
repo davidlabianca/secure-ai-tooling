@@ -408,11 +408,14 @@ class TestCheckCategorySubcategoryNesting:
         """
         Given: the actual risk-map/yaml/components.yaml on disk
         When: check_category_subcategory_nesting() is called against parsed input
-        Then: returns ≥7 warnings, and every known missing-subcategory component ID
+        Then: returns exactly 7 warnings, and every known missing-subcategory component ID
               appears in the combined output
 
-        The 7 known missing IDs are listed in _LIVE_MISSING_SUBCATEGORY_IDS.
-        Update this test if/when the content debt is remediated.
+        The 7 known missing IDs are listed in _LIVE_MISSING_SUBCATEGORY_IDS (as of 2026-05-04).
+        This assertion is intentionally exact (==, not >=) to guard BOTH directions of drift:
+        - cleanup reduces the count below 7 → fail (update the expected count + ID list)
+        - new content debt increases the count above 7 → fail (track the new defect)
+        Update this test and _LIVE_MISSING_SUBCATEGORY_IDS whenever the corpus changes.
         """
         from riskmap_validator.utils import parse_components_yaml  # noqa: E402
 
@@ -431,8 +434,10 @@ class TestCheckCategorySubcategoryNesting:
             nesting_map[cat_id] = sub_ids
 
         result = nesting_fn(components, nesting_map)
-        assert len(result) >= 7, (
-            f"Expected ≥7 warnings for known missing-subcategory debt; got {len(result)}: {result}"
+        assert len(result) == 7, (
+            "Expected exactly 7 warnings (the 7 known missing-subcategory components as of 2026-05-04). "
+            "If the corpus drifted (cleanup OR new defects), update this test and "
+            f"_LIVE_MISSING_SUBCATEGORY_IDS. Got {len(result)}: {result}"
         )
         combined = " ".join(result)
         for component_id in _LIVE_MISSING_SUBCATEGORY_IDS:

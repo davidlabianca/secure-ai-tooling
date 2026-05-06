@@ -30,8 +30,10 @@ rejection (missing/wrong-type keys) is the schema layer's responsibility — see
 `test_lifecycle_stage_order_range.py` for the schema-side coverage.
 """
 
+import subprocess
 import sys
 from pathlib import Path
+from typing import Any
 
 import yaml
 
@@ -357,12 +359,247 @@ class TestLifecycleStageOrderUniquenessOutputShape:
 
 
 # ============================================================================
+# CLI wiring tests — validate_riskmap.py integration (ADR-022 D4)
+# ============================================================================
+
+# Absolute path to the CLI script under test.
+_SCRIPT = Path(__file__).parent.parent / "validate_riskmap.py"
+
+# Repository root — used as cwd for the live-corpus subprocess test.
+_REPO_ROOT = Path(__file__).resolve().parent.parent.parent.parent
+
+# Minimal corpus shapes required by validate_riskmap.py --force.
+# components.yaml: two components with mutual edges so ComponentEdgeValidator passes.
+# The subcategory field keeps the nesting check silent (valid pair for each component).
+_MINIMAL_COMPONENTS: dict[str, Any] = {
+    "components": [
+        {
+            "id": "componentAlpha",
+            "title": "Alpha",
+            "category": "componentsInfrastructure",
+            "subcategory": "componentsData",
+            "edges": {"to": ["componentBeta"], "from": []},
+        },
+        {
+            "id": "componentBeta",
+            "title": "Beta",
+            "category": "componentsInfrastructure",
+            "subcategory": "componentsData",
+            "edges": {"to": [], "from": ["componentAlpha"]},
+        },
+    ],
+    "categories": [
+        {
+            "id": "componentsInfrastructure",
+            "title": "Infrastructure",
+            "subcategory": [
+                {"id": "componentsData", "title": "Data"},
+            ],
+        },
+    ],
+}
+
+# controls.yaml with no dangling refs (mirror check stays quiet).
+_MINIMAL_CONTROLS: dict[str, Any] = {
+    "controls": [
+        {
+            "id": "controlClean",
+            "title": "Clean Control",
+            "category": "controlsModel",
+            "components": ["componentAlpha"],
+            "risks": [],
+            "personas": [],
+        }
+    ]
+}
+
+# risks.yaml stub — script reads this file; content irrelevant to lifecycle check.
+_MINIMAL_RISKS: dict[str, Any] = {"risks": []}
+
+# lifecycle-stage.yaml with unique orders 1–3 (clean corpus, no duplicates).
+_LIFECYCLE_UNIQUE: dict[str, Any] = {
+    "lifecycleStages": [
+        {"id": "stage-one", "title": "Stage One", "order": 1},
+        {"id": "stage-two", "title": "Stage Two", "order": 2},
+        {"id": "stage-three", "title": "Stage Three", "order": 3},
+    ]
+}
+
+# lifecycle-stage.yaml where stage-b and stage-c both carry order 2 (duplicate).
+_LIFECYCLE_DUPLICATE: dict[str, Any] = {
+    "lifecycleStages": [
+        {"id": "stage-a", "title": "Stage A", "order": 1},
+        {"id": "stage-b", "title": "Stage B", "order": 2},
+        {"id": "stage-c", "title": "Stage C", "order": 2},  # duplicate
+    ]
+}
+
+
+def _write_lifecycle_corpus(
+    base: Path,
+    lifecycle: dict[str, Any] | None,
+) -> Path:
+    """
+    Write a minimal corpus under base/risk-map/yaml/ and return base as cwd.
+
+    Writes components.yaml, controls.yaml, risks.yaml unconditionally.
+    Writes lifecycle-stage.yaml only when lifecycle is not None, simulating
+    the file-absent case for the graceful-skip test.
+
+    Args:
+        base: Temporary directory root (pytest tmp_path).
+        lifecycle: Parsed lifecycle-stage.yaml content, or None to omit the file.
+
+    Returns:
+        base path for use as subprocess cwd.
+    """
+    yaml_dir = base / "risk-map" / "yaml"
+    yaml_dir.mkdir(parents=True)
+    (yaml_dir / "components.yaml").write_text(yaml.dump(_MINIMAL_COMPONENTS), encoding="utf-8")
+    (yaml_dir / "controls.yaml").write_text(yaml.dump(_MINIMAL_CONTROLS), encoding="utf-8")
+    (yaml_dir / "risks.yaml").write_text(yaml.dump(_MINIMAL_RISKS), encoding="utf-8")
+    if lifecycle is not None:
+        (yaml_dir / "lifecycle-stage.yaml").write_text(yaml.dump(lifecycle), encoding="utf-8")
+    return base
+
+
+def _run_lifecycle(cwd: Path) -> subprocess.CompletedProcess:
+    """
+    Run validate_riskmap.py --force --allow-isolated from the given cwd.
+
+    --force: validate regardless of git-staged state.
+    --allow-isolated: skip orphan check so minimal corpora don't fail on that.
+
+    Args:
+        cwd: Working directory for the subprocess.
+
+    Returns:
+        CompletedProcess with returncode, stdout, stderr.
+    """
+    return subprocess.run(
+        [sys.executable, str(_SCRIPT), "--force", "--allow-isolated"],
+        capture_output=True,
+        text=True,
+        cwd=str(cwd),
+    )
+
+
+class TestLifecycleUniquenessCLI:
+    """
+    CLI integration tests: validate_riskmap.py must call
+    check_lifecycle_stage_order_uniqueness() and exit 1 on duplicate orders.
+
+    ADR-022 D4 specifies block-mode-immediate (no --block flag required).
+    The --block flag is NOT involved here; the check always fails hard.
+    """
+
+    def test_live_corpus_exits_0(self):
+        """
+        Running against the actual lifecycle-stage.yaml (orders 1..8, all unique) exits 0.
+
+        Given: The real lifecycle-stage.yaml on disk (no duplicate orders)
+        When: validate_riskmap.py --force --allow-isolated (cwd=repo root)
+        Then: Exit code is 0 (no uniqueness violations)
+
+        This is a regression guard: if the wiring lands correctly and the live
+        corpus is clean, this test must pass on every subsequent run.
+        """
+        result = _run_lifecycle(_REPO_ROOT)
+        assert result.returncode == 0, (
+            f"Expected exit 0 against live corpus (orders 1..8 unique); "
+            f"got {result.returncode}\nstdout: {result.stdout}\nstderr: {result.stderr}"
+        )
+
+    def test_synthesised_corpus_with_duplicate_order_exits_1(self, tmp_path):
+        """
+        A synthesised corpus whose lifecycle-stage.yaml has duplicate order values exits 1.
+
+        Given: A corpus where stage-b and stage-c both carry order 2
+        When: validate_riskmap.py --force --allow-isolated
+        Then: Exit code is 1 (duplicate orders detected, block-mode-immediate)
+        """
+        _write_lifecycle_corpus(tmp_path, _LIFECYCLE_DUPLICATE)
+        result = _run_lifecycle(tmp_path)
+        assert result.returncode == 1, (
+            f"Expected exit 1 for corpus with duplicate lifecycle order; "
+            f"got {result.returncode}\nstdout: {result.stdout}\nstderr: {result.stderr}"
+        )
+
+    def test_synthesised_corpus_with_duplicate_order_output_names_value_and_ids(self, tmp_path):
+        """
+        When duplicate orders are found, the output names the duplicated value
+        and the colliding stage IDs so a developer can locate the defect.
+
+        Given: stage-b and stage-c both carry order 2
+        When: validate_riskmap.py --force --allow-isolated
+        Then: Output (stdout or stderr) mentions the duplicated value 2 AND
+              mentions both "stage-b" and "stage-c"
+        """
+        _write_lifecycle_corpus(tmp_path, _LIFECYCLE_DUPLICATE)
+        result = _run_lifecycle(tmp_path)
+        combined = result.stdout + result.stderr
+        # "2" is the duplicated order value in _LIFECYCLE_DUPLICATE.
+        # Stage IDs are "stage-a/b/c" and orders are 1/2/2; no other field
+        # in the corpus produces a bare "2" in the script's output, so the
+        # substring assertion is unambiguous for this corpus.
+        assert "2" in combined, (
+            f"Expected duplicated order value '2' in output; stdout: {result.stdout!r}\nstderr: {result.stderr!r}"
+        )
+        # Check that both colliding stage IDs are named.
+        assert "stage-b" in combined, (
+            f"Expected colliding stage ID 'stage-b' in output; "
+            f"stdout: {result.stdout!r}\nstderr: {result.stderr!r}"
+        )
+        assert "stage-c" in combined, (
+            f"Expected colliding stage ID 'stage-c' in output; "
+            f"stdout: {result.stdout!r}\nstderr: {result.stderr!r}"
+        )
+
+    def test_synthesised_corpus_with_unique_orders_exits_0(self, tmp_path):
+        """
+        A synthesised corpus with unique lifecycle orders exits 0.
+
+        Given: A corpus where lifecycle-stage.yaml has orders 1, 2, 3 (all unique)
+        When: validate_riskmap.py --force --allow-isolated
+        Then: Exit code is 0
+
+        Confirms the block-mode-immediate semantic fires only on actual duplicates,
+        not on any lifecycle file presence.
+        """
+        _write_lifecycle_corpus(tmp_path, _LIFECYCLE_UNIQUE)
+        result = _run_lifecycle(tmp_path)
+        assert result.returncode == 0, (
+            f"Expected exit 0 for corpus with unique lifecycle orders; "
+            f"got {result.returncode}\nstdout: {result.stdout}\nstderr: {result.stderr}"
+        )
+
+    def test_synthesised_corpus_without_lifecycle_file_exits_0(self, tmp_path):
+        """
+        A corpus with no lifecycle-stage.yaml exits 0 (graceful skip).
+
+        Given: A corpus directory that does NOT contain lifecycle-stage.yaml
+        When: validate_riskmap.py --force --allow-isolated
+        Then: Exit code is 0 (lifecycle check is skipped, not failed)
+
+        lifecycle-stage.yaml may not be present in every test environment.
+        The check must degrade gracefully when the file is absent, matching
+        the broad-except pattern used by the mirror and nesting checks.
+        """
+        _write_lifecycle_corpus(tmp_path, None)  # None = omit the file
+        result = _run_lifecycle(tmp_path)
+        assert result.returncode == 0, (
+            f"Expected exit 0 when lifecycle-stage.yaml is absent (graceful skip); "
+            f"got {result.returncode}\nstdout: {result.stdout}\nstderr: {result.stderr}"
+        )
+
+
+# ============================================================================
 # Test summary
 # ============================================================================
 """
 Test Summary
 ============
-Test classes: 3
+Test classes: 4
 
 TestLifecycleStageOrderUniquenessPassCases (5 tests)
   — current corpus in-memory; lifecycle-stage.yaml on disk; minimal 2-stage;
@@ -378,12 +615,20 @@ TestLifecycleStageOrderUniquenessOutputShape (6 tests)
     for hidden duplicate; result.errors is non-empty on failure; result.errors is
     empty on success.
 
-Total: 15 tests
+TestLifecycleUniquenessCLI (5 tests — subprocess CLI integration)
+  — live corpus exits 0 (orders 1..8 unique, regression guard);
+    synthesised corpus with duplicate order exits 1 (block-mode-immediate);
+    synthesised corpus with duplicate order output names value + colliding IDs;
+    synthesised corpus with unique orders exits 0;
+    synthesised corpus missing lifecycle-stage.yaml exits 0 (graceful skip).
+
+Total: 20 tests
 
 Coverage areas:
-  - ADR-022 D4: order uniqueness check, block-mode, validator extension
+  - ADR-022 D4: order uniqueness check, block-mode-immediate, validator extension
   - Regression: current lifecycle-stage.yaml remains valid
   - Rejection: single, triple, all-same, non-canonical duplicate orderings
   - Output shape: colliding IDs and duplicated value present in error payload
   - Result contract: is_valid / errors attributes on returned result object
+  - CLI wiring: validate_riskmap.py calls the check; exit codes; graceful skip
 """

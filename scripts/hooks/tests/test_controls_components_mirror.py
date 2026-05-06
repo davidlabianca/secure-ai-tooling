@@ -494,17 +494,20 @@ class TestCheckControlsComponentsMirror:
     def test_live_corpus_regression_produces_known_dangling_refs(self, mirror_fn):
         """
         Running against the actual controls.yaml + components.yaml surfaces
-        the 3 known dangling references present as of 2026-05-04.
+        exactly the 3 known dangling references present as of 2026-05-04.
 
         Given: Parsed controls from risk-map/yaml/controls.yaml
                Parsed components from risk-map/yaml/components.yaml
         When: check_controls_components_mirror() is called
-        Then: Warning count >= 3 AND warnings mention componentInputHandling
+        Then: Warning count == 3 AND warnings mention componentInputHandling
               AND warnings mention componentOutputHandling
 
-        This is a live-corpus regression guard.  If the content debt is ever
-        remediated (componentInputHandling → componentApplicationInputHandling,
-        etc.), this test will need updating to reflect the new expected count.
+        This assertion is intentionally exact (==, not >=) to guard BOTH directions of drift:
+        - content debt remediated (cleanup) → count drops below 3 → fail (update expected count)
+        - new dangling refs introduced → count rises above 3 → fail (track the new defect)
+        If the content debt is ever remediated (componentInputHandling →
+        componentApplicationInputHandling, etc.), update this test and
+        _LIVE_DANGLING_COMPONENT_IDS to reflect the new expected count.
         """
         from riskmap_validator.utils import parse_components_yaml, parse_controls_yaml
 
@@ -517,7 +520,11 @@ class TestCheckControlsComponentsMirror:
 
         result = mirror_fn(controls, component_ids)
 
-        assert len(result) >= 3, f"Expected >= 3 warnings for known dangling refs; got {len(result)}: {result}"
+        assert len(result) == 3, (
+            "Expected exactly 3 warnings for known dangling refs (as of 2026-05-04). "
+            "If the corpus drifted (cleanup OR new defects), update this test and "
+            f"_LIVE_DANGLING_COMPONENT_IDS. Got {len(result)}: {result}"
+        )
         combined = " ".join(result)
         assert "componentInputHandling" in combined, (
             f"Expected 'componentInputHandling' in warnings; got: {result}"
