@@ -477,9 +477,11 @@ class PersonaSummaryTableGenerator(TableGenerator):
             df = pd.DataFrame(rows).sort_values("ID")
         table = df.to_markdown(index=False)
 
-        # Append per-persona References sub-sections in insertion order.
+        # Append per-persona References sub-sections in id-sorted order so they
+        # follow the table's row order (the DataFrame is sort_values("ID") above).
+        sorted_items = sorted(items, key=lambda e: e.get("id", ""))
         sections = [table]
-        for entry in items:
+        for entry in sorted_items:
             refs = entry.get("externalReferences")
             if refs:
                 sections.append(f"\n## References for {entry['id']}\n{_references_bullets_only(refs)}")
@@ -573,9 +575,11 @@ class PersonaFullDetailTableGenerator(TableGenerator):
             df = pd.DataFrame(rows).sort_values("ID")
         table = df.to_markdown(index=False)
 
-        # Append per-persona References sub-sections in insertion order.
+        # Append per-persona References sub-sections in id-sorted order so they
+        # follow the table's row order (the DataFrame is sort_values("ID") above).
+        sorted_items = sorted(items, key=lambda e: e.get("id", ""))
         sections = [table]
-        for entry in items:
+        for entry in sorted_items:
             refs = entry.get("externalReferences")
             if refs:
                 sections.append(f"\n## References for {entry['id']}\n{_references_bullets_only(refs)}")
