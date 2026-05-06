@@ -340,8 +340,8 @@ class TestPersonaFullDetailSentinelExpansion:
     expand_sentinels_to_text before being passed to format_list.
 
     The task 2.5.3 hard-fail gate requires UnresolvedSentinelError to propagate
-    from responsibilities and identificationQuestions paths — currently they use
-    bare format_list with no sentinel awareness, so the raises tests are RED.
+    from the responsibilities and identificationQuestions paths; this suite
+    pins that propagation contract.
     """
 
     def test_no_lookups_preserves_legacy_passthrough(self):
@@ -467,17 +467,14 @@ class TestPersonaFullDetailSentinelExpansion:
 
     def test_unresolved_sentinel_in_responsibilities_raises(self):
         """
-        CRITICAL task 2.5.3 gate: UnresolvedSentinelError propagates from
-        the responsibilities path (currently uses bare format_list — no expansion).
+        Task 2.5.3 gate: UnresolvedSentinelError propagates from the
+        responsibilities per-item expansion path.
 
         Given: PersonaFullDetailTableGenerator(intra_lookup={}, ref_lookup={})
                responsibilities=["Apply {{controlBogusTypo}} everywhere."]
                (no matching id in intra_lookup)
         When: generate() is called
         Then: UnresolvedSentinelError is raised with .sentinel == "{{controlBogusTypo}}"
-
-        Currently FAILS because the responsibilities path uses bare format_list
-        with no sentinel expansion.
         """
         _require_sentinel_module()
         gen_cls = _get_persona_full_detail_generator()
@@ -489,17 +486,14 @@ class TestPersonaFullDetailSentinelExpansion:
 
     def test_unresolved_sentinel_in_identification_questions_raises(self):
         """
-        CRITICAL task 2.5.3 gate: UnresolvedSentinelError propagates from
-        the identificationQuestions path (currently uses bare format_list — no expansion).
+        Task 2.5.3 gate: UnresolvedSentinelError propagates from the
+        identificationQuestions per-item expansion path.
 
         Given: PersonaFullDetailTableGenerator(intra_lookup={}, ref_lookup={})
                identificationQuestions=["Does {{riskBadTypo}} apply here?"]
                (no matching id in intra_lookup)
         When: generate() is called
         Then: UnresolvedSentinelError is raised with .sentinel == "{{riskBadTypo}}"
-
-        Currently FAILS because the identificationQuestions path uses bare format_list
-        with no sentinel expansion.
         """
         _require_sentinel_module()
         gen_cls = _get_persona_full_detail_generator()
@@ -759,7 +753,7 @@ class TestPersonaSentinelBackwardCompat:
 """
 Test Summary
 ============
-Total tests: 26
+Total tests: 22
 
 TestPersonaSummarySentinelExpansion (8):
   test_no_lookups_preserves_legacy_passthrough
@@ -778,8 +772,8 @@ TestPersonaFullDetailSentinelExpansion (11):
   test_intra_sentinel_in_responsibilities_resolves
   test_ref_sentinel_in_responsibilities_resolves
   test_intra_sentinel_in_identification_questions_resolves
-  test_unresolved_sentinel_in_responsibilities_raises           ← task 2.5.3 RED
-  test_unresolved_sentinel_in_identification_questions_raises   ← task 2.5.3 RED
+  test_unresolved_sentinel_in_responsibilities_raises           (task 2.5.3 gate)
+  test_unresolved_sentinel_in_identification_questions_raises   (task 2.5.3 gate)
   test_external_references_sub_section_emitted
   test_no_external_references_no_sub_section
   test_field_path_in_unresolved_error_is_informative
