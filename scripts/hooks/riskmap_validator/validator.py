@@ -3,6 +3,7 @@ Core validation logic for component edge consistency and lifecycle stage orderin
 
 Provides the ComponentEdgeValidator class that validates bidirectional
 edge consistency in component relationship YAML files, the
+LifecycleOrderCheckResult dataclass returned by the lifecycle check,
 check_lifecycle_stage_order_uniqueness function that validates order
 uniqueness across lifecycle stage entries, check_controls_components_mirror
 that validates control→component references against the component ID set

@@ -16,6 +16,7 @@ Options:
     --force             Force validation regardless of git status
     --file PATH         Custom YAML file path
     --allow-isolated    Allow components with no edges
+    --block             Promote warn-only check warnings to errors and exit 1
     --quiet, -q         Minimal output
     --debug             Include debug annotations in graphs
     --mermaid-format    Save additional .mermaid format files
@@ -33,6 +34,7 @@ from riskmap_validator.validator import (
     ComponentEdgeValidator,
     check_category_subcategory_nesting,
     check_controls_components_mirror,
+    check_lifecycle_stage_order_uniqueness,
 )
 
 
@@ -176,6 +178,38 @@ def main() -> None:
 
         if not args.quiet:
             print("✅ All YAML files passed component edge validation")
+
+        # Lifecycle stage order uniqueness check (ADR-022 D4).
+        # Block-mode-immediate: no --block flag required. If the file is absent,
+        # skip gracefully — lifecycle-stage.yaml may not be present in all test cwds.
+        # Guard on validator.components mirrors the mirror/nesting check pattern:
+        # only run when a real component validation pass populated the validator,
+        # avoiding spurious open() calls in unit tests that mock builtins.open.
+        lifecycle_path = Path("risk-map/yaml/lifecycle-stage.yaml")
+        if validator.components:
+            if lifecycle_path.exists():
+                try:
+                    import yaml as _yaml  # already installed; local import keeps top-level imports minimal
+
+                    with open(lifecycle_path, encoding="utf-8") as _fh:
+                        _lifecycle_data = _yaml.safe_load(_fh)
+                    lifecycle_result = check_lifecycle_stage_order_uniqueness(_lifecycle_data)
+                    if lifecycle_result.is_valid:
+                        if not args.quiet:
+                            print("✅ Lifecycle stage order uniqueness check passed")
+                    else:
+                        print("❌ Lifecycle stage order uniqueness check failed:")
+                        for error in lifecycle_result.errors:
+                            print(f"     - {error}")
+                        sys.exit(1)
+                except SystemExit:
+                    raise
+                except Exception as e:
+                    if not args.quiet:
+                        print(f"   ⚠️  Lifecycle stage order uniqueness check skipped: {e}")
+            else:
+                if not args.quiet:
+                    print("   Lifecycle stage order uniqueness check skipped (lifecycle-stage.yaml not found)")
 
         # Run warn-only checks: controls↔components mirror (ADR-020 D7 / task 2.3.8)
         # and category/subcategory nesting (ADR-018 D6 / task 2.3.9).
