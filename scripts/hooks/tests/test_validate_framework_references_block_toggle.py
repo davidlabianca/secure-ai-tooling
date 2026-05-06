@@ -13,17 +13,13 @@ A3 (validate_yaml_prose_subset.py) and A3.7 (lifecycle uniqueness).
 Test structure
 --------------
 1. TestCheckDeprecatedPersonaUsageRegressionGuard
-   Pure-function tests on the already-existing
-   check_deprecated_persona_usage() at line 345 of
-   validate_framework_references.py.  These tests PASS today (red phase for
-   the function is already green) and serve as regression guards so SWE cannot
-   accidentally change the function's semantics while wiring the toggle.
+   Pure-function tests on the existing check_deprecated_persona_usage()
+   at line 345 of validate_framework_references.py.  These guard the
+   function's shape so future wiring cannot accidentally change semantics.
 
 2. TestBlockToggleCLI
-   Subprocess-based end-to-end tests that pin the observable CLI exit codes.
-   These tests FAIL today because --block does not yet exist on the script's
-   argparse, causing argparse to exit 2 ("unrecognized arguments").  That exit-2
-   is the expected red-phase failure mode.
+   Subprocess-based end-to-end tests that pin the observable CLI exit codes
+   for the --block toggle.
 
 Synthesized-corpus harness
 --------------------------
@@ -455,17 +451,11 @@ class TestCheckDeprecatedPersonaUsageRegressionGuard:
 
 # ===========================================================================
 # 2. CLI exit-code tests — --block toggle
-#    These tests FAIL today (red phase): --block not yet in argparse.
 # ===========================================================================
 
 
 class TestBlockToggleCLI:
     """End-to-end CLI tests for the --block toggle.
-
-    These tests fail in the red phase because --block does not yet exist on
-    validate_framework_references.py's argparse.  When argparse encounters an
-    unrecognised argument it exits 2.  After SWE adds --block the tests are
-    expected to pass (green phase).
 
     Live-corpus tests use _REPO_ROOT as cwd; synthesised-corpus tests build a
     minimal four-file corpus in tmp_path.

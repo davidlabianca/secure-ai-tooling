@@ -37,9 +37,8 @@ import yaml
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-# The import below is expected to fail (ImportError or AttributeError) until
-# SWE adds the uniqueness check to riskmap_validator.validator.  That is the
-# red-phase signal.
+# noqa I001 retained because ruff's import-sort would re-order this past the
+# sys.path.insert above and break the deferred import pattern.
 from riskmap_validator.validator import check_lifecycle_stage_order_uniqueness  # noqa: E402, I001
 
 

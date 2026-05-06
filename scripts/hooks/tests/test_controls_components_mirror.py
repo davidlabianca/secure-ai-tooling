@@ -296,17 +296,16 @@ def _run(cwd: Path, *extra_args: str) -> subprocess.CompletedProcess:
 
 # ===========================================================================
 # 1. Pure-function tests — check_controls_components_mirror()
-#    These tests FAIL today with ImportError (red phase).
 # ===========================================================================
 
 
 class TestCheckControlsComponentsMirror:
     """Pure-function tests for check_controls_components_mirror().
 
-    The function does not exist yet.  Every test in this class requests the
-    `mirror_fn` fixture which raises ImportError when the symbol is absent,
-    causing each test to FAIL (not ERROR at collection time).  This keeps
-    TestBlockToggleCLI collectible and runnable independently.
+    Every test in this class requests the `mirror_fn` fixture which raises
+    ImportError when the symbol is absent, causing each test to FAIL (not
+    ERROR at collection time).  This keeps TestBlockToggleCLI collectible
+    and runnable independently.
 
     Once SWE implements the function in riskmap_validator/validator.py,
     these tests are the green-phase acceptance criteria.
@@ -530,15 +529,11 @@ class TestCheckControlsComponentsMirror:
 
 # ===========================================================================
 # 2. CLI tests — --block toggle on validate_riskmap.py
-#    These tests FAIL today with argparse exit 2 (red phase).
 # ===========================================================================
 
 
 class TestBlockToggleCLI:
     """End-to-end CLI tests for the --block flag on validate_riskmap.py.
-
-    These tests fail in the red phase because --block does not yet exist on
-    validate_riskmap.py's argparse.  argparse exits 2 for unrecognised args.
 
     Live-corpus tests use _REPO_ROOT as cwd.
     Synthesised-corpus tests build a minimal two-file corpus in tmp_path.
