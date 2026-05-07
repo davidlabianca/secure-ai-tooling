@@ -90,76 +90,53 @@ def _walk_nodes(node: yaml.Node) -> list[tuple[yaml.ScalarNode, yaml.Node]]:
     return results
 
 
-def _extract_trailing_comment(source_lines: list[str], value_node: yaml.Node, resolved_value: str) -> str | None:
+def _extract_pin_comment(
+    source_lines: list[str], value_node: yaml.Node, resolved_value: str
+) -> tuple[str | None, bool]:
     """
-    Find the inline comment that follows the scalar value on its source line.
+    Locate the inline comment after the scalar value and check separator shape.
 
-    Strategy: locate the source line at the value node's start_mark. If the
-    resolved value string appears as a substring of that line, everything after
-    it (stripped of leading whitespace and a single `#`) is the comment. If the
-    resolved value is not on the same line (e.g., a block scalar), return None.
-
-    This works for the inline scalar case — the common and only valid ADR-024
-    form. Block scalars (folded `>` / literal `|`) never appear on the same
-    source line as their resolved content; None correctly signals no comment.
+    Strategy: find the resolved value as a substring of the value's source line.
+    For quoted scalars the resolved value sits inside the quotes, so the cursor
+    must advance past the closing quote before inspecting the ` # ` separator.
+    Block scalars (folded `>` / literal `|`) and other forms where the value is
+    not on the same source line return (None, False).
 
     Args:
-        source_lines: All lines of the workflow file (0-indexed).
-        value_node:   PyYAML node for the `uses:` value.
-        resolved_value: The string PyYAML resolved from the node.
-
-    Returns:
-        The comment text (e.g., `v6.0.2`) if present, or None.
-    """
-    line_index = value_node.start_mark.line
-    if line_index >= len(source_lines):
-        return None
-
-    source_line = source_lines[line_index]
-
-    # Strip the YAML-resolved value from the source line to isolate the comment.
-    # The resolved value must appear literally in the source line for inline scalars.
-    pos = source_line.find(resolved_value)
-    if pos == -1:
-        # Block scalar: value is not on the same line as the `uses:` key.
-        return None
-
-    after_value = source_line[pos + len(resolved_value) :]
-    stripped = after_value.lstrip()
-    if not stripped.startswith("#"):
-        return None
-
-    # Return just the comment body (after `#` and leading space).
-    return stripped[1:].lstrip()
-
-
-def _check_separator(source_lines: list[str], value_node: yaml.Node, resolved_value: str) -> bool:
-    """
-    Return True if the value-to-comment separator is exactly ` # ` (one space each side).
-
-    ADR-024 D6 requires exactly one space before `#` and one space after it.
-    Two spaces before `#` (or no space after) is a violation.
-
-    Args:
-        source_lines:   All source lines of the workflow file (0-indexed).
+        source_lines:   All lines of the workflow file (0-indexed).
         value_node:     PyYAML node for the `uses:` value.
         resolved_value: The string PyYAML resolved from the node.
 
     Returns:
-        True if the separator is exactly ` # `, False otherwise.
+        (comment_or_None, separator_ok). The comment is the text after `#` with
+        leading space stripped, or None when no inline comment is found.
+        separator_ok is True only when the separator is exactly ` # ` (one
+        space, hash, one space) per ADR-024 D6.
     """
     line_index = value_node.start_mark.line
     if line_index >= len(source_lines):
-        return False
+        return None, False
 
     source_line = source_lines[line_index]
     pos = source_line.find(resolved_value)
     if pos == -1:
-        return False
+        # Block scalar: value is not on the same line as the `uses:` key.
+        return None, False
 
-    after_value = source_line[pos + len(resolved_value) :]
-    # Must be exactly one space, then `#`, then one space.
-    return after_value.startswith(" #") and len(after_value) > 2 and after_value[2] == " "
+    cursor = pos + len(resolved_value)
+    # Quoted scalars have a closing quote between the resolved value and the
+    # ` # ` separator; PyYAML stores the quote style on the node.
+    if getattr(value_node, "style", None) in ('"', "'"):
+        cursor += 1
+
+    after_value = source_line[cursor:]
+    separator_ok = after_value.startswith(" #") and len(after_value) > 2 and after_value[2] == " "
+
+    stripped = after_value.lstrip()
+    if not stripped.startswith("#"):
+        return None, separator_ok
+
+    return stripped[1:].lstrip(), separator_ok
 
 
 def _validate_reference(
@@ -291,8 +268,7 @@ def validate_file(path: Path) -> tuple[list[Violation], list[Violation]]:
         # Strip trailing newlines that PyYAML appends for block scalars.
         resolved = value_node.value.strip()
 
-        comment = _extract_trailing_comment(source_lines, value_node, value_node.value.rstrip("\n"))
-        separator_ok = _check_separator(source_lines, value_node, value_node.value.rstrip("\n"))
+        comment, separator_ok = _extract_pin_comment(source_lines, value_node, value_node.value.rstrip("\n"))
 
         error, warning = _validate_reference(path, line_number, resolved, comment, separator_ok)
         if error is not None:

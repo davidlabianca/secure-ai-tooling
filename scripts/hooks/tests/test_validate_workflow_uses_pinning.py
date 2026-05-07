@@ -13,19 +13,11 @@ ADR-024 D7: `docker://` references are warned (stderr, prefix
 ADR-024 D6: the separator between SHA and comment is exactly ` # ` (one space,
 hash, one space). Two spaces before `#` is a violation.
 
-API CONTRACT for `validate_file`:
-    validate_file(path: Path) -> tuple[list[Violation], list[Violation]]
-
-    The return value is (errors, warnings).
-    - errors: violations that cause exit code 1
-    - warnings: findings that are emitted to stderr but do not affect exit code
-    - Both lists are empty for a fully-compliant file.
-
-    The SWE agent must update `validate_file` to return this tuple shape.
-    `main()` continues to return int (0 or 1). Warnings from `validate_file`
-    are printed to stderr with the prefix
-    `validate-workflow-uses-pinning: warning:` and do not contribute to the
-    exit code.
+`validate_file` returns `(errors, warnings)`:
+    - errors drive `main()` exit code 1
+    - warnings are emitted to stderr with the prefix
+      `validate-workflow-uses-pinning: warning:` and do not affect exit code
+    - both lists empty means the file is fully compliant
 """
 
 import sys
@@ -162,6 +154,41 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@{FULL_SHA} # v6.0.2
+""".lstrip(),
+        )
+
+        errors, warnings = validate_file(workflow)
+        assert errors == []
+        assert warnings == []
+
+    @pytest.mark.parametrize(
+        "value_form",
+        [
+            f'"actions/checkout@{FULL_SHA}"',
+            f"'actions/checkout@{FULL_SHA}'",
+        ],
+        ids=["double_quoted", "single_quoted"],
+    )
+    def test_quoted_value_with_valid_pin_passes(self, tmp_path, value_form):
+        """
+        Given: A correctly-pinned `uses:` value wrapped in double or single quotes
+        When: validate_file scans the workflow
+        Then: No errors are returned
+
+        PyYAML resolves the quoted scalar to the unquoted SHA, but the source
+        line still has the closing quote between the value and the ` # `
+        separator. The validator must skip past the closing quote when
+        locating the separator.
+        """
+        workflow = _write_workflow(
+            tmp_path,
+            f"""
+name: quoted value
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: {value_form} # v6.0.2
 """.lstrip(),
         )
 
@@ -372,12 +399,10 @@ class TestAdversarialParsing:
     """
     Edge cases that exercise PyYAML AST-based parsing.
 
-    These cases either silently pass (false negatives) or fail incorrectly
-    under the current line-regex implementation. The tests define the contract
-    for the AST-based implementation the SWE agent will write.
-
-    PyYAML parses structure and provides line numbers; the validator re-reads
-    the source line for comment extraction (PyYAML does not preserve comments).
+    These forms silently pass (false negatives) or fail incorrectly under a
+    naive line-regex implementation. The validator parses YAML structure for
+    line numbers and re-reads source lines for comment extraction (PyYAML
+    does not preserve comments), so these cases resolve correctly.
     """
 
     def test_latest_tag_reference_fails(self, tmp_path):
@@ -678,9 +703,19 @@ class TestCiIntegration:
             "validate_python.yml must not reference validate_workflow_uses_pinning.py; "
             "the validator now lives in validate_workflows.yml"
         )
-        assert ".github/workflows/" not in py_content, (
-            "validate_python.yml must not have `.github/workflows/` in its paths filter; "
-            "workflow path triggers belong in validate_workflows.yml"
+        # Scope the negative check to actual `paths:` entries so a future
+        # comment in validate_python.yml that mentions `.github/workflows/`
+        # cannot silently break this regression guard.
+        import yaml as _yaml
+
+        py_parsed = _yaml.safe_load(py_content)
+        py_paths: list[str] = []
+        for trigger in ("push", "pull_request"):
+            trigger_cfg = (py_parsed.get("on", {}) or {}).get(trigger) or {}
+            py_paths.extend(trigger_cfg.get("paths") or [])
+        assert not any(p.startswith(".github/workflows/") for p in py_paths), (
+            "validate_python.yml `paths:` filter must not target workflow files; "
+            f"workflow path triggers belong in validate_workflows.yml. Got: {py_paths}"
         )
 
     def test_validate_workflows_workflow_itself_uses_adr024_pin_form(self):
@@ -707,14 +742,14 @@ class TestCiIntegration:
 """
 Test Summary
 ============
-Total Tests: 32
-- TestPassingReferences: 5 (happy path + regression pin)
+Total Tests: 34
+- TestPassingReferences: 7 (happy path + regression pins, incl. quoted-scalar)
 - TestFailingReferences: 11 (parametrized 9 + quoted key + format test)
 - TestDockerWarning: 4 (D7 warning contract)
-- TestAdversarialParsing: 7 (new AST-gap cases)
+- TestAdversarialParsing: 7 (AST-gap cases)
 - TestWorkflowDiscovery: 1
 - TestCli: 2
-- TestCiIntegration: 2 (rewritten)
+- TestCiIntegration: 2
 
 Coverage Areas:
 - ADR-024 D6 pin form (single-space separator, two-space rejection)
