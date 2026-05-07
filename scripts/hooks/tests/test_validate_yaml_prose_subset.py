@@ -198,7 +198,7 @@ def _make_control(control_id: str, description: list[str] | None = None) -> dict
 # permitted but no additional colons.  The reason segment now requires the
 # ADR-017 D4 "at '<snippet>'" suffix.
 # ---------------------------------------------------------------------------
-_DIAG_PATTERN = re.compile(r"^validate-yaml-prose-subset: [^:]+:[^:]+:[^:\[]+(?:\.[^:\[]+)*\[\d+\]: .+ at '.*'$")
+_DIAG_PATTERN = re.compile(r"^validate-yaml-prose-subset: [^:]+:[^:]+:[^:\[.]+(?:\.[^:\[.]+)*\[\d+\]: .+ at '.*'$")
 
 
 # ===========================================================================
@@ -1159,6 +1159,33 @@ class TestDiagnosticFormat:
         diag = tour_diags[0]
         line = self._diag_to_line(diag)
         assert _DIAG_PATTERN.match(line), f"Diagnostic line does not match pattern: {line!r}"
+
+    def test_diagnostic_pattern_resists_redos(self):
+        r"""
+        CodeQL #20 regression guard: _DIAG_PATTERN must match in bounded time on a
+        many-dotted-segments adversarial input.
+
+        Given: An input shaped like 'validate-yaml-prose-subset: 9:9:9' + '.9' * N + ':NO_BRACKET'
+        When: _DIAG_PATTERN.match(input) runs against N=50 dotted segments
+        Then: The match completes in well under 1 second AND returns None (input is malformed)
+
+        Pre-fix, the ambiguous quantifier [^:\[]+(?:\.[^:\[]+)* admitted exponential
+        backtracking when the [<digit>] suffix failed: ~53s on N=30 segments.  The fix
+        adds the dot to the inner negated character class — [^:\[.]+(?:\.[^:\[.]+)* —
+        making the dot exclusively the segment separator and eliminating the ambiguity.
+        Linear-time guaranteed.
+        """
+        import time as _time  # local import keeps top-level imports minimal
+
+        redos_seed = "validate-yaml-prose-subset: 9:9:9" + ".9" * 50 + ":NO_BRACKET"
+        t0 = _time.monotonic()
+        result = _DIAG_PATTERN.match(redos_seed)
+        elapsed = _time.monotonic() - t0
+        assert result is None, "malformed redos seed must not match the diagnostic format"
+        assert elapsed < 1.0, (
+            f"diagnostic regex took {elapsed:.3f}s on redos seed; "
+            f"should be linear-time (sub-millisecond).  CodeQL #20 may have regressed."
+        )
 
 
 # ===========================================================================
