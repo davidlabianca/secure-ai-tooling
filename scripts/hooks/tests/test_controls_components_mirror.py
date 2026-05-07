@@ -72,7 +72,6 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-import yaml
 
 # ---------------------------------------------------------------------------
 # sys.path injection — same pattern as the existing test files
@@ -244,54 +243,9 @@ _ESCAPE_ALL_CONTROLS: dict[str, Any] = {
 }
 
 
-def _write_corpus(
-    base: Path,
-    components: dict[str, Any],
-    controls: dict[str, Any],
-) -> Path:
-    """Write a minimal two-file corpus under base/risk-map/yaml/ and return base.
-
-    validate_riskmap.py also reads risks.yaml; we write a minimal stub.
-    The risks file is not exercised by the mirror check so its contents are
-    irrelevant as long as parse_risks_yaml() does not error.
-
-    Args:
-        base: Temporary directory root (from tmp_path fixture).
-        components: Parsed components.yaml content dict.
-        controls: Parsed controls.yaml content dict.
-
-    Returns:
-        The base path (for use as subprocess cwd).
-    """
-    yaml_dir = base / "risk-map" / "yaml"
-    yaml_dir.mkdir(parents=True)
-    (yaml_dir / "components.yaml").write_text(yaml.dump(components), encoding="utf-8")
-    (yaml_dir / "controls.yaml").write_text(yaml.dump(controls), encoding="utf-8")
-    # Minimal risks stub so the script doesn't fail on a missing file.
-    (yaml_dir / "risks.yaml").write_text(yaml.dump({"risks": []}), encoding="utf-8")
-    return base
-
-
-def _run(cwd: Path, *extra_args: str) -> subprocess.CompletedProcess:
-    """Run validate_riskmap.py via subprocess with --force and any extra args.
-
-    Always passes --force so the script validates regardless of git-staged state.
-    Always passes --allow-isolated so minimal synthesised corpora do not fail
-    the ComponentEdgeValidator's orphan check.
-
-    Args:
-        cwd: Working directory for the subprocess.
-        *extra_args: Additional CLI arguments (e.g. "--block").
-
-    Returns:
-        CompletedProcess with returncode, stdout, stderr.
-    """
-    return subprocess.run(
-        [sys.executable, str(_SCRIPT), "--force", "--allow-isolated", *extra_args],
-        capture_output=True,
-        text=True,
-        cwd=str(cwd),
-    )
+# Synthesised-corpus subprocess tests rely on the shared `write_riskmap_corpus`
+# and `run_validate_riskmap` fixtures (see conftest.py) so every warn-only
+# check test invokes the CLI through one consistent harness.
 
 
 # ===========================================================================
@@ -551,7 +505,7 @@ class TestBlockToggleCLI:
     # Has 3 known dangling refs (componentInputHandling ×1, componentOutputHandling ×2).
     # -----------------------------------------------------------------------
 
-    def test_live_corpus_no_block_flag_exits_0(self):
+    def test_live_corpus_no_block_flag_exits_0(self, run_validate_riskmap):
         """
         Running without --block against the live corpus exits 0.
 
@@ -562,13 +516,13 @@ class TestBlockToggleCLI:
         When: validate_riskmap.py --force --allow-isolated (no --block)
         Then: Exit code is 0
         """
-        result = _run(_REPO_ROOT)
+        result = run_validate_riskmap(_REPO_ROOT)
         assert result.returncode == 0, (
             f"Expected exit 0 without --block on live corpus; got {result.returncode}\n"
             f"stdout: {result.stdout}\nstderr: {result.stderr}"
         )
 
-    def test_live_corpus_with_block_flag_exits_1(self):
+    def test_live_corpus_with_block_flag_exits_1(self, run_validate_riskmap):
         """
         Running with --block against the live corpus exits 1 because the 3
         dangling component refs promote warnings to errors.
@@ -577,13 +531,13 @@ class TestBlockToggleCLI:
         When: validate_riskmap.py --force --allow-isolated --block
         Then: Exit code is 1 (mirror warnings promoted to failures)
         """
-        result = _run(_REPO_ROOT, "--block")
+        result = run_validate_riskmap(_REPO_ROOT, "--block")
         assert result.returncode == 1, (
             f"Expected exit 1 with --block on live corpus; got {result.returncode}\n"
             f"stdout: {result.stdout}\nstderr: {result.stderr}"
         )
 
-    def test_live_corpus_with_block_output_names_dangling_components(self):
+    def test_live_corpus_with_block_output_names_dangling_components(self, run_validate_riskmap):
         """
         When --block fires on the live corpus, the output text names the
         dangling component IDs so developers can locate the defects.
@@ -593,7 +547,7 @@ class TestBlockToggleCLI:
         Then: Output (stdout or stderr) mentions at least one of
               componentInputHandling or componentOutputHandling
         """
-        result = _run(_REPO_ROOT, "--block")
+        result = run_validate_riskmap(_REPO_ROOT, "--block")
         combined = result.stdout + result.stderr
         mentions_known_dangling = any(cid in combined for cid in _LIVE_DANGLING_COMPONENT_IDS)
         assert mentions_known_dangling, (
@@ -606,7 +560,7 @@ class TestBlockToggleCLI:
     # Synthesised clean corpus: no dangling refs → --block must NOT fire.
     # -----------------------------------------------------------------------
 
-    def test_clean_corpus_with_block_flag_exits_0(self, tmp_path):
+    def test_clean_corpus_with_block_flag_exits_0(self, tmp_path, write_riskmap_corpus, run_validate_riskmap):
         """
         Running with --block against a corpus with no dangling refs exits 0.
 
@@ -618,14 +572,14 @@ class TestBlockToggleCLI:
         When: validate_riskmap.py --force --allow-isolated --block (cwd=tmp_path)
         Then: Exit code is 0 (no mirror warnings to promote)
         """
-        _write_corpus(tmp_path, _MINIMAL_COMPONENTS, _CLEAN_CONTROLS)
-        result = _run(tmp_path, "--block")
+        write_riskmap_corpus(tmp_path, _MINIMAL_COMPONENTS, _CLEAN_CONTROLS)
+        result = run_validate_riskmap(tmp_path, "--block")
         assert result.returncode == 0, (
             f"Expected exit 0 with --block on clean corpus; got {result.returncode}\n"
             f"stdout: {result.stdout}\nstderr: {result.stderr}"
         )
 
-    def test_clean_corpus_no_block_flag_exits_0(self, tmp_path):
+    def test_clean_corpus_no_block_flag_exits_0(self, tmp_path, write_riskmap_corpus, run_validate_riskmap):
         """
         Running without --block against a clean corpus exits 0.
 
@@ -635,8 +589,8 @@ class TestBlockToggleCLI:
         When: validate_riskmap.py --force --allow-isolated (no --block)
         Then: Exit code is 0
         """
-        _write_corpus(tmp_path, _MINIMAL_COMPONENTS, _CLEAN_CONTROLS)
-        result = _run(tmp_path)
+        write_riskmap_corpus(tmp_path, _MINIMAL_COMPONENTS, _CLEAN_CONTROLS)
+        result = run_validate_riskmap(tmp_path)
         assert result.returncode == 0, (
             f"Expected exit 0 on clean corpus without --block; got {result.returncode}\n"
             f"stdout: {result.stdout}\nstderr: {result.stderr}"
@@ -646,7 +600,7 @@ class TestBlockToggleCLI:
     # Synthesised dirty corpus: dangling refs present.
     # -----------------------------------------------------------------------
 
-    def test_dirty_corpus_with_block_flag_exits_1(self, tmp_path):
+    def test_dirty_corpus_with_block_flag_exits_1(self, tmp_path, write_riskmap_corpus, run_validate_riskmap):
         """
         Running with --block against a synthesised dirty corpus exits 1.
 
@@ -658,14 +612,14 @@ class TestBlockToggleCLI:
         When: validate_riskmap.py --force --allow-isolated --block
         Then: Exit code is 1
         """
-        _write_corpus(tmp_path, _MINIMAL_COMPONENTS, _DIRTY_CONTROLS)
-        result = _run(tmp_path, "--block")
+        write_riskmap_corpus(tmp_path, _MINIMAL_COMPONENTS, _DIRTY_CONTROLS)
+        result = run_validate_riskmap(tmp_path, "--block")
         assert result.returncode == 1, (
             f"Expected exit 1 with --block on dirty corpus; got {result.returncode}\n"
             f"stdout: {result.stdout}\nstderr: {result.stderr}"
         )
 
-    def test_dirty_corpus_no_block_flag_exits_0(self, tmp_path):
+    def test_dirty_corpus_no_block_flag_exits_0(self, tmp_path, write_riskmap_corpus, run_validate_riskmap):
         """
         Running WITHOUT --block against a dirty synthesised corpus exits 0.
 
@@ -677,8 +631,8 @@ class TestBlockToggleCLI:
         When: validate_riskmap.py --force --allow-isolated (no --block)
         Then: Exit code is 0 (warnings only, no failure)
         """
-        _write_corpus(tmp_path, _MINIMAL_COMPONENTS, _DIRTY_CONTROLS)
-        result = _run(tmp_path)
+        write_riskmap_corpus(tmp_path, _MINIMAL_COMPONENTS, _DIRTY_CONTROLS)
+        result = run_validate_riskmap(tmp_path)
         assert result.returncode == 0, (
             f"Expected exit 0 without --block on dirty corpus; got {result.returncode}\n"
             f"stdout: {result.stdout}\nstderr: {result.stderr}"
@@ -691,7 +645,9 @@ class TestBlockToggleCLI:
             f"stdout: {result.stdout!r}\nstderr: {result.stderr!r}"
         )
 
-    def test_dirty_corpus_with_block_output_names_missing_component(self, tmp_path):
+    def test_dirty_corpus_with_block_output_names_missing_component(
+        self, tmp_path, write_riskmap_corpus, run_validate_riskmap
+    ):
         """
         When --block fires, the output names the missing component ID.
 
@@ -699,14 +655,16 @@ class TestBlockToggleCLI:
         When: validate_riskmap.py --force --allow-isolated --block
         Then: Output mentions "componentDoesNotExist"
         """
-        _write_corpus(tmp_path, _MINIMAL_COMPONENTS, _DIRTY_CONTROLS)
-        result = _run(tmp_path, "--block")
+        write_riskmap_corpus(tmp_path, _MINIMAL_COMPONENTS, _DIRTY_CONTROLS)
+        result = run_validate_riskmap(tmp_path, "--block")
         combined = result.stdout + result.stderr
         assert "componentDoesNotExist" in combined, (
             f"Expected 'componentDoesNotExist' in output; stdout: {result.stdout!r}\nstderr: {result.stderr!r}"
         )
 
-    def test_escape_hatch_all_corpus_with_block_exits_0(self, tmp_path):
+    def test_escape_hatch_all_corpus_with_block_exits_0(
+        self, tmp_path, write_riskmap_corpus, run_validate_riskmap
+    ):
         """
         A corpus where all controls use the "all" escape hatch exits 0 with --block.
 
@@ -717,8 +675,8 @@ class TestBlockToggleCLI:
         When: validate_riskmap.py --force --allow-isolated --block
         Then: Exit code is 0
         """
-        _write_corpus(tmp_path, _MINIMAL_COMPONENTS, _ESCAPE_ALL_CONTROLS)
-        result = _run(tmp_path, "--block")
+        write_riskmap_corpus(tmp_path, _MINIMAL_COMPONENTS, _ESCAPE_ALL_CONTROLS)
+        result = run_validate_riskmap(tmp_path, "--block")
         assert result.returncode == 0, (
             f"Expected exit 0 with --block when controls use 'all' escape hatch; "
             f"got {result.returncode}\n"
