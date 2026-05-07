@@ -1,6 +1,6 @@
 # ADR-025: Testing strategy and posture across Python, site JS, schemas, and infrastructure
 
-**Status:** Draft
+**Status:** Accepted
 **Date:** 2026-05-05
 **Authors:** Architect agent, with maintainer review
 
