@@ -141,15 +141,16 @@ risks:
 file under `.github/workflows/*.yml` or `.github/workflows/**/*.yml` is
 staged.
 
-**Validation:**
+**Validation (ADR-024 D6 pin form):**
 
 - External `uses:` references must use
   `owner/repo@<40-character-SHA> # vX.Y.Z`
 - External action subpaths and reusable workflows must use
   `owner/repo/path@<40-character-SHA> # vX.Y.Z`
 - Local `./...` references are allowed without a SHA or version comment
-- `docker://` action references fail until a separate Docker pinning policy is
-  defined
+- `docker://` action references emit an advisory warning per ADR-024 D7
+  (not a commit-blocking failure) until the planned ADR-023 defines Docker
+  pinning
 
 **Example:**
 

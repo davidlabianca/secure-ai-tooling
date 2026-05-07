@@ -30,11 +30,13 @@ In addition to local pre-commit validation, the repository includes GitHub Actio
 
 ## GitHub Actions Uses Pinning
 
-Workflow-only PRs trigger the Python validation workflow so
+Workflow-only PRs trigger the dedicated `validate_workflows.yml` workflow so
 `scripts/hooks/precommit/validate_workflow_uses_pinning.py` can enforce the
 same ADR-024 rule as pre-commit. External `uses:` references must be pinned as
-`owner/repo@<40-character-SHA> # vX.Y.Z`; local `./...` references are
-allowed. The CI failure names the offending workflow file and line.
+`owner/repo@<40-character-SHA> # vX.Y.Z` per ADR-024 D6; local `./...`
+references are allowed. `docker://` references emit an advisory warning per
+ADR-024 D7 (not a build failure) until the planned ADR-023 defines Docker
+pinning. The CI failure names the offending workflow file and line.
 
 ## Different Roles
 
