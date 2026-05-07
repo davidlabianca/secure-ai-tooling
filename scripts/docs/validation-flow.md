@@ -24,19 +24,22 @@ hooks show `(no files to check) Skipped` in the output.
    runs when `controls.yaml` or `risks.yaml` is staged.
 9. **Framework Reference Validation** — `validate_framework_references.py`
    runs when `controls`, `frameworks`, `personas`, or `risks` yaml is staged.
-10. **Issue Template Regeneration** — `regenerate_issue_templates.py` runs
+10. **GitHub Actions `uses:` Pinning Validation** —
+    `validate_workflow_uses_pinning.py` runs when `.github/workflows/*.yml`
+    or nested workflow `.yml` files are staged.
+11. **Issue Template Regeneration** — `regenerate_issue_templates.py` runs
     when any template source, any schema, or `frameworks.yaml` is staged;
     generates `.github/ISSUE_TEMPLATE/*.yml` and stages them.
-11. **Issue Template Validation** — `validate_issue_templates.py` runs when
+12. **Issue Template Validation** — `validate_issue_templates.py` runs when
     anything under `.github/ISSUE_TEMPLATE/` or `scripts/TEMPLATES/` is
-    staged (including the files just regenerated in step 10).
-12. **Graph Regeneration** — `regenerate_graphs.py` produces risk-map graph,
+    staged (including the files just regenerated in step 11).
+13. **Graph Regeneration** — `regenerate_graphs.py` produces risk-map graph,
     controls graph, and controls-to-risk graph (3 markdown + 3 mermaid outputs)
     based on which of `components.yaml`, `controls.yaml`, `risks.yaml` is
     staged. Each output pair is `git add`-ed on success.
-13. **Table Regeneration** — `regenerate_tables.py` regenerates 8 table
+14. **Table Regeneration** — `regenerate_tables.py` regenerates 8 table
     outputs across 4 triggers (see `scripts/docs/table-generation.md`).
-14. **SVG Regeneration** — `regenerate_svgs.py` converts staged
+15. **SVG Regeneration** — `regenerate_svgs.py` converts staged
     `risk-map/diagrams/*.mmd` or `*.mermaid` files to SVG.
 
 The commit is blocked if any hook returns non-zero.

@@ -112,6 +112,7 @@ _REQUIRED_HOOK_IDS = {
     "validate-component-edges",
     "validate-control-risk-references",
     "validate-framework-references",
+    "validate-workflow-uses-pinning",
     # Issue templates:
     "regenerate-issue-templates",
     "validate-issue-templates",
@@ -229,6 +230,16 @@ class TestValidatorHookContracts:
         for token in ("controls", "frameworks", "personas", "risks"):
             assert token in files, f"framework refs files regex missing `{token}`: {files!r}"
         assert hook.get("pass_filenames") is False
+
+    def test_validate_workflow_uses_pinning_targets_workflow_yml_files(self):
+        hooks = _hooks_by_id("validate-workflow-uses-pinning")
+        assert len(hooks) == 1
+        hook = hooks[0]
+        assert "validate_workflow_uses_pinning.py" in hook.get("entry", "")
+        files = hook.get("files", "")
+        assert ".github/workflows" in files
+        assert "yml" in files
+        assert hook.get("pass_filenames") is True
 
 
 # ===========================================================================

@@ -65,6 +65,24 @@ The repository accepts the operational cost because the workflow threat model is
 
 This ADR does not decide Docker image digest pinning, devcontainer feature exact-version pinning, or base-image date-stamping. Those are tracked by issue [#248](https://github.com/cosai-oasis/secure-ai-tooling/issues/248) and the planned ADR-023 devcontainer maintenance policy.
 
+### D6. Pin form
+
+Every external `uses:` reference matches this form exactly:
+
+```
+uses: owner/repo@<40-hex-sha> # v<MAJOR>.<MINOR>.<PATCH>[-<prerelease>][+<build>]
+```
+
+The version comment uses the three-part `vMAJOR.MINOR.PATCH` shape, with optional `-prerelease` and `+build` suffixes for Actions that publish them. Two-part tags such as `v6` or `v6.2` are not accepted in the comment, even when the upstream Action also publishes a three-part release, because the comment must record the specific pinned release.
+
+The separator between the SHA and the comment is exactly one space, then `#`, then one space — the literal sequence ` # `. This makes the form mechanically checkable and keeps reviewer scanning consistent.
+
+The version comment is required whenever the pinned SHA corresponds to a tagged release. SHA pins without a corresponding upstream release tag (for example, a fix commit not yet released) are out of scope for this ADR and should be raised in PR review.
+
+### D7. `docker://` references warned, not blocked
+
+`uses: docker://...` references are advisory-warned by the lint, not rejected. Docker image pinning (digest vs. tag, registry trust) is a distinct decision tracked under issue [#248](https://github.com/cosai-oasis/secure-ai-tooling/issues/248) and the planned ADR-023. Until that ADR lands, `docker://` references surface as warnings so contributors and reviewers see them, without blocking PRs on a policy this ADR does not yet cover.
+
 ## Alternatives Considered
 
 - **Keep major tags (`actions/checkout@v6`).** Rejected. It preserves easy updates, but the executed code can change when the upstream tag moves. That leaves no visible diff in this repository for a supply-chain-relevant change.

@@ -1,0 +1,84 @@
+name: Workflow Validation
+on:
+  push:
+    paths:
+      - '.github/workflows/**/*.yml'
+      - 'docs/adr/024-*.md'
+      - '.pre-commit-config.yaml'
+      - 'scripts/hooks/precommit/validate_workflow_uses_pinning.py'
+  pull_request:
+    paths:
+      - '.github/workflows/**/*.yml'
+      - 'docs/adr/024-*.md'
+      - '.pre-commit-config.yaml'
+      - 'scripts/hooks/precommit/validate_workflow_uses_pinning.py'
+
+permissions:
+  contents: read
+
+jobs:
+  # The lint workflow itself uses ADR-024 D6 pin form, so this workflow is the
+  # most visible self-test for the policy it enforces.
+  workflow-uses-pinning:
+    runs-on: ubuntu-latest
+    name: GitHub Actions Uses Pinning
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Set up Python
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
+        with:
+          python-version: '3.14'
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+      - name: Validate GitHub Actions uses pinning
+        id: workflow-pinning
+        run: |
+          echo "🔍 Validating GitHub Actions uses pinning..."
+          if python scripts/hooks/precommit/validate_workflow_uses_pinning.py; then
+            echo "✅ GitHub Actions uses pinning validation completed successfully"
+            echo "status=success" >> $GITHUB_OUTPUT
+          else
+            echo "❌ GitHub Actions uses pinning validation failed"
+            echo "::error::GitHub Actions uses pinning validation failed"
+            echo "status=failed" >> $GITHUB_OUTPUT
+            exit 1
+          fi
+
+  validation-summary:
+    runs-on: ubuntu-latest
+    name: Validation Summary
+    needs: [workflow-uses-pinning]
+    if: always()
+    steps:
+      - name: Generate Summary
+        run: |
+          echo "# 📋 Workflow Validation Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          pinning_result="${{ needs.workflow-uses-pinning.result }}"
+          overall_success=true
+
+          echo "## Individual Job Results:" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if [ "$pinning_result" = "success" ]; then
+            echo "- ✅ **GitHub Actions uses pinning validation**: Passed" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "- ❌ **GitHub Actions uses pinning validation**: $pinning_result" >> $GITHUB_STEP_SUMMARY
+            overall_success=false
+          fi
+
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if [ "$overall_success" = "true" ]; then
+            echo "## ✅ Overall Status: Success" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "🎉 All workflow validations passed!" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "## ❌ Overall Status: Failed" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "💥 Some workflow validations failed. Check individual job details above." >> $GITHUB_STEP_SUMMARY
+            echo "::error::Some workflow validations failed"
+            exit 1
+          fi

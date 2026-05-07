@@ -3,11 +3,13 @@ on:
   push:
     paths:
       - '**.py'
+      - '.pre-commit-config.yaml'
       - 'requirements*.txt'
       - 'pyproject.toml'
   pull_request:
     paths:
       - '**.py'
+      - '.pre-commit-config.yaml'
       - 'requirements*.txt'
       - 'pyproject.toml'
 
@@ -105,33 +107,33 @@ jobs:
       run: |
         echo "# 📋 Python Validation Summary" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
-        
+
         # Check individual job results
         lint_result="${{ needs.python-linting.result }}"
         test_result="${{ needs.python-testing.result }}"
         lint_status="${{ needs.python-linting.outputs.lint_status }}"
         test_status="${{ needs.python-testing.outputs.test_status }}"
         overall_success=true
-        
+
         echo "## Individual Job Results:" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
-        
+
         if [ "$lint_result" = "success" ]; then
           echo "- ✅ **Python linting validation**: Passed" >> $GITHUB_STEP_SUMMARY
         else
           echo "- ❌ **Python linting validation**: $lint_result" >> $GITHUB_STEP_SUMMARY
           overall_success=false
         fi
-        
+
         if [ "$test_result" = "success" ]; then
           echo "- ✅ **Python test validation**: Passed" >> $GITHUB_STEP_SUMMARY
         else
           echo "- ❌ **Python test validation**: $test_result" >> $GITHUB_STEP_SUMMARY
           overall_success=false
         fi
-        
+
         echo "" >> $GITHUB_STEP_SUMMARY
-        
+
         if [ "$overall_success" = "true" ]; then
           echo "## ✅ Overall Status: Success" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY

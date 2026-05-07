@@ -9,6 +9,8 @@ In addition to local pre-commit validation, the repository includes GitHub Actio
 - **YAML Schema Validation**: Validates all YAML files against their JSON schemas
 - **YAML Format Validation**: Checks prettier formatting compliance
 - **Python Linting**: Runs ruff linting on all Python files
+- **GitHub Actions Uses Pinning**: Enforces ADR-024 SHA-pinned `uses:`
+  references in `.github/workflows/*.yml`
 - **Component Edge Validation**: Verifies component relationship consistency
 - **Control-Risk Reference Validation**: Checks control-risk cross-reference integrity
 - **Graph Validation**: Generates and compares graphs against committed versions
@@ -25,6 +27,16 @@ In addition to local pre-commit validation, the repository includes GitHub Actio
   - Components tables (`components-full.md`, `components-summary.md`)
   - Risks tables (`risks-full.md`, `risks-summary.md`)
   - Controls tables (`controls-full.md`, `controls-summary.md`, `controls-xref-risks.md`, `controls-xref-components.md`)
+
+## GitHub Actions Uses Pinning
+
+Workflow-only PRs trigger the dedicated `validate_workflows.yml` workflow so
+`scripts/hooks/precommit/validate_workflow_uses_pinning.py` can enforce the
+same ADR-024 rule as pre-commit. External `uses:` references must be pinned as
+`owner/repo@<40-character-SHA> # vX.Y.Z` per ADR-024 D6; local `./...`
+references are allowed. `docker://` references emit an advisory warning per
+ADR-024 D7 (not a build failure) until the planned ADR-023 defines Docker
+pinning. The CI failure names the offending workflow file and line.
 
 ## Different Roles
 
