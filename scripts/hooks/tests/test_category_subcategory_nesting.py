@@ -65,8 +65,6 @@ import yaml
 # ---------------------------------------------------------------------------
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from riskmap_validator.models import ComponentNode  # noqa: E402
-
 # Deferred import: check_category_subcategory_nesting does not exist yet.
 # Re-raised inside the fixture so pure-function tests fail individually
 # while CLI test collection succeeds.
@@ -126,28 +124,9 @@ def nesting_fn():
     return check_category_subcategory_nesting
 
 
-def _make_component(
-    title: str,
-    category: str,
-    subcategory: str | None = None,
-) -> ComponentNode:
-    """Construct a ComponentNode for testing.
-
-    Args:
-        title: Component display title.
-        category: Category ID claimed by the component.
-        subcategory: Optional subcategory ID; None means absent.
-
-    Returns:
-        A ComponentNode with minimal required fields populated.
-    """
-    return ComponentNode(
-        title=title,
-        category=category,
-        subcategory=subcategory,
-        to_edges=[],
-        from_edges=[],
-    )
+# ComponentNode construction is delegated to the shared `make_component`
+# fixture in conftest.py; corpus writing and CLI invocation use
+# `write_riskmap_corpus` and `run_validate_riskmap` from the same module.
 
 
 # ---------------------------------------------------------------------------
@@ -246,26 +225,6 @@ _CLEAN_CONTROLS: dict[str, Any] = {
 }
 
 
-def _write_corpus(base: Path, components: dict[str, Any], controls: dict[str, Any]) -> Path:
-    """Write a minimal two-file corpus under base/risk-map/yaml/ and return base."""
-    yaml_dir = base / "risk-map" / "yaml"
-    yaml_dir.mkdir(parents=True)
-    (yaml_dir / "components.yaml").write_text(yaml.dump(components), encoding="utf-8")
-    (yaml_dir / "controls.yaml").write_text(yaml.dump(controls), encoding="utf-8")
-    (yaml_dir / "risks.yaml").write_text(yaml.dump({"risks": []}), encoding="utf-8")
-    return base
-
-
-def _run(cwd: Path, *extra_args: str) -> subprocess.CompletedProcess:
-    """Run validate_riskmap.py via subprocess with --force --allow-isolated."""
-    return subprocess.run(
-        [sys.executable, str(_SCRIPT), "--force", "--allow-isolated", *extra_args],
-        capture_output=True,
-        text=True,
-        cwd=str(cwd),
-    )
-
-
 # ===========================================================================
 # 1. Pure-function tests — check_category_subcategory_nesting()
 # ===========================================================================
@@ -279,20 +238,22 @@ class TestCheckCategorySubcategoryNesting:
     custom ComponentNode dicts.
     """
 
-    def test_clean_components_return_empty_list(self, nesting_fn):
+    def test_clean_components_return_empty_list(self, nesting_fn, make_component):
         """
         Given: components with consistent (category, subcategory) pairs
         When: check_category_subcategory_nesting() is called
         Then: returns an empty list
         """
         components = {
-            "componentX": _make_component("X", "componentsInfrastructure", "componentsData"),
-            "componentY": _make_component("Y", "componentsModel", "componentsModelTraining"),
+            "componentX": make_component("X", "componentsInfrastructure", "componentsData"),
+            "componentY": make_component("Y", "componentsModel", "componentsModelTraining"),
         }
         result = nesting_fn(components, _NESTING_MAP)
         assert result == [], f"Expected no warnings on clean input; got: {result}"
 
-    def test_class1_mismatched_nesting_produces_warning_naming_component_and_subcategory(self, nesting_fn):
+    def test_class1_mismatched_nesting_produces_warning_naming_component_and_subcategory(
+        self, nesting_fn, make_component
+    ):
         """
         Given: a component claims category=componentsModel, subcategory=componentsData
                (componentsData is nested under componentsInfrastructure, not Model)
@@ -301,7 +262,7 @@ class TestCheckCategorySubcategoryNesting:
               orphan subcategory
         """
         components = {
-            "componentMismatch": _make_component("Mismatch", "componentsModel", "componentsData"),
+            "componentMismatch": make_component("Mismatch", "componentsModel", "componentsData"),
         }
         result = nesting_fn(components, _NESTING_MAP)
         assert len(result) >= 1, f"Expected ≥1 warning for mismatched nesting; got: {result}"
@@ -311,22 +272,22 @@ class TestCheckCategorySubcategoryNesting:
             f"Expected 'componentsData' (orphan subcategory) in warning text; got: {result}"
         )
 
-    def test_class1_multiple_mismatches_each_surfaces_independently(self, nesting_fn):
+    def test_class1_multiple_mismatches_each_surfaces_independently(self, nesting_fn, make_component):
         """
         Given: two components with different mismatch pairs
         When: check_category_subcategory_nesting() is called
         Then: both component IDs appear in the combined warning text
         """
         components = {
-            "componentBad1": _make_component("Bad1", "componentsModel", "componentsData"),
-            "componentBad2": _make_component("Bad2", "componentsApplication", "componentsModelTraining"),
+            "componentBad1": make_component("Bad1", "componentsModel", "componentsData"),
+            "componentBad2": make_component("Bad2", "componentsApplication", "componentsModelTraining"),
         }
         result = nesting_fn(components, _NESTING_MAP)
         combined = " ".join(result)
         assert "componentBad1" in combined, f"Expected 'componentBad1'; got: {result}"
         assert "componentBad2" in combined, f"Expected 'componentBad2'; got: {result}"
 
-    def test_class2_absent_subcategory_produces_warning(self, nesting_fn):
+    def test_class2_absent_subcategory_produces_warning(self, nesting_fn, make_component):
         """
         Given: a component with category but no subcategory (absent)
         When: check_category_subcategory_nesting() is called
@@ -334,22 +295,22 @@ class TestCheckCategorySubcategoryNesting:
               (Path A: schema permits absence, but the validator surfaces it)
         """
         components = {
-            "componentMissing": _make_component("Missing", "componentsModel", subcategory=None),
+            "componentMissing": make_component("Missing", "componentsModel", subcategory=None),
         }
         result = nesting_fn(components, _NESTING_MAP)
         assert len(result) >= 1, f"Expected ≥1 warning for absent subcategory; got: {result}"
         combined = " ".join(result)
         assert "componentMissing" in combined, f"Expected 'componentMissing' in warning text; got: {result}"
 
-    def test_mixed_class1_and_class2_both_surfaced(self, nesting_fn):
+    def test_mixed_class1_and_class2_both_surfaced(self, nesting_fn, make_component):
         """
         Given: one Class-1 mismatch + one Class-2 absence in the same input
         When: check_category_subcategory_nesting() is called
         Then: both offending component IDs appear in the combined output
         """
         components = {
-            "componentMismatchCase": _make_component("Mismatch", "componentsModel", "componentsData"),
-            "componentAbsentCase": _make_component("Absent", "componentsApplication", subcategory=None),
+            "componentMismatchCase": make_component("Mismatch", "componentsModel", "componentsData"),
+            "componentAbsentCase": make_component("Absent", "componentsApplication", subcategory=None),
         }
         result = nesting_fn(components, _NESTING_MAP)
         combined = " ".join(result)
@@ -374,21 +335,21 @@ class TestCheckCategorySubcategoryNesting:
         result = nesting_fn({}, _NESTING_MAP)
         assert isinstance(result, list), f"Expected list, got {type(result)}: {result}"
 
-    def test_each_warning_is_a_string(self, nesting_fn):
+    def test_each_warning_is_a_string(self, nesting_fn, make_component):
         """
         Given: a dirty input that produces warnings
         When: check_category_subcategory_nesting() is called
         Then: every element of the returned list is a str
         """
         components = {
-            "componentBad": _make_component("Bad", "componentsModel", "componentsData"),
+            "componentBad": make_component("Bad", "componentsModel", "componentsData"),
         }
         result = nesting_fn(components, _NESTING_MAP)
         assert all(isinstance(w, str) for w in result), (
             f"Expected all-str warnings; got types: {[type(w) for w in result]}"
         )
 
-    def test_unknown_category_in_component_produces_warning(self, nesting_fn):
+    def test_unknown_category_in_component_produces_warning(self, nesting_fn, make_component):
         """
         Given: a component claims a category absent from the nesting map
         When: check_category_subcategory_nesting() is called
@@ -397,7 +358,7 @@ class TestCheckCategorySubcategoryNesting:
               no valid subcategories and always mismatches)
         """
         components = {
-            "componentUnknownCat": _make_component("UnknownCat", "componentsDoesNotExist", "componentsData"),
+            "componentUnknownCat": make_component("UnknownCat", "componentsDoesNotExist", "componentsData"),
         }
         result = nesting_fn(components, _NESTING_MAP)
         assert len(result) >= 1, f"Expected ≥1 warning when category is absent from nesting map; got: {result}"
@@ -459,19 +420,19 @@ class TestNestingBlockToggleCLI:
     The clean and no-block cases PASS today (regression guards).
     """
 
-    def test_live_corpus_no_block_flag_exits_0(self):
+    def test_live_corpus_no_block_flag_exits_0(self, run_validate_riskmap):
         """
         Given: actual repo as cwd, no --block
         When: validate_riskmap.py --force --allow-isolated runs
         Then: exit 0 (warnings printed but don't fail; today's behavior)
         """
-        result = _run(_REPO_ROOT)
+        result = run_validate_riskmap(_REPO_ROOT)
         assert result.returncode == 0, (
             f"Expected exit 0 without --block on live corpus; got {result.returncode}\n"
             f"stdout: {result.stdout}\nstderr: {result.stderr}"
         )
 
-    def test_live_corpus_with_block_flag_exits_1(self):
+    def test_live_corpus_with_block_flag_exits_1(self, run_validate_riskmap):
         """
         Given: actual repo as cwd, --block
         When: validate_riskmap.py --force --allow-isolated --block runs
@@ -482,7 +443,7 @@ class TestNestingBlockToggleCLI:
         task 2.3.8. After 2.3.9 is wired, both the nesting warnings and the
         mirror warnings contribute.
         """
-        result = _run(_REPO_ROOT, "--block")
+        result = run_validate_riskmap(_REPO_ROOT, "--block")
         assert result.returncode == 1, (
             f"Expected exit 1 with --block on live corpus; got {result.returncode}\n"
             f"stdout: {result.stdout}\nstderr: {result.stderr}"
@@ -493,40 +454,42 @@ class TestNestingBlockToggleCLI:
             f"stdout: {result.stdout!r}\nstderr: {result.stderr!r}"
         )
 
-    def test_clean_corpus_with_block_exits_0(self, tmp_path):
+    def test_clean_corpus_with_block_exits_0(self, tmp_path, write_riskmap_corpus, run_validate_riskmap):
         """
         Given: synthesised corpus with consistent nesting + clean controls
         When: validate_riskmap.py --force --allow-isolated --block runs
         Then: exit 0 (no warnings to promote)
         """
-        _write_corpus(tmp_path, _CLEAN_COMPONENTS, _CLEAN_CONTROLS)
-        result = _run(tmp_path, "--block")
+        write_riskmap_corpus(tmp_path, _CLEAN_COMPONENTS, _CLEAN_CONTROLS)
+        result = run_validate_riskmap(tmp_path, "--block")
         assert result.returncode == 0, (
             f"Expected exit 0 with --block on clean corpus; got {result.returncode}\n"
             f"stdout: {result.stdout}\nstderr: {result.stderr}"
         )
 
-    def test_dirty_nesting_with_block_exits_1(self, tmp_path):
+    def test_dirty_nesting_with_block_exits_1(self, tmp_path, write_riskmap_corpus, run_validate_riskmap):
         """
         Given: synthesised corpus with mismatched nesting (componentBad) + clean controls
         When: validate_riskmap.py --force --allow-isolated --block runs
         Then: exit 1 (nesting warning fires the toggle; mirror stays silent)
         """
-        _write_corpus(tmp_path, _DIRTY_NESTING_COMPONENTS, _CLEAN_CONTROLS)
-        result = _run(tmp_path, "--block")
+        write_riskmap_corpus(tmp_path, _DIRTY_NESTING_COMPONENTS, _CLEAN_CONTROLS)
+        result = run_validate_riskmap(tmp_path, "--block")
         assert result.returncode == 1, (
             f"Expected exit 1 with --block on dirty-nesting corpus; got {result.returncode}\n"
             f"stdout: {result.stdout}\nstderr: {result.stderr}"
         )
 
-    def test_dirty_nesting_no_block_flag_exits_0_and_emits_warning(self, tmp_path):
+    def test_dirty_nesting_no_block_flag_exits_0_and_emits_warning(
+        self, tmp_path, write_riskmap_corpus, run_validate_riskmap
+    ):
         """
         Given: synthesised dirty-nesting corpus, no --block
         When: validate_riskmap.py --force --allow-isolated runs
         Then: exit 0 (warn-only preserved) AND output names the offending component
         """
-        _write_corpus(tmp_path, _DIRTY_NESTING_COMPONENTS, _CLEAN_CONTROLS)
-        result = _run(tmp_path)
+        write_riskmap_corpus(tmp_path, _DIRTY_NESTING_COMPONENTS, _CLEAN_CONTROLS)
+        result = run_validate_riskmap(tmp_path)
         assert result.returncode == 0, (
             f"Expected exit 0 without --block on dirty-nesting corpus; got {result.returncode}\n"
             f"stdout: {result.stdout}\nstderr: {result.stderr}"

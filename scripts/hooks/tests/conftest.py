@@ -7,11 +7,14 @@ multiple test modules in the validation system test suite.
 
 # Import test modules for type hints and fixtures
 import subprocess
+import sys
 import tempfile
 from pathlib import Path
+from typing import Any
 from unittest.mock import patch
 
 import pytest
+import yaml
 from riskmap_validator.models import ComponentNode, ControlNode, RiskNode
 from riskmap_validator.validator import ComponentEdgeValidator
 
@@ -583,3 +586,76 @@ def count_mermaid_edges(mermaid_content: str) -> int:
     # Count arrow patterns: -->, -.->
     edge_pattern = r"[\w\[\]]+\s*[-\.]*>\s*[\w\[\]]+"
     return len(re.findall(edge_pattern, mermaid_content))
+
+
+# ============================================================================
+# Shared helpers for validate_riskmap.py warn-only check tests
+# ============================================================================
+#
+# These fixtures support the controls↔components mirror check (ADR-020 D7) and
+# the category/subcategory nesting check (ADR-018 D6) tests, which both build
+# minimal synthesised corpora and invoke validate_riskmap.py via subprocess.
+# Lifecycle-uniqueness tests retain their own corpus helpers because their
+# signatures differ (4-file corpus, no extra-args support).
+
+
+@pytest.fixture
+def make_component():
+    """Return a callable that builds minimal ComponentNode instances for tests.
+
+    The callable signature is (title, category, subcategory=None) -> ComponentNode.
+    Edges default to empty lists since the warn-only checks do not exercise
+    bidirectional edge validation.
+    """
+
+    def _make(title: str, category: str, subcategory: str | None = None) -> ComponentNode:
+        return ComponentNode(
+            title=title,
+            category=category,
+            subcategory=subcategory,
+            to_edges=[],
+            from_edges=[],
+        )
+
+    return _make
+
+
+@pytest.fixture
+def write_riskmap_corpus():
+    """Return a callable that writes a minimal three-file corpus and returns the base.
+
+    The callable writes components.yaml, controls.yaml, and a risks.yaml stub
+    under base/risk-map/yaml/ — the minimum for validate_riskmap.py --force
+    to load without ENOENT on a missing risks file.
+    """
+
+    def _write(base: Path, components: dict[str, Any], controls: dict[str, Any]) -> Path:
+        yaml_dir = base / "risk-map" / "yaml"
+        yaml_dir.mkdir(parents=True)
+        (yaml_dir / "components.yaml").write_text(yaml.dump(components), encoding="utf-8")
+        (yaml_dir / "controls.yaml").write_text(yaml.dump(controls), encoding="utf-8")
+        (yaml_dir / "risks.yaml").write_text(yaml.dump({"risks": []}), encoding="utf-8")
+        return base
+
+    return _write
+
+
+@pytest.fixture
+def run_validate_riskmap():
+    """Return a callable that runs validate_riskmap.py via subprocess.
+
+    Always passes --force (bypass git-staged check) and --allow-isolated
+    (skip orphan check so minimal synthesised corpora pass).  Extra args
+    (e.g. "--block") are forwarded after these defaults.
+    """
+    script = Path(__file__).parent.parent / "validate_riskmap.py"
+
+    def _run(cwd: Path, *extra_args: str) -> subprocess.CompletedProcess:
+        return subprocess.run(
+            [sys.executable, str(script), "--force", "--allow-isolated", *extra_args],
+            capture_output=True,
+            text=True,
+            cwd=str(cwd),
+        )
+
+    return _run

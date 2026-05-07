@@ -26,6 +26,8 @@ import argparse
 import sys
 from pathlib import Path
 
+import yaml
+
 # Configuration Constants
 from riskmap_validator.config import DEFAULT_COMPONENTS_FILE
 from riskmap_validator.graphing import ComponentGraph, ControlGraph, RiskGraph
@@ -189,10 +191,8 @@ def main() -> None:
         if validator.components:
             if lifecycle_path.exists():
                 try:
-                    import yaml as _yaml  # already installed; local import keeps top-level imports minimal
-
                     with open(lifecycle_path, encoding="utf-8") as _fh:
-                        _lifecycle_data = _yaml.safe_load(_fh)
+                        _lifecycle_data = yaml.safe_load(_fh)
                     lifecycle_result = check_lifecycle_stage_order_uniqueness(_lifecycle_data)
                     if lifecycle_result.is_valid:
                         if not args.quiet:
@@ -224,7 +224,7 @@ def main() -> None:
 
         # Track whether any warn-only check produced output that --block should
         # promote to a hard failure.
-        _warn_block_triggered = False
+        warn_block_triggered = False
 
         if controls_path.exists() and validator.components:
             # Broad except wraps both the parse and the check. Lets malformed
@@ -241,7 +241,7 @@ def main() -> None:
                     for warning in mirror_warnings:
                         print(f"     - {warning}")
                     if args.block:
-                        _warn_block_triggered = True
+                        warn_block_triggered = True
                 elif not args.quiet:
                     print("✅ Controls↔components mirror check passed")
             except SystemExit:
@@ -255,10 +255,8 @@ def main() -> None:
         # of warnings are visible before the exit decision below.
         if components_path.exists() and validator.components:
             try:
-                import yaml as _yaml  # already installed; local import keeps top-level imports minimal
-
                 with open(components_path, encoding="utf-8") as _fh:
-                    _components_data = _yaml.safe_load(_fh)
+                    _components_data = yaml.safe_load(_fh)
                 category_to_subcategories: dict[str, set[str]] = {}
                 for _cat in _components_data.get("categories", []):
                     _cat_id = _cat.get("id")
@@ -276,7 +274,7 @@ def main() -> None:
                     for warning in nesting_warnings:
                         print(f"     - {warning}")
                     if args.block:
-                        _warn_block_triggered = True
+                        warn_block_triggered = True
                 elif not args.quiet:
                     print("✅ Category/subcategory nesting check passed")
             except SystemExit:
@@ -286,7 +284,7 @@ def main() -> None:
                     print(f"   ⚠️  Category/subcategory nesting check skipped: {e}")
 
         # Unified exit for warn-only checks — fires after both checks have printed.
-        if _warn_block_triggered:
+        if warn_block_triggered:
             print("   ❌ Warn-only check failures promoted to errors (--block).")
             sys.exit(1)
 
