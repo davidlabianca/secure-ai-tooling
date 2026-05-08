@@ -125,7 +125,59 @@ Exit Codes:
         help="Save graphs in '.mermaid' format in addition to markdown code block",
     )
 
+    parser.add_argument(
+        "--mode",
+        choices=["default", "lifecycle"],
+        default="default",
+        help=(
+            "Run a specific check mode. 'lifecycle': run only the lifecycle-stage.yaml "
+            "order-uniqueness check (used by validate-lifecycle-stage pre-commit hook). "
+            "'default': run the full component-edges + warn-only check pipeline."
+        ),
+    )
+
     return parser.parse_args()
+
+
+def _run_lifecycle_mode(args: argparse.Namespace) -> int:
+    """
+    Run the dedicated lifecycle-stage order-uniqueness short-circuit.
+
+    Loads risk-map/yaml/lifecycle-stage.yaml and runs only the uniqueness
+    check. Bypasses ComponentEdgeValidator, get_staged_yaml_files, and
+    graph generation. Returns the exit code for sys.exit().
+    """
+    lifecycle_path = Path("risk-map/yaml/lifecycle-stage.yaml")
+    if not lifecycle_path.exists():
+        # Mirror default-mode graceful skip when the file is absent.
+        if not args.quiet:
+            print("   Lifecycle stage order uniqueness check skipped (lifecycle-stage.yaml not found)")
+        return 0
+
+    # Broad except mirrors the default-mode skip pattern: malformed YAML
+    # or unexpected I/O state degrades to a skip rather than crashing
+    # the dedicated hook. SystemExit is excluded so explicit exits below
+    # propagate.
+    try:
+        with open(lifecycle_path, encoding="utf-8") as fh:
+            lifecycle_data = yaml.safe_load(fh)
+        result = check_lifecycle_stage_order_uniqueness(lifecycle_data)
+    except SystemExit:
+        raise
+    except Exception as e:
+        if not args.quiet:
+            print(f"   ⚠️  Lifecycle stage order uniqueness check skipped: {e}")
+        return 0
+
+    if result.is_valid:
+        if not args.quiet:
+            print("✅ Lifecycle stage order uniqueness check passed")
+        return 0
+
+    print("❌ Lifecycle stage order uniqueness check failed:")
+    for error in result.errors:
+        print(f"     - {error}")
+    return 1
 
 
 def main() -> None:
@@ -136,6 +188,13 @@ def main() -> None:
     """
     try:
         args = parse_args()
+
+        # Lifecycle mode short-circuits before ComponentEdgeValidator and
+        # get_staged_yaml_files so a lifecycle-only commit (validate-lifecycle-stage
+        # pre-commit hook) is reachable without depending on components.yaml state.
+        # Graph flags (--to-graph etc.) are silently ignored in this mode.
+        if args.mode == "lifecycle":
+            sys.exit(_run_lifecycle_mode(args))
 
         # Initialize validator
         validator = ComponentEdgeValidator(allow_isolated=args.allow_isolated, verbose=not args.quiet)

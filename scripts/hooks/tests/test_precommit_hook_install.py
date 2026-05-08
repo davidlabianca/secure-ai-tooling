@@ -112,6 +112,15 @@ _REQUIRED_HOOK_IDS = {
     "validate-component-edges",
     "validate-control-risk-references",
     "validate-framework-references",
+    # Lifecycle uniqueness — dedicated hook so a lifecycle-only commit
+    # (touching only risk-map/yaml/lifecycle-stage.yaml) is reachable.
+    # Replaces the inline lifecycle-uniqueness call previously gated on
+    # validate-component-edges (validate_riskmap.py:184-212), which only
+    # triggers when components.yaml is staged. Architect-recommended Fix B
+    # for PR #277 reviewer feedback (item 2): split into a separate hook
+    # rather than widen validate-component-edges (would force a misleading
+    # hook-name scope).
+    "validate-lifecycle-stage",
     "validate-workflow-uses-pinning",
     # Issue templates:
     "regenerate-issue-templates",
@@ -230,6 +239,99 @@ class TestValidatorHookContracts:
         for token in ("controls", "frameworks", "personas", "risks"):
             assert token in files, f"framework refs files regex missing `{token}`: {files!r}"
         assert hook.get("pass_filenames") is False
+
+    def test_validate_lifecycle_stage_dedicated_hook_present(self):
+        """
+        Test that a dedicated `validate-lifecycle-stage` hook is declared.
+
+        Given: .pre-commit-config.yaml after the Fix B split
+        When:  searching for the lifecycle-stage hook
+        Then:  Exactly one hook with id `validate-lifecycle-stage` exists.
+
+        This pins the architectural intent that lifecycle uniqueness has
+        its own hook entry rather than being bundled into another hook.
+        Lifecycle-only commits (which touch only lifecycle-stage.yaml and
+        not components.yaml) must be able to trigger the check.
+        """
+        hooks = _hooks_by_id("validate-lifecycle-stage")
+        assert len(hooks) == 1, (
+            f"Exactly one validate-lifecycle-stage hook expected; got {len(hooks)}. "
+            f"Architect-recommended Fix B requires a dedicated hook with a narrow "
+            f"`files:` regex that fires on lifecycle-only commits."
+        )
+
+    def test_validate_lifecycle_stage_entry_invokes_validate_riskmap_in_lifecycle_mode(self):
+        """
+        Test that the lifecycle hook entry invokes validate_riskmap.py with
+        the dedicated `--mode lifecycle` flag.
+
+        Given: the `validate-lifecycle-stage` hook in .pre-commit-config.yaml
+        When:  inspecting the `entry:` field
+        Then:  The entry contains both `validate_riskmap.py` and
+               `--mode lifecycle` (substring match keeps the test stable
+               against minor wording changes such as `python3 ` prefix).
+
+        The `--mode lifecycle` flag is the SWE contract: lifecycle mode
+        bypasses get_staged_yaml_files / ComponentEdgeValidator and runs
+        only the uniqueness check. See TestMainLifecycleMode in
+        test_validate_riskmap.py.
+        """
+        hooks = _hooks_by_id("validate-lifecycle-stage")
+        assert len(hooks) == 1, "validate-lifecycle-stage hook missing"
+        entry = hooks[0].get("entry", "")
+        assert "validate_riskmap.py" in entry, (
+            f"validate-lifecycle-stage entry must invoke validate_riskmap.py; got: {entry!r}"
+        )
+        assert "--mode lifecycle" in entry, (
+            f"validate-lifecycle-stage entry must pass --mode lifecycle so the script "
+            f"runs the dedicated short-circuit path; got: {entry!r}"
+        )
+
+    def test_validate_lifecycle_stage_files_regex_anchored_on_lifecycle_yaml(self):
+        """
+        Test that the lifecycle hook's `files:` regex is narrowly scoped to
+        lifecycle-stage.yaml.
+
+        Given: the `validate-lifecycle-stage` hook
+        When:  inspecting the `files:` regex
+        Then:  The regex matches risk-map/yaml/lifecycle-stage.yaml and is
+               anchored. Specifically the regex must be exactly
+               `^risk-map/yaml/lifecycle-stage\\.yaml$` so the hook does not
+               misfire on unrelated yaml writes.
+
+        Anchoring matters: an unanchored `lifecycle-stage` substring would
+        match any future file name containing the phrase. The exact-match
+        requirement also disambiguates the architectural intent —
+        lifecycle mode is single-file scoped.
+        """
+        hooks = _hooks_by_id("validate-lifecycle-stage")
+        assert len(hooks) == 1, "validate-lifecycle-stage hook missing"
+        files_regex = hooks[0].get("files", "")
+        assert files_regex == r"^risk-map/yaml/lifecycle-stage\.yaml$", (
+            f"validate-lifecycle-stage files regex must be "
+            f"`^risk-map/yaml/lifecycle-stage\\.yaml$` (anchored, exact); "
+            f"got: {files_regex!r}"
+        )
+
+    def test_validate_lifecycle_stage_pass_filenames_is_false(self):
+        """
+        Test that the lifecycle hook sets pass_filenames: false.
+
+        Given: the `validate-lifecycle-stage` hook
+        When:  inspecting `pass_filenames`
+        Then:  Value is False.
+
+        The validator self-discovers risk-map/yaml/lifecycle-stage.yaml
+        from a fixed path; passing the staged filename as argv would be
+        redundant and risks the framework batching multiple invocations.
+        Matches the pattern used by validate-component-edges,
+        validate-control-risk-references, and validate-framework-references.
+        """
+        hooks = _hooks_by_id("validate-lifecycle-stage")
+        assert len(hooks) == 1, "validate-lifecycle-stage hook missing"
+        assert hooks[0].get("pass_filenames") is False, (
+            f"validate-lifecycle-stage must set pass_filenames: false; got: {hooks[0].get('pass_filenames')!r}"
+        )
 
     def test_validate_workflow_uses_pinning_targets_workflow_yml_files(self):
         hooks = _hooks_by_id("validate-workflow-uses-pinning")
