@@ -40,6 +40,7 @@ If a decision is about *how the Risk Map content model is shaped*, it belongs in
 | [022](022-supporting-schemas.md) | Supporting schemas grouped — actor-access, impact-type, lifecycle-stage, frameworks (mapping-ID regex), mermaid-styles | Accepted | 2026-04-25 |
 | 023 | Devcontainer dependency-pinning policy and lifecycle cadence | Reserved ([#248](https://github.com/cosai-oasis/secure-ai-tooling/issues/248)) | — |
 | [024](024-github-actions-pinning-posture.md) | GitHub Actions pinning posture | Accepted | 2026-05-01 |
+| [025](025-testing-strategy.md) | Testing strategy and posture across Python, site JS, schemas, and infrastructure | Accepted | 2026-05-05 |
 
 ## Conventions
 
