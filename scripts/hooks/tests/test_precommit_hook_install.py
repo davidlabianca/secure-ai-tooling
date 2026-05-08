@@ -213,12 +213,101 @@ class TestValidatorHookContracts:
     """Local validator hooks shell out to the existing validators with no argv."""
 
     def test_validate_component_edges_targets_components_yaml(self):
+        """
+        Test that validate-component-edges matches components.yaml (preserved behavior).
+
+        Given: the validate-component-edges hook in .pre-commit-config.yaml
+        When:  applying the hook's files: regex against risk-map/yaml/components.yaml
+        Then:  the regex matches (re.search semantics, mirroring the pre-commit framework)
+
+        This is the baseline assertion that must hold both before and after
+        the trigger widening introduced by issue #279 / PR #277 follow-up.
+        """
         hooks = _hooks_by_id("validate-component-edges")
         assert len(hooks) == 1, "Exactly one component-edge validator hook expected"
         hook = hooks[0]
         assert "validate_riskmap.py" in hook.get("entry", "")
-        assert "components" in hook.get("files", "")
         assert hook.get("pass_filenames") is False
+        files_regex = hook.get("files", "")
+        assert re.search(files_regex, "risk-map/yaml/components.yaml"), (
+            f"validate-component-edges files regex must match risk-map/yaml/components.yaml; got: {files_regex!r}"
+        )
+
+    def test_validate_component_edges_matches_controls_yaml(self):
+        """
+        Test that validate-component-edges matches controls.yaml (new behavior, issue #279).
+
+        Given: the validate-component-edges hook after trigger widening
+        When:  applying the hook's files: regex against risk-map/yaml/controls.yaml
+        Then:  the regex matches
+
+        The validate_riskmap.py validator reads controls.yaml as part of its
+        get_staged_yaml_files() target_files constant (utils.py:221-225). A
+        controls-only commit must trigger the hook so the validator's full
+        check suite (including A4 controls-components mirror and nesting checks)
+        runs. Without this match, a controls-only commit silently skips all
+        component-edge consistency checks.
+
+        RED-PHASE: this test fails on the current config (files: targets
+        components.yaml only) and passes once the trigger is widened per #279.
+        """
+        hooks = _hooks_by_id("validate-component-edges")
+        assert len(hooks) == 1, "Exactly one component-edge validator hook expected"
+        files_regex = hooks[0].get("files", "")
+        assert re.search(files_regex, "risk-map/yaml/controls.yaml"), (
+            f"validate-component-edges files regex must match "
+            f"risk-map/yaml/controls.yaml (issue #279: trigger must cover the "
+            f"full validator read set); got: {files_regex!r}. "
+            f"Expected: ^risk-map/yaml/(components|controls|risks)\\.yaml$"
+        )
+
+    def test_validate_component_edges_matches_risks_yaml(self):
+        """
+        Test that validate-component-edges matches risks.yaml (new behavior, issue #279).
+
+        Given: the validate-component-edges hook after trigger widening
+        When:  applying the hook's files: regex against risk-map/yaml/risks.yaml
+        Then:  the regex matches
+
+        The validate_riskmap.py validator reads risks.yaml as part of its
+        get_staged_yaml_files() target_files constant (utils.py:221-225). A
+        risks-only commit must trigger the hook for the same reason as
+        controls-only commits.
+
+        RED-PHASE: this test fails on the current config and passes once the
+        trigger is widened per issue #279.
+        """
+        hooks = _hooks_by_id("validate-component-edges")
+        assert len(hooks) == 1, "Exactly one component-edge validator hook expected"
+        files_regex = hooks[0].get("files", "")
+        assert re.search(files_regex, "risk-map/yaml/risks.yaml"), (
+            f"validate-component-edges files regex must match "
+            f"risk-map/yaml/risks.yaml (issue #279: trigger must cover the "
+            f"full validator read set); got: {files_regex!r}. "
+            f"Expected: ^risk-map/yaml/(components|controls|risks)\\.yaml$"
+        )
+
+    def test_validate_component_edges_does_not_match_personas_yaml(self):
+        """
+        Test that validate-component-edges does NOT match personas.yaml (over-match guard).
+
+        Given: the validate-component-edges hook after trigger widening
+        When:  applying the hook's files: regex against risk-map/yaml/personas.yaml
+        Then:  the regex does NOT match
+
+        personas.yaml is not in the validator's read set and must not be added
+        to the trigger to avoid running expensive validation on persona-only
+        commits. This is an over-matching guard to ensure the widening is
+        precisely scoped.
+        """
+        hooks = _hooks_by_id("validate-component-edges")
+        assert len(hooks) == 1, "Exactly one component-edge validator hook expected"
+        files_regex = hooks[0].get("files", "")
+        assert not re.search(files_regex, "risk-map/yaml/personas.yaml"), (
+            f"validate-component-edges files regex must NOT match "
+            f"risk-map/yaml/personas.yaml (personas.yaml is not in the "
+            f"validator read set); got: {files_regex!r}"
+        )
 
     def test_validate_control_risk_targets_controls_and_risks(self):
         hooks = _hooks_by_id("validate-control-risk-references")
@@ -342,6 +431,398 @@ class TestValidatorHookContracts:
         assert ".github/workflows" in files
         assert "yml" in files
         assert hook.get("pass_filenames") is True
+
+
+# ===========================================================================
+# Persona-site-build hook contracts (Task 2 — regression-lock)
+# ===========================================================================
+
+
+class TestPersonaSiteBuildHookContracts:
+    """
+    Regression-lock tests for the validate-persona-site-build hook.
+
+    The trigger was correct from initial commit 93cc22b — controls.yaml was
+    already included. These tests lock in that correctness so a future edit
+    to the files: regex cannot silently drop controls.yaml.
+
+    All tests in this class should PASS on the current config (green from day
+    one). They are regression guards, not red-phase TDD tests.
+    """
+
+    def test_validate_persona_site_build_hook_exists_exactly_once(self):
+        """
+        Test that exactly one validate-persona-site-build hook is declared.
+
+        Given: .pre-commit-config.yaml
+        When:  searching for hooks with id `validate-persona-site-build`
+        Then:  exactly one hook is found
+        """
+        hooks = _hooks_by_id("validate-persona-site-build")
+        assert len(hooks) == 1, f"Exactly one validate-persona-site-build hook expected; got {len(hooks)}"
+
+    def test_validate_persona_site_build_references_validator_script(self):
+        """
+        Test that the hook entry points at validate_persona_site_build.py.
+
+        Given: the validate-persona-site-build hook
+        When:  inspecting the entry: field
+        Then:  the entry contains `validate_persona_site_build.py`
+        """
+        hook = _hooks_by_id("validate-persona-site-build")[0]
+        assert "validate_persona_site_build.py" in hook.get("entry", ""), (
+            f"validate-persona-site-build entry must reference "
+            f"validate_persona_site_build.py; got: {hook.get('entry')!r}"
+        )
+
+    def test_validate_persona_site_build_pass_filenames_is_false(self):
+        """
+        Test that the hook sets pass_filenames: false.
+
+        Given: the validate-persona-site-build hook
+        When:  inspecting pass_filenames
+        Then:  the value is False
+
+        The validator ignores argv (it discards sys.argv) and runs the full
+        builder pipeline against a temp directory; passing filenames would be
+        redundant and risks multiple parallel invocations via framework batching.
+        """
+        hook = _hooks_by_id("validate-persona-site-build")[0]
+        assert hook.get("pass_filenames") is False, (
+            f"validate-persona-site-build must set pass_filenames: false; got: {hook.get('pass_filenames')!r}"
+        )
+
+    def test_validate_persona_site_build_matches_personas_yaml(self):
+        """
+        Test that the hook's files: regex matches personas.yaml.
+
+        Given: the validate-persona-site-build hook
+        When:  applying the files: regex against risk-map/yaml/personas.yaml
+        Then:  the regex matches
+
+        personas.yaml is a primary input to build_persona_site_data.py
+        (DEFAULT_PERSONAS_PATH). A personas-only commit must trigger the hook.
+        """
+        hook = _hooks_by_id("validate-persona-site-build")[0]
+        files_regex = hook.get("files", "")
+        assert re.search(files_regex, "risk-map/yaml/personas.yaml"), (
+            f"validate-persona-site-build files regex must match risk-map/yaml/personas.yaml; got: {files_regex!r}"
+        )
+
+    def test_validate_persona_site_build_matches_risks_yaml(self):
+        """
+        Test that the hook's files: regex matches risks.yaml.
+
+        Given: the validate-persona-site-build hook
+        When:  applying the files: regex against risk-map/yaml/risks.yaml
+        Then:  the regex matches
+
+        risks.yaml is read via DEFAULT_RISKS_PATH in build_persona_site_data.py.
+        """
+        hook = _hooks_by_id("validate-persona-site-build")[0]
+        files_regex = hook.get("files", "")
+        assert re.search(files_regex, "risk-map/yaml/risks.yaml"), (
+            f"validate-persona-site-build files regex must match risk-map/yaml/risks.yaml; got: {files_regex!r}"
+        )
+
+    def test_validate_persona_site_build_matches_controls_yaml(self):
+        """
+        Test that the hook's files: regex matches controls.yaml (regression lock).
+
+        Given: the validate-persona-site-build hook
+        When:  applying the files: regex against risk-map/yaml/controls.yaml
+        Then:  the regex matches
+
+        controls.yaml is read via DEFAULT_CONTROLS_PATH in build_persona_site_data.py
+        (validate_persona_site_build.py:41 calls builder.load_yaml(builder.DEFAULT_CONTROLS_PATH)).
+        A controls-only commit must trigger the persona-site build re-run.
+
+        This test locks in the correct trigger that was present from commit
+        93cc22b. It was NOT in an earlier draft of the files: regex and was
+        surfaced as a gap during the PR #277 review. The regression lock
+        prevents this from being silently dropped by a future regex edit.
+        """
+        hook = _hooks_by_id("validate-persona-site-build")[0]
+        files_regex = hook.get("files", "")
+        assert re.search(files_regex, "risk-map/yaml/controls.yaml"), (
+            f"validate-persona-site-build files regex must match "
+            f"risk-map/yaml/controls.yaml (controls.yaml is in the builder "
+            f"read set via DEFAULT_CONTROLS_PATH); got: {files_regex!r}"
+        )
+
+    def test_validate_persona_site_build_matches_risks_schema(self):
+        """
+        Test that the hook's files: regex matches the risks schema file.
+
+        Given: the validate-persona-site-build hook
+        When:  applying the files: regex against risk-map/schemas/risks.schema.json
+        Then:  the regex matches
+        """
+        hook = _hooks_by_id("validate-persona-site-build")[0]
+        files_regex = hook.get("files", "")
+        assert re.search(files_regex, "risk-map/schemas/risks.schema.json"), (
+            f"validate-persona-site-build files regex must match "
+            f"risk-map/schemas/risks.schema.json; got: {files_regex!r}"
+        )
+
+    def test_validate_persona_site_build_matches_persona_site_data_schema(self):
+        """
+        Test that the hook's files: regex matches the persona-site-data schema file.
+
+        Given: the validate-persona-site-build hook
+        When:  applying the files: regex against risk-map/schemas/persona-site-data.schema.json
+        Then:  the regex matches
+        """
+        hook = _hooks_by_id("validate-persona-site-build")[0]
+        files_regex = hook.get("files", "")
+        assert re.search(files_regex, "risk-map/schemas/persona-site-data.schema.json"), (
+            f"validate-persona-site-build files regex must match "
+            f"risk-map/schemas/persona-site-data.schema.json; got: {files_regex!r}"
+        )
+
+    def test_validate_persona_site_build_matches_builder_script(self):
+        """
+        Test that the hook's files: regex matches scripts/build_persona_site_data.py.
+
+        Given: the validate-persona-site-build hook
+        When:  applying the files: regex against scripts/build_persona_site_data.py
+        Then:  the regex matches
+
+        Changes to the builder itself must re-run the validation even when no
+        YAML file changes.
+        """
+        hook = _hooks_by_id("validate-persona-site-build")[0]
+        files_regex = hook.get("files", "")
+        assert re.search(files_regex, "scripts/build_persona_site_data.py"), (
+            f"validate-persona-site-build files regex must match "
+            f"scripts/build_persona_site_data.py; got: {files_regex!r}"
+        )
+
+    def test_validate_persona_site_build_does_not_match_components_yaml(self):
+        """
+        Test that the hook's files: regex does NOT match components.yaml.
+
+        Given: the validate-persona-site-build hook
+        When:  applying the files: regex against risk-map/yaml/components.yaml
+        Then:  the regex does NOT match
+
+        components.yaml is not in the builder's read set. Matching it would
+        cause unnecessary persona-site build re-runs on component-only commits.
+        This is an over-matching guard to keep the trigger precisely scoped.
+        """
+        hook = _hooks_by_id("validate-persona-site-build")[0]
+        files_regex = hook.get("files", "")
+        assert not re.search(files_regex, "risk-map/yaml/components.yaml"), (
+            f"validate-persona-site-build files regex must NOT match "
+            f"risk-map/yaml/components.yaml (not in builder read set); "
+            f"got: {files_regex!r}"
+        )
+
+
+# ===========================================================================
+# Trigger ⊇ read-set invariant (Task 4 — structural enforcement, issue #279)
+# ===========================================================================
+
+# Mapping: hook id -> read set (paths the validator opens during a run, as
+# repo-relative strings without leading slash).
+#
+# When adding a new local validator hook with pass_filenames: false, register
+# its read set here. The structural test below asserts that the hook's files:
+# regex matches every path in this set. Trigger ⊇ read-set is the invariant
+# codified in ADR-005 § Addendum 2026-05-08: Hook trigger-vs-read-set invariant
+# (issue #279, PR #277 follow-up).
+#
+# Use None as the sentinel value for hooks that are exempt from the invariant:
+#   - Fan-out / generator hooks that read a variable or glob-determined set
+#     of files (e.g., validate-all-yaml-on-master-schema-change discovers
+#     all yaml/schema pairs at runtime).
+#   - Hooks whose "read set" is determined by the staged files list at runtime
+#     rather than a fixed set of paths (e.g., validate-issue-templates reads
+#     whichever .github/ISSUE_TEMPLATE/*.yml files are staged).
+#   - Hooks that do not have pass_filenames: false (not in scope; trigger-to-
+#     scope coupling is implicit for pass_filenames: true hooks).
+#
+# Every local hook with pass_filenames: false MUST be registered here.
+# Failure to register causes TestTriggerReadSetInvariant to fail with a
+# clear diagnostic naming the unregistered hook id.
+_LOCAL_VALIDATOR_READ_SETS: dict[str, set[str] | None] = {
+    # validate-component-edges: validator opens all three YAMLs in every run
+    # via get_staged_yaml_files() target_files constant (utils.py:221-225).
+    "validate-component-edges": {
+        "risk-map/yaml/components.yaml",
+        "risk-map/yaml/controls.yaml",
+        "risk-map/yaml/risks.yaml",
+    },
+    # validate-control-risk-references: reads both YAMLs every run
+    # (validate_control_risk_references.py:25-28).
+    "validate-control-risk-references": {
+        "risk-map/yaml/controls.yaml",
+        "risk-map/yaml/risks.yaml",
+    },
+    # validate-framework-references: reads all four YAMLs every run
+    # (validate_framework_references.py:28-33).
+    "validate-framework-references": {
+        "risk-map/yaml/controls.yaml",
+        "risk-map/yaml/frameworks.yaml",
+        "risk-map/yaml/personas.yaml",
+        "risk-map/yaml/risks.yaml",
+    },
+    # validate-lifecycle-stage: reads only lifecycle-stage.yaml via a fixed
+    # path constant. Narrow trigger is architecturally intentional.
+    "validate-lifecycle-stage": {
+        "risk-map/yaml/lifecycle-stage.yaml",
+    },
+    # validate-persona-site-build: read set has two layers:
+    #   (1) Three YAMLs opened per run via DEFAULT_*_PATH constants
+    #       (build_persona_site_data.py:20-22; validate_persona_site_build.py:38-41).
+    #   (2) The output schema, opened at module-import time
+    #       (build_persona_site_data.py:31-37 _load_output_schema()).
+    # Trigger-only (NOT in read set, intentionally — included in the trigger
+    # for defensive re-run on edits but never opened by the builder):
+    #   - risk-map/schemas/risks.schema.json: validated by check-jsonschema in
+    #     a separate hook; the persona-site builder does not load it.
+    #   - scripts/build_persona_site_data.py: imported as a Python module by
+    #     the wrapper; not opened as a file at runtime.
+    # The Task 2 regression-lock tests (TestPersonaSiteBuildHookContracts)
+    # cover the full trigger surface; this entry covers only the read set.
+    "validate-persona-site-build": {
+        "risk-map/yaml/personas.yaml",
+        "risk-map/yaml/risks.yaml",
+        "risk-map/yaml/controls.yaml",
+        "risk-map/schemas/persona-site-data.schema.json",
+    },
+    # validate-issue-templates: SENTINEL — the validator's "read set" is not
+    # a fixed list of repo-relative paths. It queries git-staged files at
+    # runtime (get_staged_files() in validate_issue_templates.py:72-98) and
+    # validates whichever .github/ISSUE_TEMPLATE/*.yml files are staged. The
+    # trigger files: regex covers the two directory roots (.github/ISSUE_TEMPLATE/
+    # and scripts/TEMPLATES/) that the staged-file query may return. Because the
+    # read set is determined by the staged index at runtime rather than by fixed
+    # path constants, the trigger-⊇-read-set invariant cannot be mechanically
+    # checked here. Exempt per ADR-005 § Addendum 2026-05-08: Hook
+    # trigger-vs-read-set invariant.
+    "validate-issue-templates": None,
+    # regenerate-issue-templates: SENTINEL — generator hook, not a validator.
+    # Reads template sources and schema files discovered at runtime; the trigger
+    # covers sources and schemas but the full read set is glob-determined.
+    "regenerate-issue-templates": None,
+    # validate-all-yaml-on-master-schema-change: SENTINEL — fan-out hook.
+    # Discovers (schema, yaml) pairs from the filesystem at runtime; the read
+    # set is not a fixed list of paths.
+    "validate-all-yaml-on-master-schema-change": None,
+}
+
+
+def _local_hooks_with_pass_filenames_false() -> list[dict]:
+    """Return local-repo hooks that have pass_filenames: false."""
+    config = _load_config()
+    result: list[dict] = []
+    for repo in config.get("repos", []):
+        if repo.get("repo") != "local":
+            continue
+        for hook in repo.get("hooks", []):
+            if hook.get("pass_filenames") is False:
+                result.append(hook)
+    return result
+
+
+class TestTriggerReadSetInvariant:
+    """
+    Structural enforcement of the trigger ⊇ read-set invariant (ADR-005
+    § Addendum 2026-05-08: Hook trigger-vs-read-set invariant, issue #279).
+
+    For every local validator hook with pass_filenames: false, the hook's
+    files: regex must match every path the validator opens on disk during a
+    run. If the trigger is narrower than the read set, commits that touch
+    only the unmatched paths silently skip validation.
+
+    The metadata table _LOCAL_VALIDATOR_READ_SETS is the contract surface.
+    When adding a new local hook with pass_filenames: false, register its
+    read set in that table. Hooks with a None value are exempt (fan-out or
+    runtime-discovered read sets; see table comments for rationale).
+
+    Tests in this class:
+
+      test_all_local_pass_filenames_false_hooks_are_registered
+        — prevents drift where a new hook is added without a table entry.
+
+      test_trigger_covers_read_set_for_each_registered_hook
+        — asserts trigger ⊇ read-set for every non-None entry.
+    """
+
+    def test_all_local_pass_filenames_false_hooks_are_registered(self):
+        """
+        Test that every local hook with pass_filenames: false is registered in
+        the metadata table.
+
+        Given: .pre-commit-config.yaml with one or more local hooks with
+               pass_filenames: false
+        When:  comparing hook ids against _LOCAL_VALIDATOR_READ_SETS keys
+        Then:  every such hook id appears in the table (either with a real set
+               or with the None sentinel)
+
+        This prevents a new hook from being added without its read set being
+        declared. A missing registration means the trigger-⊇-read-set check
+        cannot run for that hook, defeating the structural guarantee.
+        """
+        local_false_hooks = _local_hooks_with_pass_filenames_false()
+        declared_ids = {h.get("id") for h in local_false_hooks}
+        registered_ids = set(_LOCAL_VALIDATOR_READ_SETS.keys())
+        unregistered = declared_ids - registered_ids
+        assert not unregistered, (
+            f"Hook(s) {sorted(unregistered)} declared with pass_filenames: false "
+            f"but missing from _LOCAL_VALIDATOR_READ_SETS — register each hook's "
+            f"read set (or None sentinel for fan-out/runtime-discovered sets) per "
+            f"ADR-005 § Addendum 2026-05-08: Hook trigger-vs-read-set invariant (issue #279)."
+        )
+
+    def test_trigger_covers_read_set_for_each_registered_hook(self):
+        """
+        Test that each registered hook's files: regex matches all paths in its
+        declared read set (trigger ⊇ read-set invariant).
+
+        Given: _LOCAL_VALIDATOR_READ_SETS entries with non-None read sets
+        When:  applying each hook's files: regex against each path in its read set
+               using re.search (mirroring the pre-commit framework's match behavior)
+        Then:  every path matches
+
+        Failure message names the hook id, the missing path, and a pointer to
+        the ADR-005 addendum so the fix is unambiguous.
+
+        RED-PHASE: before issue #279's trigger fix lands, this test fails on
+        validate-component-edges because controls.yaml and risks.yaml are in
+        the read set but not in the files: regex. Once the trigger is widened
+        to ^risk-map/yaml/(components|controls|risks)\\.yaml$ the test passes.
+        """
+        local_false_hooks = _local_hooks_with_pass_filenames_false()
+        hooks_by_id = {h.get("id"): h for h in local_false_hooks}
+
+        failures: list[str] = []
+        for hook_id, read_set in _LOCAL_VALIDATOR_READ_SETS.items():
+            # Skip None sentinels — exempt from mechanical check.
+            if read_set is None:
+                continue
+
+            hook = hooks_by_id.get(hook_id)
+            if hook is None:
+                # Hook declared in table but not in config — not this test's
+                # concern (test_all_local_pass_filenames_false_hooks_are_registered
+                # would have caught a missing registration; a table entry with no
+                # matching hook is stale but not a trigger-⊇-read-set violation).
+                continue
+
+            files_regex = hook.get("files", "")
+            for path in sorted(read_set):
+                if not re.search(files_regex, path):
+                    failures.append(
+                        f"Hook `{hook_id}`: files: regex {files_regex!r} does not "
+                        f"match read-set path `{path}`. A commit that only touches "
+                        f"`{path}` will not trigger `{hook_id}`, silently skipping "
+                        f"validation. Widen the trigger per ADR-005 § Addendum 2026-05-08: "
+                        f"Hook trigger-vs-read-set invariant (issue #279)."
+                    )
+
+        assert not failures, "Trigger ⊇ read-set invariant violated:\n" + "\n".join(f"  - {f}" for f in failures)
 
 
 # ===========================================================================
