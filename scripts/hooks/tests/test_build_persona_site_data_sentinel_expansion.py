@@ -1000,13 +1000,171 @@ class TestRefLookupPerEntry:
 
 
 # ============================================================================
+# TestNestedGroupSentinelExpansion
+# ============================================================================
+
+
+class TestNestedGroupSentinelExpansion:
+    """Tests that sentinels inside nested-group items are expanded.
+
+    The nested-list branch of normalize_text_entries (lines 122-133 of
+    build_persona_site_data.py) currently strips inner strings but never calls
+    expand_sentinels_to_items. ADR-016 D5 requires every prose-field leaf to
+    be expanded with hard-fail on unresolved IDs — the nested-group shape is
+    not exempt. These RED-phase tests document the missing behavior.
+    """
+
+    def test_nested_group_intra_sentinel_expands_to_ref_item(self):
+        """
+        Test that an intra sentinel inside a nested group is expanded to a ref item.
+
+        Given: A risk longDescription containing a nested group
+               [["See {{controlInputValidation}} for context."]] where
+               controlInputValidation resolves to "Input Validation" via a
+               synthetic control in controls_data
+        When: normalize_text_entries is called in sentinel_mode (all three of
+              intra_lookup, ref_lookup, field_path are provided)
+        Then:
+          - Outer result is a list with one element (the nested group).
+          - That element is itself a list (nested-group shape preserved, not flattened).
+          - Inside the inner list there is a
+            {"type": "ref", "id": "controlInputValidation", "title": "Input Validation"}
+            dict from expand_sentinels_to_items.
+          - Surrounding text fragments ("See " and " for context.") are also present
+            per expand_sentinels_to_items contract (text-before, ref-dict, text-after).
+        """
+        _require_sentinel_module()
+        from scripts.build_persona_site_data import normalize_text_entries
+
+        intra_lookup = {"controlInputValidation": "Input Validation"}
+        ref_lookup: dict = {}
+        value = [["See {{controlInputValidation}} for context."]]
+
+        result = normalize_text_entries(
+            value,
+            intra_lookup=intra_lookup,
+            ref_lookup=ref_lookup,
+            field_path="risks[0].longDescription",
+        )
+
+        # Outer shape: one element, which is itself a list (nested group preserved).
+        assert len(result) == 1, f"Expected one nested group; got {result!r}"
+        inner = result[0]
+        assert isinstance(inner, list), (
+            f"Nested group shape must be preserved as a list, not collapsed; got type {type(inner).__name__!r}"
+        )
+
+        # Inner shape: ref dict must be present (sentinel was expanded).
+        ref_items = [i for i in inner if isinstance(i, dict) and i.get("type") == "ref"]
+        assert ref_items, f"Expected at least one ref dict in the expanded inner list; inner={inner!r}"
+        assert ref_items[0]["id"] == "controlInputValidation", f"ref item id mismatch; got {ref_items[0]!r}"
+        assert ref_items[0]["title"] == "Input Validation", f"ref item title mismatch; got {ref_items[0]!r}"
+
+        # Surrounding text fragments must also be present (expand_sentinels_to_items contract).
+        text_items = [i for i in inner if isinstance(i, str)]
+        assert any("See" in t for t in text_items), f"Text fragment before sentinel missing; inner={inner!r}"
+        assert any("for context" in t for t in text_items), (
+            f"Text fragment after sentinel missing; inner={inner!r}"
+        )
+
+    def test_nested_group_ref_sentinel_expands_to_link_item(self):
+        """
+        Test that a {{ref:...}} sentinel inside a nested group is expanded to a link item.
+
+        Given: A risk longDescription containing [["See {{ref:cwe-89}} for the CWE entry."]]
+               with ref_lookup={"cwe-89": {"title": "SQL Injection",
+               "url": "https://cwe.mitre.org/data/definitions/89.html"}}
+        When: normalize_text_entries is called in sentinel_mode
+        Then:
+          - Outer result has one element which is itself a list (shape preserved).
+          - The inner list contains a
+            {"type": "link", "title": "SQL Injection",
+             "url": "https://cwe.mitre.org/data/definitions/89.html"} dict.
+        """
+        _require_sentinel_module()
+        from scripts.build_persona_site_data import normalize_text_entries
+
+        intra_lookup: dict = {}
+        ref_lookup = {
+            "cwe-89": {
+                "title": "SQL Injection",
+                "url": "https://cwe.mitre.org/data/definitions/89.html",
+            }
+        }
+        value = [["See {{ref:cwe-89}} for the CWE entry."]]
+
+        result = normalize_text_entries(
+            value,
+            intra_lookup=intra_lookup,
+            ref_lookup=ref_lookup,
+            field_path="risks[0].longDescription",
+        )
+
+        # Outer shape preserved.
+        assert len(result) == 1, f"Expected one nested group; got {result!r}"
+        inner = result[0]
+        assert isinstance(inner, list), f"Nested group shape must be a list; got type {type(inner).__name__!r}"
+
+        # Link item must be present in the inner list.
+        link_items = [i for i in inner if isinstance(i, dict) and i.get("type") == "link"]
+        assert link_items, f"Expected at least one link dict in the expanded inner list; inner={inner!r}"
+        assert link_items[0]["title"] == "SQL Injection", f"link item title mismatch; got {link_items[0]!r}"
+        assert link_items[0]["url"] == "https://cwe.mitre.org/data/definitions/89.html", (
+            f"link item url mismatch; got {link_items[0]!r}"
+        )
+
+    def test_nested_group_unresolved_sentinel_raises_with_nested_field_path(self):
+        """
+        Test that an unresolved sentinel inside a nested group raises UnresolvedSentinelError
+        with a field_path that encodes the nested indices.
+
+        Given: A risk longDescription [["See {{controlNonexistent}}."]] with
+               empty intra_lookup={} and empty ref_lookup={}
+        When: normalize_text_entries(..., field_path="risks[0].longDescription") runs
+              in sentinel_mode
+        Then:
+          - UnresolvedSentinelError is raised (never silently swallowed).
+          - exc.sentinel == "{{controlNonexistent}}".
+          - exc.field_path encodes both the outer item index and the inner item
+            index, e.g. "risks[0].longDescription[0][0]" (outer item_idx=0,
+            inner inner_idx=0). The exact form must reference the nested location
+            so an author can pinpoint the offending YAML entry.
+        """
+        _require_sentinel_module()
+        from scripts.build_persona_site_data import normalize_text_entries
+
+        intra_lookup: dict = {}
+        ref_lookup: dict = {}
+        value = [["See {{controlNonexistent}}."]]
+
+        with pytest.raises(UnresolvedSentinelError) as exc_info:
+            normalize_text_entries(
+                value,
+                intra_lookup=intra_lookup,
+                ref_lookup=ref_lookup,
+                field_path="risks[0].longDescription",
+            )
+
+        exc = exc_info.value
+        assert exc.sentinel == "{{controlNonexistent}}", f"sentinel attribute mismatch; got {exc.sentinel!r}"
+        # field_path must encode the nested location: both outer (item_idx=0) and
+        # inner (inner_idx=0) indices, e.g. "risks[0].longDescription[0][0]".
+        assert "[0][0]" in exc.field_path, (
+            f"field_path must reference nested indices [outer_idx][inner_idx]; got field_path={exc.field_path!r}"
+        )
+        assert "risks[0].longDescription" in exc.field_path, (
+            f"field_path must include the caller-supplied base path; got field_path={exc.field_path!r}"
+        )
+
+
+# ============================================================================
 # Test summary
 # ============================================================================
 """
 Test Summary
 ============
-Total test classes: 9
-Total tests: ~35
+Total test classes: 10
+Total tests: ~38
 
 - TestSentinelExpansionInPersonaProse (4):  intra ref in description, ref link in description,
                                              intra in responsibilities, plain prose unchanged
@@ -1022,6 +1180,10 @@ Total tests: ~35
 - TestComponentsLookupSeeded (3):           component sentinel resolves, unknown raises, sig accepted
 - TestIntraLookupConstruction (3):          persona/risk/control ids all in lookup
 - TestRefLookupPerEntry (1):                ref_lookup is per-entry scoped
+- TestNestedGroupSentinelExpansion (3):     intra sentinel in nested group expands to ref item,
+                                             ref sentinel in nested group expands to link item,
+                                             unresolved sentinel in nested group raises with
+                                             nested field_path encoding [outer_idx][inner_idx]
 
 Coverage areas:
 - Sentinel resolution in all three entity prose fields (persona, risk, control)
@@ -1031,4 +1193,5 @@ Coverage areas:
 - UnresolvedSentinelError propagation with informative field_path
 - Schema validation of expanded output via write_site_data
 - Per-entry ref_lookup scoping (not shared across corpus entries)
+- Nested-group sentinel expansion (new: ADR-016 D5 coverage for list-of-list items)
 """

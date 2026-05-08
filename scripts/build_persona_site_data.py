@@ -86,8 +86,10 @@ def normalize_text_entries(value, *, intra_lookup=None, ref_lookup=None, field_p
     are expanded via expand_sentinels_to_items. Otherwise (legacy / no-sentinel
     mode) the pre-A7 behavior is preserved: strip each string, drop empty strings.
 
-    Top-level list items (nested-group shape) are passed through unchanged without
-    sentinel expansion — the corpus has no sentinels in nested groups today.
+    Top-level list items (nested-group shape) have their inner strings expanded
+    via expand_sentinels_to_items when sentinel_mode is active (field_path uses
+    [item_idx][inner_idx] notation for diagnostics). In legacy mode the pre-A7
+    behaviour is preserved: strip each inner string, drop empty.
 
     NIT-08: Empty / whitespace-only list entries are silently dropped — do
     not use ``- ""`` as a spacing hack. Nested sub-lists that are empty after
@@ -120,15 +122,34 @@ def normalize_text_entries(value, *, intra_lookup=None, ref_lookup=None, field_p
     result: list = []
     for item_idx, item in enumerate(items):
         if isinstance(item, list):
-            # Nested group: pass through with basic string validation and empty-drop.
-            # Sentinel expansion is not applied to nested groups (out-of-scope for A7).
-            sub: list[str] = []
-            for s in item:
+            # Nested group: mirrors the str-leaf branch — sentinel_mode expands
+            # each inner string; legacy mode strips and drops empties only.
+            sub: list[str | dict] = []
+            for inner_idx, s in enumerate(item):
                 if not isinstance(s, str):
                     raise TypeError(f"Nested prose items must be strings, got {type(s).__name__}: {s!r}")
-                stripped = s.strip()
-                if stripped:
-                    sub.append(stripped)
+                if sentinel_mode:
+                    inner_field_path = f"{field_path}[{item_idx}][{inner_idx}]"
+                    expanded = expand_sentinels_to_items(
+                        s.strip(),
+                        intra_lookup=intra_lookup,
+                        ref_lookup=ref_lookup,
+                        field_path=inner_field_path,
+                    )
+                    if len(expanded) == 0:
+                        # Empty result — drop this inner item (NIT-08 parity).
+                        pass
+                    elif len(expanded) == 1 and isinstance(expanded[0], str):
+                        # Single plain string — append as-is (no sentinels present).
+                        sub.append(expanded[0])
+                    else:
+                        # Mixed or structured items — extend so the inner list
+                        # carries text + ref/link + text per ADR-016 D5.
+                        sub.extend(expanded)
+                else:
+                    stripped = s.strip()
+                    if stripped:
+                        sub.append(stripped)
             if sub:
                 result.append(sub)
 
