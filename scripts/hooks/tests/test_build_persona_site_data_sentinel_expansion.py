@@ -1158,6 +1158,140 @@ class TestNestedGroupSentinelExpansion:
 
 
 # ============================================================================
+# TestIdentificationQuestionsSentinelExpansion
+# ============================================================================
+
+
+class TestIdentificationQuestionsSentinelExpansion:
+    """Sentinel expansion in persona identificationQuestions (plain-text shape).
+
+    The persona-site-data schema declares identificationQuestions as `string[]`,
+    not the rich prose shape used for description/responsibilities. Sentinels
+    must therefore expand to plain text (not to structured ref/link items),
+    matching the markdown side (PersonaFullDetailTableGenerator at
+    yaml_to_markdown.py:566-573 already does this via expand_sentinels_to_text).
+
+    Pre-fix builder skipped expansion entirely, leaving sentinel text literally
+    in question_prompts and the question_records[].prompt — divergent from the
+    markdown side and a fail-open against ADR-016 D5 (every prose-field leaf
+    walked, hard-fail on unresolved). This test class pins the contract.
+    """
+
+    def test_identification_questions_intra_sentinel_resolves_to_plain_text(self):
+        """
+        Test that {{controlFoo}} in identificationQuestions expands to the title text.
+
+        Given: A persona with identificationQuestions containing
+               "Does {{controlTestBar}} apply to your team?" and a synthetic
+               control with id=controlTestBar, title="Test Bar Control"
+        When: build_site_data is called
+        Then:
+          - The persona record's identificationQuestions list contains the
+            expanded plain-text question (title substituted, no literal
+            sentinel)
+          - The matching question_records entry's `prompt` is the expanded text
+        """
+        _require_sentinel_module()
+        persona = dict(_MINIMAL_PERSONA)
+        persona["identificationQuestions"] = [
+            "Does {{controlTestBar}} apply to your team?",
+            "Q2?",
+            "Q3?",
+            "Q4?",
+            "Q5?",
+        ]
+
+        result = _build(personas_data={"personas": [persona]})
+
+        persona_out = next(p for p in result["personas"] if p["id"] == "personaTestSubject")
+        first_q = persona_out["identificationQuestions"][0]
+        assert "{{" not in first_q, f"Sentinel must be expanded; got: {first_q!r}"
+        assert "Test Bar Control" in first_q, f"Expected title 'Test Bar Control' substituted; got: {first_q!r}"
+
+        # The corresponding question_records entry must carry the same expanded text.
+        q_record = next(q for q in result["questions"] if q["personaId"] == "personaTestSubject")
+        assert q_record["prompt"] == first_q, (
+            f"question_records prompt must match expanded persona idQuestion; "
+            f"persona[0]={first_q!r}, record={q_record['prompt']!r}"
+        )
+
+    def test_identification_questions_ref_sentinel_resolves_to_plain_text(self):
+        """
+        Test that {{ref:foo}} in identificationQuestions expands to plain link text.
+
+        Given: A persona declaring externalReferences[{id: "src-1", title:
+               "Spec X", url: "https://example.com/x"}] and an
+               identificationQuestion containing "{{ref:src-1}}"
+        When: build_site_data is called
+        Then:
+          - The persona record's identificationQuestions[0] no longer contains
+            the literal sentinel; the link title appears in the rendered text
+          - Schema (string[]) is preserved — the question is a single string
+        """
+        _require_sentinel_module()
+        persona = dict(_MINIMAL_PERSONA)
+        persona["identificationQuestions"] = [
+            "Have you read {{ref:src-1}}?",
+            "Q2?",
+            "Q3?",
+            "Q4?",
+            "Q5?",
+        ]
+        persona["externalReferences"] = [
+            {
+                "id": "src-1",
+                "type": "paper",
+                "title": "Spec X",
+                "url": "https://example.com/x",
+            }
+        ]
+
+        result = _build(personas_data={"personas": [persona]})
+
+        persona_out = next(p for p in result["personas"] if p["id"] == "personaTestSubject")
+        first_q = persona_out["identificationQuestions"][0]
+        assert isinstance(first_q, str), (
+            f"identificationQuestions item must be a string; got {type(first_q).__name__}"
+        )
+        assert "{{ref:" not in first_q, f"Ref sentinel must be expanded; got: {first_q!r}"
+        assert "Spec X" in first_q, f"Expected link title 'Spec X' present in expanded text; got: {first_q!r}"
+
+    def test_identification_questions_unresolved_sentinel_raises(self):
+        """
+        Test that an unresolved sentinel in identificationQuestions raises hard-fail.
+
+        Given: A persona whose identificationQuestion contains
+               {{controlNonexistent}}, and no entity with id=controlNonexistent
+               exists in any of the four corpus dicts
+        When: build_site_data is called
+        Then: UnresolvedSentinelError is raised with field_path encoding the
+              persona index and the question index, e.g.
+              "personas[0].identificationQuestions[0]"
+        """
+        _require_sentinel_module()
+        persona = dict(_MINIMAL_PERSONA)
+        persona["identificationQuestions"] = [
+            "Does {{controlNonexistent}} apply?",
+            "Q2?",
+            "Q3?",
+            "Q4?",
+            "Q5?",
+        ]
+
+        with pytest.raises(UnresolvedSentinelError) as exc_info:
+            _build(personas_data={"personas": [persona]})
+
+        exc = exc_info.value
+        assert exc.sentinel == "{{controlNonexistent}}", f"sentinel attribute mismatch; got {exc.sentinel!r}"
+        assert "identificationQuestions" in exc.field_path, (
+            f"field_path must reference the field; got field_path={exc.field_path!r}"
+        )
+        assert "[0]" in exc.field_path, (
+            f"field_path must encode the question index; got field_path={exc.field_path!r}"
+        )
+
+
+# ============================================================================
 # Test summary
 # ============================================================================
 """

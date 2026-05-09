@@ -27,7 +27,10 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from scripts.hooks._sentinel_expansion import expand_sentinels_to_items  # noqa: E402
+from scripts.hooks._sentinel_expansion import (  # noqa: E402
+    expand_sentinels_to_items,
+    expand_sentinels_to_text,
+)
 
 DEFAULT_PERSONAS_PATH = REPO_ROOT / "risk-map" / "yaml" / "personas.yaml"
 DEFAULT_RISKS_PATH = REPO_ROOT / "risk-map" / "yaml" / "risks.yaml"
@@ -366,8 +369,24 @@ def build_site_data(
     manual_fallback_persona_ids = []
 
     for idx, persona in enumerate(active_personas):
-        # identificationQuestions are plain strings — no sentinel expansion (schema: string[]).
-        question_prompts = normalize_text_entries(persona.get("identificationQuestions"))
+        # identificationQuestions schema is string[] (matchmaker prompts), so sentinels
+        # expand to plain text rather than structured ref/link items. Mirrors the
+        # markdown side (PersonaFullDetailTableGenerator); ADR-016 D5 hard-fail applies.
+        persona_ref_lookup = _build_ref_lookup(persona)
+        raw_questions = persona.get("identificationQuestions") or []
+        # Strip each question first to drop trailing newlines from PyYAML block
+        # scalars; the legacy normalize_text_entries path stripped at the same
+        # point, and the markdown side strips downstream in format_list.
+        question_prompts = [
+            expand_sentinels_to_text(
+                q.strip(),
+                intra_lookup=intra_lookup,
+                ref_lookup=persona_ref_lookup,
+                field_path=f"personas[{idx}].identificationQuestions[{q_idx}]",
+            )
+            for q_idx, q in enumerate(raw_questions)
+            if q.strip()
+        ]
         match_mode = "guided" if len(question_prompts) >= GUIDED_QUESTION_THRESHOLD else "manual"
 
         question_ids = []
