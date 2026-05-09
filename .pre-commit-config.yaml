@@ -225,6 +225,13 @@ repos:
         files: ^risk-map/yaml/(controls|frameworks|personas|risks)\.yaml$
         pass_filenames: false
 
+      - id: validate-lifecycle-stage
+        name: 'risk-map: lifecycle stage order uniqueness'
+        language: system
+        entry: python3 scripts/hooks/validate_riskmap.py --mode lifecycle
+        files: ^risk-map/yaml/lifecycle-stage\.yaml$
+        pass_filenames: false
+
       - id: validate-workflow-uses-pinning
         name: 'github-actions: enforce SHA-pinned uses references'
         language: system
