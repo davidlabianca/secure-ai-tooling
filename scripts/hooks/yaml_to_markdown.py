@@ -355,8 +355,8 @@ class FullDetailTableGenerator(TableGenerator):
                 if self.intra_lookup is not None and self.ref_lookup is not None:
                     # Per-row expansion: thread row index into field_path for error messages.
                     # entries[row_idx] aligns with df.at[row_idx, col] because df is built
-                    # from `entries` (insertion order, line above) and sort_values runs only
-                    # at line 354 — after this loop completes.
+                    # from `entries` (insertion order, line above) and sort_values on
+                    # df_filled runs only after this loop completes.
                     df = df.reset_index(drop=True)
                     for row_idx in range(len(df)):
                         df.at[row_idx, col] = collapse_column(
