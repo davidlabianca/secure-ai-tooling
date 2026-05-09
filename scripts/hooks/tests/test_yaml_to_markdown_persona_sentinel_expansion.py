@@ -748,6 +748,321 @@ class TestPersonaSentinelBackwardCompat:
 
 
 # ============================================================================
+# TestPersonaPerEntryRefLookupCollision  (RED — ADR-016 D6 per-entry scope)
+# ============================================================================
+
+
+def _write_sibling_yamls_for_personas(directory: Path) -> None:
+    """Write minimal sibling YAML files so yaml_to_markdown_table's intra_lookup build succeeds.
+
+    yaml_to_markdown_table scans all four corpus files to populate intra_lookup.
+    The persona collision tests use a synthesised personas.yaml; the others are stubs.
+    """
+    import yaml as _yaml
+
+    (directory / "risks.yaml").write_text(_yaml.dump({"risks": []}), encoding="utf-8")
+    (directory / "controls.yaml").write_text(_yaml.dump({"controls": []}), encoding="utf-8")
+    (directory / "components.yaml").write_text(_yaml.dump({"components": []}), encoding="utf-8")
+
+
+class TestPersonaPerEntryRefLookupCollision:
+    """
+    RED-phase tests for ADR-016 D6 rule 3 on the persona path.
+
+    The same flat last-write-wins ref_lookup bug that affects risks/controls also
+    affects PersonaSummaryTableGenerator and PersonaFullDetailTableGenerator because
+    yaml_to_markdown_table builds ONE ref_lookup for the whole file at lines 1051-1063
+    and passes it to every generator.
+
+    A3 — PersonaSummaryTableGenerator collision:
+      Two personas share externalReferences[].id = "shared" with different
+      titles/urls.  Post-fix: each persona's {{ref:shared}} resolves to its own
+      ref.  RED: both resolve to the last-loaded title.
+
+    A4 — PersonaFullDetailTableGenerator collision (all three expansion sites):
+      Same two personas.  Post-fix: description, responsibilities[], AND
+      identificationQuestions[] each resolve {{ref:shared}} to the persona's own
+      ref, not the sibling's.  RED: all three fields of both personas collapse to
+      the last-loaded title.
+
+    B2 — cross-entry unresolved (persona path):
+      persona-A's description contains {{ref:cve-2024-99999}}; only persona-B
+      declares that id.  Post-fix: UnresolvedSentinelError raised for persona-A.
+      RED: flat lookup provides the ref from persona-B → no exception.
+    """
+
+    # Minimal but realistic identificationQuestions — 2 entries to keep fixtures small.
+    _IQ_CLEAN = ["Does this role manage model training?", "Do they define data pipelines?"]
+
+    def test_a3_persona_summary_collision_each_entry_resolves_own_ref(self, tmp_path: Path):
+        """
+        A3: PersonaSummaryTableGenerator via yaml_to_markdown_table resolves
+        {{ref:shared}} to each persona's own ref metadata (summary format).
+
+        Given: personas.yaml with two personas:
+               - personaAlpha: externalReferences [{id:"shared", title:"REF-A Title", url:".../A"}]
+                               description: "Alpha uses {{ref:shared}} standard."
+               - personaBeta:  externalReferences [{id:"shared", title:"REF-B Title", url:".../B"}]
+                               description: "Beta follows {{ref:shared}} guidance."
+        When: yaml_to_markdown_table(personas_yaml, "personas", table_format="summary")
+        Then: (post-fix contract)
+              - personaAlpha's row contains "REF-A Title" and does NOT contain "REF-B Title"
+              - personaBeta's row contains "REF-B Title" and does NOT contain "REF-A Title"
+
+        RED failure (HEAD ebe4504):
+              The flat lookup resolves both to "REF-B Title" (last loaded).
+              The assertion "personaAlpha region contains REF-A Title" fails.
+        """
+        _require_sentinel_module()
+        import yaml as _yaml
+
+        personas_data = {
+            "personas": [
+                {
+                    "id": "personaAlpha",
+                    "title": "Alpha Persona",
+                    "description": "Alpha uses {{ref:shared}} standard.",
+                    "deprecated": False,
+                    "responsibilities": [],
+                    "identificationQuestions": self._IQ_CLEAN,
+                    "mappings": {},
+                    "externalReferences": [
+                        {
+                            "id": "shared",
+                            "type": "spec",
+                            "title": "REF-A Title",
+                            "url": "https://example.com/A",
+                        }
+                    ],
+                },
+                {
+                    "id": "personaBeta",
+                    "title": "Beta Persona",
+                    "description": "Beta follows {{ref:shared}} guidance.",
+                    "deprecated": False,
+                    "responsibilities": [],
+                    "identificationQuestions": self._IQ_CLEAN,
+                    "mappings": {},
+                    "externalReferences": [
+                        {
+                            "id": "shared",
+                            "type": "spec",
+                            "title": "REF-B Title",
+                            "url": "https://example.com/B",
+                        }
+                    ],
+                },
+            ]
+        }
+        personas_file = tmp_path / "personas.yaml"
+        personas_file.write_text(_yaml.dump(personas_data), encoding="utf-8")
+        _write_sibling_yamls_for_personas(tmp_path)
+
+        output = _ytm.yaml_to_markdown_table(personas_file, "personas", table_format="summary")
+
+        # Bound row isolation to the table portion only (References sections
+        # come after the table and would sweep both entries' titles).
+        table_end = output.find("## References for")
+        table = output if table_end == -1 else output[:table_end]
+        alpha_idx = table.find("personaAlpha")
+        beta_idx = table.find("personaBeta")
+        assert alpha_idx != -1, "personaAlpha not found in table"
+        assert beta_idx != -1, "personaBeta not found in table"
+
+        # personaAlpha sorts before personaBeta alphabetically.
+        alpha_region = table[alpha_idx:beta_idx]
+        beta_region = table[beta_idx:]
+
+        assert "REF-A Title" in alpha_region, (
+            f"personaAlpha must resolve {{{{ref:shared}}}} to its own 'REF-A Title'; "
+            f"alpha_region:\n{alpha_region!r}"
+        )
+        assert "REF-B Title" not in alpha_region, (
+            "personaAlpha must NOT contain 'REF-B Title' (cross-entry collision)"
+        )
+        assert "REF-B Title" in beta_region, (
+            f"personaBeta must resolve {{{{ref:shared}}}} to its own 'REF-B Title'; beta_region:\n{beta_region!r}"
+        )
+        assert "REF-A Title" not in beta_region, (
+            "personaBeta must NOT contain 'REF-A Title' (cross-entry collision)"
+        )
+
+    def test_a4_persona_full_detail_collision_all_three_fields(self, tmp_path: Path):
+        """
+        A4: PersonaFullDetailTableGenerator via yaml_to_markdown_table resolves
+        {{ref:shared}} correctly in description, responsibilities[], AND
+        identificationQuestions[] for each persona.
+
+        Given: personas.yaml with two personas, each declaring externalReferences
+               [{id:"shared", title:"REF-A Title"|"REF-B Title", url:".../A"|".../B"}].
+               personaAlpha:
+                 - description: "Alpha description cites {{ref:shared}}."
+                 - responsibilities: ["Alpha must apply {{ref:shared}} controls."]
+                 - identificationQuestions: ["Does {{ref:shared}} apply to alpha?", "Q2"]
+               personaBeta:
+                 - description: "Beta description cites {{ref:shared}}."
+                 - responsibilities: ["Beta should follow {{ref:shared}} guidance."]
+                 - identificationQuestions: ["Is {{ref:shared}} relevant to beta?", "Q2"]
+        When: yaml_to_markdown_table(personas_yaml, "personas", table_format="full")
+        Then: (post-fix contract) For every sentinel site in both personas:
+              - personaAlpha's expanded output contains "REF-A Title" (its own ref)
+              - personaBeta's expanded output contains "REF-B Title" (its own ref)
+              Neither persona's region contains the OTHER persona's ref title.
+
+        RED failure (HEAD ebe4504):
+              All six sentinel sites (3 per persona × 2 personas) resolve to the
+              last-loaded title.  The per-entry assertion fails.
+        """
+        _require_sentinel_module()
+        import yaml as _yaml
+
+        personas_data = {
+            "personas": [
+                {
+                    "id": "personaAlpha",
+                    "title": "Alpha Persona",
+                    "description": "Alpha description cites {{ref:shared}}.",
+                    "deprecated": False,
+                    "responsibilities": ["Alpha must apply {{ref:shared}} controls."],
+                    "identificationQuestions": [
+                        "Does {{ref:shared}} apply to alpha?",
+                        "Second plain question for alpha.",
+                    ],
+                    "mappings": {},
+                    "externalReferences": [
+                        {
+                            "id": "shared",
+                            "type": "spec",
+                            "title": "REF-A Title",
+                            "url": "https://example.com/A",
+                        }
+                    ],
+                },
+                {
+                    "id": "personaBeta",
+                    "title": "Beta Persona",
+                    "description": "Beta description cites {{ref:shared}}.",
+                    "deprecated": False,
+                    "responsibilities": ["Beta should follow {{ref:shared}} guidance."],
+                    "identificationQuestions": [
+                        "Is {{ref:shared}} relevant to beta?",
+                        "Second plain question for beta.",
+                    ],
+                    "mappings": {},
+                    "externalReferences": [
+                        {
+                            "id": "shared",
+                            "type": "spec",
+                            "title": "REF-B Title",
+                            "url": "https://example.com/B",
+                        }
+                    ],
+                },
+            ]
+        }
+        personas_file = tmp_path / "personas.yaml"
+        personas_file.write_text(_yaml.dump(personas_data), encoding="utf-8")
+        _write_sibling_yamls_for_personas(tmp_path)
+
+        output = _ytm.yaml_to_markdown_table(personas_file, "personas", table_format="full")
+
+        # Bound row isolation to the table portion only (References sections
+        # come after the table and would sweep both entries' titles).
+        table_end = output.find("## References for")
+        table = output if table_end == -1 else output[:table_end]
+        alpha_idx = table.find("personaAlpha")
+        beta_idx = table.find("personaBeta")
+        assert alpha_idx != -1, "personaAlpha not found in table"
+        assert beta_idx != -1, "personaBeta not found in table"
+
+        # personaAlpha sorts before personaBeta alphabetically.
+        alpha_region = table[alpha_idx:beta_idx]
+        beta_region = table[beta_idx:]
+
+        # All three expansion sites for personaAlpha must use REF-A Title.
+        assert "REF-A Title" in alpha_region, (
+            f"personaAlpha (all fields) must resolve to 'REF-A Title'; alpha_region:\n{alpha_region!r}"
+        )
+        assert "REF-B Title" not in alpha_region, (
+            "personaAlpha region must NOT contain 'REF-B Title' (cross-entry collision in any field)"
+        )
+        # All three expansion sites for personaBeta must use REF-B Title.
+        assert "REF-B Title" in beta_region, (
+            f"personaBeta (all fields) must resolve to 'REF-B Title'; beta_region:\n{beta_region!r}"
+        )
+        assert "REF-A Title" not in beta_region, (
+            "personaBeta region must NOT contain 'REF-A Title' (cross-entry collision in any field)"
+        )
+
+    def test_b2_persona_cross_entry_ref_id_raises_unresolved_error(self, tmp_path: Path):
+        """
+        B2: A {{ref:id}} in persona-A's description that is declared only in persona-B's
+        externalReferences must raise UnresolvedSentinelError after the fix (persona path).
+
+        Given: personas.yaml with two personas:
+               - personaAlpha: externalReferences=[]  (declares NO refs)
+                               description: "Alpha needs {{ref:cve-2024-99999}} context."
+               - personaBeta:  externalReferences=[{id:"cve-2024-99999", ...}]
+                               description: (no sentinel)
+        When: yaml_to_markdown_table(personas_yaml, "personas", table_format="full")
+        Then: (post-fix contract)
+              UnresolvedSentinelError is raised for personaAlpha's sentinel because
+              "cve-2024-99999" is not in personaAlpha's own externalReferences.
+
+        RED failure (HEAD ebe4504):
+              The flat lookup contains "cve-2024-99999" from personaBeta, so the
+              sentinel resolves and no exception is raised.
+        """
+        _require_sentinel_module()
+        import yaml as _yaml
+
+        personas_data = {
+            "personas": [
+                {
+                    "id": "personaAlpha",
+                    "title": "Alpha Persona",
+                    "description": "Alpha needs {{ref:cve-2024-99999}} context.",
+                    "deprecated": False,
+                    "responsibilities": [],
+                    "identificationQuestions": self._IQ_CLEAN,
+                    "mappings": {},
+                    "externalReferences": [],  # personaAlpha owns no refs
+                },
+                {
+                    "id": "personaBeta",
+                    "title": "Beta Persona",
+                    "description": "Beta plain description.",
+                    "deprecated": False,
+                    "responsibilities": [],
+                    "identificationQuestions": self._IQ_CLEAN,
+                    "mappings": {},
+                    "externalReferences": [
+                        {
+                            "id": "cve-2024-99999",
+                            "type": "cve",
+                            "title": "CVE-2024-99999 Title",
+                            "url": "https://nvd.nist.gov/vuln/detail/CVE-2024-99999",
+                        }
+                    ],
+                },
+            ]
+        }
+        personas_file = tmp_path / "personas.yaml"
+        personas_file.write_text(_yaml.dump(personas_data), encoding="utf-8")
+        _write_sibling_yamls_for_personas(tmp_path)
+
+        # Post-fix: personaAlpha's {{ref:cve-2024-99999}} must raise because
+        # that id is not declared in personaAlpha's own externalReferences.
+        # RED: flat lookup resolves it via personaBeta → no exception raised.
+        with pytest.raises(UnresolvedSentinelError) as exc_info:
+            _ytm.yaml_to_markdown_table(personas_file, "personas", table_format="full")
+
+        assert "cve-2024-99999" in str(exc_info.value), (
+            f"Error must identify the unresolved ref id; got: {exc_info.value!r}"
+        )
+
+
+# ============================================================================
 # Test Summary
 # ============================================================================
 """

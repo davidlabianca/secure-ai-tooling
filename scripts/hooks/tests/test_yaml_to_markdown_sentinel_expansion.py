@@ -1459,6 +1459,314 @@ class TestSummaryTableSentinelIntegration:
 
 
 # ============================================================================
+# TestPerEntryRefLookupCollision  (RED — ADR-016 D6 per-entry scope)
+# ============================================================================
+
+
+def _write_sibling_yamls(directory: Path) -> None:
+    """Write minimal sibling YAML files so yaml_to_markdown_table's intra_lookup build succeeds.
+
+    yaml_to_markdown_table scans risks.yaml, controls.yaml, components.yaml, and personas.yaml
+    in the same directory to populate intra_lookup.  The collision tests use a synthesised
+    risks.yaml as the primary file; the other three are empty stubs so the scan is silent.
+    """
+    import yaml as _yaml
+
+    (directory / "controls.yaml").write_text(_yaml.dump({"controls": []}), encoding="utf-8")
+    (directory / "components.yaml").write_text(_yaml.dump({"components": []}), encoding="utf-8")
+    (directory / "personas.yaml").write_text(_yaml.dump({"personas": []}), encoding="utf-8")
+
+
+def _write_sibling_yamls_for_controls(directory: Path) -> None:
+    """Write minimal sibling YAML files when controls.yaml is the primary file under test."""
+    import yaml as _yaml
+
+    (directory / "risks.yaml").write_text(_yaml.dump({"risks": []}), encoding="utf-8")
+    (directory / "components.yaml").write_text(_yaml.dump({"components": []}), encoding="utf-8")
+    (directory / "personas.yaml").write_text(_yaml.dump({"personas": []}), encoding="utf-8")
+
+
+class TestPerEntryRefLookupCollision:
+    """
+    RED-phase tests for ADR-016 D6 rule 3: ref-lookup scope is per-entry.
+
+    The current implementation at yaml_to_markdown.py:1051-1063 builds a single
+    flat ref_lookup by iterating all entries' externalReferences with last-write-wins
+    on id collision.  This violates the per-entry scope rule: if risk-A and risk-B
+    both declare externalReferences[].id = "shared" with different titles/urls, then
+    risk-A's {{ref:shared}} resolves to whichever entry was loaded last.
+
+    These tests assert the correct post-fix behaviour:
+    - A1/A2: each entry's {{ref:shared}} resolves to THAT entry's own ref metadata,
+      not a sibling's.
+    - B1: a sentinel that references an id declared only in a different entry must
+      raise UnresolvedSentinelError (per-entry scope: unknown to this entry = unresolved).
+
+    On HEAD ebe4504 all tests in this class are expected to FAIL (RED phase).
+
+    Generators under test reach yaml_to_markdown_table, not the generator classes
+    directly, because the bug lives in yaml_to_markdown_table's ref_lookup build
+    logic (lines 1051-1063), not inside the generator classes themselves.
+    """
+
+    def test_a1_full_detail_risks_collision_each_entry_resolves_own_ref(self, tmp_path: Path):
+        """
+        A1: FullDetailTableGenerator via yaml_to_markdown_table resolves {{ref:shared}}
+        to the declaring entry's own ref, not the last-loaded one.
+
+        Given: risks.yaml with two risks:
+               - riskAlpha: externalReferences [{id:"shared", title:"CWE-A Title", url:".../A"}]
+                            longDescription: "... see {{ref:shared}} for details ..."
+               - riskBeta:  externalReferences [{id:"shared", title:"CWE-B Title", url:".../B"}]
+                            longDescription: "... see {{ref:shared}} as well ..."
+        When: yaml_to_markdown_table(risks_yaml, "risks", table_format="full") is called
+        Then: (post-fix contract)
+              - The row for riskAlpha contains "CWE-A Title" and does NOT contain "CWE-B Title"
+              - The row for riskBeta  contains "CWE-B Title" and does NOT contain "CWE-A Title"
+
+        RED failure (HEAD ebe4504):
+              The flat last-write-wins lookup means BOTH rows resolve to the last-loaded
+              ref ("CWE-B Title" if riskBeta is last in YAML order).  The assertion
+              "riskAlpha row contains CWE-A Title" fails.
+        """
+        _require_sentinel_module()
+        import yaml as _yaml
+
+        risks_data = {
+            "risks": [
+                {
+                    "id": "riskAlpha",
+                    "title": "Alpha Risk",
+                    "category": "riskCatTest",
+                    "shortDescription": ["Short alpha."],
+                    "longDescription": ["Alpha: see {{ref:shared}} for details."],
+                    "examples": [],
+                    "personas": [],
+                    "controls": [],
+                    "externalReferences": [
+                        {
+                            "id": "shared",
+                            "type": "cwe",
+                            "title": "CWE-A Title",
+                            "url": "https://cwe.mitre.org/A",
+                        }
+                    ],
+                },
+                {
+                    "id": "riskBeta",
+                    "title": "Beta Risk",
+                    "category": "riskCatTest",
+                    "shortDescription": ["Short beta."],
+                    "longDescription": ["Beta: see {{ref:shared}} as well."],
+                    "examples": [],
+                    "personas": [],
+                    "controls": [],
+                    "externalReferences": [
+                        {
+                            "id": "shared",
+                            "type": "cwe",
+                            "title": "CWE-B Title",
+                            "url": "https://cwe.mitre.org/B",
+                        }
+                    ],
+                },
+            ]
+        }
+        risks_file = tmp_path / "risks.yaml"
+        risks_file.write_text(_yaml.dump(risks_data), encoding="utf-8")
+        _write_sibling_yamls(tmp_path)
+
+        output = _ytm.yaml_to_markdown_table(risks_file, "risks", table_format="full")
+
+        # Bound the row-isolation slice to the table portion only — the
+        # post-table "## References for {id}" sub-sections legitimately list
+        # both entries' titles and would defeat row isolation if included.
+        table_end = output.find("## References for")
+        table = output if table_end == -1 else output[:table_end]
+        alpha_idx = table.find("riskAlpha")
+        beta_idx = table.find("riskBeta")
+        assert alpha_idx != -1, "riskAlpha not found in table"
+        assert beta_idx != -1, "riskBeta not found in table"
+
+        # The table is sorted by id, so riskAlpha row comes before riskBeta row.
+        alpha_region = table[alpha_idx:beta_idx]
+        beta_region = table[beta_idx:]
+
+        assert "CWE-A Title" in alpha_region, (
+            f"riskAlpha row must resolve {{{{ref:shared}}}} to its own 'CWE-A Title'; "
+            f"alpha_region:\n{alpha_region!r}"
+        )
+        assert "CWE-B Title" not in alpha_region, (
+            "riskAlpha row must NOT contain 'CWE-B Title' (cross-entry collision)"
+        )
+        assert "CWE-B Title" in beta_region, (
+            f"riskBeta row must resolve {{{{ref:shared}}}} to its own 'CWE-B Title'; beta_region:\n{beta_region!r}"
+        )
+        assert "CWE-A Title" not in beta_region, (
+            "riskBeta row must NOT contain 'CWE-A Title' (cross-entry collision)"
+        )
+
+    def test_a2_summary_controls_collision_each_entry_resolves_own_ref(self, tmp_path: Path):
+        """
+        A2: SummaryTableGenerator via yaml_to_markdown_table resolves {{ref:shared}}
+        to the declaring entry's own ref (controls, summary format).
+
+        Given: controls.yaml with two controls sharing externalReferences[].id = "shared":
+               - controlAlpha: ref title "NIST-A Title"; description "... {{ref:shared}} ..."
+               - controlBeta:  ref title "NIST-B Title"; description "... {{ref:shared}} ..."
+        When: yaml_to_markdown_table(controls_yaml, "controls", table_format="summary") is called
+        Then: (post-fix contract)
+              - controlAlpha's row contains "NIST-A Title" and does NOT contain "NIST-B Title"
+              - controlBeta's row contains "NIST-B Title" and does NOT contain "NIST-A Title"
+
+        RED failure (HEAD ebe4504):
+              The flat lookup means both rows resolve to the last-loaded ref.
+              The per-entry assertion fails.
+        """
+        _require_sentinel_module()
+        import yaml as _yaml
+
+        controls_data = {
+            "controls": [
+                {
+                    "id": "controlAlpha",
+                    "title": "Alpha Control",
+                    "category": "controlsData",
+                    "description": ["Alpha uses {{ref:shared}} specification."],
+                    "risks": [],
+                    "components": [],
+                    "externalReferences": [
+                        {
+                            "id": "shared",
+                            "type": "nist",
+                            "title": "NIST-A Title",
+                            "url": "https://nist.gov/A",
+                        }
+                    ],
+                },
+                {
+                    "id": "controlBeta",
+                    "title": "Beta Control",
+                    "category": "controlsData",
+                    "description": ["Beta follows {{ref:shared}} guidelines."],
+                    "risks": [],
+                    "components": [],
+                    "externalReferences": [
+                        {
+                            "id": "shared",
+                            "type": "nist",
+                            "title": "NIST-B Title",
+                            "url": "https://nist.gov/B",
+                        }
+                    ],
+                },
+            ]
+        }
+        controls_file = tmp_path / "controls.yaml"
+        controls_file.write_text(_yaml.dump(controls_data), encoding="utf-8")
+        _write_sibling_yamls_for_controls(tmp_path)
+
+        output = _ytm.yaml_to_markdown_table(controls_file, "controls", table_format="summary")
+
+        # Bound row isolation to the table portion only (References sections
+        # come after the table and would sweep both entries' titles).
+        table_end = output.find("## References for")
+        table = output if table_end == -1 else output[:table_end]
+        alpha_idx = table.find("controlAlpha")
+        beta_idx = table.find("controlBeta")
+        assert alpha_idx != -1, "controlAlpha not found in table"
+        assert beta_idx != -1, "controlBeta not found in table"
+
+        alpha_region = table[alpha_idx:beta_idx]
+        beta_region = table[beta_idx:]
+
+        assert "NIST-A Title" in alpha_region, (
+            f"controlAlpha row must resolve {{{{ref:shared}}}} to 'NIST-A Title'; alpha_region:\n{alpha_region!r}"
+        )
+        assert "NIST-B Title" not in alpha_region, (
+            "controlAlpha row must NOT contain 'NIST-B Title' (cross-entry collision)"
+        )
+        assert "NIST-B Title" in beta_region, (
+            f"controlBeta row must resolve {{{{ref:shared}}}} to 'NIST-B Title'; beta_region:\n{beta_region!r}"
+        )
+        assert "NIST-A Title" not in beta_region, (
+            "controlBeta row must NOT contain 'NIST-A Title' (cross-entry collision)"
+        )
+
+    def test_b1_cross_entry_ref_id_raises_unresolved_error(self, tmp_path: Path):
+        """
+        B1: A {{ref:id}} sentinel that is declared in a different entry but NOT in
+        the entry that uses it must raise UnresolvedSentinelError after the fix.
+
+        Given: risks.yaml with two risks:
+               - riskAlpha: externalReferences=[]  (declares NO refs)
+                            longDescription: "... see {{ref:cve-2024-99999}} ..."
+               - riskBeta:  externalReferences=[{id:"cve-2024-99999", ...}]
+                            longDescription: (no sentinel)
+        When: yaml_to_markdown_table(risks_yaml, "risks", table_format="full") is called
+        Then: (post-fix contract)
+              UnresolvedSentinelError is raised for riskAlpha's reference to
+              "cve-2024-99999" because that id is not in riskAlpha's own
+              externalReferences (per-entry scope).
+
+        RED failure (HEAD ebe4504):
+              The flat lookup contains "cve-2024-99999" from riskBeta, so riskAlpha's
+              sentinel resolves successfully and NO exception is raised.
+              pytest.raises sees "DID NOT RAISE" — the correct RED failure signal.
+        """
+        _require_sentinel_module()
+        import yaml as _yaml
+
+        risks_data = {
+            "risks": [
+                {
+                    "id": "riskAlpha",
+                    "title": "Alpha Risk",
+                    "category": "riskCatTest",
+                    "shortDescription": ["Short alpha."],
+                    "longDescription": ["Alpha mentions {{ref:cve-2024-99999}} for context."],
+                    "examples": [],
+                    "personas": [],
+                    "controls": [],
+                    # riskAlpha declares NO externalReferences — it doesn't own this ref
+                    "externalReferences": [],
+                },
+                {
+                    "id": "riskBeta",
+                    "title": "Beta Risk",
+                    "category": "riskCatTest",
+                    "shortDescription": ["Short beta."],
+                    "longDescription": ["Beta description with no sentinel."],
+                    "examples": [],
+                    "personas": [],
+                    "controls": [],
+                    "externalReferences": [
+                        {
+                            "id": "cve-2024-99999",
+                            "type": "cve",
+                            "title": "CVE-2024-99999 Title",
+                            "url": "https://nvd.nist.gov/vuln/detail/CVE-2024-99999",
+                        }
+                    ],
+                },
+            ]
+        }
+        risks_file = tmp_path / "risks.yaml"
+        risks_file.write_text(_yaml.dump(risks_data), encoding="utf-8")
+        _write_sibling_yamls(tmp_path)
+
+        # Post-fix: riskAlpha's {{ref:cve-2024-99999}} must raise because
+        # cve-2024-99999 is NOT in riskAlpha's own externalReferences.
+        # RED: on HEAD ebe4504 the flat lookup resolves it via riskBeta → no exception.
+        with pytest.raises(UnresolvedSentinelError) as exc_info:
+            _ytm.yaml_to_markdown_table(risks_file, "risks", table_format="full")
+
+        assert "cve-2024-99999" in str(exc_info.value), (
+            f"Error message must identify the unresolved ref id; got: {exc_info.value!r}"
+        )
+
+
+# ============================================================================
 # Test Summary
 # ============================================================================
 """

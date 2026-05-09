@@ -166,6 +166,16 @@ def _references_bullets_only(refs: list[dict] | None) -> str:
     return rendered
 
 
+def _build_ref_lookup(entry: dict) -> dict[str, dict]:
+    """Build a ref-id -> {"title", "url"} map from a single entity's externalReferences.
+
+    Per ADR-016 D6 rule 3, ref-id resolution scope is per-entry: a ref id
+    declared on one entry must not resolve from a sibling entry's
+    externalReferences. Mirrors scripts/build_persona_site_data.py's helper.
+    """
+    return {ref["id"]: {"title": ref["title"], "url": ref["url"]} for ref in entry.get("externalReferences", [])}
+
+
 def collapse_column(
     entry,
     *,
@@ -247,6 +257,18 @@ class TableGenerator(ABC):
         self.intra_lookup = intra_lookup
         self.ref_lookup = ref_lookup
         self._yaml_cache = {}  # Cache for loaded YAML files
+
+    def _ref_lookup_for_entry(self, entry: dict) -> dict[str, dict]:
+        """Return per-entry ref lookup; fall back to constructor lookup for legacy/test paths.
+
+        Public path (yaml_to_markdown_table) passes ref_lookup={} so cross-entry
+        refs hard-fail per ADR-016 D6 rule 3. The fallback supports tests that
+        inject a flat ref_lookup directly into the constructor.
+        """
+        local = _build_ref_lookup(entry)
+        if local:
+            return local
+        return self.ref_lookup or {}
 
     @abstractmethod
     def generate(self, yaml_data: dict, ytype: str) -> str:
@@ -332,12 +354,15 @@ class FullDetailTableGenerator(TableGenerator):
             if col in collapsable:
                 if self.intra_lookup is not None and self.ref_lookup is not None:
                     # Per-row expansion: thread row index into field_path for error messages.
+                    # entries[row_idx] aligns with df.at[row_idx, col] because df is built
+                    # from `entries` (insertion order, line above) and sort_values runs only
+                    # at line 354 — after this loop completes.
                     df = df.reset_index(drop=True)
                     for row_idx in range(len(df)):
                         df.at[row_idx, col] = collapse_column(
                             df.at[row_idx, col],
                             intra_lookup=self.intra_lookup,
-                            ref_lookup=self.ref_lookup,
+                            ref_lookup=self._ref_lookup_for_entry(entries[row_idx]),
                             field_path=f"{ytype}[{row_idx}].{col}",
                         )
                 else:
@@ -401,7 +426,7 @@ class SummaryTableGenerator(TableGenerator):
                 collapsed = collapse_column(
                     desc,
                     intra_lookup=self.intra_lookup,
-                    ref_lookup=self.ref_lookup,
+                    ref_lookup=self._ref_lookup_for_entry(item),
                     field_path=f"{ytype}[{row_idx}].{field_name}",
                 )
             else:
@@ -457,7 +482,7 @@ class PersonaSummaryTableGenerator(TableGenerator):
                 collapsed = collapse_column(
                     desc,
                     intra_lookup=self.intra_lookup,
-                    ref_lookup=self.ref_lookup,
+                    ref_lookup=self._ref_lookup_for_entry(item),
                     field_path=f"personas[{idx}].description",
                 )
             else:
@@ -514,11 +539,13 @@ class PersonaFullDetailTableGenerator(TableGenerator):
         for idx, item in enumerate(items):
             desc = item.get("description", "")
             if self.intra_lookup is not None and self.ref_lookup is not None:
+                # Build per-entry lookup once and reuse across all three expansion sites.
+                row_ref_lookup = self._ref_lookup_for_entry(item)
                 # Expand sentinels in description; field_path uses insertion-order index.
                 collapsed_desc = collapse_column(
                     desc,
                     intra_lookup=self.intra_lookup,
-                    ref_lookup=self.ref_lookup,
+                    ref_lookup=row_ref_lookup,
                     field_path=f"personas[{idx}].description",
                 )
                 # Expand sentinels in each responsibilities item before passing to format_list.
@@ -526,7 +553,7 @@ class PersonaFullDetailTableGenerator(TableGenerator):
                     expand_sentinels_to_text(
                         r,
                         intra_lookup=self.intra_lookup,
-                        ref_lookup=self.ref_lookup,
+                        ref_lookup=row_ref_lookup,
                         field_path=f"personas[{idx}].responsibilities[{i}]",
                     )
                     for i, r in enumerate(item.get("responsibilities", []))
@@ -536,7 +563,7 @@ class PersonaFullDetailTableGenerator(TableGenerator):
                     expand_sentinels_to_text(
                         q,
                         intra_lookup=self.intra_lookup,
-                        ref_lookup=self.ref_lookup,
+                        ref_lookup=row_ref_lookup,
                         field_path=f"personas[{idx}].identificationQuestions[{i}]",
                     )
                     for i, q in enumerate(item.get("identificationQuestions", []))
@@ -1048,19 +1075,11 @@ def yaml_to_markdown_table(yaml_file, ytype, table_format: str = "full", flat: b
             if isinstance(item, dict) and "id" in item and "title" in item:
                 intra_lookup[item["id"]] = item["title"]
 
-    # Build flat ref_lookup from this file's externalReferences entries.
-    # ADR-016 D2 enforces per-entry id uniqueness but allows cross-entry collision
-    # (two risks may each define ref id "cwe-89"). This flat lookup last-write-wins
-    # on collision; per-entry keying (matching _build_ref_lookup in
-    # build_persona_site_data.py) is the correct long-term fix and is deferred
-    # to a Phase B B2 follow-up since the current corpus has zero externalReferences.
+    # ref_lookup is built per-entry by the generator via _ref_lookup_for_entry;
+    # this matches build_persona_site_data.py's _build_ref_lookup pattern
+    # (ADR-016 D6 rule 3, per-entry resolution scope). The empty dict here makes
+    # any sentinel that escapes per-entry lookup hard-fail.
     ref_lookup: dict[str, dict] = {}
-    for entry in data.get(ytype, []) or []:
-        if not isinstance(entry, dict):
-            continue
-        for ref in entry.get("externalReferences") or []:
-            if isinstance(ref, dict) and "id" in ref:
-                ref_lookup[ref["id"]] = {"title": ref.get("title", ""), "url": ref.get("url", "")}
 
     # Create generator instance and generate table
     # Handle persona-specific generators
