@@ -1160,6 +1160,7 @@ class TestDiagnosticFormat:
         line = self._diag_to_line(diag)
         assert _DIAG_PATTERN.match(line), f"Diagnostic line does not match pattern: {line!r}"
 
+    @pytest.mark.timeout(2)
     def test_diagnostic_pattern_resists_redos(self):
         r"""
         CodeQL #20 regression guard: _DIAG_PATTERN must match in bounded time on a

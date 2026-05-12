@@ -1668,6 +1668,7 @@ class TestEdgeCases:
 class TestDiagnosticPatternRedosResistance:
     r"""CodeQL #21 regression guard for the diagnostic-format regex."""
 
+    @pytest.mark.timeout(2)
     def test_diagnostic_pattern_resists_redos(self):
         r"""
         _DIAG_PATTERN must match in bounded time on a many-dotted-segments adversarial
