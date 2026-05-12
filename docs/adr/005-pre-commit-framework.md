@@ -104,7 +104,7 @@ Authored 2026-05-08; accepted alongside the implementation of [#279](https://git
 
 For every local validator hook in [`.pre-commit-config.yaml`](../../.pre-commit-config.yaml) with `pass_filenames: false`:
 
-> **trigger-set ⊇ check-input-set, AND read-set ⊇ check-input-set.**
+> **trigger-set ⊇ check-input-set, AND read/discovery-set ⊇ check-input-set.**
 
 Three sets, defined per hook:
 
