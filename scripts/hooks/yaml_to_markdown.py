@@ -27,6 +27,14 @@ from pathlib import Path
 import pandas as pd
 import yaml
 
+# Ensure repo root is on sys.path so scripts.hooks._sentinel_expansion resolves
+# when this file is invoked directly as a script (not only as a module).
+_REPO_ROOT = Path(__file__).resolve().parents[2]
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
+
+from scripts.hooks._sentinel_expansion import expand_sentinels_to_text  # noqa: E402
+
 # Configuration: easily modifiable paths
 DEFAULT_INPUT_DIR = Path("risk-map/yaml")
 DEFAULT_OUTPUT_DIR = Path("risk-map/tables")
@@ -120,21 +128,99 @@ def format_mappings(entry) -> str:
     return "<br>".join(parts)
 
 
-def collapse_column(entry) -> str:
-    """Collapse multi-line or nested list content into HTML-formatted string."""
+def format_external_references(refs: list[dict] | None) -> str:
+    """Format an externalReferences array as a markdown section with bullet list.
+
+    Returns a "## References" section with one bullet per entry, or "" when
+    refs is empty or None.
+
+    Per ADR-016 D3, externalReferences entries carry schema-validated
+    title/url/type fields. Brackets and parens in titles are not escaped —
+    markdown injection is a known limitation under the trusted-author posture.
+
+    Args:
+        refs: list of dicts with keys title, url, type; or None
+
+    Returns:
+        Markdown section string starting with "## References\\n", or ""
+    """
+    if not refs:
+        return ""
+    bullets = "\n".join(f"- [{r['title']}]({r['url']}) ({r['type']})" for r in refs)
+    return f"## References\n{bullets}\n"
+
+
+_REFS_HEADER = "## References\n"
+
+
+def _references_bullets_only(refs: list[dict] | None) -> str:
+    """Return format_external_references(refs) with the leading "## References" header stripped.
+
+    Per-entry sub-sections in the table generators emit their own
+    "## References for {id}" header, so the helper's generic header would
+    stack visually if concatenated raw. This trims it cleanly.
+    """
+    rendered = format_external_references(refs)
+    if rendered.startswith(_REFS_HEADER):
+        return rendered[len(_REFS_HEADER) :]
+    return rendered
+
+
+def _build_ref_lookup(entry: dict) -> dict[str, dict]:
+    """Build a ref-id -> {"title", "url"} map from a single entity's externalReferences.
+
+    Per ADR-016 D6 rule 3, ref-id resolution scope is per-entry: a ref id
+    declared on one entry must not resolve from a sibling entry's
+    externalReferences. Mirrors scripts/build_persona_site_data.py's helper.
+    """
+    return {ref["id"]: {"title": ref["title"], "url": ref["url"]} for ref in entry.get("externalReferences", [])}
+
+
+def collapse_column(
+    entry,
+    *,
+    intra_lookup: dict[str, str] | None = None,
+    ref_lookup: dict[str, dict] | None = None,
+    field_path: str = "",
+) -> str:
+    """Collapse multi-line or nested list content into HTML-formatted string.
+
+    When both intra_lookup and ref_lookup are supplied (not None), sentinel
+    spans are expanded via expand_sentinels_to_text before newline conversion.
+    When either is None (the default), sentinels pass through unchanged so
+    pre-A7 call sites keep working.
+
+    An unresolved sentinel raises UnresolvedSentinelError and is never swallowed.
+
+    Args:
+        entry: string, list of strings, or other value to format
+        intra_lookup: entity-id -> title map; None means no expansion
+        ref_lookup: ref-id -> {title, url} map; None means no expansion
+        field_path: location string for error messages (e.g. "risks[0].longDescription[0]")
+    """
     # Handle pandas NaN values - check type first to avoid array ambiguity
     if not isinstance(entry, (str, list)) and pd.isna(entry):
         return ""
 
+    # Assemble raw text before any HTML conversion, then optionally expand sentinels.
     if isinstance(entry, str):
-        return entry.replace("- >", "").replace("\n", "<br>")
+        raw = entry.replace("- >", "")
     elif isinstance(entry, list) and len(entry) == 1:
-        return entry[0].replace("- >", "").replace("\n", "<br>")
+        raw = entry[0].replace("- >", "")
     elif not isinstance(entry, list):
         return str(entry) if entry else ""
+    else:
+        flattened_list = list(chain.from_iterable(item if isinstance(item, list) else [item] for item in entry))
+        raw = "<br> ".join(flattened_list).replace("- >", "")
 
-    flattened_list = list(chain.from_iterable(item if isinstance(item, list) else [item] for item in entry))
-    full_desc = "<br> ".join(flattened_list).replace("- >", "").replace("\n", "<br>")
+    # Expand sentinels before newline→<br> conversion so markdown links survive intact.
+    # Only expand when both lookups are supplied; None means the caller has not opted in.
+    if intra_lookup is not None and ref_lookup is not None:
+        raw = expand_sentinels_to_text(
+            raw, intra_lookup=intra_lookup, ref_lookup=ref_lookup, field_path=field_path
+        )
+
+    full_desc = raw.replace("\n", "<br>")
 
     return full_desc
 
@@ -152,15 +238,37 @@ class TableGenerator(ABC):
     and defines how to transform YAML data into markdown tables.
     """
 
-    def __init__(self, input_dir: Path = DEFAULT_INPUT_DIR):
+    def __init__(
+        self,
+        input_dir: Path = DEFAULT_INPUT_DIR,
+        *,
+        intra_lookup: dict[str, str] | None = None,
+        ref_lookup: dict[str, dict] | None = None,
+    ):
         """
         Initialize table generator.
 
         Args:
             input_dir: Directory containing YAML source files
+            intra_lookup: entity-id -> title map for sentinel expansion; None disables expansion
+            ref_lookup: ref-id -> {title, url} map for sentinel expansion; None disables expansion
         """
         self.input_dir = input_dir
+        self.intra_lookup = intra_lookup
+        self.ref_lookup = ref_lookup
         self._yaml_cache = {}  # Cache for loaded YAML files
+
+    def _ref_lookup_for_entry(self, entry: dict) -> dict[str, dict]:
+        """Return per-entry ref lookup; fall back to constructor lookup for legacy/test paths.
+
+        Public path (yaml_to_markdown_table) passes ref_lookup={} so cross-entry
+        refs hard-fail per ADR-016 D6 rule 3. The fallback supports tests that
+        inject a flat ref_lookup directly into the constructor.
+        """
+        local = _build_ref_lookup(entry)
+        if local:
+            return local
+        return self.ref_lookup or {}
 
     @abstractmethod
     def generate(self, yaml_data: dict, ytype: str) -> str:
@@ -219,22 +327,46 @@ class FullDetailTableGenerator(TableGenerator):
         """
         Generate full detail markdown table.
 
+        When intra_lookup and ref_lookup are set on the instance, sentinel spans
+        in collapsable fields are expanded per-row before the table is rendered.
+        Entries with a non-empty externalReferences array get a "## References for {id}"
+        sub-section appended after the main table.
+
         Args:
             yaml_data: Parsed YAML data dictionary
             ytype: Type of data (components, controls, risks)
 
         Returns:
-            Formatted markdown table string
+            Formatted markdown table string, followed by any References sub-sections
         """
         collapsable = ["description", "shortDescription", "longDescription", "examples"]
 
-        # Convert to DataFrame
-        df = pd.DataFrame(yaml_data.get(ytype))
+        entries = yaml_data.get(ytype) or []
+        sorted_entries = sorted(entries, key=lambda e: e.get("id", ""))
 
-        # Apply column-specific formatting
+        # Convert to DataFrame; drop externalReferences — it's rendered as sub-sections below.
+        df = pd.DataFrame(entries)
+        if "externalReferences" in df.columns:
+            df = df.drop(columns=["externalReferences"])
+
+        # Apply column-specific formatting; use per-row sentinel expansion for prose fields.
         for col in df.columns:
             if col in collapsable:
-                df[col] = df[col].apply(collapse_column)
+                if self.intra_lookup is not None and self.ref_lookup is not None:
+                    # Per-row expansion: thread row index into field_path for error messages.
+                    # entries[row_idx] aligns with df.at[row_idx, col] because df is built
+                    # from `entries` (insertion order, line above) and sort_values on
+                    # df_filled runs only after this loop completes.
+                    df = df.reset_index(drop=True)
+                    for row_idx in range(len(df)):
+                        df.at[row_idx, col] = collapse_column(
+                            df.at[row_idx, col],
+                            intra_lookup=self.intra_lookup,
+                            ref_lookup=self._ref_lookup_for_entry(entries[row_idx]),
+                            field_path=f"{ytype}[{row_idx}].{col}",
+                        )
+                else:
+                    df[col] = df[col].apply(collapse_column)
             elif col == "edges":
                 df[col] = df[col].apply(format_edges)
             elif col == "tourContent":
@@ -245,9 +377,16 @@ class FullDetailTableGenerator(TableGenerator):
                 df[col] = df[col].apply(format_list)
 
         df_filled = df.fillna("").sort_values("id")
+        table = df_filled.to_markdown(index=False)
 
-        # Convert to markdown
-        return df_filled.to_markdown(index=False)
+        # Append per-entry References sub-sections for entries with externalReferences.
+        sections = [table]
+        for entry in sorted_entries:
+            refs = entry.get("externalReferences")
+            if refs:
+                sections.append(f"\n## References for {entry['id']}\n{_references_bullets_only(refs)}")
+
+        return "\n".join(sections)
 
 
 class SummaryTableGenerator(TableGenerator):
@@ -261,30 +400,57 @@ class SummaryTableGenerator(TableGenerator):
         """
         Generate summary markdown table.
 
+        When intra_lookup and ref_lookup are set on the instance, sentinel spans
+        in the description field are expanded before the table is rendered.
+        Entries with a non-empty externalReferences array get a "## References for {id}"
+        sub-section appended after the main table.
+
         Args:
             yaml_data: Parsed YAML data dictionary
             ytype: Type of data (components, controls, risks)
 
         Returns:
-            Formatted markdown table string
+            Formatted markdown table string, followed by any References sub-sections
         """
-        items = yaml_data.get(ytype, [])
+        items = yaml_data.get(ytype, []) or []
+        sorted_items = sorted(items, key=lambda e: e.get("id", ""))
 
         rows = []
-        for item in items:
+        for row_idx, item in enumerate(items):
             # Prefer shortDescription over description
             desc = item.get("shortDescription") or item.get("description", "")
+
+            if desc and self.intra_lookup is not None and self.ref_lookup is not None:
+                # Expand sentinels; field_path points at the source field and row.
+                field_name = "shortDescription" if item.get("shortDescription") else "description"
+                collapsed = collapse_column(
+                    desc,
+                    intra_lookup=self.intra_lookup,
+                    ref_lookup=self._ref_lookup_for_entry(item),
+                    field_path=f"{ytype}[{row_idx}].{field_name}",
+                )
+            else:
+                collapsed = collapse_column(desc) if desc else ""
 
             row = {
                 "ID": item.get("id", ""),
                 "Title": item.get("title", ""),
-                "Description": collapse_column(desc) if desc else "",
+                "Description": collapsed,
                 "Category": item.get("category", ""),
             }
             rows.append(row)
 
         df = pd.DataFrame(rows).sort_values("ID")
-        return df.to_markdown(index=False)
+        table = df.to_markdown(index=False)
+
+        # Append per-entry References sub-sections for entries with externalReferences.
+        sections = [table]
+        for entry in sorted_items:
+            refs = entry.get("externalReferences")
+            if refs:
+                sections.append(f"\n## References for {entry['id']}\n{_references_bullets_only(refs)}")
+
+        return "\n".join(sections)
 
 
 class PersonaSummaryTableGenerator(TableGenerator):
@@ -309,12 +475,22 @@ class PersonaSummaryTableGenerator(TableGenerator):
 
         items = yaml_data.get("personas", [])
         rows = []
-        for item in items:
+        for idx, item in enumerate(items):
             desc = item.get("description", "")
+            if desc and self.intra_lookup is not None and self.ref_lookup is not None:
+                # Expand sentinels in description; field_path uses insertion-order index.
+                collapsed = collapse_column(
+                    desc,
+                    intra_lookup=self.intra_lookup,
+                    ref_lookup=self._ref_lookup_for_entry(item),
+                    field_path=f"personas[{idx}].description",
+                )
+            else:
+                collapsed = collapse_column(desc) if desc else ""
             row = {
                 "ID": item.get("id", ""),
                 "Title": item.get("title", ""),
-                "Description": collapse_column(desc) if desc else "",
+                "Description": collapsed,
                 "Status": "Deprecated" if item.get("deprecated", False) else "",
             }
             rows.append(row)
@@ -324,7 +500,18 @@ class PersonaSummaryTableGenerator(TableGenerator):
             df = pd.DataFrame(columns=["ID", "Title", "Description", "Status"])
         else:
             df = pd.DataFrame(rows).sort_values("ID")
-        return df.to_markdown(index=False)
+        table = df.to_markdown(index=False)
+
+        # Append per-persona References sub-sections in id-sorted order so they
+        # follow the table's row order (the DataFrame is sort_values("ID") above).
+        sorted_items = sorted(items, key=lambda e: e.get("id", ""))
+        sections = [table]
+        for entry in sorted_items:
+            refs = entry.get("externalReferences")
+            if refs:
+                sections.append(f"\n## References for {entry['id']}\n{_references_bullets_only(refs)}")
+
+        return "\n".join(sections)
 
 
 class PersonaFullDetailTableGenerator(TableGenerator):
@@ -349,14 +536,51 @@ class PersonaFullDetailTableGenerator(TableGenerator):
 
         items = yaml_data.get("personas", [])
         rows = []
-        for item in items:
+        for idx, item in enumerate(items):
+            desc = item.get("description", "")
+            if self.intra_lookup is not None and self.ref_lookup is not None:
+                # Build per-entry lookup once and reuse across all three expansion sites.
+                row_ref_lookup = self._ref_lookup_for_entry(item)
+                # Expand sentinels in description; field_path uses insertion-order index.
+                collapsed_desc = collapse_column(
+                    desc,
+                    intra_lookup=self.intra_lookup,
+                    ref_lookup=row_ref_lookup,
+                    field_path=f"personas[{idx}].description",
+                )
+                # Expand sentinels in each responsibilities item before passing to format_list.
+                expanded_resp = [
+                    expand_sentinels_to_text(
+                        r,
+                        intra_lookup=self.intra_lookup,
+                        ref_lookup=row_ref_lookup,
+                        field_path=f"personas[{idx}].responsibilities[{i}]",
+                    )
+                    for i, r in enumerate(item.get("responsibilities", []))
+                ]
+                # Expand sentinels in each identificationQuestions item.
+                expanded_idq = [
+                    expand_sentinels_to_text(
+                        q,
+                        intra_lookup=self.intra_lookup,
+                        ref_lookup=row_ref_lookup,
+                        field_path=f"personas[{idx}].identificationQuestions[{i}]",
+                    )
+                    for i, q in enumerate(item.get("identificationQuestions", []))
+                ]
+            else:
+                # No lookups: pass through unchanged (pre-A7 backward compat).
+                collapsed_desc = collapse_column(desc)
+                expanded_resp = item.get("responsibilities", [])
+                expanded_idq = item.get("identificationQuestions", [])
+
             row = {
                 "ID": item.get("id", ""),
                 "Title": item.get("title", ""),
-                "Description": collapse_column(item.get("description", "")),
+                "Description": collapsed_desc,
                 "Status": "Deprecated" if item.get("deprecated", False) else "",
-                "Responsibilities": format_list(item.get("responsibilities", []), prefix="- "),
-                "Identification Questions": format_list(item.get("identificationQuestions", []), prefix="- "),
+                "Responsibilities": format_list(expanded_resp, prefix="- "),
+                "Identification Questions": format_list(expanded_idq, prefix="- "),
                 "Mappings": format_mappings(item.get("mappings", {})),
             }
             rows.append(row)
@@ -376,7 +600,18 @@ class PersonaFullDetailTableGenerator(TableGenerator):
             )
         else:
             df = pd.DataFrame(rows).sort_values("ID")
-        return df.to_markdown(index=False)
+        table = df.to_markdown(index=False)
+
+        # Append per-persona References sub-sections in id-sorted order so they
+        # follow the table's row order (the DataFrame is sort_values("ID") above).
+        sorted_items = sorted(items, key=lambda e: e.get("id", ""))
+        sections = [table]
+        for entry in sorted_items:
+            refs = entry.get("externalReferences")
+            if refs:
+                sections.append(f"\n## References for {entry['id']}\n{_references_bullets_only(refs)}")
+
+        return "\n".join(sections)
 
 
 class PersonaXRefTableGenerator(TableGenerator):
@@ -822,6 +1057,30 @@ def yaml_to_markdown_table(yaml_file, ytype, table_format: str = "full", flat: b
     # Get input directory for cross-reference lookups
     input_dir = Path(yaml_file).parent
 
+    # Build intra_lookup from all four corpus files; tolerate missing siblings.
+    # XRef generators don't expand prose, but passing lookups here is harmless.
+    intra_lookup: dict[str, str] = {}
+    for fname, key in (
+        ("risks.yaml", "risks"),
+        ("controls.yaml", "controls"),
+        ("components.yaml", "components"),
+        ("personas.yaml", "personas"),
+    ):
+        fpath = input_dir / fname
+        if not fpath.exists():
+            continue
+        with open(fpath) as fh:
+            sibling = yaml.safe_load(fh) or {}
+        for item in sibling.get(key, []) or []:
+            if isinstance(item, dict) and "id" in item and "title" in item:
+                intra_lookup[item["id"]] = item["title"]
+
+    # ref_lookup is built per-entry by the generator via _ref_lookup_for_entry;
+    # this matches build_persona_site_data.py's _build_ref_lookup pattern
+    # (ADR-016 D6 rule 3, per-entry resolution scope). The empty dict here makes
+    # any sentinel that escapes per-entry lookup hard-fail.
+    ref_lookup: dict[str, dict] = {}
+
     # Create generator instance and generate table
     # Handle persona-specific generators
     if ytype == "personas":
@@ -849,7 +1108,7 @@ def yaml_to_markdown_table(yaml_file, ytype, table_format: str = "full", flat: b
         else:
             generator_class = TABLE_GENERATORS[table_format]
 
-    generator = generator_class(input_dir=input_dir)
+    generator = generator_class(input_dir=input_dir, intra_lookup=intra_lookup, ref_lookup=ref_lookup)
 
     return generator.generate(data, ytype)
 
