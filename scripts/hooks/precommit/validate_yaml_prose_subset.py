@@ -27,7 +27,7 @@ _HOOKS_DIR = Path(__file__).resolve().parent.parent
 if str(_HOOKS_DIR) not in sys.path:
     sys.path.insert(0, str(_HOOKS_DIR))
 
-from precommit._linter_types import Diagnostic, ProseField  # noqa: E402
+from precommit._linter_types import Diagnostic, ProseField, format_diagnostic_line  # noqa: E402
 from precommit._prose_fields import find_prose_fields  # noqa: E402
 from precommit._prose_tokens import TokenKind  # noqa: E402
 
@@ -118,6 +118,7 @@ def check_prose_field(field: ProseField) -> list[Diagnostic]:
                 field_name=field.field_name,
                 index=field.index,
                 reason=reason,
+                nested_index=field.nested_index,
             )
         )
     return diagnostics
@@ -126,14 +127,19 @@ def check_prose_field(field: ProseField) -> list[Diagnostic]:
 def _emit_diagnostic(diag: Diagnostic) -> None:
     """Print a single Diagnostic to stderr in the committed format.
 
-    Format: ``<hook_id>: <file>:<entry_id>:<field>[<index>]: <reason>``
+    Format when ``diag.nested_index`` is None (flat-array violation):
+        ``<hook_id>: <file>:<entry_id>:<field>[<index>]: <reason>``
+
+    Format when ``diag.nested_index`` is not None (inner-list violation):
+        ``<hook_id>: <file>:<entry_id>:<field>[<outer>][<inner>]: <reason>``
+
+    The optional ``[<nested_index>]`` segment is appended only for inner-list
+    violations; flat-array output is byte-for-byte unchanged.
 
     Args:
         diag: The Diagnostic to emit.
     """
-    idx_str = f"[{diag.index}]" if diag.index is not None else "[0]"
-    line = f"{diag.hook_id}: {diag.file_path}:{diag.entry_id}:{diag.field_name}{idx_str}: {diag.reason}"
-    print(line, file=sys.stderr)
+    print(format_diagnostic_line(diag), file=sys.stderr)
 
 
 def main(argv: list[str] | None = None) -> NoReturn:

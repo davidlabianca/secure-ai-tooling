@@ -78,7 +78,7 @@ A new local hook lands under `.pre-commit-config.yaml` per [ADR-013](013-site-pr
 - **Pass filenames:** true.
 - **Walks every prose field** identified by the schemas as a string or `definitions/prose` reference (`description`, `shortDescription`, `longDescription`, `examples`, `responsibilities`, `tourContent.*`, and equivalents). The list of prose fields is read from the schemas, not hardcoded, to prevent drift when a sibling ADR adds a field.
 - **Tokenizer:** hand-rolled, regex-driven, covering the three allowed forms. Vanilla Python, no markdown library — consistent with [ADR-015](015-site-content-sanitization-invariants.md)'s zero-dep posture for the matching site-side sanitizer.
-- **Rejection format:** stderr line per offending paragraph: `validate-yaml-prose-subset: <file>:<entry-id>:<field>[<index>]: <reason> at <token-snippet>`. Exit non-zero on any rejection.
+- **Rejection format:** stderr line per offending paragraph: `validate-yaml-prose-subset: <file>:<entry-id>:<field>[<index>]: <reason> at <token-snippet>`. A paragraph nested one level inside an inner list (the `oneOf: [string, array<string>]` shape the `utils/text` definition admits) carries a second segment — `<field>[<outer>][<inner>]` — so each inner string is individually addressable. Exit non-zero on any rejection.
 - **Rule list (block-mode end state):**
   1. Accept `**bold**` (one nesting level), `*italic*`, `_italic_`, and the sentinel forms decided in [ADR-016](016-reference-strategy.md).
   2. **Reject any prose carrying a URI scheme inline.** The rule is categorical, not an enumeration. The tokenizer applies two patterns:

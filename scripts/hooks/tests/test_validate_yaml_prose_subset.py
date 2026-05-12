@@ -197,8 +197,15 @@ def _make_control(control_id: str, description: list[str] | None = None) -> dict
 # Field segment allows dotted paths (e.g. "tourContent.introduced") — dots are
 # permitted but no additional colons.  The reason segment now requires the
 # ADR-017 D4 "at '<snippet>'" suffix.
+#
+# The optional second bracket group ``(?:\[\d+\])?`` accommodates the
+# nested-index extension (issue #285): when a violating token lives inside an
+# inner-list string the location becomes ``<field>[<outer>][<inner>]: <reason>``.
+# Flat-array diagnostics still emit the bare ``<field>[<outer>]:`` form.
 # ---------------------------------------------------------------------------
-_DIAG_PATTERN = re.compile(r"^validate-yaml-prose-subset: [^:]+:[^:]+:[^:\[.]+(?:\.[^:\[.]+)*\[\d+\]: .+ at '.*'$")
+_DIAG_PATTERN = re.compile(
+    r"^validate-yaml-prose-subset: [^:]+:[^:]+:[^:\[.]+(?:\.[^:\[.]+)*\[\d+\](?:\[\d+\])?: .+ at '.*'$"
+)
 
 
 # ===========================================================================
@@ -974,9 +981,20 @@ class TestDiagnosticFormat:
         return check_prose_field(field)
 
     def _diag_to_line(self, diag: "Diagnostic") -> str:
-        r"""Convert a Diagnostic to its string representation."""
-        idx_str = f"[{diag.index}]" if diag.index is not None else ""
-        return f"{diag.hook_id}: {diag.file_path}:{diag.entry_id}:{diag.field_name}{idx_str}: {diag.reason}"
+        r"""Convert a Diagnostic to its string representation.
+
+        Matches the ``_emit_diagnostic`` format:
+        ``<hook_id>: <file>:<entry_id>:<field>[<index>][<nested_index>]: <reason>``
+
+        The optional ``[<nested_index>]`` segment is appended only when
+        ``diag.nested_index is not None`` (issue #285 extension).
+        """
+        idx_str = f"[{diag.index}]" if diag.index is not None else "[0]"
+        nested_str = f"[{diag.nested_index}]" if getattr(diag, "nested_index", None) is not None else ""
+        return (
+            f"{diag.hook_id}: {diag.file_path}:{diag.entry_id}:"
+            f"{diag.field_name}{idx_str}{nested_str}: {diag.reason}"
+        )
 
     def test_diagnostic_hook_id_is_correct(self):
         r"""
@@ -1771,3 +1789,237 @@ class TestFoldedBulletVsListAtColumn0:
             tokens=tokens,
         )
         assert len(check_prose_field(field)) >= 1
+
+
+# ===========================================================================
+# TestNestedIndexDiagnostic
+# ===========================================================================
+
+
+class TestNestedIndexDiagnostic:
+    r"""Diagnostics on inner-list strings carry nested_index and emit [outer][inner].
+
+    Issue #285: when a prose-field value uses the nested-array shape
+    (``items: oneOf [string, array<string>]``), the linter must surface both
+    the outer index and the inner index so the exact string can be located.
+
+    Three behavioural contracts are verified here:
+
+    1. ``Diagnostic.nested_index`` is populated from ``ProseField.nested_index``
+       when the violating string came from an inner list.
+    2. The emitted stderr location string uses the ``[outer][inner]:`` form for
+       inner-list violations (not the ambiguous bare ``[outer]:`` form).
+    3. For flat-array violations (``nested_index is None``), the emitted line
+       is unchanged — the bare ``[outer]:`` form without a second bracket pair.
+    """
+
+    def _make_nested_field(
+        self,
+        raw_text: str,
+        index: int,
+        nested_index: int | None,
+        field_name: str = "shortDescription",
+        entry_id: str = "riskAlpha",
+    ) -> "ProseField":
+        r"""Build a ProseField that simulates an inner-list source string.
+
+        The ``nested_index`` argument is forwarded to ``ProseField`` so callers
+        can exercise both the nested (``nested_index=<int>``) and flat-array
+        (``nested_index=None``) paths without going through the full YAML
+        discovery pipeline.
+        """
+        from precommit._prose_tokens import tokenize  # noqa: PLC0415
+
+        return ProseField(
+            file_path=Path("risks.yaml"),
+            entry_id=entry_id,
+            field_name=field_name,
+            index=index,
+            raw_text=raw_text,
+            tokens=tokenize(raw_text),
+            nested_index=nested_index,
+        )
+
+    # ------------------------------------------------------------------
+    # 1. Diagnostic carries nested_index from ProseField
+    # ------------------------------------------------------------------
+
+    def test_diagnostic_nested_index_populated_from_prose_field(self):
+        r"""
+        Diagnostic.nested_index reflects the inner-list position from ProseField.
+
+        Given: A ProseField with index=3 and nested_index=1, containing an HTML
+               tag violation
+        When: check_prose_field is called
+        Then: Every returned Diagnostic has .index == 3 and .nested_index == 1
+        """
+        field = self._make_nested_field(
+            raw_text="See <br/> in an inner-list string.",
+            index=3,
+            nested_index=1,
+        )
+        diags = check_prose_field(field)
+        assert len(diags) >= 1, "Expected at least one diagnostic for the HTML tag"
+        for diag in diags:
+            assert diag.index == 3, f"Expected index=3, got {diag.index}"
+            assert diag.nested_index == 1, (
+                f"Expected nested_index=1 on Diagnostic; got {diag.nested_index!r}. "
+                "Diagnostic.nested_index must mirror ProseField.nested_index (issue #285)."
+            )
+
+    def test_diagnostic_nested_index_is_none_for_flat_array_field(self):
+        r"""
+        Diagnostic.nested_index is None when the source ProseField is a flat-array item.
+
+        Given: A ProseField with nested_index=None (flat-array shape), containing
+               an HTML tag violation
+        When: check_prose_field is called
+        Then: Every returned Diagnostic has .nested_index is None
+        """
+        field = self._make_nested_field(
+            raw_text="See <br/> in a flat-array string.",
+            index=2,
+            nested_index=None,
+        )
+        diags = check_prose_field(field)
+        assert len(diags) >= 1, "Expected at least one diagnostic for the HTML tag"
+        for diag in diags:
+            assert diag.nested_index is None, (
+                f"Expected nested_index=None for flat-array ProseField; got {diag.nested_index!r}."
+            )
+
+    def test_diagnostic_nested_index_preserved_across_multiple_violations(self):
+        r"""
+        All Diagnostics from one inner-list ProseField share the same nested_index.
+
+        Given: A ProseField with nested_index=0 containing two HTML tags
+               (<strong>...</strong>)
+        When: check_prose_field is called
+        Then: At least two Diagnostics are returned and all have nested_index == 0
+        """
+        field = self._make_nested_field(
+            raw_text="The <strong>critical</strong> path.",
+            index=1,
+            nested_index=0,
+        )
+        diags = check_prose_field(field)
+        assert len(diags) >= 2, "Expected diagnostics for both <strong> and </strong> tags"
+        for diag in diags:
+            assert diag.nested_index == 0, (
+                f"All Diagnostics from one inner-list field must share nested_index=0; got {diag.nested_index!r}."
+            )
+
+    # ------------------------------------------------------------------
+    # 2. Emitted location string uses [outer][inner] for nested violations
+    # ------------------------------------------------------------------
+
+    def test_emitted_stderr_contains_double_bracket_for_nested_violation(self, tmp_path, capsys):
+        r"""
+        main() emits ``<field>[<outer>][<inner>]:`` for inner-list violations.
+
+        Given: The subset_violations/nested_list_html_violation.yaml fixture —
+               riskAlpha.shortDescription is a mixed array where outer index 1 is
+               a nested list; inner index 1 contains ``<strong>forbidden HTML</strong>``
+        When: main() is called with the fixture file
+        Then: At least one stderr line contains 'shortDescription[1][1]:' exactly
+              (confirming both the outer and inner index are surfaced)
+        """
+        schema_dir = _SCHEMA_DIR
+        yaml_path = _SUBSET_VIOL_DIR / "nested_list_html_violation.yaml"
+        with pytest.raises(SystemExit):
+            main([str(yaml_path), "--schema-dir", str(schema_dir)])
+        captured = capsys.readouterr()
+        lines = [ln for ln in captured.err.splitlines() if ln.strip()]
+        assert len(lines) >= 1, "Expected at least one diagnostic line"
+        double_bracket_lines = [ln for ln in lines if "shortDescription[1][1]:" in ln]
+        assert len(double_bracket_lines) >= 1, (
+            "Expected a line containing 'shortDescription[1][1]:' for the inner-index "
+            "diagnostic (issue #285). Got stderr lines:\n" + "\n".join(f"  {ln}" for ln in lines)
+        )
+
+    def test_emitted_location_uses_outer_inner_bracket_not_bare_outer(self, tmp_path, capsys):
+        r"""
+        The inner-list violation line does NOT collapse to the bare [outer]: form.
+
+        Given: The subset_violations/nested_list_html_violation.yaml fixture
+        When: main() is called
+        Then: No stderr line for the inner-list violation contains
+              'shortDescription[1]:' without the second bracket pair
+              (i.e., the bare [outer]: form is NOT emitted for inner-list strings)
+        """
+        schema_dir = _SCHEMA_DIR
+        yaml_path = _SUBSET_VIOL_DIR / "nested_list_html_violation.yaml"
+        with pytest.raises(SystemExit):
+            main([str(yaml_path), "--schema-dir", str(schema_dir)])
+        captured = capsys.readouterr()
+        lines = [ln for ln in captured.err.splitlines() if ln.strip()]
+        # A bare [1]: would look like "shortDescription[1]: " (no second bracket).
+        # We verify no diagnostic line matches the ambiguous-collapse form.
+        bare_outer_lines = [
+            ln for ln in lines if "shortDescription[1]:" in ln and "shortDescription[1][" not in ln
+        ]
+        assert len(bare_outer_lines) == 0, (
+            f"Expected NO bare 'shortDescription[1]:' lines for an inner-list violation; "
+            f"found {len(bare_outer_lines)} line(s):\n"
+            + "\n".join(f"  {ln}" for ln in bare_outer_lines)
+            + "\nAll lines:\n"
+            + "\n".join(f"  {ln}" for ln in lines)
+        )
+
+    def test_all_nested_diagnostic_lines_match_extended_format_regex(self, tmp_path, capsys):
+        r"""
+        Every stderr line from the nested-violation fixture matches _DIAG_PATTERN.
+
+        Given: The subset_violations/nested_list_html_violation.yaml fixture
+        When: main() is called
+        Then: All non-empty stderr lines match the updated _DIAG_PATTERN, which
+              accepts the optional second bracket pair ``(?:\[\d+\])?``
+        """
+        schema_dir = _SCHEMA_DIR
+        yaml_path = _SUBSET_VIOL_DIR / "nested_list_html_violation.yaml"
+        with pytest.raises(SystemExit):
+            main([str(yaml_path), "--schema-dir", str(schema_dir)])
+        captured = capsys.readouterr()
+        lines = [ln for ln in captured.err.splitlines() if ln.strip()]
+        assert len(lines) >= 1
+        for line in lines:
+            assert _DIAG_PATTERN.match(line), f"Diagnostic line does not match extended _DIAG_PATTERN: {line!r}"
+
+    # ------------------------------------------------------------------
+    # 3. Flat-array format is unchanged (nested_index is None path)
+    # ------------------------------------------------------------------
+
+    def test_flat_array_diagnostic_emits_single_bracket_only(self, tmp_path, capsys):
+        r"""
+        A flat-array violation still emits only [outer]: with no second bracket pair.
+
+        Given: A YAML with a flat-array shortDescription containing one HTML violation
+               at outer index 0 (nested_index=None)
+        When: main() is called
+        Then: The stderr line contains '[0]:' and does NOT contain '[0][':
+              confirming the flat-array format is byte-for-byte unchanged
+        """
+        schema_dir = tmp_path / "schemas"
+        schema_dir.mkdir()
+        prose_ref = {"$ref": "riskmap.schema.json#/definitions/utils/text"}
+        _write_mock_schema(schema_dir, "risk", ["riskAlpha"], extra_props={"shortDescription": prose_ref})
+        yaml_path = _write_yaml(
+            tmp_path,
+            "risks.yaml",
+            {"risks": [_make_risk("riskAlpha", short=["Clean.", "See <br/> in flat array."])]},
+        )
+        with pytest.raises(SystemExit):
+            main([str(yaml_path), "--schema-dir", str(schema_dir)])
+        captured = capsys.readouterr()
+        lines = [ln for ln in captured.err.splitlines() if ln.strip()]
+        assert len(lines) >= 1, "Expected at least one diagnostic for the HTML tag"
+        # All lines for shortDescription must have single-bracket only.
+        desc_lines = [ln for ln in lines if "shortDescription" in ln]
+        assert len(desc_lines) >= 1
+        for line in desc_lines:
+            # Must contain single-bracket form.
+            assert re.search(r"shortDescription\[\d+\]:", line), f"Expected single-bracket form in: {line!r}"
+            # Must NOT contain double-bracket form.
+            assert not re.search(r"shortDescription\[\d+\]\[\d+\]:", line), (
+                f"Flat-array line must not contain double brackets: {line!r}"
+            )

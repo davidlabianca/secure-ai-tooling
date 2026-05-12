@@ -149,8 +149,15 @@ _REPO_ROOT = Path(__file__).resolve().parent.parent.parent.parent
 # Field segment allows dotted paths (e.g. "tourContent.introduced").
 # The references linter embeds the token value directly in reason strings
 # (e.g. "... at 'riskBaz'"); the regex matches any non-empty reason.
+#
+# The optional second bracket group ``(?:\[\d+\])?`` accommodates the
+# nested-index extension (issue #285): when a violating token lives inside an
+# inner-list string the location becomes ``<field>[<outer>][<inner>]: <reason>``.
+# Flat-array diagnostics still emit the bare ``<field>[<outer>]:`` form.
 # ---------------------------------------------------------------------------
-_DIAG_PATTERN = re.compile(r"^validate-prose-references: [^:]+:[^:]+:[^:\[.]+(?:\.[^:\[.]+)*\[\d+\]: .+$")
+_DIAG_PATTERN = re.compile(
+    r"^validate-prose-references: [^:]+:[^:]+:[^:\[.]+(?:\.[^:\[.]+)*\[\d+\](?:\[\d+\])?: .+$"
+)
 
 # ---------------------------------------------------------------------------
 # Helpers for building synthetic YAML and schema fixtures
@@ -1695,3 +1702,278 @@ class TestDiagnosticPatternRedosResistance:
             f"diagnostic regex took {elapsed:.3f}s on redos seed; "
             f"should be linear-time (sub-millisecond).  CodeQL #21 may have regressed."
         )
+
+
+# ===========================================================================
+# TestNestedIndexDiagnostic
+# ===========================================================================
+
+
+class TestNestedIndexDiagnostic:
+    r"""Diagnostics on inner-list strings carry nested_index and emit [outer][inner].
+
+    Issue #285: when a prose-field value uses the nested-array shape
+    (``items: oneOf [string, array<string>]``), the references linter must
+    surface both the outer index and the inner index so the exact string can be
+    located.
+
+    Three behavioural contracts are verified here:
+
+    1. ``Diagnostic.nested_index`` is populated from ``ProseField.nested_index``
+       when the violating string came from an inner list.
+    2. The emitted stderr location string uses the ``[outer][inner]:`` form for
+       inner-list violations (not the ambiguous bare ``[outer]:`` form).
+    3. For flat-array violations (``nested_index is None``), the emitted line
+       is unchanged — the bare ``[outer]:`` form without a second bracket pair.
+    """
+
+    def _make_nested_field(
+        self,
+        raw_text: str,
+        index: int,
+        nested_index: int | None,
+        entry_id: str = "riskAlpha",
+        field_name: str = "shortDescription",
+    ) -> "ProseField":
+        r"""Build a ProseField that simulates an inner-list source string.
+
+        The ``nested_index`` argument is forwarded to ``ProseField`` so callers
+        can exercise both the nested (``nested_index=<int>``) and flat-array
+        (``nested_index=None``) paths without going through the full YAML
+        discovery pipeline.
+        """
+        from precommit._prose_tokens import tokenize  # noqa: PLC0415
+
+        return ProseField(
+            file_path=Path("risks.yaml"),
+            entry_id=entry_id,
+            field_name=field_name,
+            index=index,
+            raw_text=raw_text,
+            tokens=tokenize(raw_text),
+            nested_index=nested_index,
+        )
+
+    # ------------------------------------------------------------------
+    # 1. Diagnostic carries nested_index from ProseField
+    # ------------------------------------------------------------------
+
+    def test_diagnostic_nested_index_populated_from_prose_field(self):
+        r"""
+        Diagnostic.nested_index reflects the inner-list position from ProseField.
+
+        Given: A ProseField with index=3 and nested_index=1, containing a bare
+               camelCase identifier riskBeta (reference violation)
+        When: check_references is called with an empty IdIndex
+        Then: Every returned Diagnostic has .index == 3 and .nested_index == 1
+        """
+        idx = _make_index()
+        field = self._make_nested_field(
+            raw_text="The riskBeta attack is relevant here.",
+            index=3,
+            nested_index=1,
+        )
+        diags = check_references(field, idx)
+        assert len(diags) >= 1, "Expected at least one diagnostic for the bare camelCase ID"
+        for diag in diags:
+            assert diag.index == 3, f"Expected index=3, got {diag.index}"
+            assert diag.nested_index == 1, (
+                f"Expected nested_index=1 on Diagnostic; got {diag.nested_index!r}. "
+                "Diagnostic.nested_index must mirror ProseField.nested_index (issue #285)."
+            )
+
+    def test_diagnostic_nested_index_is_none_for_flat_array_field(self):
+        r"""
+        Diagnostic.nested_index is None when the source ProseField is a flat-array item.
+
+        Given: A ProseField with nested_index=None (flat-array shape), containing
+               a bare camelCase identifier violation
+        When: check_references is called
+        Then: Every returned Diagnostic has .nested_index is None
+        """
+        idx = _make_index()
+        field = self._make_nested_field(
+            raw_text="The riskBeta is mentioned in a flat array.",
+            index=2,
+            nested_index=None,
+        )
+        diags = check_references(field, idx)
+        assert len(diags) >= 1, "Expected at least one diagnostic for the bare camelCase ID"
+        for diag in diags:
+            assert diag.nested_index is None, (
+                f"Expected nested_index=None for flat-array ProseField; got {diag.nested_index!r}."
+            )
+
+    def test_diagnostic_nested_index_preserved_for_url_violation(self):
+        r"""
+        Diagnostic.nested_index is populated for inline-URL violations in inner-list strings.
+
+        Given: A ProseField with index=1 and nested_index=0, containing an inline URL
+        When: check_references is called
+        Then: The URL Diagnostic has .index == 1 and .nested_index == 0
+        """
+        idx = _make_index()
+        field = self._make_nested_field(
+            raw_text="See https://example.com for details.",
+            index=1,
+            nested_index=0,
+        )
+        diags = check_references(field, idx)
+        url_diags = [d for d in diags if "inline URL" in d.reason]
+        assert len(url_diags) >= 1, "Expected at least one URL diagnostic"
+        for diag in url_diags:
+            assert diag.index == 1
+            assert diag.nested_index == 0, f"Expected nested_index=0 on URL Diagnostic; got {diag.nested_index!r}."
+
+    # ------------------------------------------------------------------
+    # 2. Emitted location string uses [outer][inner] for nested violations
+    # ------------------------------------------------------------------
+
+    def test_emitted_stderr_contains_double_bracket_for_nested_violation(self, tmp_path, capsys):
+        r"""
+        main() emits ``<field>[<outer>][<inner>]:`` for inner-list violations.
+
+        Given: The reference_violations/nested_list_bare_camelcase.yaml fixture —
+               riskAlpha.shortDescription is a mixed array where outer index 1 is
+               a nested list; inner index 1 contains the bare camelCase ID 'riskBeta'
+        When: main() is called with the fixture file and an id-sources list that
+              does not contain riskBeta (so the bare ID is not a known entity)
+        Then: At least one stderr line contains 'shortDescription[1][1]:' exactly
+        """
+        schema_dir = _SCHEMA_DIR
+        yaml_path = _REF_VIOL_DIR / "nested_list_bare_camelcase.yaml"
+        # Build an ID index from the fixture itself (riskAlpha is declared there).
+        # riskBeta is NOT declared, so the bare identifier remains a violation.
+        idx_yaml = _write_yaml(tmp_path, "idx.yaml", {"risks": []})
+        with pytest.raises(SystemExit):
+            main(
+                [
+                    str(yaml_path),
+                    "--schema-dir",
+                    str(schema_dir),
+                    "--id-sources",
+                    str(idx_yaml),
+                ]
+            )
+        captured = capsys.readouterr()
+        lines = [ln for ln in captured.err.splitlines() if ln.strip()]
+        assert len(lines) >= 1, "Expected at least one diagnostic line"
+        double_bracket_lines = [ln for ln in lines if "shortDescription[1][1]:" in ln]
+        assert len(double_bracket_lines) >= 1, (
+            "Expected a line containing 'shortDescription[1][1]:' for the inner-index "
+            "diagnostic (issue #285). Got stderr lines:\n" + "\n".join(f"  {ln}" for ln in lines)
+        )
+
+    def test_emitted_location_uses_outer_inner_bracket_not_bare_outer(self, tmp_path, capsys):
+        r"""
+        The inner-list violation line does NOT collapse to the bare [outer]: form.
+
+        Given: The reference_violations/nested_list_bare_camelcase.yaml fixture
+        When: main() is called
+        Then: No stderr line for the inner-list violation contains
+              'shortDescription[1]:' without the second bracket pair
+        """
+        schema_dir = _SCHEMA_DIR
+        yaml_path = _REF_VIOL_DIR / "nested_list_bare_camelcase.yaml"
+        idx_yaml = _write_yaml(tmp_path, "idx.yaml", {"risks": []})
+        with pytest.raises(SystemExit):
+            main(
+                [
+                    str(yaml_path),
+                    "--schema-dir",
+                    str(schema_dir),
+                    "--id-sources",
+                    str(idx_yaml),
+                ]
+            )
+        captured = capsys.readouterr()
+        lines = [ln for ln in captured.err.splitlines() if ln.strip()]
+        bare_outer_lines = [
+            ln for ln in lines if "shortDescription[1]:" in ln and "shortDescription[1][" not in ln
+        ]
+        assert len(bare_outer_lines) == 0, (
+            f"Expected NO bare 'shortDescription[1]:' lines for an inner-list violation; "
+            f"found {len(bare_outer_lines)} line(s):\n"
+            + "\n".join(f"  {ln}" for ln in bare_outer_lines)
+            + "\nAll lines:\n"
+            + "\n".join(f"  {ln}" for ln in lines)
+        )
+
+    def test_all_nested_diagnostic_lines_match_extended_format_regex(self, tmp_path, capsys):
+        r"""
+        Every stderr line from the nested-violation fixture matches _DIAG_PATTERN.
+
+        Given: The reference_violations/nested_list_bare_camelcase.yaml fixture
+        When: main() is called
+        Then: All non-empty stderr lines match the updated _DIAG_PATTERN, which
+              accepts the optional second bracket pair ``(?:\[\d+\])?``
+        """
+        schema_dir = _SCHEMA_DIR
+        yaml_path = _REF_VIOL_DIR / "nested_list_bare_camelcase.yaml"
+        idx_yaml = _write_yaml(tmp_path, "idx.yaml", {"risks": []})
+        with pytest.raises(SystemExit):
+            main(
+                [
+                    str(yaml_path),
+                    "--schema-dir",
+                    str(schema_dir),
+                    "--id-sources",
+                    str(idx_yaml),
+                ]
+            )
+        captured = capsys.readouterr()
+        lines = [ln for ln in captured.err.splitlines() if ln.strip()]
+        assert len(lines) >= 1
+        for line in lines:
+            assert _DIAG_PATTERN.match(line), f"Diagnostic line does not match extended _DIAG_PATTERN: {line!r}"
+
+    # ------------------------------------------------------------------
+    # 3. Flat-array format is unchanged (nested_index is None path)
+    # ------------------------------------------------------------------
+
+    def test_flat_array_diagnostic_emits_single_bracket_only(self, tmp_path, capsys):
+        r"""
+        A flat-array violation still emits only [outer]: with no second bracket pair.
+
+        Given: A YAML with a flat-array shortDescription containing a URL violation
+               at outer index 1 (nested_index=None)
+        When: main() is called
+        Then: The stderr line contains '[1]:' and does NOT contain '[1][':
+              confirming the flat-array format is byte-for-byte unchanged
+        """
+        schema_dir = tmp_path / "schemas"
+        schema_dir.mkdir()
+        _write_mock_schema(schema_dir, "risk", ["riskAlpha"])
+        yaml_path = _write_yaml(
+            tmp_path,
+            "risks.yaml",
+            {
+                "risks": [
+                    _make_risk(
+                        "riskAlpha",
+                        description=["Clean first paragraph.", "See https://example.com here."],
+                    )
+                ]
+            },
+        )
+        idx_yaml = _write_yaml(tmp_path, "idx.yaml", {"risks": []})
+        with pytest.raises(SystemExit):
+            main(
+                [
+                    str(yaml_path),
+                    "--schema-dir",
+                    str(schema_dir),
+                    "--id-sources",
+                    str(idx_yaml),
+                ]
+            )
+        captured = capsys.readouterr()
+        lines = [ln for ln in captured.err.splitlines() if ln.strip()]
+        assert len(lines) >= 1, "Expected at least one diagnostic for the URL"
+        desc_lines = [ln for ln in lines if "description" in ln]
+        assert len(desc_lines) >= 1
+        for line in desc_lines:
+            assert re.search(r"description\[\d+\]:", line), f"Expected single-bracket form in: {line!r}"
+            assert not re.search(r"description\[\d+\]\[\d+\]:", line), (
+                f"Flat-array line must not contain double brackets: {line!r}"
+            )

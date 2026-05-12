@@ -1,0 +1,13 @@
+risks:
+  - id: riskAlpha
+    title: Alpha Risk
+    # shortDescription uses a nested-array shape:
+    #   outer index 0 → flat string (clean)
+    #   outer index 1 → inner list; inner index 0 is clean,
+    #                               inner index 1 contains a bare camelCase ID
+    # The references linter should emit a diagnostic at shortDescription[1][1]
+    # for the bare camelCase identifier riskBeta (must be wrapped in {{...}}).
+    shortDescription:
+      - "Clean introductory paragraph."
+      - - "First nested bullet — clean prose."
+        - "Second nested bullet mentions riskBeta without a sentinel wrapper."
