@@ -417,7 +417,7 @@ risks:
       - >
         These risks also extend to on-device models, where an attacker has access to
         hardware.
-      - This risk is distinct from the related <a href="#riskModelReverseEngineering">Model Reverse Engineering</a>.
+      - This risk is distinct from the related {{riskModelReverseEngineering}}.
     category: risksDeploymentAndInfrastructure
     personas:
       - personaModelProvider
@@ -645,7 +645,7 @@ risks:
         original foundation model.
       - >
         These risks also extend to on-device models, where an attacker has access to
-        hardware. See also <a href="#riskModelExfiltration">Model Exfiltration</a>.
+        hardware. See also {{riskModelExfiltration}}.
     category: risksDeploymentAndInfrastructure
     personas:
       - personaModelProvider
@@ -730,7 +730,7 @@ risks:
         systems through this path when MCP servers fail to validate and sanitize
         parameters independently of the agent's intent.
       - >
-        Insecure Integrated Component is related to <a href="#riskPromptInjection">Prompt Injection</a>
+        Insecure Integrated Component is related to {{riskPromptInjection}}
         but these are different. Although attacks exploiting an Insecure Integrated
         Component often involve prompt injection, those could be also done via other
         means such as Poisoning and Evasion. In addition, prompt injection is possible
@@ -826,8 +826,8 @@ risks:
         Injections</a> generally cause the LLM to execute malicious “injected”
         instructions as part of data that were not meant to be executed by the LLM.
         The blast radius of such attacks can become much bigger in the presence of
-        other risks such as <a href="#riskInsecureIntegratedComponent">Insecure Integrated Component</a> and
-        <a href="#riskRogueActions">Rogue Actions</a>.
+        other risks such as {{riskInsecureIntegratedComponent}} and
+        {{riskRogueActions}}.
       - >
         With foundation models becoming multi-modal, multi-modal prompt injection has
         also become possible. These attacks use injection inputs other than text to
@@ -908,7 +908,7 @@ risks:
         In some cases, an attacker might gain clues about how to perturb inputs by discovering
         the underlying foundation model’s family, i.e., by knowing the particular
         architecture and evolution of a specific model. In other situations, an attacker
-        might repeatedly probe the model (see <a href="#riskModelReverseEngineering">Model Reverse Engineering</a>)
+        might repeatedly probe the model (see {{riskModelReverseEngineering}})
         to figure out inference patterns in order to craft examples that evade those
         inferences. Adversarial examples might be constructed by perturbations to inputs
         that will provide the output the attacker wants while looking unaltered otherwise.
@@ -1133,7 +1133,7 @@ risks:
         may be alarmed if a model infers sensitive data about them, and that one user
         may use a model to infer sensitive data about someone else.
       - >
-        This risk differs from <a href="#riskSensitiveDataDisclosure">Sensitive Data Disclosure</a> which involves
+        This risk differs from {{riskSensitiveDataDisclosure}} which involves
         sensitive data specifically from training, tuning or prompt data.
     category: risksRuntimeDataSecurity
     personas:
@@ -1672,18 +1672,18 @@ risks:
         descriptions, modify schemas, or inject shadowed tool entries that
         redirect agent tool selection.
       - >
-        This risk is distinct from <a href="#riskToolSourceProvenance">Tool Source Provenance</a>,
-        which addresses the use of unvetted sources. riskToolRegistryTampering assumes the source
+        This risk is distinct from {{riskToolSourceProvenance}},
+        which addresses the use of unvetted sources. {{riskToolRegistryTampering}} assumes the source
         was properly vetted but was subsequently compromised. The trust model
-        is different: riskToolSourceProvenance is a failure to verify, while riskToolRegistryTampering is a failure of
+        is different: {{riskToolSourceProvenance}} is a failure to verify, while {{riskToolRegistryTampering}} is a failure of
         ongoing integrity assurance.
       - >
-        riskToolRegistryTampering is structurally related to <a href="#riskOrchestratorRouteHijacking">Orchestrator/Route
-        Hijack</a>, which targets model routing configuration. Both involve
-        tampering with metadata that directs system behavior, but riskOrchestratorRouteHijacking
-        operates on model routing infrastructure while riskToolRegistryTampering operates on tool
-        discovery and selection mechanisms. A successful riskToolRegistryTampering exploit
-        typically manifests as <a href="#riskRogueActions">Rogue Actions</a>.
+        {{riskToolRegistryTampering}} is structurally related to {{riskOrchestratorRouteHijacking}},
+        which targets model routing configuration. Both involve
+        tampering with metadata that directs system behavior, but {{riskOrchestratorRouteHijacking}}
+        operates on model routing infrastructure while {{riskToolRegistryTampering}} operates on tool
+        discovery and selection mechanisms. A successful {{riskToolRegistryTampering}} exploit
+        typically manifests as {{riskRogueActions}}.
       - >
         The attack surface includes tool registry databases, MCP server
         manifest files, schema definition endpoints, and discovery service
@@ -1692,8 +1692,8 @@ risks:
         requires runtime integrity monitoring of tool metadata against
         known-good baselines.
       - >
-        <a href="#riskInsecureIntegratedComponent">Insecure Integrated Component</a> addresses
-        vulnerabilities in the tools themselves. riskToolRegistryTampering is complementary:
+        {{riskInsecureIntegratedComponent}} addresses
+        vulnerabilities in the tools themselves. {{riskToolRegistryTampering}} is complementary:
         it addresses the metadata that causes the agent to select a
         particular tool, regardless of whether the selected tool is
         itself secure.
@@ -2081,8 +2081,8 @@ risks:
         deliberately deceptive tool descriptions or schemas.
       - >
         This risk operates at the tool selection layer, before a prompt is
-        constructed. Unlike <a href="#riskPromptInjection">Prompt Injection</a>, which
-        targets model input processing, riskToolSourceProvenance targets the trust assumptions
+        constructed. Unlike {{riskPromptInjection}}, which
+        targets model input processing, {{riskToolSourceProvenance}} targets the trust assumptions
         in tool discovery. The agent's reasoning core treats tool metadata
         as authoritative, and unvetted sources exploit that trust.
       - >
@@ -2092,11 +2092,11 @@ risks:
         (configuration files that alter tool behavior). These were
         cataloged by Checkmarx in their MCP risk taxonomy (December 2025).
       - >
-        riskToolSourceProvenance is structurally analogous to <a href="#riskModelSourceTampering">Model Source
-        Tampering</a>, which addresses unvetted model artifacts in the
+        {{riskToolSourceProvenance}} is structurally analogous to {{riskModelSourceTampering}},
+        which addresses unvetted model artifacts in the
         supply chain. Both are provenance failures where untrusted sources
-        are consumed without verification. A successful riskToolSourceProvenance exploit
-        typically manifests as <a href="#riskRogueActions">Rogue Actions</a> when the
+        are consumed without verification. A successful {{riskToolSourceProvenance}} exploit
+        typically manifests as {{riskRogueActions}} when the
         agent invokes the wrong tool.
     category: risksSupplyChainAndDevelopment
     personas:
@@ -2345,12 +2345,12 @@ risks:
         violations, prolonged breach dwell time, and erosion of trust in
         autonomous agent systems.
       - >
-        This risk is distinct from riskRogueActions, which addresses what an
+        This risk is distinct from {{riskRogueActions}}, which addresses what an
         agent does wrong; Agent Delegation Chain Opacity addresses the inability
-        to determine who authorized the action. riskAgenticDelegationConfusedDeputy
+        to determine who authorized the action. {{riskAgenticDelegationConfusedDeputy}}
         addresses authorization failure at delegation boundaries; this risk
         addresses visibility failure across the full chain.
-        riskCrossTenantCredentialPropagation addresses credential propagation
+        {{riskCrossTenantCredentialPropagation}} addresses credential propagation
         across tenant boundaries, which may be a consequence of delegation chain
         opacity but is a distinct threat surface.
     category: risksDeploymentAndInfrastructure
@@ -2448,12 +2448,12 @@ risks:
         CI/CD manipulation, and the agent's credentials remain valid because
         the identity layer has no awareness of the artifact layer.
       - >
-        This risk is distinct from riskModelSourceTampering and
-        riskModelDeploymentTampering, which cover the tampering mechanics
+        This risk is distinct from {{riskModelSourceTampering}} and
+        {{riskModelDeploymentTampering}}, which cover the tampering mechanics
         themselves. Stale Agent Identity Binding covers the identity lifecycle
         failure that persists after a swap — the agent continues to authenticate
         with valid credentials regardless of the model behind it.
-        riskShadowAndUnknownAgents addresses agents that were never registered;
+        {{riskShadowAndUnknownAgents}} addresses agents that were never registered;
         this risk addresses registered agents whose identity binding becomes
         stale after the underlying artifact changes.
       - >
@@ -2562,11 +2562,11 @@ risks:
         replay of captured JSON-RPC messages, and session hijacking via
         intercepted session identifiers.
       - >
-        This risk is distinct from riskInsecureIntegratedComponent, which covers
+        This risk is distinct from {{riskInsecureIntegratedComponent}}, which covers
         vulnerabilities within MCP server implementations (e.g., path traversal).
         This risk covers the transport channel between agent and server. It is
-        distinct from riskOrchestratorRouteHijacking, which covers routing and
-        configuration manipulation. It is distinct from riskToolRegistryTampering,
+        distinct from {{riskOrchestratorRouteHijacking}}, which covers routing and
+        configuration manipulation. It is distinct from {{riskToolRegistryTampering}},
         which covers integrity of tool registration and discovery.
       - >
         Potential impacts include theft of tool schemas and sensitive data
@@ -2668,8 +2668,8 @@ risks:
         vectors include compromised orchestration components that spawn hidden
         agents and failure to decommission old agent instances (creating "zombie"
         agents). Supply-chain injection of backdoored agent templates is a
-        related vector addressed by riskToolSourceProvenance and
-        riskToolRegistryTampering; this risk covers the downstream identity
+        related vector addressed by {{riskToolSourceProvenance}} and
+        {{riskToolRegistryTampering}}; this risk covers the downstream identity
         lifecycle failure when such agents persist undetected.
       - >
         The insider threat dimension is also relevant: a compromised or rogue
@@ -2682,7 +2682,7 @@ risks:
         include accountability gaps (actions cannot be reliably attributed),
         compliance violations, and increased difficulty in incident response.
       - >
-        riskZombieShadowMCPServers addresses decommissioned tool server
+        {{riskZombieShadowMCPServers}} addresses decommissioned tool server
         endpoints; this risk addresses unregistered agent identities. Both share
         the lifecycle management failure mode but differ in the entity type
         affected.
@@ -2779,7 +2779,7 @@ risks:
         a feedback loop where the agent can no longer process enough history to
         recognize it should terminate.
       - >
-        This risk is distinct from riskEconomicDenialOfWallet, which addresses
+        This risk is distinct from {{riskEconomicDenialOfWallet}}, which addresses
         adversarial resource exhaustion at the API billing layer through
         attacks on pricing models and billing mechanisms. Runaway Agent Tool
         Loops addresses autonomous agent behavior at the MCP orchestration
@@ -2787,7 +2787,7 @@ risks:
         silently or incompletely), availability degradation for co-tenants, and
         safety failures in time-sensitive systems — impacts with no financial
         dimension. Prompt injection can trigger runaway loops (see
-        riskPromptInjection), but the underlying vulnerability is the absence
+        {{riskPromptInjection}}), but the underlying vulnerability is the absence
         of loop bounds at the orchestration layer.
       - >
         Potential impacts include context-window exhaustion leading to silent
@@ -2892,17 +2892,17 @@ risks:
         Attack vectors include indirect prompt injection via user-submitted
         data, poisoned MCP tool descriptions, crafted tool responses, and
         legitimate-looking API calls from less-privileged agents. The trigger
-        mechanism varies (see riskPromptInjection for injection attacks
+        mechanism varies (see {{riskPromptInjection}} for injection attacks
         specifically), but the underlying vulnerability is the same: the deputy
         does not check the caller's authorization scope before acting.
       - >
-        This risk is distinct from riskRogueActions, which covers unintended
+        This risk is distinct from {{riskRogueActions}}, which covers unintended
         agent actions broadly (accidental and malicious). The confused deputy
         specifically addresses the authorization failure at delegation
         boundaries — the caller could not perform the action directly, but the
         deputy does it using its own permissions. Rogue actions can occur in
         single-agent systems; the confused deputy requires asymmetric privilege
-        across a delegation boundary. riskAgentDelegationChainOpacity addresses
+        across a delegation boundary. {{riskAgentDelegationChainOpacity}} addresses
         the inability to see who authorized an action; this risk addresses the
         failure to check whether the caller was authorized.
       - >
@@ -3028,9 +3028,9 @@ risks:
         that work across tenant boundaries because nothing restricts their
         scope to the originating tenant.
       - >
-        This risk is distinct from riskAcceleratorAndSystemSideChannels, which
+        This risk is distinct from {{riskAcceleratorAndSystemSideChannels}}, which
         covers hardware-layer cross-tenant leakage (timing, cache, speculative
-        execution). It is also distinct from riskPromptResponseCachePoisoning,
+        execution). It is also distinct from {{riskPromptResponseCachePoisoning}},
         which covers cross-user contamination via shared LLM caches. This risk
         specifically addresses the identity and credential layer — shared or
         unscoped credentials that allow authentication across tenant boundaries.
@@ -3160,7 +3160,7 @@ risks:
         certificate, and mTLS will authenticate them as a "valid" server.
         Transport security works as specified — the missing layer is provenance
         binding to the registered principal. This is why the risk requires a
-        registry-bound provenance control (controlComponentIdentityProvenance)
+        registry-bound provenance control ({{controlComponentIdentityProvenance}})
         in addition to transport security and inventory management.
       - >
         The vulnerability stems from incomplete lifecycle management: tool
@@ -3170,15 +3170,15 @@ risks:
         verification exacerbate the risk — agents trust registry presence as
         proof of legitimacy.
       - >
-        This risk is distinct from riskToolSourceProvenance, which addresses
+        This risk is distinct from {{riskToolSourceProvenance}}, which addresses
         adopting unvetted tool sources — zombie servers were previously vetted
-        and legitimate. It is distinct from riskToolRegistryTampering, which
+        and legitimate. It is distinct from {{riskToolRegistryTampering}}, which
         addresses active modification of registry entries — zombie servers
         involve stale entries that were never cleaned up. It is distinct from
-        riskInsecureIntegratedComponent, which addresses vulnerabilities in
+        {{riskInsecureIntegratedComponent}}, which addresses vulnerabilities in
         running tool implementations — zombie servers involve the absence of a
         legitimate tool at an endpoint now controlled by an attacker.
-        riskShadowAndUnknownAgents addresses unregistered agent identities;
+        {{riskShadowAndUnknownAgents}} addresses unregistered agent identities;
         this risk addresses decommissioned tool server endpoints.
       - >
         Potential impacts include stealthy interception of tool calls, injection

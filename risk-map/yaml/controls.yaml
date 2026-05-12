@@ -804,7 +804,7 @@ controls:
         from agent observability, which addresses what agents do.
       - >
         This control extends the inventory management concept from
-        controlModelAndDataInventoryManagement to dynamic, running agent
+        {{controlModelAndDataInventoryManagement}} to dynamic, running agent
         entities. Where model/data inventory tracks static artifacts through
         build and deployment pipelines, agent inventory tracks entities with
         operational lifecycle states in a live system. Enforcement includes
@@ -855,7 +855,7 @@ controls:
         revocation propagation on decommission or underlying model swap.
       - >
         This control extends the integrity management concept from
-        controlModelAndDataIntegrityManagement to agent identity. Where
+        {{controlModelAndDataIntegrityManagement}} to agent identity. Where
         model/data integrity verifies that artifact content (weights, code)
         has not been tampered with, agent integrity verifies that a running
         agent's identity credentials match its registered entry. A model can
@@ -996,10 +996,10 @@ controls:
           decommission or credential compromise.
       - >
         This control addresses the transport layer — how component messages are
-        protected in transit. It is distinct from controlOrchestratorAndRouteIntegrity
-        (which governs where traffic is routed), controlSecureByDefaultMLTooling
+        protected in transit. It is distinct from {{controlOrchestratorAndRouteIntegrity}}
+        (which governs where traffic is routed), {{controlSecureByDefaultMLTooling}}
         (which governs tooling selection and configuration), and
-        controlIsolatedConfidentialComputing (which governs hardware-level
+        {{controlIsolatedConfidentialComputing}} (which governs hardware-level
         compute isolation). Those controls assume secure channels; this control
         establishes them.
     category: controlsInfrastructure
@@ -1067,8 +1067,8 @@ controls:
         registered principal?" — not the cryptographic protocol used to
         answer it.
       - >
-        This control is distinct from controlInterComponentTransportSecurity,
-        which secures the channel, and from controlAgentInventoryManagement,
+        This control is distinct from {{controlInterComponentTransportSecurity}},
+        which secures the channel, and from {{controlAgentInventoryManagement}},
         which maintains the registry of authorized principals. Inventory is
         the lifecycle authority; provenance is the runtime attestation that
         surfaces inventory state to callers; transport is the channel over
