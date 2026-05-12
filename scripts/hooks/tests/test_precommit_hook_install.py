@@ -620,34 +620,40 @@ class TestPersonaSiteBuildHookContracts:
 
 
 # ===========================================================================
-# Trigger ⊇ read-set invariant (Task 4 — structural enforcement, issue #279)
+# Trigger coverage invariant (Task 4 — structural enforcement, issue #279)
 # ===========================================================================
 
-# Mapping: hook id -> read set (paths the validator opens during a run, as
-# repo-relative strings without leading slash).
+# Mapping: hook id -> trigger coverage set (repo-relative paths that must match
+# the hook's files: regex).
 #
 # When adding a new local validator hook with pass_filenames: false, register
-# its read set here. The structural test below asserts that the hook's files:
-# regex matches every path in this set. Trigger ⊇ read-set is the invariant
-# codified in ADR-005 § Addendum 2026-05-08: Hook trigger-vs-read-set invariant
-# (issue #279, PR #277 follow-up).
+# the fixed path surface that must trigger it here. This set includes fixed
+# check-input paths and fixed staged-file discovery surfaces such as
+# get_staged_yaml_files() target_files. It is intentionally not limited to files
+# literally opened during the default hook path.
 #
 # Use None as the sentinel value for hooks that are exempt from the invariant:
-#   - Fan-out / generator hooks that read a variable or glob-determined set
+#   - Fan-out / generator hooks that use a variable or glob-determined set
 #     of files (e.g., validate-all-yaml-on-master-schema-change discovers
 #     all yaml/schema pairs at runtime).
-#   - Hooks whose "read set" is determined by the staged files list at runtime
+#   - Hooks whose trigger coverage is determined by the staged files list at runtime
 #     rather than a fixed set of paths (e.g., validate-issue-templates reads
 #     whichever .github/ISSUE_TEMPLATE/*.yml files are staged).
 #   - Hooks that do not have pass_filenames: false (not in scope; trigger-to-
 #     scope coupling is implicit for pass_filenames: true hooks).
 #
 # Every local hook with pass_filenames: false MUST be registered here.
-# Failure to register causes TestTriggerReadSetInvariant to fail with a
+# Failure to register causes TestTriggerCoverageInvariant to fail with a
 # clear diagnostic naming the unregistered hook id.
-_LOCAL_VALIDATOR_READ_SETS: dict[str, set[str] | None] = {
-    # validate-component-edges: validator opens all three YAMLs in every run
-    # via get_staged_yaml_files() target_files constant (utils.py:221-225).
+_LOCAL_VALIDATOR_TRIGGER_COVERAGE: dict[str, set[str] | None] = {
+    # validate-component-edges: these are the fixed target files in
+    # get_staged_yaml_files() (utils.py:221-225). The default pre-commit path
+    # parses components.yaml and controls.yaml; risks.yaml is retained because
+    # issue #279 explicitly preserves the legacy staged-file discovery surface
+    # so risks-only changes still exercise the validator. lifecycle-stage.yaml
+    # is covered by the dedicated validate-lifecycle-stage hook below; the
+    # default-mode belt-and-suspenders lifecycle check in validate_riskmap.py is
+    # intentionally out of this hook's trigger contract.
     "validate-component-edges": {
         "risk-map/yaml/components.yaml",
         "risk-map/yaml/controls.yaml",
@@ -672,7 +678,7 @@ _LOCAL_VALIDATOR_READ_SETS: dict[str, set[str] | None] = {
     "validate-lifecycle-stage": {
         "risk-map/yaml/lifecycle-stage.yaml",
     },
-    # validate-persona-site-build: read set has two layers:
+    # validate-persona-site-build: trigger coverage has two layers:
     #   (1) Three YAMLs opened per run via DEFAULT_*_PATH constants
     #       (build_persona_site_data.py:20-22; validate_persona_site_build.py:38-41).
     #   (2) The output schema, opened at module-import time
@@ -684,23 +690,20 @@ _LOCAL_VALIDATOR_READ_SETS: dict[str, set[str] | None] = {
     #   - scripts/build_persona_site_data.py: imported as a Python module by
     #     the wrapper; not opened as a file at runtime.
     # The Task 2 regression-lock tests (TestPersonaSiteBuildHookContracts)
-    # cover the full trigger surface; this entry covers only the read set.
+    # cover the full trigger surface; this entry covers the fixed runtime inputs.
     "validate-persona-site-build": {
         "risk-map/yaml/personas.yaml",
         "risk-map/yaml/risks.yaml",
         "risk-map/yaml/controls.yaml",
         "risk-map/schemas/persona-site-data.schema.json",
     },
-    # validate-issue-templates: SENTINEL — the validator's "read set" is not
+    # validate-issue-templates: SENTINEL — the validator's coverage set is not
     # a fixed list of repo-relative paths. It queries git-staged files at
     # runtime (get_staged_files() in validate_issue_templates.py:72-98) and
     # validates whichever .github/ISSUE_TEMPLATE/*.yml files are staged. The
     # trigger files: regex covers the two directory roots (.github/ISSUE_TEMPLATE/
-    # and scripts/TEMPLATES/) that the staged-file query may return. Because the
-    # read set is determined by the staged index at runtime rather than by fixed
-    # path constants, the trigger-⊇-read-set invariant cannot be mechanically
-    # checked here. Exempt per ADR-005 § Addendum 2026-05-08: Hook
-    # trigger-vs-read-set invariant.
+    # and scripts/TEMPLATES/) that the staged-file query may return. Exempt per
+    # ADR-005 § Addendum 2026-05-08: Hook trigger-vs-read-set invariant.
     "validate-issue-templates": None,
     # regenerate-issue-templates: SENTINEL — generator hook, not a validator.
     # Reads template sources and schema files discovered at runtime; the trigger
@@ -726,28 +729,28 @@ def _local_hooks_with_pass_filenames_false() -> list[dict]:
     return result
 
 
-class TestTriggerReadSetInvariant:
+class TestTriggerCoverageInvariant:
     """
-    Structural enforcement of the trigger ⊇ read-set invariant (ADR-005
+    Structural enforcement of trigger coverage for pass_filenames: false hooks (ADR-005
     § Addendum 2026-05-08: Hook trigger-vs-read-set invariant, issue #279).
 
     For every local validator hook with pass_filenames: false, the hook's
-    files: regex must match every path the validator opens on disk during a
-    run. If the trigger is narrower than the read set, commits that touch
-    only the unmatched paths silently skip validation.
+    files: regex must match every fixed path in its declared trigger coverage
+    set. If the trigger is narrower than the fixed coverage set, commits that
+    touch only the unmatched paths silently skip validation.
 
-    The metadata table _LOCAL_VALIDATOR_READ_SETS is the contract surface.
+    The metadata table _LOCAL_VALIDATOR_TRIGGER_COVERAGE is the contract surface.
     When adding a new local hook with pass_filenames: false, register its
-    read set in that table. Hooks with a None value are exempt (fan-out or
-    runtime-discovered read sets; see table comments for rationale).
+    fixed trigger coverage there. Hooks with a None value are exempt (fan-out or
+    runtime-discovered coverage sets; see table comments for rationale).
 
     Tests in this class:
 
       test_all_local_pass_filenames_false_hooks_are_registered
         — prevents drift where a new hook is added without a table entry.
 
-      test_trigger_covers_read_set_for_each_registered_hook
-        — asserts trigger ⊇ read-set for every non-None entry.
+      test_trigger_covers_declared_coverage_for_each_registered_hook
+        — asserts files: regex covers every fixed non-None entry.
     """
 
     def test_all_local_pass_filenames_false_hooks_are_registered(self):
@@ -757,32 +760,32 @@ class TestTriggerReadSetInvariant:
 
         Given: .pre-commit-config.yaml with one or more local hooks with
                pass_filenames: false
-        When:  comparing hook ids against _LOCAL_VALIDATOR_READ_SETS keys
+        When:  comparing hook ids against _LOCAL_VALIDATOR_TRIGGER_COVERAGE keys
         Then:  every such hook id appears in the table (either with a real set
                or with the None sentinel)
 
-        This prevents a new hook from being added without its read set being
-        declared. A missing registration means the trigger-⊇-read-set check
+        This prevents a new hook from being added without its fixed coverage
+        being declared. A missing registration means the trigger coverage check
         cannot run for that hook, defeating the structural guarantee.
         """
         local_false_hooks = _local_hooks_with_pass_filenames_false()
         declared_ids = {h.get("id") for h in local_false_hooks}
-        registered_ids = set(_LOCAL_VALIDATOR_READ_SETS.keys())
+        registered_ids = set(_LOCAL_VALIDATOR_TRIGGER_COVERAGE.keys())
         unregistered = declared_ids - registered_ids
         assert not unregistered, (
             f"Hook(s) {sorted(unregistered)} declared with pass_filenames: false "
-            f"but missing from _LOCAL_VALIDATOR_READ_SETS — register each hook's "
-            f"read set (or None sentinel for fan-out/runtime-discovered sets) per "
+            f"but missing from _LOCAL_VALIDATOR_TRIGGER_COVERAGE — register each hook's "
+            f"fixed coverage set (or None sentinel for fan-out/runtime-discovered sets) per "
             f"ADR-005 § Addendum 2026-05-08: Hook trigger-vs-read-set invariant (issue #279)."
         )
 
-    def test_trigger_covers_read_set_for_each_registered_hook(self):
+    def test_trigger_covers_declared_coverage_for_each_registered_hook(self):
         """
         Test that each registered hook's files: regex matches all paths in its
-        declared read set (trigger ⊇ read-set invariant).
+        declared fixed trigger coverage set.
 
-        Given: _LOCAL_VALIDATOR_READ_SETS entries with non-None read sets
-        When:  applying each hook's files: regex against each path in its read set
+        Given: _LOCAL_VALIDATOR_TRIGGER_COVERAGE entries with non-None sets
+        When:  applying each hook's files: regex against each declared path
                using re.search (mirroring the pre-commit framework's match behavior)
         Then:  every path matches
 
@@ -790,17 +793,17 @@ class TestTriggerReadSetInvariant:
         the ADR-005 addendum so the fix is unambiguous.
 
         RED-PHASE: before issue #279's trigger fix lands, this test fails on
-        validate-component-edges because controls.yaml and risks.yaml are in
-        the read set but not in the files: regex. Once the trigger is widened
+        validate-component-edges because controls.yaml and risks.yaml are in its
+        fixed staged-file discovery surface but not in files:. Once the trigger is widened
         to ^risk-map/yaml/(components|controls|risks)\\.yaml$ the test passes.
         """
         local_false_hooks = _local_hooks_with_pass_filenames_false()
         hooks_by_id = {h.get("id"): h for h in local_false_hooks}
 
         failures: list[str] = []
-        for hook_id, read_set in _LOCAL_VALIDATOR_READ_SETS.items():
+        for hook_id, coverage_set in _LOCAL_VALIDATOR_TRIGGER_COVERAGE.items():
             # Skip None sentinels — exempt from mechanical check.
-            if read_set is None:
+            if coverage_set is None:
                 continue
 
             hook = hooks_by_id.get(hook_id)
@@ -808,21 +811,21 @@ class TestTriggerReadSetInvariant:
                 # Hook declared in table but not in config — not this test's
                 # concern (test_all_local_pass_filenames_false_hooks_are_registered
                 # would have caught a missing registration; a table entry with no
-                # matching hook is stale but not a trigger-⊇-read-set violation).
+                # matching hook is stale but not a trigger coverage violation).
                 continue
 
             files_regex = hook.get("files", "")
-            for path in sorted(read_set):
+            for path in sorted(coverage_set):
                 if not re.search(files_regex, path):
                     failures.append(
                         f"Hook `{hook_id}`: files: regex {files_regex!r} does not "
-                        f"match read-set path `{path}`. A commit that only touches "
+                        f"match declared trigger coverage path `{path}`. A commit that only touches "
                         f"`{path}` will not trigger `{hook_id}`, silently skipping "
                         f"validation. Widen the trigger per ADR-005 § Addendum 2026-05-08: "
                         f"Hook trigger-vs-read-set invariant (issue #279)."
                     )
 
-        assert not failures, "Trigger ⊇ read-set invariant violated:\n" + "\n".join(f"  - {f}" for f in failures)
+        assert not failures, "Trigger coverage invariant violated:\n" + "\n".join(f"  - {f}" for f in failures)
 
 
 # ===========================================================================

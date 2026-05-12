@@ -109,7 +109,7 @@ For every local validator hook in [`.pre-commit-config.yaml`](../../.pre-commit-
 Three sets, defined per hook:
 
 - **Trigger set** — the file paths the framework matches against staged files (the hook's `files:` regex) to decide whether to invoke the hook.
-- **Read set** — the file paths the validator opens on disk during a run (its `target_files` discovery surface plus any direct opens).
+- **Read/discovery set** — the fixed file paths the validator treats as in scope during a run, including `target_files` staged-file discovery surfaces and direct file opens. This can be broader than the files literally parsed on the default hook path when a validator preserves a legacy discovery surface.
 - **Check-input set** — for each declared check inside the validator, the file paths whose contents could change the check's verdict.
 
 Hooks declared with `pass_filenames: true` couple their trigger to their scope by construction — the framework hands the validator the matched file list and the validator works on exactly that input — so the invariant primarily targets `pass_filenames: false` hooks, where trigger and read-set are independent declarations that can drift apart silently.
@@ -126,13 +126,13 @@ Refining the invariant for these classes is deferred to a separate decision.
 
 ### Enforcement
 
-The structural test at [`scripts/hooks/tests/test_precommit_hook_install.py`](../../scripts/hooks/tests/test_precommit_hook_install.py) enforces the invariant for every in-scope local validator hook. Each new hook registers its read set in a metadata table keyed by hook id (architect-recommended over parsing validator internals), so the next hook author has one declared place to record what their validator actually reads. A test failure names the hook id, the missing path, and points back to this addendum.
+The structural test at [`scripts/hooks/tests/test_precommit_hook_install.py`](../../scripts/hooks/tests/test_precommit_hook_install.py) enforces the invariant for every in-scope local validator hook. Each new hook registers its fixed trigger coverage set in a metadata table keyed by hook id (architect-recommended over parsing validator internals), so the next hook author has one declared place to record the paths that must cause the hook to run. A test failure names the hook id, the missing path, and points back to this addendum.
 
 ### Motivating regressions
 
 Two trigger-vs-read-set gaps inherited from the bash-to-framework migration ([#211](https://github.com/cosai-oasis/secure-ai-tooling/pull/211) / [#222](https://github.com/cosai-oasis/secure-ai-tooling/pull/222)) surfaced in review of [PR #277](https://github.com/cosai-oasis/secure-ai-tooling/pull/277):
 
-- **`validate-component-edges`** — trigger filtered on `components.yaml` only, but the validator's read set already covered `controls.yaml` and `risks.yaml`. Controls-only or risks-only commits skipped the validator entirely.
-- **`validate-lifecycle-stage`** — `lifecycle-stage.yaml` was outside both the trigger and the read set pre-A4. Resolved within PR #277 itself by introducing a dedicated hook with a narrow trigger and a `--mode lifecycle` short-circuit on `validate_riskmap.py`.
+- **`validate-component-edges`** — trigger filtered on `components.yaml` only, but the validator's staged-file discovery surface already covered `controls.yaml` and `risks.yaml`; the default check path also parses `controls.yaml` for the controls↔components mirror check. Controls-only or risks-only commits skipped the validator entirely.
+- **`validate-lifecycle-stage`** — `lifecycle-stage.yaml` was outside both the trigger and the read/discovery set pre-A4. Resolved within PR #277 itself by introducing a dedicated hook with a narrow trigger and a `--mode lifecycle` short-circuit on `validate_riskmap.py`. The remaining default-mode lifecycle belt-and-suspenders check inside `validate_riskmap.py` is deliberately covered by that dedicated hook's contract, not by `validate-component-edges`.
 
 Both are documented in [#279](https://github.com/cosai-oasis/secure-ai-tooling/issues/279). The invariant exists to make the same class of regression a structural-test failure rather than a reviewer catch.
