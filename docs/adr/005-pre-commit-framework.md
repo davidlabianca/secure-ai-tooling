@@ -95,3 +95,44 @@ Operational properties worth pinning:
 - Revisit `pre-commit autoupdate` cadence. Pinned revisions in `.pre-commit-config.yaml` (`check-jsonschema` 0.37.1, `ruff-pre-commit` v0.15.10 at time of writing) are good hygiene but need periodic bumps; Dependabot does not currently track them.
 - If the repository adds a non-Python orchestration surface in the future (for example, a site build under `risk-map/site/`), confirm that `pre-commit` remains the right orchestration layer for that surface or document the split explicitly.
 - Consider adding a CI job that validates every PR as a belt-and-braces over local hook execution. The choice of command is tactical: `pre-commit run --all-files` followed by `git diff --exit-code` catches both validator failures and any generator-driven drift; `./scripts/tools/validate-all.sh` is pure inspection and avoids generator invocation in CI. Contributors can skip hooks locally with `--no-verify`; a CI gate closes that escape hatch without forcing the parity harness back into the commit path.
+
+## Addendum 2026-05-08: Hook trigger-vs-read-set invariant
+
+Authored 2026-05-08; accepted alongside the implementation of [#279](https://github.com/cosai-oasis/secure-ai-tooling/issues/279). This addendum extends the original Decision; it does not reset the ADR's status.
+
+### Invariant
+
+For every local validator hook in [`.pre-commit-config.yaml`](../../.pre-commit-config.yaml) with `pass_filenames: false`:
+
+> **trigger-set ⊇ check-input-set, AND read/discovery-set ⊇ check-input-set.**
+
+Three sets, defined per hook:
+
+- **Trigger set** — the file paths the framework matches against staged files (the hook's `files:` regex) to decide whether to invoke the hook.
+- **Read/discovery set** — the fixed file paths the validator treats as in scope during a run, including `target_files` staged-file discovery surfaces and direct file opens. This can be broader than the files literally parsed on the default hook path when a validator preserves a legacy discovery surface.
+- **Check-input set** — for each declared check inside the validator, the file paths whose contents could change the check's verdict.
+
+Hooks declared with `pass_filenames: true` couple their trigger to their scope by construction — the framework hands the validator the matched file list and the validator works on exactly that input — so the invariant primarily targets `pass_filenames: false` hooks, where trigger and read-set are independent declarations that can drift apart silently.
+
+### Scope carve-outs
+
+Three hook classes are explicitly out of scope for this invariant in its current form:
+
+- **Generators** (`regenerate-graphs`, `regenerate-tables`, `regenerate-svgs`, `regenerate-issue-templates`) — side-effectful by design, with read sets spanning multiple source YAMLs and write sets in `risk-map/diagrams/`, `risk-map/tables/`, `risk-map/svg/`, and `.github/ISSUE_TEMPLATE/`. The invariant's check-input semantics need refinement before they apply to side-effect hooks.
+- **Master-schema fan-out** (`validate-all-yaml-on-master-schema-change`) — the hook's purpose is to widen scope post-trigger (a single schema edit fans out to validate every YAML); applying a trigger-superset rule would defeat its design.
+- **Runtime-discovered read sets** (`validate-issue-templates`) — hooks whose read set is the staged-file query result rather than a fixed list of path constants. The trigger covers the directory roots the query may return, but the actual read set per run is determined by `git diff --cached` and cannot be declared up front. Mechanical enforcement of trigger ⊇ read-set requires a different formulation for this class.
+
+Refining the invariant for these classes is deferred to a separate decision.
+
+### Enforcement
+
+The structural test at [`scripts/hooks/tests/test_precommit_hook_install.py`](../../scripts/hooks/tests/test_precommit_hook_install.py) enforces the invariant for every in-scope local validator hook. Each new hook registers its fixed trigger coverage set in a metadata table keyed by hook id (architect-recommended over parsing validator internals), so the next hook author has one declared place to record the paths that must cause the hook to run. A test failure names the hook id, the missing path, and points back to this addendum.
+
+### Motivating regressions
+
+Two trigger-vs-read-set gaps inherited from the bash-to-framework migration ([#211](https://github.com/cosai-oasis/secure-ai-tooling/pull/211) / [#222](https://github.com/cosai-oasis/secure-ai-tooling/pull/222)) surfaced in review of [PR #277](https://github.com/cosai-oasis/secure-ai-tooling/pull/277):
+
+- **`validate-component-edges`** — trigger filtered on `components.yaml` only, but the validator's staged-file discovery surface already covered `controls.yaml` and `risks.yaml`; the default check path also parses `controls.yaml` for the controls↔components mirror check. Controls-only or risks-only commits skipped the validator entirely.
+- **`validate-lifecycle-stage`** — `lifecycle-stage.yaml` was outside both the trigger and the read/discovery set pre-A4. Resolved within PR #277 itself by introducing a dedicated hook with a narrow trigger and a `--mode lifecycle` short-circuit on `validate_riskmap.py`. The remaining default-mode lifecycle belt-and-suspenders check inside `validate_riskmap.py` is deliberately covered by that dedicated hook's contract, not by `validate-component-edges`.
+
+Both are documented in [#279](https://github.com/cosai-oasis/secure-ai-tooling/issues/279). The invariant exists to make the same class of regression a structural-test failure rather than a reviewer catch.

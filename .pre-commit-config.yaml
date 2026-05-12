@@ -208,7 +208,7 @@ repos:
         name: 'risk-map: component edge consistency'
         language: system
         entry: python3 scripts/hooks/validate_riskmap.py
-        files: ^risk-map/yaml/components\.yaml$
+        files: ^risk-map/yaml/(components|controls|risks)\.yaml$
         pass_filenames: false
 
       - id: validate-control-risk-references
