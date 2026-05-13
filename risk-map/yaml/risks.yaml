@@ -491,7 +491,7 @@ risks:
         A second type is compromise of the model serving infrastructure. For example,
         it was reported that <a href="https://thehackernews.com/2023/10/warning-pytorch-models-vulnerable-to.html">PyTorch
         models were vulnerable to remote code execution</a> due to multiple critical
-        security flaws in the <strong>TorchServe</strong> tool that is widely used
+        security flaws in the **TorchServe** tool that is widely used
         for serving the models. This is an attack on a serving infrastructure for PyTorch,
         TorchServe, whereas the <a href="https://pytorch.org/blog/compromised-nightly-dependency/">PyTorch
         example of Model Source Tampering</a> was about a supply chain attack on dependency
@@ -705,16 +705,16 @@ risks:
         and safety, privacy and security concerns, and ethical and legal challenges.
       - 'This risk can come from manipulation of both inputs to and outputs from integrations:'
       - - >
-          Manipulation of <strong>model output</strong> to include malicious instructions
-          fed as <strong>input to the integrated component or system</strong>. For
+          Manipulation of **model output** to include malicious instructions
+          fed as **input to the integrated component or system**. For
           example, a plugin that accepts freeform text instead of structured and validated
           input could be exploited to construct inputs that cause the plugin to behave
           maliciously. Likewise, a plugin that accepts input without authentication
           and authorization can be exploited since it trusts input as coming from an
           authorized user.
         - >
-          Manipulation of the <strong>output from an integrated component or system</strong>
-          that is fed as <strong>input to a model</strong>. For example, when a
+          Manipulation of the **output from an integrated component or system**
+          that is fed as **input to a model**. For example, when a
           plugin calls other systems, especially 3rd party services, sites, or plugins,
           and uses content obtained from those to construct output to a model, opening
           up potential for indirect prompt injection. A similar case exists for an
@@ -991,7 +991,7 @@ risks:
         integrated systems, like emails, texts, or system prompts) and leakage of data 
         used for training and tuning of the model.
       - - >
-          <strong>AI Systems:</strong> AI systems can leak sensitive data sourced from
+          **AI Systems:** AI systems can leak sensitive data sourced from
           three primary sources:
         - >
           Data provided by the user.
@@ -1006,23 +1006,23 @@ risks:
       - - >
           Data leakage can occur through several vectors:
         - >
-          <strong>Application Logs:</strong> Logs may store entire interactions, including
+          **Application Logs:** Logs may store entire interactions, including
           sensitive data retrieved by tools.
         - >
-          <strong>Retraining Data:</strong> User conversations retained for model
+          **Retraining Data:** User conversations retained for model
           retraining can create a vulnerable database of sensitive information.
         - >
-          <strong>Prompt Stealing:</strong> Attackers can use carefully crafted queries to
+          **Prompt Stealing:** Attackers can use carefully crafted queries to
           trick the model into revealing its confidential system prompts or instructions.
         - >
-          <strong>Memorization:</strong> A model may inadvertently reveal parts of its
+          **Memorization:** A model may inadvertently reveal parts of its
           training data verbatim. This phenomenon, also called recitation, can expose
           sensitive details like names, addresses, or other Personally Identifiable
           Information (PII). Note: The risk of memorization is significantly higher when a
           model is retrained on private user data and then used by others, as it could
           expose one user's information to another.
       - - >
-          <strong>Agents:</strong> For agentic systems, the risk of sensitive data
+          **Agents:** For agentic systems, the risk of sensitive data
           disclosure is exponentially multiplied, since agents may access user data that
           passes through integrated systems, like emails, texts, or proprietary
           organizational information. In extreme cases, agents can even reveal credentials
@@ -1265,7 +1265,7 @@ risks:
         of autonomy, Rogue Actions have the potential to become a serious risk to 
         organizational reputation, user trust, security, and safety.
       - - >
-          <strong>Accidental rogue actions:</strong> This risk, sometimes known as 
+          **Accidental rogue actions:** This risk, sometimes known as 
           misalignment, could be due to mistakes in task planning, reasoning, or 
           environment sensing, and might be exacerbated by the inherent variability in 
           LLM responses. Prompt engineering shows the spacing and ordering of examples 
@@ -1274,7 +1274,7 @@ risks:
           can cause rogue actions, such as an agent emailing the wrong "Mike," 
           unintentionally sharing private data.
         - >
-          <strong>Malicious actions:</strong> This risk could include manipulating model
+          **Malicious actions:** This risk could include manipulating model
           output using attacks such as indirect prompt injection, poisoning, or evasion.
           The threat can be amplified in multi-agent systems, where the attacker can
           potentially hijack the communication between two agents to execute arbitrary
@@ -1286,7 +1286,7 @@ risks:
           set number of interactions, making the rogue action appear spontaneous and
           disconnected from the malicious source.
         - >
-          <strong>Over-permissioned agent capability amplification:</strong> Standing
+          **Over-permissioned agent capability amplification:** Standing
           broad privileges granted to high-reasoning-capability agents create an
           elevated blast radius even absent direct compromise. An agent's ability to
           autonomously discover, plan, and chain tool invocations means that
