@@ -46,7 +46,6 @@ controls:
     personas:
       - personaModelProvider
       - personaDataProvider
-      - personaModelCreator
     components:
       - componentModelTrainingTuning
       - componentModelEvaluation
@@ -67,8 +66,6 @@ controls:
       - personaModelServing
       - personaAgenticProvider
       - personaApplicationDeveloper
-      - personaModelCreator
-      - personaModelConsumer
     components:
       - componentApplicationOutputHandling
       - componentModelServing
@@ -85,7 +82,6 @@ controls:
     personas:
       - personaModelProvider
       - personaDataProvider
-      - personaModelCreator
     components:
       - componentDataSources
       - componentTrainingData
@@ -104,7 +100,6 @@ controls:
     personas:
       - personaModelProvider
       - personaDataProvider
-      - personaModelCreator
     components:
       - componentDataFilteringAndProcessing
     risks:
@@ -138,8 +133,6 @@ controls:
       - personaDataProvider
       - personaApplicationDeveloper
       - personaEndUser
-      - personaModelCreator
-      - personaModelConsumer
     components:
       - componentDataStorage
     risks:
@@ -156,8 +149,6 @@ controls:
     personas:
       - personaModelProvider
       - personaDataProvider
-      - personaModelCreator
-      - personaModelConsumer
     components:
       - componentModelServing
       - componentModelEvaluation
@@ -178,8 +169,6 @@ controls:
       - personaModelProvider
       - personaDataProvider
       - personaModelServing
-      - personaModelCreator
-      - personaModelConsumer
     components:
       - componentModelServing
       - componentModelEvaluation
@@ -209,8 +198,6 @@ controls:
       - personaModelProvider
       - personaDataProvider
       - personaModelServing
-      - personaModelCreator
-      - personaModelConsumer
     components:
       - componentModelServing
       - componentModelEvaluation
@@ -268,8 +255,6 @@ controls:
     personas:
       - personaPlatformProvider
       - personaModelServing
-      - personaModelCreator
-      - personaModelConsumer
     components:
       - componentModelServing
       - componentModelStorage
@@ -293,8 +278,6 @@ controls:
       - personaModelServing
       - personaAgenticProvider
       - personaApplicationDeveloper
-      - personaModelCreator
-      - personaModelConsumer
     components:
       - componentModelServing
       - componentModelTrainingTuning
@@ -340,8 +323,6 @@ controls:
       - personaModelServing
       - personaAgenticProvider
       - personaApplicationDeveloper
-      - personaModelCreator
-      - personaModelConsumer
     components:
       - componentApplicationInputHandling
       - componentAgentInputHandling
@@ -380,8 +361,6 @@ controls:
     personas:
       - personaModelServing
       - personaApplicationDeveloper
-      - personaModelCreator
-      - personaModelConsumer
     components:
       - componentApplicationOutputHandling
       - componentAgentOutputHandling
@@ -424,8 +403,6 @@ controls:
     personas:
       - personaModelProvider
       - personaApplicationDeveloper
-      - personaModelCreator
-      - personaModelConsumer
     components:
       - componentTheModel
     risks:
@@ -468,7 +445,6 @@ controls:
       - personaPlatformProvider
       - personaModelServing
       - personaApplicationDeveloper
-      - personaModelConsumer
     components:
       - componentApplication
     risks:
@@ -500,7 +476,6 @@ controls:
       - personaModelServing
       - personaAgenticProvider
       - personaApplicationDeveloper
-      - personaModelConsumer
     components:
       - componentApplication
     risks:
@@ -518,7 +493,6 @@ controls:
       - personaAgenticProvider
       - personaApplicationDeveloper
       - personaEndUser
-      - personaModelConsumer
     components:
       - componentReasoningCore
     risks:
@@ -547,7 +521,6 @@ controls:
     personas:
       - personaAgenticProvider
       - personaApplicationDeveloper
-      - personaModelConsumer
     components:
       - componentReasoningCore
       - componentTools
@@ -591,8 +564,6 @@ controls:
       - personaModelServing
       - personaAgenticProvider
       - personaApplicationDeveloper
-      - personaModelCreator
-      - personaModelConsumer
     components: all
     risks: all
   - id: controlVulnerabilityManagement
@@ -605,8 +576,6 @@ controls:
     personas:
       - personaGovernance
       - personaEndUser
-      - personaModelCreator
-      - personaModelConsumer
     components: all
     risks: all
   - id: controlThreatDetection
@@ -618,8 +587,6 @@ controls:
     category: controlsAssurance
     personas:
       - personaGovernance
-      - personaModelCreator
-      - personaModelConsumer
     components: all
     risks: all
   - id: controlIncidentResponseManagement
@@ -636,8 +603,6 @@ controls:
       - personaApplicationDeveloper
       - personaGovernance
       - personaEndUser
-      - personaModelCreator
-      - personaModelConsumer
     components: all
     risks: all
   - id: controlUserPoliciesAndEducation
@@ -650,7 +615,6 @@ controls:
     personas:
       - personaGovernance
       - personaEndUser
-      - personaModelConsumer
     components: none
     risks:
       - riskSensitiveDataDisclosure
@@ -664,8 +628,6 @@ controls:
     category: controlsGovernance
     personas:
       - personaGovernance
-      - personaModelCreator
-      - personaModelConsumer
     components: none
     risks: all
   - id: controlProductGovernance
@@ -677,8 +639,6 @@ controls:
     category: controlsGovernance
     personas:
       - personaGovernance
-      - personaModelCreator
-      - personaModelConsumer
     components: none
     risks: all
   - id: controlRiskGovernance
@@ -689,8 +649,6 @@ controls:
     category: controlsGovernance
     personas:
       - personaGovernance
-      - personaModelCreator
-      - personaModelConsumer
     components: none
     risks: all
   - id: controlAgentObservability
@@ -704,7 +662,6 @@ controls:
     personas:
       - personaAgenticProvider
       - personaApplicationDeveloper
-      - personaModelConsumer
     components:
       - componentOrchestrationInputHandling
       - componentOrchestrationOutputHandling
@@ -736,8 +693,6 @@ controls:
       - personaModelServing
       - personaAgenticProvider
       - personaApplicationDeveloper
-      - personaModelCreator
-      - personaModelConsumer
     components:
       - componentModelServing
       - componentModelTrainingTuning
@@ -762,8 +717,6 @@ controls:
       - personaDataProvider
       - personaPlatformProvider
       - personaApplicationDeveloper
-      - personaModelCreator
-      - personaModelConsumer
     components:
       - componentDataSources
       - componentDataStorage
@@ -783,8 +736,6 @@ controls:
       - personaModelServing
       - personaAgenticProvider
       - personaApplicationDeveloper
-      - personaModelCreator
-      - personaModelConsumer
     components:
       - componentModelServing
       - componentApplication

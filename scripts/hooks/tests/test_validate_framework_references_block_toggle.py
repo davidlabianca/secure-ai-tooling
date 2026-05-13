@@ -31,10 +31,14 @@ personas.yaml relative to cwd.  The cleanest approach is:
   - write minimal valid YAML at each of the four paths
   - invoke the script via subprocess with cwd=tmp_path and --force
 
-The live-corpus subprocess tests use the actual repo-root as cwd (risk-map/yaml/
-files already exist there); they pin:
-  - no --block -> exit 0  (today's behaviour, must not regress)
-  - --block    -> exit 1  (corpus has 88 deprecated-persona refs; toggle fires)
+The live-corpus subprocess test uses the actual repo-root as cwd (risk-map/yaml/
+files already exist there) and pins:
+  - no --block -> exit 0  (current corpus is clean; no warnings to escalate)
+
+The matching dirty-state assertion that previously anchored on the live corpus
+("--block fires on the 88 deprecated refs") has been retired now that 284.1
+cleaned the corpus; the synthesized-corpus tests below preserve that forward
+guard via `_PERSONAS_WITH_DEPRECATED` + `_CONTROLS_WITH_DEPRECATED_REF`.
 """
 
 import subprocess
@@ -463,16 +467,15 @@ class TestBlockToggleCLI:
 
     # -----------------------------------------------------------------------
     # Live-corpus: uses the actual risk-map/yaml/ tree in the worktree.
-    # The corpus has 88 deprecated-persona refs (49 controls + 39 risks).
+    # After 284.1, the live corpus has no deprecated-persona references; the
+    # dirty-state assertion is preserved by the synthesized tests below.
     # -----------------------------------------------------------------------
 
     def test_live_corpus_no_block_flag_exits_0(self):
         """
         Running without --block against the live corpus exits 0.
 
-        This is today's existing behaviour and must not regress after adding --block.
-
-        Given: The live risk-map/yaml/ corpus (88 deprecated-persona refs)
+        Given: The live risk-map/yaml/ corpus
         When: validate_framework_references.py --force (no --block)
         Then: Exit code is 0
         """
@@ -480,36 +483,6 @@ class TestBlockToggleCLI:
         assert result.returncode == 0, (
             f"Expected exit 0 without --block; got {result.returncode}\n"
             f"stdout: {result.stdout}\nstderr: {result.stderr}"
-        )
-
-    def test_live_corpus_with_block_flag_exits_1(self):
-        """
-        Running with --block against the live corpus exits 1 (88 deprecated refs).
-
-        Given: The live risk-map/yaml/ corpus (88 deprecated-persona refs)
-        When: validate_framework_references.py --force --block
-        Then: Exit code is 1 (deprecated-persona warnings promoted to failures)
-        """
-        result = _run(_REPO_ROOT, "--block")
-        assert result.returncode == 1, (
-            f"Expected exit 1 with --block on live corpus; got {result.returncode}\n"
-            f"stdout: {result.stdout}\nstderr: {result.stderr}"
-        )
-
-    def test_live_corpus_with_block_flag_stdout_contains_deprecated_warning(self):
-        """
-        When --block fires, the output contains the deprecated-persona warning text.
-
-        Given: The live corpus and --block flag
-        When: validate_framework_references.py --force --block
-        Then: Output contains the deprecation warning strings (so the developer
-              can see which entries triggered the block)
-        """
-        result = _run(_REPO_ROOT, "--block")
-        # Script already prints deprecation warnings to stdout; they must still appear.
-        combined = result.stdout + result.stderr
-        assert "deprecated" in combined.lower(), (
-            f"Expected 'deprecated' in output; stdout: {result.stdout!r}\nstderr: {result.stderr!r}"
         )
 
     # -----------------------------------------------------------------------
@@ -613,7 +586,7 @@ class TestBlockToggleCLI:
 # ===========================================================================
 # Test Summary
 # ===========================================================================
-# Total tests: 21
+# Total tests: 19
 #
 # TestCheckDeprecatedPersonaUsageRegressionGuard  (13 tests)
 #   — control with deprecated ref produces warning; risk with deprecated ref
@@ -623,17 +596,17 @@ class TestBlockToggleCLI:
 #     personas field; absent deprecated flag treated as False; return type
 #     is list; each element is str.
 #
-# TestBlockToggleCLI  (8 tests)
-#   — live corpus + no --block -> exit 0 (regression guard);
-#     live corpus + --block -> exit 1 (88 deprecated refs fire the toggle);
-#     live corpus + --block -> output contains "deprecated" text;
+# TestBlockToggleCLI  (6 tests)
+#   — live corpus + no --block -> exit 0 (smoke check on real corpus);
 #     clean synthesised corpus + --block -> exit 0;
 #     clean synthesised corpus + no --block -> exit 0;
-#     dirty synthesised corpus + --block -> exit 1;
+#     dirty synthesised corpus + --block -> exit 1 (forward guard for the
+#       block toggle now that the live corpus is clean post-284.1);
 #     dirty synthesised corpus + no --block -> exit 0 (warn-only preserved);
 #     --help output contains '--block'.
 #
-# Red-phase failure mode
-#   - Regression-guard class: PASS today (function already exists).
-#   - Block-toggle CLI class: FAIL today with argparse exit 2
-#     ("unrecognised arguments: --block").
+# History
+#   - Two live-corpus dirty-state tests were retired alongside 284.1 once the
+#     corpus stopped containing the 88 deprecated-persona references they
+#     asserted on. The synthesized dirty-corpus tests above carry the
+#     equivalent contract forward.
