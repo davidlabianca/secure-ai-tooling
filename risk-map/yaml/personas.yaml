@@ -16,10 +16,9 @@ id: personas
 title: Personas
 description:
   - >
-    The following personas identify who is impacted by
-    <a href="risks.html">risks</a> and who is responsible for enacting the
-    <a href="controls.html">controls</a> that mitigate them, based on their
-    activities and responsibilities in the AI ecosystem.
+    The following personas identify who is impacted by risks and who is
+    responsible for enacting the controls that mitigate them, based on
+    their activities and responsibilities in the AI ecosystem.
   - >
     CoSAI identifies eight standard personas representing distinct sets of
     activities across AI system development, deployment, and governance.
