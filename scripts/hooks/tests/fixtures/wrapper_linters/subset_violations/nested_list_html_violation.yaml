@@ -1,0 +1,11 @@
+risks:
+  - id: riskAlpha
+    title: Alpha Risk
+    # shortDescription uses a nested-array shape:
+    #   outer index 0 → flat string (clean)
+    #   outer index 1 → inner list; inner index 0 is clean, inner index 1 contains HTML
+    # The linter should emit a diagnostic at shortDescription[1][1] for the HTML tag.
+    shortDescription:
+      - "Clean introductory paragraph."
+      - - "First bullet of nested list — no violation here."
+        - "Second bullet contains <strong>forbidden HTML</strong> at inner index 1."
