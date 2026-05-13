@@ -1,0 +1,7 @@
+{
+  "negativeForTag": "strong",
+  "description": "Raw <strong> HTML in input must be escaped, not passed through. The author bypassed the authoring lint; escape-with-warn is the render-time response per ADR-015 D4.",
+  "input": "<strong>raw html bold</strong>",
+  "expectedSubstring": "&lt;strong&gt;raw html bold&lt;/strong&gt;",
+  "mustNotContain": "<strong>raw"
+}

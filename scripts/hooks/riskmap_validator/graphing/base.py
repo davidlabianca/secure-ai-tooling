@@ -28,7 +28,7 @@ import yaml
 
 from riskmap_validator.models import ComponentNode, ControlNode, RiskNode
 
-from .graph_utils import MermaidConfigLoader, UnionFind
+from .graph_utils import MermaidConfigLoader, UnionFind, _get_schema_categories
 
 
 class BaseGraph:
@@ -61,6 +61,10 @@ class BaseGraph:
                 instance using default configuration paths.
         """
         self.config_loader = config_loader or MermaidConfigLoader.get_instance()
+        # Emit a warning for each schema category that lacks a styling entry.
+        # Fires once per (message, category, module) by default; test suites using
+        # warnings.simplefilter("always") will see all occurrences.
+        self.config_loader.emit_missing_category_warnings(_get_schema_categories())
         self._category_names_cache = None
         self.controls: dict[str, ControlNode] = {}
         self.risks: dict[str, RiskNode] = {}

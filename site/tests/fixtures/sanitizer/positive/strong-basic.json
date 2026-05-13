@@ -1,0 +1,6 @@
+{
+  "tag": "strong",
+  "description": "Double-asterisk bold renders as <strong> with no attributes.",
+  "input": "This is **bold** text.",
+  "expectedSubstring": "<strong>bold</strong>"
+}

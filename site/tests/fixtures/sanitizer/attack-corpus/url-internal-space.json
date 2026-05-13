@@ -1,0 +1,6 @@
+{
+  "vector": "url-internal-space",
+  "description": "URL with whitespace mid-path is RFC 3986-illegal; producer must percent-encode (%20). Rejection at the URL layer (validateUrl) closes invisible-suffix tricks. Per ADR-015 D5.",
+  "input": {"type": "link", "title": "safe", "url": "https://example.com/path with space"},
+  "mustNotContain": "<a "
+}

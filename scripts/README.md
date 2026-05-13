@@ -19,7 +19,7 @@ Development tools and utilities for this project.
 
 **[Hook Validations](docs/hook-validations.md)**
 
-- What the pre-commit hook validates (10 validation and generation types)
+- What the pre-commit hook validates
 - YAML schema validation, Prettier formatting, Ruff linting
 - Component edge validation and graph generation
 - Control-to-risk reference validation
@@ -99,6 +99,7 @@ Development tools and utilities for this project.
 - `hooks/validate_riskmap.py` - Component edge validation and graph generation
 - `hooks/validate_control_risk_references.py` - Control-risk cross-reference validation
 - `hooks/validate_framework_references.py` - Framework reference validation
+- `hooks/precommit/validate_workflow_uses_pinning.py` - GitHub Actions `uses:` pinning validation for ADR-024
 - `hooks/validate_issue_templates.py` - Issue template schema validation
 - `generate_issue_templates.py` - Issue template generator from sources
 - `hooks/yaml_to_markdown.py` - Markdown table generation from YAML

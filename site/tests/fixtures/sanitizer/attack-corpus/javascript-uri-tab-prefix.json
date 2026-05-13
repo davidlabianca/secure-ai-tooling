@@ -1,0 +1,6 @@
+{
+  "vector": "javascript-uri-tab-prefix",
+  "description": "Whitespace (tab) before the scheme is a known bypass for naive startsWith checks. Some parsers strip leading whitespace before scheme detection; the renderer must reject this variant.",
+  "input": {"type": "link", "title": "xss", "url": "\tjavascript:alert(1)"},
+  "mustNotContain": "<a "
+}

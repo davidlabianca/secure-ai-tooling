@@ -1,0 +1,7 @@
+{
+  "vector": "idn-homograph",
+  "description": "IDN homograph attack: Cyrillic 'а' (U+0430) looks identical to Latin 'a' (U+0061). A URL using Cyrillic characters to spoof a trusted domain passes a naive hostname check but redirects to attacker infrastructure. The https: scheme check alone does not defend against this; the fixture verifies the renderer at minimum does not suppress the suspicion by silently emitting an anchor with the spoofed href. The renderer may accept it (the scheme is https:) — this fixture confirms the href appears verbatim so a reviewer can audit the output.",
+  "input": {"type": "link", "title": "Spoofed trusted site", "url": "https://сosai.example.org/page"},
+  "note": "This fixture documents a KNOWN LIMITATION: the renderer cannot detect IDN homographs without a full Unicode normalisation pass. It emits the anchor with the Cyrillic href. The fixture's role is to make this behavior explicit and auditable, not to assert rejection. The expectedSubstring below is the Cyrillic href passing through — confirming the renderer does not silently mangle it. Browser URL bars show the punycode form; the sanitizer's job is scheme-gating, not hostname verification.",
+  "expectedSubstring": "href=\"https://"
+}

@@ -1,0 +1,6 @@
+{
+  "vector": "data-uri",
+  "description": "data: URI can carry executable content (data:text/html,<script>...). The renderer must reject any non-https: scheme.",
+  "input": {"type": "link", "title": "xss", "url": "data:text/html,<script>alert(1)</script>"},
+  "mustNotContain": "<a "
+}

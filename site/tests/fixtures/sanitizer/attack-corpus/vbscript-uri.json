@@ -1,0 +1,6 @@
+{
+  "vector": "vbscript-uri",
+  "description": "vbscript: URI is an IE-legacy XSS vector. Blocked by the https:-only scheme requirement; included because the scheme check must not be scheme-list-based (it must be an allowlist of one: https).",
+  "input": {"type": "link", "title": "xss", "url": "vbscript:msgbox(1)"},
+  "mustNotContain": "<a "
+}

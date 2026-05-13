@@ -1,0 +1,6 @@
+{
+  "vector": "url-backtick",
+  "description": "Backtick in URL is RFC 3986-illegal. IE attribute-parser quirks have historically treated backtick as an attribute delimiter in unquoted contexts. Defense-in-depth even though we always emit double-quoted attributes. Per ADR-015 D5.",
+  "input": {"type": "link", "title": "safe", "url": "https://example.com/path`onmouseover=alert(1)`"},
+  "mustNotContain": "<a "
+}

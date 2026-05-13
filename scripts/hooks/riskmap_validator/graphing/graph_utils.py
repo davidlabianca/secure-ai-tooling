@@ -1,9 +1,46 @@
+import json
 from pathlib import Path
 from typing import Any
 
 import yaml
 
 from ..config import DEFAULT_MERMAID_CONFIG_FILE
+
+# ---------------------------------------------------------------------------
+# Schema category helper
+# ---------------------------------------------------------------------------
+
+_schema_categories_cache: set[str] | None = None
+
+
+def _get_schema_categories() -> set[str]:
+    """
+    Read component category IDs from components.schema.json, with caching.
+
+    Resolves the schema path relative to this file's location:
+    scripts/hooks/riskmap_validator/graphing/graph_utils.py
+    parents[4] is the worktree root, giving:
+    <root>/risk-map/schemas/components.schema.json
+
+    Returns:
+        Set of category ID strings declared in the schema enum.
+        Returns empty set on any error (file missing, JSON parse error,
+        unexpected key structure) so callers degrade gracefully.
+    """
+    global _schema_categories_cache
+    if _schema_categories_cache is not None:
+        return _schema_categories_cache
+
+    try:
+        schema_path = Path(__file__).resolve().parents[4] / "risk-map" / "schemas" / "components.schema.json"
+        with open(schema_path, encoding="utf-8") as fh:
+            schema = json.load(fh)
+        _schema_categories_cache = set(schema["definitions"]["category"]["properties"]["id"]["enum"])
+    except Exception:
+        # Degrade gracefully: missing file, bad JSON, or unexpected key structure.
+        _schema_categories_cache = set()
+
+    return _schema_categories_cache
 
 
 class MermaidConfigLoader:
@@ -341,6 +378,54 @@ class MermaidConfigLoader:
         """
         result = self._get_safe_value("sharedElements", "componentCategories", default={})
         return result if isinstance(result, dict) else {}
+
+    def get_missing_category_warnings(self, schema_categories: set[str]) -> list[str]:
+        """
+        Return one warning string per schema category absent from styling config.
+
+        Checks schema_categories against the keys in
+        sharedElements.componentCategories in the loaded config (or emergency
+        defaults). Direction is schema → styling only: extra styling keys that
+        the schema does not enumerate are ignored and produce no warning.
+
+        Args:
+            schema_categories: Set of category IDs declared by
+                components.schema.json (e.g. from the "id" enum). Caller is
+                responsible for deriving this set; this method does not load
+                the schema itself.
+
+        Returns:
+            List of warning strings, one per missing category. Each string
+            contains the missing category ID. Returns [] when every schema
+            category has a styling entry, or when schema_categories is empty.
+        """
+        if not schema_categories:
+            return []
+
+        styled_keys = set(self.get_component_category_styles().keys())
+        return [
+            f"Missing styling entry for component category '{cat}' in componentCategories config"
+            for cat in schema_categories
+            if cat not in styled_keys
+        ]
+
+    def emit_missing_category_warnings(self, schema_categories: set[str]) -> None:
+        """
+        Emit a warning for each schema category absent from styling config.
+
+        Thin wrapper around get_missing_category_warnings() that surfaces
+        warnings via the standard warnings module so they are visible to
+        operators at runtime without requiring callers to inspect the return
+        value.
+
+        Args:
+            schema_categories: Set of category IDs declared by
+                components.schema.json. See get_missing_category_warnings().
+        """
+        import warnings
+
+        for message in self.get_missing_category_warnings(schema_categories):
+            warnings.warn(message, stacklevel=2)
 
     def get_css_classes(self) -> dict:
         """

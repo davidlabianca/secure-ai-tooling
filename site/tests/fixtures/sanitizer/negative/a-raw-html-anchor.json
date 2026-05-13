@@ -1,0 +1,7 @@
+{
+  "negativeForTag": "a",
+  "description": "A literal <a href=\"https://...\"> in prose must be escaped, not passed through. Authors do not write <a> markup; sentinels expanded by the builder are the only path for anchors per ADR-015 D1.",
+  "input": "<a href=\"https://example.com\">click</a>",
+  "expectedSubstring": "&lt;a href=",
+  "mustNotContain": "<a href="
+}

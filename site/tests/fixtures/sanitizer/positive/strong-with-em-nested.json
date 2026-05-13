@@ -1,0 +1,6 @@
+{
+  "tag": "strong",
+  "description": "Bold and italic compose: **emphatically *not* this** renders <strong> wrapping <em>.",
+  "input": "**emphatically *not* this**",
+  "expectedSubstring": "<strong>"
+}

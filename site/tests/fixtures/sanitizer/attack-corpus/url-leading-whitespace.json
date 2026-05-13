@@ -1,0 +1,8 @@
+{
+  "vector": "url-leading-whitespace",
+  "description": "Leading space before https:// is a scheme-check bypass for naive startsWith implementations. URL spec strips ASCII whitespace at the start; the renderer must trim before the scheme check.",
+  "input": {"type": "link", "title": "trick", "url": "  https://safe.example.com"},
+  "note": "A4 (locked): renderer trims leading whitespace before scheme validation; trimmed URL has scheme https://, must be emitted as <a href> with the trimmed URL.",
+  "mustNotContain": "href=\"  https://",
+  "expectedSubstring": "<a href=\"https://safe.example.com\""
+}

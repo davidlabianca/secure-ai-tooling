@@ -55,6 +55,9 @@ python3 scripts/hooks/validate_control_risk_references.py --force
 # Framework references
 python3 scripts/hooks/validate_framework_references.py --force
 
+# GitHub Actions `uses:` pinning
+python3 scripts/hooks/precommit/validate_workflow_uses_pinning.py
+
 # Issue template schemas
 python3 scripts/hooks/validate_issue_templates.py --force
 ```
@@ -66,10 +69,12 @@ To exercise a single hook declaratively (using the framework's config), run:
 ```bash
 # By hook id, against all files in the repo:
 pre-commit run validate-component-edges --all-files
+pre-commit run validate-workflow-uses-pinning --all-files
 pre-commit run check-jsonschema --all-files
 
 # Against a specific file set:
 pre-commit run validate-component-edges --files risk-map/yaml/components.yaml
+pre-commit run validate-workflow-uses-pinning --files .github/workflows/validation.yml
 ```
 
 Note: framework hooks with `pass_filenames: false` (the validators) will

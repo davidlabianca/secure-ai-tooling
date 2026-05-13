@@ -8,7 +8,7 @@
 #   1. Schema validation (check-jsonschema, per yaml/schema pair)
 #   2. Prettier formatting (yaml in risk-map/yaml/)
 #   3. Ruff linting (Python)
-#   4. Local validators (component edges, control-risk, framework refs)
+#   4. Local validators (component edges, control-risk, framework refs, workflow action pins)
 #   5. Issue template regeneration + validation
 #   6. Mermaid graph, markdown table, and SVG regeneration (Mode B auto-stage)
 
@@ -198,9 +198,9 @@ repos:
 
   # ---------------------------------------------------------------------------
   # Local validators. Each runs only when its dependency files are staged
-  # (framework filters via `files:`); validators do their own internal staged-
-  # file detection, which is now redundant but harmless and preserves bash
-  # behavior. pass_filenames is false because each validator scans the repo.
+  # (framework filters via `files:`). The risk-map validators self-scan the
+  # repo and therefore use pass_filenames: false; file-scoped validators such
+  # as workflow pinning keep pass_filenames: true.
   # ---------------------------------------------------------------------------
   - repo: local
     hooks:
@@ -208,7 +208,7 @@ repos:
         name: 'risk-map: component edge consistency'
         language: system
         entry: python3 scripts/hooks/validate_riskmap.py
-        files: ^risk-map/yaml/components\.yaml$
+        files: ^risk-map/yaml/(components|controls|risks)\.yaml$
         pass_filenames: false
 
       - id: validate-control-risk-references
@@ -224,6 +224,51 @@ repos:
         entry: python3 scripts/hooks/validate_framework_references.py
         files: ^risk-map/yaml/(controls|frameworks|personas|risks)\.yaml$
         pass_filenames: false
+
+      - id: validate-lifecycle-stage
+        name: 'risk-map: lifecycle stage order uniqueness'
+        language: system
+        entry: python3 scripts/hooks/validate_riskmap.py --mode lifecycle
+        files: ^risk-map/yaml/lifecycle-stage\.yaml$
+        pass_filenames: false
+
+      - id: validate-workflow-uses-pinning
+        name: 'github-actions: enforce SHA-pinned uses references'
+        language: system
+        entry: python3 scripts/hooks/precommit/validate_workflow_uses_pinning.py
+        files: ^\.github/workflows/.*\.yml$
+        pass_filenames: true
+
+      - id: validate-identification-questions
+        name: 'validate: identification-questions structural rules'
+        entry: python3 scripts/hooks/precommit/validate_identification_questions.py
+        language: system
+        files: ^risk-map/yaml/personas\.yaml$
+        pass_filenames: true
+
+  # ---------------------------------------------------------------------------
+  # Prose authoring linters. Both consume the shared _prose_tokens.py tokenizer
+  # and ship warn-only (default; block-mode flip is C2 / sweep-close).
+  # validate-yaml-prose-subset enforces ADR-017 D4 grammar rejections;
+  # validate-prose-references enforces ADR-016 D6 sentinel ID resolution +
+  # bare-camelCase rejection. Diagnostics emit to stderr in the format
+  # `<hook-id>: <file>:<entry-id>:<field>[<index>]: <reason> at <token-snippet>`.
+  # ---------------------------------------------------------------------------
+  - repo: local
+    hooks:
+      - id: validate-yaml-prose-subset
+        name: 'validate: YAML prose authoring subset'
+        language: system
+        entry: python3 scripts/hooks/precommit/validate_yaml_prose_subset.py
+        files: ^risk-map/yaml/(components|controls|risks|personas)\.yaml$
+        pass_filenames: true
+
+      - id: validate-prose-references
+        name: 'validate: YAML prose references (sentinels + IDs)'
+        language: system
+        entry: python3 scripts/hooks/precommit/validate_prose_references.py
+        files: ^risk-map/yaml/(components|controls|risks|personas)\.yaml$
+        pass_filenames: true
 
   # ---------------------------------------------------------------------------
   # Issue template regeneration. Runs before the validator so freshly

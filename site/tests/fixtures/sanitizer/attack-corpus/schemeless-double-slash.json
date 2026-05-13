@@ -1,0 +1,6 @@
+{
+  "vector": "schemeless-double-slash",
+  "description": "Protocol-relative URL (//evil.com) inherits the page's scheme. On https pages this becomes https://evil.com; the renderer must require a scheme prefix, not merely the absence of javascript:.",
+  "input": {"type": "link", "title": "evil", "url": "//evil.example.com/xss"},
+  "mustNotContain": "<a "
+}

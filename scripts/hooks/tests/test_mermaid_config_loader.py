@@ -852,3 +852,504 @@ class TestMermaidConfigLoaderIntegration:
         custom_loader = MermaidConfigLoader()
         graph_custom = ControlGraph(controls, components, config_loader=custom_loader)
         assert graph_custom.config_loader is custom_loader
+
+
+class TestMissingCategoryWarnings:
+    """
+    Tests for MermaidConfigLoader missing-category warning generation.
+
+    ADR-022 D6a: The loader must emit a warning when
+    sharedElements.componentCategories lacks a styling entry for a category
+    present in components.schema.json.
+
+    These tests pin the observable behavior (return shape and warning content)
+    rather than the internal emission mechanism.
+    """
+
+    @pytest.fixture
+    def temp_config_file(self, tmp_path):
+        """Write a minimal valid config YAML to a temp file and return its path."""
+        config = {
+            "version": "1.0.0",
+            "foundation": {"colors": {}},
+            "sharedElements": {
+                "cssClasses": {"hidden": "display: none;"},
+                "componentCategories": {
+                    "componentsInfrastructure": {"fill": "#e6f3e6"},
+                    "componentsModel": {"fill": "#ffe6e6"},
+                    "componentsApplication": {"fill": "#e6f0ff"},
+                },
+            },
+            "graphTypes": {
+                "component": {"direction": "TD", "flowchartConfig": {}},
+                "control": {"direction": "LR", "flowchartConfig": {}},
+            },
+        }
+        config_file = tmp_path / "mermaid-styles.yaml"
+        import yaml as _yaml
+
+        with open(config_file, "w") as fh:
+            _yaml.dump(config, fh)
+        return config_file
+
+    @pytest.fixture
+    def loader_all_present(self, temp_config_file):
+        """Loader whose styling config contains all three schema categories."""
+        return MermaidConfigLoader(temp_config_file)
+
+    def _loader_with_categories(self, tmp_path, present_category_keys):
+        """
+        Build a loader whose componentCategories contains exactly the given keys.
+
+        Args:
+            tmp_path: pytest tmp_path fixture value.
+            present_category_keys: iterable of category key strings to include.
+        """
+        import yaml as _yaml
+
+        cat_entries = {k: {"fill": "#aabbcc"} for k in present_category_keys}
+        config = {
+            "version": "1.0.0",
+            "foundation": {"colors": {}},
+            "sharedElements": {
+                "cssClasses": {"hidden": "display: none;"},
+                "componentCategories": cat_entries,
+            },
+            "graphTypes": {
+                "component": {"direction": "TD", "flowchartConfig": {}},
+                "control": {"direction": "LR", "flowchartConfig": {}},
+            },
+        }
+        config_file = tmp_path / "styles.yaml"
+        with open(config_file, "w") as fh:
+            _yaml.dump(config, fh)
+        return MermaidConfigLoader(config_file)
+
+    # ------------------------------------------------------------------
+    # Layer 1 — pure-method tests on the warning generator
+    # ------------------------------------------------------------------
+
+    def test_all_schema_categories_present_returns_empty_list(self, loader_all_present):
+        """
+        No warnings when every schema category has a styling entry.
+
+        Given: A loader whose componentCategories contains X, Y, Z
+        When: get_missing_category_warnings({X, Y, Z}) is called
+        Then: Returns an empty list
+        """
+        schema_categories = {
+            "componentsInfrastructure",
+            "componentsModel",
+            "componentsApplication",
+        }
+        result = loader_all_present.get_missing_category_warnings(schema_categories)
+        assert result == []
+
+    def test_one_missing_category_returns_single_warning(self, tmp_path):
+        """
+        One warning when exactly one schema category is absent from styling.
+
+        Given: Styling has X and Y; schema declares X, Y, Z
+        When: get_missing_category_warnings({X, Y, Z}) is called
+        Then: Returns a list with exactly one string that names Z
+        """
+        loader = self._loader_with_categories(
+            tmp_path,
+            ["componentsInfrastructure", "componentsModel"],
+        )
+        schema_categories = {
+            "componentsInfrastructure",
+            "componentsModel",
+            "componentsApplication",
+        }
+        result = loader.get_missing_category_warnings(schema_categories)
+
+        assert len(result) == 1
+        assert isinstance(result[0], str)
+        assert "componentsApplication" in result[0]
+
+    def test_multiple_missing_categories_returns_one_warning_each(self, tmp_path):
+        """
+        Two warnings when two schema categories are absent from styling.
+
+        Given: Styling has only X; schema declares X, Y, Z
+        When: get_missing_category_warnings({X, Y, Z}) is called
+        Then: Returns a list with two strings, each naming the missing category
+        """
+        loader = self._loader_with_categories(tmp_path, ["componentsInfrastructure"])
+        schema_categories = {
+            "componentsInfrastructure",
+            "componentsModel",
+            "componentsApplication",
+        }
+        result = loader.get_missing_category_warnings(schema_categories)
+
+        assert len(result) == 2
+        assert all(isinstance(w, str) for w in result)
+        missing_ids = {"componentsModel", "componentsApplication"}
+        for warning in result:
+            assert any(mid in warning for mid in missing_ids), (
+                f"Warning '{warning}' does not name a missing category"
+            )
+
+    def test_empty_schema_set_returns_empty_list(self, loader_all_present):
+        """
+        No warnings when the schema category set is empty.
+
+        Given: Any loader
+        When: get_missing_category_warnings(set()) is called
+        Then: Returns an empty list (nothing to check)
+        """
+        result = loader_all_present.get_missing_category_warnings(set())
+        assert result == []
+
+    def test_empty_styling_config_all_schema_categories_warn(self, tmp_path):
+        """
+        All schema categories produce warnings when styling config has no entries.
+
+        Given: componentCategories is empty ({}); schema declares X, Y, Z
+        When: get_missing_category_warnings({X, Y, Z}) is called
+        Then: Returns 3 warnings, each naming a missing category
+        """
+        loader = self._loader_with_categories(tmp_path, [])
+        schema_categories = {
+            "componentsInfrastructure",
+            "componentsModel",
+            "componentsApplication",
+        }
+        result = loader.get_missing_category_warnings(schema_categories)
+
+        assert len(result) == 3
+        assert all(isinstance(w, str) for w in result)
+        for cat in schema_categories:
+            assert any(cat in w for w in result), f"Expected warning mentioning '{cat}' but got: {result}"
+
+    def test_return_type_is_always_list(self, loader_all_present, tmp_path):
+        """
+        Return type is always list[str] regardless of input.
+
+        Given: Various inputs including empty set and fully-covered set
+        When: get_missing_category_warnings() is called
+        Then: Return value is always a list (never None, never a generator)
+        """
+        assert isinstance(loader_all_present.get_missing_category_warnings(set()), list)
+        assert isinstance(
+            loader_all_present.get_missing_category_warnings(
+                {"componentsInfrastructure", "componentsModel", "componentsApplication"}
+            ),
+            list,
+        )
+
+        loader_empty = self._loader_with_categories(tmp_path, [])
+        assert isinstance(
+            loader_empty.get_missing_category_warnings({"componentsInfrastructure"}),
+            list,
+        )
+
+    def test_warning_string_mentions_missing_category_id(self, tmp_path):
+        """
+        Each warning string must contain the ID of the missing category.
+
+        Given: Styling lacks componentsModel
+        When: get_missing_category_warnings({"componentsModel"}) is called
+        Then: The single returned string contains "componentsModel"
+        """
+        loader = self._loader_with_categories(tmp_path, [])
+        result = loader.get_missing_category_warnings({"componentsModel"})
+
+        assert len(result) == 1
+        assert "componentsModel" in result[0]
+
+    def test_extra_styling_entry_beyond_schema_produces_no_warning(self, tmp_path):
+        """
+        Over-coverage in styling produces no warning — the check is one-directional.
+
+        ADR-022 D6a enforces schema → styling only: for every category the schema
+        enumerates, a styling entry must exist.  The reverse direction (a styling
+        entry that the schema does not enumerate) is explicitly out of scope; extra
+        styling keys are harmless and must not generate warnings.
+
+        Without this test an implementation that iterates over styling keys instead
+        of schema keys (inverted direction) would pass all other tests in this class
+        but would silently miss the coverage gap the method is supposed to close.
+
+        Given: Styling declares componentsInfrastructure AND componentsModel;
+               schema enumerates only componentsInfrastructure
+        When: get_missing_category_warnings({"componentsInfrastructure"}) is called
+        Then: Returns [] (componentsModel in styling but not in schema is not an error)
+        """
+        loader = self._loader_with_categories(
+            tmp_path,
+            ["componentsInfrastructure", "componentsModel"],
+        )
+        result = loader.get_missing_category_warnings({"componentsInfrastructure"})
+        assert result == []
+
+    # ------------------------------------------------------------------
+    # Live corpus regression
+    # ------------------------------------------------------------------
+
+    def test_live_corpus_produces_zero_warnings(self):
+        """
+        Running against the actual schema + actual mermaid-styles.yaml produces no warnings.
+
+        Given: The real components.schema.json enum and the real mermaid-styles.yaml
+        When: get_missing_category_warnings() is called with the live schema categories
+        Then: Returns an empty list (live corpus is in sync per 2026-05-04 verification)
+        """
+        import json
+
+        schema_path = (
+            Path(__file__).parent.parent.parent.parent / "risk-map" / "schemas" / "components.schema.json"
+        )
+        styles_path = Path(__file__).parent.parent.parent.parent / "risk-map" / "yaml" / "mermaid-styles.yaml"
+
+        with open(schema_path) as fh:
+            schema = json.load(fh)
+
+        schema_categories = set(schema["definitions"]["category"]["properties"]["id"]["enum"])
+
+        loader = MermaidConfigLoader(styles_path)
+        result = loader.get_missing_category_warnings(schema_categories)
+
+        assert result == [], f"Live corpus has {len(result)} unexpected missing-category warning(s): {result}"
+
+    # ------------------------------------------------------------------
+    # Layer 2 — operator-visible emission (optional wiring check)
+    # ------------------------------------------------------------------
+
+    def test_emission_path_surfaces_missing_category(self, tmp_path, capsys):
+        """
+        If the loader emits warnings to stderr, the missing category ID appears there.
+
+        Given: Styling is missing componentsApplication
+        When: The loader emits warnings via print(stderr) or warnings.warn
+        Then: "componentsApplication" is present in stderr output
+
+        NOTE: This test is conditional — it only asserts that IF the loader
+        has an emit method, calling it produces visible output.  If SWE
+        implements a return-list-only API with no emit method this test
+        can be skipped or removed.  The pure-method tests above are the
+        primary contract.
+        """
+        import warnings
+
+        loader = self._loader_with_categories(tmp_path, ["componentsInfrastructure", "componentsModel"])
+        schema_categories = {
+            "componentsInfrastructure",
+            "componentsModel",
+            "componentsApplication",
+        }
+
+        # Capture both stderr output and Python warnings
+        with warnings.catch_warnings(record=True) as caught_warnings:
+            warnings.simplefilter("always")
+
+            # If the loader has an emit-style method, call it
+            if hasattr(loader, "emit_missing_category_warnings"):
+                loader.emit_missing_category_warnings(schema_categories)
+                captured = capsys.readouterr()
+                warned_text = " ".join(str(w.message) for w in caught_warnings)
+                all_output = captured.err + captured.out + warned_text
+                assert "componentsApplication" in all_output, (
+                    "emit_missing_category_warnings() did not surface the missing category"
+                )
+            else:
+                # Return-list API only; emission test does not apply — pass silently
+                pytest.skip("Loader uses return-list API; no emit method to test here")
+
+
+class TestBaseGraphEmitsCategoryWarnings:
+    """
+    Tests that BaseGraph.__init__ calls emit_missing_category_warnings() after
+    binding its config_loader, making missing-category warnings visible at
+    graph-generator-run time (ADR-022 D6a).
+
+    The SWE must:
+      1. Add a cached helper (e.g., _get_schema_categories() in graph_utils.py)
+         that reads risk-map/schemas/components.schema.json once and returns the
+         category enum as set[str].
+      2. Call self.config_loader.emit_missing_category_warnings(<schema_categories>)
+         in BaseGraph.__init__ after self.config_loader is bound (line ~63 of
+         base.py).
+
+    Red-phase: every test in this class FAILS today because BaseGraph.__init__
+    never calls emit_missing_category_warnings(), so no warnings are emitted
+    regardless of the config_loader's styling coverage.
+    """
+
+    # A minimal valid dict of ComponentNode objects accepted by BaseGraph.__init__.
+    # BaseGraph validates that components is a dict[str, ComponentNode]; empty dict
+    # passes the isinstance check but some subclass code may complain, so we provide
+    # one real node.
+    @staticmethod
+    def _one_component() -> dict:
+        """Return a minimal components dict with one ComponentNode."""
+        from riskmap_validator.models import ComponentNode
+
+        return {"compA": ComponentNode(title="A", category="componentsInfrastructure", to_edges=[], from_edges=[])}
+
+    def _loader_with_categories(self, tmp_path: Path, present_category_keys: list[str]) -> MermaidConfigLoader:
+        """
+        Build a MermaidConfigLoader whose componentCategories contains exactly the given keys.
+
+        Reuses the same helper pattern from TestMissingCategoryWarnings so the
+        synthesised loaders are consistent between the two test classes.
+
+        Args:
+            tmp_path: pytest tmp_path fixture value.
+            present_category_keys: category key strings to include in styling config.
+        """
+        import yaml as _yaml
+
+        cat_entries = {k: {"fill": "#aabbcc"} for k in present_category_keys}
+        config = {
+            "version": "1.0.0",
+            "foundation": {"colors": {}},
+            "sharedElements": {
+                "cssClasses": {"hidden": "display: none;"},
+                "componentCategories": cat_entries,
+            },
+            "graphTypes": {
+                "component": {"direction": "TD", "flowchartConfig": {}},
+                "control": {"direction": "LR", "flowchartConfig": {}},
+            },
+        }
+        config_file = tmp_path / "styles.yaml"
+        with open(config_file, "w") as fh:
+            _yaml.dump(config, fh)
+        return MermaidConfigLoader(config_file)
+
+    def test_no_warnings_when_all_schema_categories_covered(self, tmp_path):
+        """
+        No UserWarning emitted when the styling config covers all schema categories.
+
+        Given: A config_loader whose componentCategories contains all three schema
+               categories (componentsInfrastructure, componentsModel, componentsApplication)
+        When: BaseGraph is instantiated with that loader
+        Then: No UserWarning is emitted during __init__
+
+        Red phase: FAILS today because BaseGraph.__init__ never calls
+        emit_missing_category_warnings — warnings.catch_warnings sees nothing,
+        but the assertion that no warning was emitted PASSES (false green). This
+        is handled by the complementary test below that verifies a warning IS
+        emitted when a category IS missing; that test drives the actual red failure.
+        """
+        import warnings
+
+        from riskmap_validator.graphing.base import BaseGraph
+
+        loader = self._loader_with_categories(
+            tmp_path,
+            ["componentsInfrastructure", "componentsModel", "componentsApplication"],
+        )
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            BaseGraph(self._one_component(), config_loader=loader)
+
+        category_warnings = [w for w in caught if issubclass(w.category, UserWarning)]
+        assert len(category_warnings) == 0, (
+            f"Expected no UserWarning when all schema categories are styled; "
+            f"got: {[str(w.message) for w in category_warnings]}"
+        )
+
+    def test_warning_emitted_when_schema_category_missing_from_styling(self, tmp_path):
+        """
+        At least one UserWarning is emitted when a schema category has no styling entry.
+
+        Given: A config_loader whose componentCategories is missing componentsApplication
+        When: BaseGraph is instantiated with that loader
+        Then: At least one UserWarning is emitted, and its text names
+              "componentsApplication"
+
+        Red phase: FAILS today because BaseGraph.__init__ does not call
+        emit_missing_category_warnings. No warnings are emitted, so
+        len(category_warnings) == 0 and the assertion fails.
+        """
+        import warnings
+
+        from riskmap_validator.graphing.base import BaseGraph
+
+        loader = self._loader_with_categories(
+            tmp_path,
+            # componentsApplication intentionally absent
+            ["componentsInfrastructure", "componentsModel"],
+        )
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            BaseGraph(self._one_component(), config_loader=loader)
+
+        category_warnings = [w for w in caught if issubclass(w.category, UserWarning)]
+        assert len(category_warnings) >= 1, (
+            "Expected at least one UserWarning when styling config is missing "
+            "'componentsApplication'. BaseGraph.__init__ must call "
+            "emit_missing_category_warnings() after binding config_loader."
+        )
+        warning_text = " ".join(str(w.message) for w in category_warnings)
+        assert "componentsApplication" in warning_text, (
+            f"Expected 'componentsApplication' in warning text; got: {warning_text!r}"
+        )
+
+    def test_live_state_regression_no_warnings_with_default_loader(self):
+        """
+        BaseGraph instantiated with the default singleton loader produces no warnings.
+
+        Given: The real mermaid-styles.yaml and the real components.schema.json
+               (live state has all 3 categories present in styling config)
+        When: BaseGraph is instantiated with no explicit config_loader
+              (uses the default singleton, which reads the real styles file)
+        Then: No UserWarning is emitted
+
+        This is a live-state regression guard. If the real mermaid-styles.yaml
+        drifts out of sync with the schema enum, this test will catch it.
+
+        Red phase: FAILS today (no warning emitted) BUT the assertion is that
+        no warning IS emitted, so this test currently PASSES for the wrong reason.
+        It will remain green after wiring as long as the live corpus is in sync —
+        which is the intended long-term behavior. The test above (missing category)
+        is the primary red-failure driver.
+        """
+        import warnings
+
+        from riskmap_validator.graphing.base import BaseGraph
+
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            BaseGraph(self._one_component())
+
+        category_warnings = [w for w in caught if issubclass(w.category, UserWarning)]
+        assert len(category_warnings) == 0, (
+            "Expected no UserWarning with the default loader against the live corpus. "
+            "If this fails, the live mermaid-styles.yaml is missing a schema category. "
+            f"Got: {[str(w.message) for w in category_warnings]}"
+        )
+
+
+"""
+Test Summary
+============
+Class: TestMissingCategoryWarnings
+Total Tests: 9
+- Happy Path / all-present: 2  (all_schema_categories_present, live_corpus_regression)
+- Edge Cases: 3  (empty_schema_set, empty_styling_config, return_type_always_list)
+- Error / Missing Conditions: 3  (one_missing, multiple_missing, warning_string_mentions_id)
+- Optional Emission Check: 1  (emission_path_surfaces_missing_category)
+
+Coverage Areas:
+- Return shape: always list[str]
+- Warning content: each warning names the missing category ID
+- Boundary values: empty schema set, empty styling config, all present
+- Live corpus regression: schema enum vs live YAML in sync
+- Optional operator-visible emission path (skipped if return-list-only API)
+
+Class: TestBaseGraphEmitsCategoryWarnings
+Total Tests: 3
+- Happy Path: 1  (no_warnings_when_all_schema_categories_covered)
+- Error / Missing Condition: 1  (warning_emitted_when_schema_category_missing)
+- Live regression: 1  (no_warnings_with_default_loader)
+
+Coverage Areas:
+- BaseGraph.__init__ wiring: emit_missing_category_warnings called after loader bind
+- Warning emission observable via warnings.catch_warnings
+- Live-state regression: default loader + real corpus → no warnings
+"""

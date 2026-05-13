@@ -1,0 +1,8 @@
+{
+  "tag": "a",
+  "description": "A structured link item with an https URL renders as <a> with href, rel, and target attributes constructed by the renderer.",
+  "input": {"type": "link", "title": "CoSAI", "url": "https://cosai.example.org/page"},
+  "expectedSubstring": "<a href=\"https://cosai.example.org/page\"",
+  "expectedSubstringAlso": "rel=\"noopener noreferrer\"",
+  "expectedSubstringAndAlso": "target=\"_blank\""
+}

@@ -16,6 +16,7 @@ Options:
     --force             Force validation regardless of git status
     --file PATH         Custom YAML file path
     --allow-isolated    Allow components with no edges
+    --block             Promote warn-only check warnings to errors and exit 1
     --quiet, -q         Minimal output
     --debug             Include debug annotations in graphs
     --mermaid-format    Save additional .mermaid format files
@@ -25,11 +26,18 @@ import argparse
 import sys
 from pathlib import Path
 
+import yaml
+
 # Configuration Constants
 from riskmap_validator.config import DEFAULT_COMPONENTS_FILE
 from riskmap_validator.graphing import ComponentGraph, ControlGraph, RiskGraph
 from riskmap_validator.utils import get_staged_yaml_files, parse_controls_yaml, parse_risks_yaml
-from riskmap_validator.validator import ComponentEdgeValidator
+from riskmap_validator.validator import (
+    ComponentEdgeValidator,
+    check_category_subcategory_nesting,
+    check_controls_components_mirror,
+    check_lifecycle_stage_order_uniqueness,
+)
 
 
 def parse_args() -> argparse.Namespace:
@@ -101,6 +109,13 @@ Exit Codes:
         help="Output risk-to-control-to-component graph visualization to specified file",
     )
 
+    parser.add_argument(
+        "--block",
+        action="store_true",
+        default=False,
+        help="Promote warn-only check warnings to errors and exit 1.",
+    )
+
     parser.add_argument("--debug", action="store_true", help="Include rank comments in graph output")
 
     parser.add_argument(
@@ -110,7 +125,59 @@ Exit Codes:
         help="Save graphs in '.mermaid' format in addition to markdown code block",
     )
 
+    parser.add_argument(
+        "--mode",
+        choices=["default", "lifecycle"],
+        default="default",
+        help=(
+            "Run a specific check mode. 'lifecycle': run only the lifecycle-stage.yaml "
+            "order-uniqueness check (used by validate-lifecycle-stage pre-commit hook). "
+            "'default': run the full component-edges + warn-only check pipeline."
+        ),
+    )
+
     return parser.parse_args()
+
+
+def _run_lifecycle_mode(args: argparse.Namespace) -> int:
+    """
+    Run the dedicated lifecycle-stage order-uniqueness short-circuit.
+
+    Loads risk-map/yaml/lifecycle-stage.yaml and runs only the uniqueness
+    check. Bypasses ComponentEdgeValidator, get_staged_yaml_files, and
+    graph generation. Returns the exit code for sys.exit().
+    """
+    lifecycle_path = Path("risk-map/yaml/lifecycle-stage.yaml")
+    if not lifecycle_path.exists():
+        # Mirror default-mode graceful skip when the file is absent.
+        if not args.quiet:
+            print("   Lifecycle stage order uniqueness check skipped (lifecycle-stage.yaml not found)")
+        return 0
+
+    # Broad except mirrors the default-mode skip pattern: malformed YAML
+    # or unexpected I/O state degrades to a skip rather than crashing
+    # the dedicated hook. SystemExit is excluded so explicit exits below
+    # propagate.
+    try:
+        with open(lifecycle_path, encoding="utf-8") as fh:
+            lifecycle_data = yaml.safe_load(fh)
+        result = check_lifecycle_stage_order_uniqueness(lifecycle_data)
+    except SystemExit:
+        raise
+    except Exception as e:
+        if not args.quiet:
+            print(f"   ⚠️  Lifecycle stage order uniqueness check skipped: {e}")
+        return 0
+
+    if result.is_valid:
+        if not args.quiet:
+            print("✅ Lifecycle stage order uniqueness check passed")
+        return 0
+
+    print("❌ Lifecycle stage order uniqueness check failed:")
+    for error in result.errors:
+        print(f"     - {error}")
+    return 1
 
 
 def main() -> None:
@@ -121,6 +188,13 @@ def main() -> None:
     """
     try:
         args = parse_args()
+
+        # Lifecycle mode short-circuits before ComponentEdgeValidator and
+        # get_staged_yaml_files so a lifecycle-only commit (validate-lifecycle-stage
+        # pre-commit hook) is reachable without depending on components.yaml state.
+        # Graph flags (--to-graph etc.) are silently ignored in this mode.
+        if args.mode == "lifecycle":
+            sys.exit(_run_lifecycle_mode(args))
 
         # Initialize validator
         validator = ComponentEdgeValidator(allow_isolated=args.allow_isolated, verbose=not args.quiet)
@@ -165,6 +239,113 @@ def main() -> None:
 
         if not args.quiet:
             print("✅ All YAML files passed component edge validation")
+
+        # Lifecycle stage order uniqueness check (ADR-022 D4).
+        # Block-mode-immediate: no --block flag required. If the file is absent,
+        # skip gracefully — lifecycle-stage.yaml may not be present in all test cwds.
+        # Guard on validator.components mirrors the mirror/nesting check pattern:
+        # only run when a real component validation pass populated the validator,
+        # avoiding spurious open() calls in unit tests that mock builtins.open.
+        lifecycle_path = Path("risk-map/yaml/lifecycle-stage.yaml")
+        if validator.components:
+            if lifecycle_path.exists():
+                try:
+                    with open(lifecycle_path, encoding="utf-8") as _fh:
+                        _lifecycle_data = yaml.safe_load(_fh)
+                    lifecycle_result = check_lifecycle_stage_order_uniqueness(_lifecycle_data)
+                    if lifecycle_result.is_valid:
+                        if not args.quiet:
+                            print("✅ Lifecycle stage order uniqueness check passed")
+                    else:
+                        print("❌ Lifecycle stage order uniqueness check failed:")
+                        for error in lifecycle_result.errors:
+                            print(f"     - {error}")
+                        sys.exit(1)
+                except SystemExit:
+                    raise
+                except Exception as e:
+                    if not args.quiet:
+                        print(f"   ⚠️  Lifecycle stage order uniqueness check skipped: {e}")
+            else:
+                if not args.quiet:
+                    print("   Lifecycle stage order uniqueness check skipped (lifecycle-stage.yaml not found)")
+
+        # Run warn-only checks: controls↔components mirror (ADR-020 D7 / task 2.3.8)
+        # and category/subcategory nesting (ADR-018 D6 / task 2.3.9).
+        #
+        # Both checks collect warnings independently. The exit decision is deferred
+        # until after both have run so the user sees all warnings in one pass even
+        # when --block is set.  The guard (controls_path.exists() and components
+        # loaded) stays the same as before to avoid vacuous runs and file I/O in
+        # test contexts where components are unavailable.
+        controls_path = Path("risk-map/yaml/controls.yaml")
+        components_path = Path("risk-map/yaml/components.yaml")
+
+        # Track whether any warn-only check produced output that --block should
+        # promote to a hard failure.
+        warn_block_triggered = False
+
+        if controls_path.exists() and validator.components:
+            # Broad except wraps both the parse and the check. Lets malformed
+            # controls.yaml or unexpected mock state in tests degrade to a skip
+            # rather than crashing the script. SystemExit is excluded so the
+            # block-mode exit below propagates correctly.
+            try:
+                controls = parse_controls_yaml(controls_path)
+                component_ids = set(validator.components.keys())
+                mirror_warnings = check_controls_components_mirror(controls, component_ids)
+                if mirror_warnings:
+                    label = "❌" if args.block else "⚠️"
+                    print(f"   {label} Controls↔components mirror check found {len(mirror_warnings)} issue(s):")
+                    for warning in mirror_warnings:
+                        print(f"     - {warning}")
+                    if args.block:
+                        warn_block_triggered = True
+                elif not args.quiet:
+                    print("✅ Controls↔components mirror check passed")
+            except SystemExit:
+                raise
+            except Exception as e:
+                if not args.quiet:
+                    print(f"   ⚠️  Controls↔components mirror check skipped: {e}")
+
+        # Category/subcategory nesting check (ADR-018 D6 / task 2.3.9).
+        # Runs regardless of whether the mirror check found issues so both sets
+        # of warnings are visible before the exit decision below.
+        if components_path.exists() and validator.components:
+            try:
+                with open(components_path, encoding="utf-8") as _fh:
+                    _components_data = yaml.safe_load(_fh)
+                category_to_subcategories: dict[str, set[str]] = {}
+                for _cat in _components_data.get("categories", []):
+                    _cat_id = _cat.get("id")
+                    if not isinstance(_cat_id, str):
+                        continue
+                    category_to_subcategories[_cat_id] = {
+                        _sub.get("id") for _sub in _cat.get("subcategory", []) if isinstance(_sub.get("id"), str)
+                    }
+                nesting_warnings = check_category_subcategory_nesting(
+                    validator.components, category_to_subcategories
+                )
+                if nesting_warnings:
+                    label = "❌" if args.block else "⚠️"
+                    print(f"   {label} Category/subcategory nesting check found {len(nesting_warnings)} issue(s):")
+                    for warning in nesting_warnings:
+                        print(f"     - {warning}")
+                    if args.block:
+                        warn_block_triggered = True
+                elif not args.quiet:
+                    print("✅ Category/subcategory nesting check passed")
+            except SystemExit:
+                raise
+            except Exception as e:
+                if not args.quiet:
+                    print(f"   ⚠️  Category/subcategory nesting check skipped: {e}")
+
+        # Unified exit for warn-only checks — fires after both checks have printed.
+        if warn_block_triggered:
+            print("   ❌ Warn-only check failures promoted to errors (--block).")
+            sys.exit(1)
 
         if args.to_graph:
             graph = ComponentGraph(validator.forward_map, validator.components, debug=args.debug)

@@ -1,0 +1,7 @@
+{
+  "negativeForTag": "strong",
+  "description": "__bold__ is not in the allowed subset (ADR-017 D1: asterisk delimiter only). The underscores must be escaped, not rendered as <strong>.",
+  "input": "This is __not bold__ text.",
+  "expectedSubstring": "__not bold__",
+  "mustNotContain": "<strong>"
+}

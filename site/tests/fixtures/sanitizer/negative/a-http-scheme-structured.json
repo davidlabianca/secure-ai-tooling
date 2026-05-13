@@ -1,0 +1,6 @@
+{
+  "negativeForTag": "a",
+  "description": "A structured link item with http:// (not https://) must not produce an <a> tag. The renderer validates href against ^https:// per ADR-015 D3a. http: is blocked as defense-in-depth.",
+  "input": {"type": "link", "title": "Insecure", "url": "http://example.com"},
+  "mustNotContain": "<a href=\"http://"
+}

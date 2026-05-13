@@ -1,0 +1,6 @@
+{
+  "vector": "attribute-injection-lt-in-url",
+  "description": "URL containing `<` is RFC 3986-illegal and is rejected by validateUrl; no `<a>` tag is emitted at all. Per ADR-015 D3a (bounded emission) + D5 (RFC-3986 conformance).",
+  "input": {"type": "link", "title": "safe", "url": "https://example.com/<script>"},
+  "mustNotContain": "<a "
+}
