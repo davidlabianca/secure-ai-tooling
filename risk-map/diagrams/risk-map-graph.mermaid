@@ -12,22 +12,26 @@ graph TD
     classDef allControl stroke:#4285f4,stroke-width:2px,stroke-dasharray: 5 5
 
     subgraph componentsInfrastructure ["Infrastructure Components"]
-        componentDataStorage[Data Storage Infrastructure]
-        componentModelServing[Model Serving Infrastructure]
-        componentModelStorage[Model Storage]
         subgraph componentsData ["Data"]
             componentDataFilteringAndProcessing[Data Filtering and Processing]
             componentDataSources[Data Sources]
+            componentDataStorage[Data Storage Infrastructure]
             componentTrainingData[Training Data]
+        end
+        subgraph componentsModelDeployment ["Model Deployment"]
+            componentModelServing[Model Serving Infrastructure]
+            componentModelStorage[Model Storage]
         end
     end
 
     subgraph componentsModel ["Model Components"]
-        componentTheModel[The Model]
         subgraph componentsModelTraining ["Model Training"]
             componentModelEvaluation[Model Evaluation]
             componentModelFrameworksAndCode[Model Frameworks and Code]
             componentModelTrainingTuning[Training and Tuning]
+        end
+        subgraph componentsModelCore ["Model Core"]
+            componentTheModel[The Model]
         end
         subgraph componentsOrchestration ["Orchestration"]
             componentMemory[Model Memory]
@@ -39,9 +43,11 @@ graph TD
     end
 
     subgraph componentsApplication ["Application Components"]
-        componentApplication[Application]
-        componentApplicationInputHandling[Input Handling]
-        componentApplicationOutputHandling[Output Handling]
+        subgraph componentsApplicationCore ["Application Core"]
+            componentApplication[Application]
+            componentApplicationInputHandling[Input Handling]
+            componentApplicationOutputHandling[Output Handling]
+        end
         subgraph componentsAgent ["Agent"]
             componentAgentInputHandling[Input Handling]
             componentAgentOutputHandling[Output Handling]

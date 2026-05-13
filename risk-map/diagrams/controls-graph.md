@@ -112,6 +112,7 @@ graph LR
 
     %% Control to Component relationships
     controlModelPrivacyEnhancingTechnologies --> componentsModelSubgroup
+    controlRuntimePrivacyEnhancingTechnologies --> componentApplicationOutputHandling
     controlRuntimePrivacyEnhancingTechnologies --> componentModelServing
     controlTrainingDataManagement --> componentDataSources
     controlTrainingDataManagement --> componentTrainingData
@@ -129,8 +130,10 @@ graph LR
     controlSecureByDefaultMLTooling --> componentsModelSubgroup
     controlSecureByDefaultMLTooling --> componentsModels
     controlInputValidationAndSanitization --> componentAgentInputHandling
+    controlInputValidationAndSanitization --> componentApplicationInputHandling
     controlInputValidationAndSanitization --> componentOrchestrationInputHandling
     controlOutputValidationAndSanitization --> componentAgentOutputHandling
+    controlOutputValidationAndSanitization --> componentApplicationOutputHandling
     controlOutputValidationAndSanitization --> componentOrchestrationOutputHandling
     controlAdversarialTrainingAndTesting --> componentTheModel
     controlApplicationAccessManagement --> componentApplication
@@ -189,12 +192,12 @@ graph LR
     controlVulnerabilityManagement:::allControl
 
     %% Edge styling
-    linkStyle 29,30,31,32 stroke:#4285f4,stroke-width:3px,stroke-dasharray: 8 4
-    linkStyle 0,4,7,8,9,10,11,12,14,15,16,56 stroke:#34a853,stroke-width:2px
-    linkStyle 2,25,33,37,38,42,47,51,57,61,62,66,67 stroke:#9c27b0,stroke-width:2px
-    linkStyle 3,26,34,39,43,48,52,58,63,68 stroke:#ff9800,stroke-width:2px,stroke-dasharray: 5 5
-    linkStyle 27,35,40,44,49,53,59,64,69 stroke:#e91e63,stroke-width:2px,stroke-dasharray: 10 2
-    linkStyle 28,36,41,50,54,60,65 stroke:#C95792,stroke-width:2px,stroke-dasharray: 10 5
+    linkStyle 32,33,34,35 stroke:#4285f4,stroke-width:3px,stroke-dasharray: 8 4
+    linkStyle 0,5,8,9,10,11,12,13,15,16,17,59 stroke:#34a853,stroke-width:2px
+    linkStyle 3,18,21,28,36,40,41,45,50,54,60,64,65,69,70 stroke:#9c27b0,stroke-width:2px
+    linkStyle 4,19,22,29,37,42,46,51,55,61,66,71 stroke:#ff9800,stroke-width:2px,stroke-dasharray: 5 5
+    linkStyle 20,23,30,38,43,47,52,56,62,67,72 stroke:#e91e63,stroke-width:2px,stroke-dasharray: 10 2
+    linkStyle 31,39,44,53,57,63,68 stroke:#C95792,stroke-width:2px,stroke-dasharray: 10 5
 
 %% Node style definitions
     style components fill:#f0f0f0,stroke:#666666,stroke-width:3px,stroke-dasharray: 10 5

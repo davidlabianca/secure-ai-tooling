@@ -66,6 +66,14 @@ categories:
             Compromising these model weights can have a significant impact on the model's
             behavior and outputs. This makes attacks on model weights as potentially damaging
             as attacks targeting the code in traditional software development.
+      - id: componentsModelDeployment
+        title: Model deployment components
+        description:
+          - >
+            Infrastructure that stores trained model artifacts and serves them for inference.
+            Distinct from training infrastructure (which produces models) and from data
+            infrastructure (which feeds training), model deployment infrastructure carries
+            the production-time risks of model integrity, availability, and access control.
   - id: componentsModel
     title: Model components
     description:
@@ -81,6 +89,13 @@ categories:
           - >
             Primary processes and artifacts leveraged in the training of models from source data
             and algorithms.
+      - id: componentsModelCore
+        title: Model core
+        description:
+          - >
+            The trained model artifact itself — the pairing of code and weights produced by
+            training and consumed at inference. Distinct from the training-time processes
+            that produce it and from the orchestration tooling that augments it at runtime.
       - id: componentsOrchestration
         title: Orchestration
         description:
@@ -118,6 +133,13 @@ categories:
         description:
           - >
             Agentic systems differ from other AI systems in their ability to take autonomous actions.
+      - id: componentsApplicationCore
+        title: Application core
+        description:
+          - >
+            The application that consumes the model and the input/output handling that
+            filters traffic crossing the application boundary. Agent components add
+            autonomous reasoning and tool-use capabilities on top of this surface.
 components:
   - id: componentDataSources
     title: Data Sources
@@ -169,6 +191,7 @@ components:
         Storage for training data. Training data is stored from ingestion through filtering
         and usage during training.
     category: componentsInfrastructure
+    subcategory: componentsData
     edges:
       to:
         - componentModelTrainingTuning
@@ -239,6 +262,7 @@ components:
         that store models themselves, though, should consider the same Model Storage
         risks that apply to model creators.
     category: componentsInfrastructure
+    subcategory: componentsModelDeployment
     edges:
       to:
         - componentTheModel
@@ -253,6 +277,7 @@ components:
         their own models, though, should consider the same Model Serving risks that
         apply to model creators.
     category: componentsInfrastructure
+    subcategory: componentsModelDeployment
     edges:
       to:
         - componentTheModel
@@ -266,6 +291,7 @@ components:
         Components. A model is ultimately useful when deployed in applications, using
         Application Components.
     category: componentsModel
+    subcategory: componentsModelCore
     edges:
       to:
         - componentModelEvaluation
@@ -290,6 +316,7 @@ components:
         ability to execute tools on behalf of its user, it is sometimes referred to
         as an Agent.
     category: componentsApplication
+    subcategory: componentsApplicationCore
     edges:
       to:
         - componentApplicationOutputHandling
@@ -306,6 +333,7 @@ components:
         the trusted system. Input handling acts as a control against numerous risks
         and is an area ripe for more research and development.
     category: componentsApplication
+    subcategory: componentsApplicationCore
     edges:
       to:
         - componentTheModel
@@ -320,6 +348,7 @@ components:
         handling is a major line of defense against various risks and an area primed
         for more development.
     category: componentsApplication
+    subcategory: componentsApplicationCore
     edges:
       to:
         - componentApplication

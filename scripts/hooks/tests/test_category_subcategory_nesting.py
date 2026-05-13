@@ -15,12 +15,12 @@ Path A (orchestrator-pinned): emit warnings for BOTH classes.
   - Class 1 (mismatch): subcategory present + not nested under claimed category.
   - Class 2 (absent):   category present + subcategory missing.
 
-Live corpus state (verified 2026-05-04):
+Live corpus state (verified 2026-05-13, post-#297):
   - 0 mismatched-nesting components (per ADR-018 D6, "no component has this
     drift today; the gap is a backstop class").
-  - 7 components missing subcategory: componentDataStorage, componentModelStorage,
-    componentModelServing, componentTheModel, componentApplication,
-    componentApplicationOutputHandling, componentApplicationInputHandling.
+  - 0 components missing subcategory (the 7 known cases were resolved by
+    #297; synthetic dirty/absent fixtures below preserve forward-guard
+    coverage).
 
 Symbol contract
 ---------------
@@ -86,20 +86,10 @@ _SCRIPT = Path(__file__).parent.parent / "validate_riskmap.py"
 # Repository root — used as cwd for live-corpus subprocess tests.
 _REPO_ROOT = Path(__file__).resolve().parent.parent.parent.parent
 
-# Known live-corpus components missing the `subcategory` field (2026-05-04).
-_LIVE_MISSING_SUBCATEGORY_IDS: frozenset[str] = frozenset(
-    {
-        "componentDataStorage",
-        "componentModelStorage",
-        "componentModelServing",
-        "componentTheModel",
-        "componentApplication",
-        "componentApplicationOutputHandling",
-        "componentApplicationInputHandling",
-    }
-)
-
-# Test-only nesting map — matches the exact live category declarations (verified 2026-05-04).
+# Test-only nesting map — minimal synthetic shape covering the four legacy
+# subcategories. Real-world subcategory additions (e.g., from #297) do not
+# need to be reflected here: this map is consumed only by the pure-function
+# unit tests below, which exercise the algorithm against synthesised inputs.
 _NESTING_MAP: dict[str, set[str]] = {
     "componentsInfrastructure": {"componentsData"},
     "componentsModel": {"componentsModelTraining", "componentsOrchestration"},
@@ -365,25 +355,23 @@ class TestCheckCategorySubcategoryNesting:
         combined = " ".join(result)
         assert "componentUnknownCat" in combined, f"Expected component ID in warning; got: {result}"
 
-    def test_live_corpus_regression_surfaces_known_missing_subcategory(self, nesting_fn):
+    def test_live_corpus_produces_zero_warnings(self, nesting_fn):
         """
-        Given: the actual risk-map/yaml/components.yaml on disk
+        Given: the actual risk-map/yaml/components.yaml on disk (post-#297)
         When: check_category_subcategory_nesting() is called against parsed input
-        Then: returns exactly 7 warnings, and every known missing-subcategory component ID
-              appears in the combined output
+        Then: returns 0 warnings — the live corpus is clean
 
-        The 7 known missing IDs are listed in _LIVE_MISSING_SUBCATEGORY_IDS (as of 2026-05-04).
-        This assertion is intentionally exact (==, not >=) to guard BOTH directions of drift:
-        - cleanup reduces the count below 7 → fail (update the expected count + ID list)
-        - new content debt increases the count above 7 → fail (track the new defect)
-        Update this test and _LIVE_MISSING_SUBCATEGORY_IDS whenever the corpus changes.
+        Forward-guard: replaces the retired count==7 / count==3 regression tests
+        that tracked the pre-#297 content debt. Synthetic dirty/absent fixtures
+        below preserve the algorithmic coverage (mismatch + absent classes).
         """
         from riskmap_validator.utils import parse_components_yaml  # noqa: E402
 
         components_path = _REPO_ROOT / "risk-map" / "yaml" / "components.yaml"
         components = parse_components_yaml(components_path)
 
-        # Build the nesting map from the YAML's top-level categories block.
+        # Build the nesting map from the YAML's top-level categories block so
+        # this test stays valid as new subcategories are added or removed.
         with open(components_path, encoding="utf-8") as fh:
             data = yaml.safe_load(fh)
         nesting_map: dict[str, set[str]] = {}
@@ -395,16 +383,7 @@ class TestCheckCategorySubcategoryNesting:
             nesting_map[cat_id] = sub_ids
 
         result = nesting_fn(components, nesting_map)
-        assert len(result) == 7, (
-            "Expected exactly 7 warnings (the 7 known missing-subcategory components as of 2026-05-04). "
-            "If the corpus drifted (cleanup OR new defects), update this test and "
-            f"_LIVE_MISSING_SUBCATEGORY_IDS. Got {len(result)}: {result}"
-        )
-        combined = " ".join(result)
-        for component_id in _LIVE_MISSING_SUBCATEGORY_IDS:
-            assert component_id in combined, (
-                f"Expected '{component_id}' (known missing-subcategory case) in warning text; got: {result}"
-            )
+        assert result == [], f"Expected 0 warnings on the live corpus; got {len(result)}: {result}"
 
 
 # ===========================================================================
@@ -432,26 +411,20 @@ class TestNestingBlockToggleCLI:
             f"stdout: {result.stdout}\nstderr: {result.stderr}"
         )
 
-    def test_live_corpus_with_block_flag_exits_1(self, run_validate_riskmap):
+    def test_live_corpus_with_block_flag_exits_0(self, run_validate_riskmap):
         """
-        Given: actual repo as cwd, --block
+        Given: actual repo as cwd, --block (post-#297, corpus is clean)
         When: validate_riskmap.py --force --allow-isolated --block runs
-        Then: exit 1 (combined nesting + mirror warnings fire the toggle;
-              7 missing subcategories + 3 mirror dangle ≥ 10 total)
+        Then: exit 0 — no nesting or mirror warnings remain to fire the toggle
 
-        Today (pre-2.3.9) exit 1 comes from the 3 mirror-dangle warnings from
-        task 2.3.8. After 2.3.9 is wired, both the nesting warnings and the
-        mirror warnings contribute.
+        Forward-guard: replaces the retired count==1 expectation that tracked
+        pre-#297 content debt. Synthetic dirty fixtures cover the warning-fires
+        path.
         """
         result = run_validate_riskmap(_REPO_ROOT, "--block")
-        assert result.returncode == 1, (
-            f"Expected exit 1 with --block on live corpus; got {result.returncode}\n"
+        assert result.returncode == 0, (
+            f"Expected exit 0 with --block on clean live corpus; got {result.returncode}\n"
             f"stdout: {result.stdout}\nstderr: {result.stderr}"
-        )
-        combined = result.stdout + result.stderr
-        assert any(cid in combined for cid in _LIVE_MISSING_SUBCATEGORY_IDS), (
-            f"Expected output to name at least one known missing-subcategory ID; "
-            f"stdout: {result.stdout!r}\nstderr: {result.stderr!r}"
         )
 
     def test_clean_corpus_with_block_exits_0(self, tmp_path, write_riskmap_corpus, run_validate_riskmap):
@@ -521,26 +494,16 @@ class TestNestingBlockToggleCLI:
 # ===========================================================================
 # Test Summary
 # ===========================================================================
-# Total tests: 16
 #
-# TestCheckCategorySubcategoryNesting (10 tests)
+# TestCheckCategorySubcategoryNesting (pure function)
 #   — clean → empty list; class-1 mismatch → warning naming component +
 #     orphan subcategory; multiple class-1 mismatches; class-2 absence →
 #     warning naming component; mixed class-1 + class-2; empty dict;
 #     return type list; each element str; unknown category produces warning;
-#     live-corpus regression surfaces known 7 missing IDs.
+#     live-corpus forward-guard (post-#297: 0 warnings on clean corpus).
 #
-# TestNestingBlockToggleCLI (6 tests)
-#   — live + no --block → exit 0; live + --block → exit 1;
+# TestNestingBlockToggleCLI (subprocess CLI)
+#   — live + no --block → exit 0; live + --block → exit 0 (clean post-#297);
 #     clean synthesised + --block → exit 0; dirty nesting + --block → exit 1;
 #     dirty nesting + no --block → exit 0 + warning emitted;
 #     --help still documents --block (regression guard).
-#
-# Red-phase failure modes
-#   - TestCheckCategorySubcategoryNesting: ImportError at fixture setup
-#     (check_category_subcategory_nesting not yet defined).
-#   - TestNestingBlockToggleCLI: dirty-with-block + dirty-no-block-emits-warning
-#     fail because the nesting check is not yet wired into main().
-#     live-no-block, clean-with-block, live-with-block (already exits 1
-#     because of mirror's 3 dangling refs after task 2.3.8 — passing for
-#     compatible reason), and --help (already passes after 2.3.8) pass today.

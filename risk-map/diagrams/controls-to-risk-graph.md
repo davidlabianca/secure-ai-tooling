@@ -296,6 +296,7 @@ graph LR
 
     %% Control to Component relationships (reused from ControlGraph)
     controlModelPrivacyEnhancingTechnologies --> componentsModelSubgroup
+    controlRuntimePrivacyEnhancingTechnologies --> componentApplicationOutputHandling
     controlRuntimePrivacyEnhancingTechnologies --> componentModelServing
     controlTrainingDataManagement --> componentDataSources
     controlTrainingDataManagement --> componentTrainingData
@@ -313,8 +314,10 @@ graph LR
     controlSecureByDefaultMLTooling --> componentsModelSubgroup
     controlSecureByDefaultMLTooling --> componentsModels
     controlInputValidationAndSanitization --> componentAgentInputHandling
+    controlInputValidationAndSanitization --> componentApplicationInputHandling
     controlInputValidationAndSanitization --> componentOrchestrationInputHandling
     controlOutputValidationAndSanitization --> componentAgentOutputHandling
+    controlOutputValidationAndSanitization --> componentApplicationOutputHandling
     controlOutputValidationAndSanitization --> componentOrchestrationOutputHandling
     controlAdversarialTrainingAndTesting --> componentTheModel
     controlApplicationAccessManagement --> componentApplication

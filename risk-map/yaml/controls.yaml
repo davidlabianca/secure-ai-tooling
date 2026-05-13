@@ -70,7 +70,7 @@ controls:
       - personaModelCreator
       - personaModelConsumer
     components:
-      - componentOutputHandling
+      - componentApplicationOutputHandling
       - componentModelServing
     risks:
       - riskSensitiveDataDisclosure
@@ -343,7 +343,7 @@ controls:
       - personaModelCreator
       - personaModelConsumer
     components:
-      - componentInputHandling
+      - componentApplicationInputHandling
       - componentAgentInputHandling
       - componentOrchestrationInputHandling
     risks:
@@ -383,7 +383,7 @@ controls:
       - personaModelCreator
       - personaModelConsumer
     components:
-      - componentOutputHandling
+      - componentApplicationOutputHandling
       - componentAgentOutputHandling
       - componentOrchestrationOutputHandling
     risks:
