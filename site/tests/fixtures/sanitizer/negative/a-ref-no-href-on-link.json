@@ -1,0 +1,7 @@
+{
+  "negativeForTag": "a",
+  "variant": "ref",
+  "description": "A ref item must NOT render rel or target attributes (those are link-only per ADR-015 D1). The in-page anchor is internal navigation, not outbound.",
+  "input": {"type": "ref", "id": "riskPromptInjection", "title": "Prompt Injection"},
+  "mustNotContain": "rel=\"noopener"
+}

@@ -172,6 +172,54 @@ test("regression: riskRetrievalVectorStorePoisoning shape from persona-site-data
   assert.ok(!out.includes("[object Object]"));
 });
 
+test("nested array with {type:'ref'} item renders as in-page fragment anchor", () => {
+  // ADR-016 D5 expansion: ref items become <a href="#id">title</a>. No rel/target.
+  // This shape is produced by the builder when {{<entity-id>}} sentinels are expanded.
+  const out = renderRichParagraphs([
+    [
+      "This risk relates closely to ",
+      { type: "ref", id: "riskPromptInjection", title: "Prompt Injection" },
+      ", which describes a similar attack surface.",
+    ],
+  ]);
+  assert.equal(
+    out,
+    '<p class="body-copy">This risk relates closely to ' +
+      '<a href="#riskPromptInjection">Prompt Injection</a>' +
+      ", which describes a similar attack surface.</p>",
+  );
+});
+
+test("top-level {type:'ref'} item renders as <p><a href='#id'>...</a></p>", () => {
+  const out = renderRichParagraphs([{ type: "ref", id: "controlInputValidation", title: "Input Validation" }]);
+  assert.equal(out, '<p class="body-copy"><a href="#controlInputValidation">Input Validation</a></p>');
+});
+
+test("ref item with invalid id (breakout chars) escapes title instead of emitting <a>", () => {
+  // Defence-in-depth: even though upstream validators (ADR-016 D6 linter) reject
+  // malformed sentinels, the renderer also rejects ids that would break href attribute.
+  const out = renderRichParagraphs([
+    ["Should escape: ", { type: "ref", id: 'risk"><script>alert(1)</script>', title: "x" }],
+  ]);
+  assert.ok(!out.includes('<a href="#risk"'));
+  assert.ok(!out.includes("<script>"));
+  assert.ok(!out.includes("[object Object]"));
+});
+
+test("regression: bleed-thru — riskAgentDelegationChainOpacity longDescription shape with ref items", () => {
+  // One of the 16 risks that bled [object Object] before this fix. The shape
+  // is a single inline paragraph with string + ref + string segments;
+  // taken from site/generated/persona-site-data.json after a fresh build.
+  const longDescriptionPara = [
+    "Agentic systems frequently involve multi-hop delegation where one agent acts on behalf of another (or a human) across tools and MCP servers. See related ",
+    { type: "ref", id: "riskAgenticDelegationConfusedDeputy", title: "Agentic Delegation Confused Deputy" },
+    " for the failure mode where token-grant flows lose the original principal.",
+  ];
+  const out = renderRichParagraphs([longDescriptionPara]);
+  assert.ok(out.includes('<a href="#riskAgenticDelegationConfusedDeputy">Agentic Delegation Confused Deputy</a>'));
+  assert.ok(!out.includes("[object Object]"));
+});
+
 test("mixed item types: string + nested-with-object + plain nested array", () => {
   // Sanity check that branches are dispatched independently and concatenated.
   const out = renderRichParagraphs([
