@@ -37,6 +37,14 @@
 | riskUnauthorizedTrainingData             | Unauthorized Training Data               | Using unauthorized data for model training. Using a model trained with Unauthorized Training Data might lead to legal or ethical challenges.<br>                                                                                                                                                                | risksSupplyChainAndDevelopment   |
 | riskZombieShadowMCPServers               | Zombie / Shadow MCP Servers              | Decommissioned or unregistered MCP servers remain accessible and respond to agent tool calls, allowing attackers to intercept or redirect legitimate requests.<br>                                                                                                                                              | risksDeploymentAndInfrastructure |
 
+## References for riskAgenticDelegationConfusedDeputy
+- [AWS IAM User Guide: The confused deputy problem](https://docs.aws.amazon.com/IAM/latest/UserGuide/confused-deputy.html) (spec)
+
+
+## References for riskMCPTransportHijacking
+- [Model Context Protocol specification (2025-11-25): Transports](https://modelcontextprotocol.io/specification/2025-11-25/basic/transports) (spec)
+
+
 ## References for riskModelDeploymentTampering
 - [Compromised PyTorch-nightly dependency chain between December 25th and December 30th, 2022](https://pytorch.org/blog/compromised-nightly-dependency/) (advisory)
 
@@ -47,3 +55,7 @@
 
 ## References for riskOrchestratorRouteHijacking
 - [CVE-2026-24779: Server-Side Request Forgery in vLLM MediaConnector](https://nvd.nist.gov/vuln/detail/CVE-2026-24779) (cve)
+
+
+## References for riskZombieShadowMCPServers
+- [OWASP Web Security Testing Guide 4.2.10: Test for Subdomain Takeover](https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/02-Configuration_and_Deployment_Management_Testing/10-Test_for_Subdomain_Takeover) (spec)
