@@ -252,10 +252,10 @@ components:
     description:
       - >
         Storage for the model. Model storage refers to multiple stages in the development process:
+      - - >
+          Local storage during training, in which each checkpoint is stored until overwritten.
         - >
-          local storage during training, in which each checkpoint is stored until overwritten;
-        - >
-          published storage, after training is completed and the model is uploaded
+          Published storage, after training is completed and the model is uploaded
           to a model hub (a centralized model repository).
       - >
         Note: Many model consumers use remote models served by API. Those model consumers
@@ -447,16 +447,18 @@ components:
     title: Model Memory
     description:
       - >
-        Memory allows a model or agent to retain context and learn facts across interactions. 
-        Memory implementations may result in additional security and data risk exposures 
+        Memory allows a model or agent to retain context and learn facts across interactions.
+        Memory implementations may result in additional security and data risk exposures
         requiring mitigation. Examples include:
-         
-        - Persistent attacks: Malicious data stored in memory could enable ongoing 
-          attacks against a user
-        - Data loss through improper isolation: Sensitive data may be disclosed due 
-          to inadequate memory isolation between different users and contexts
-        - Unintended data transfer: Sensitive information may be inappropriately
-          transferred to third parties through undesired or unexpected tool calls
+      - - >
+          Persistent attacks: Malicious data stored in memory could enable ongoing
+          attacks against a user.
+        - >
+          Data loss through improper isolation: Sensitive data may be disclosed due
+          to inadequate memory isolation between different users and contexts.
+        - >
+          Unintended data transfer: Sensitive information may be inappropriately
+          transferred to third parties through undesired or unexpected tool calls.
     category: componentsModel
     subcategory: componentsOrchestration
     edges:
