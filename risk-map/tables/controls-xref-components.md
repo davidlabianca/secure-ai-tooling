@@ -35,7 +35,7 @@
 | controlComponentIdentityProvenance         | Component Identity Provenance                     | componentTools                       | External Tools and Services              |
 | controlIncidentResponseManagement          | Incident Response Management                      | all                                  | All Components                           |
 | controlInputValidationAndSanitization      | Input Validation and Sanitization                 | componentAgentInputHandling          | Input Handling                           |
-| controlInputValidationAndSanitization      | Input Validation and Sanitization                 | componentInputHandling               | Unknown (componentInputHandling)         |
+| controlInputValidationAndSanitization      | Input Validation and Sanitization                 | componentApplicationInputHandling    | Input Handling                           |
 | controlInputValidationAndSanitization      | Input Validation and Sanitization                 | componentOrchestrationInputHandling  | Input Handling                           |
 | controlInterComponentTransportSecurity     | Inter-Component Transport Security                | componentApplication                 | Application                              |
 | controlInterComponentTransportSecurity     | Inter-Component Transport Security                | componentModelServing                | Model Serving Infrastructure             |
@@ -66,14 +66,14 @@
 | controlOrchestratorAndRouteIntegrity       | Orchestrator and Route Integrity                  | componentApplication                 | Application                              |
 | controlOrchestratorAndRouteIntegrity       | Orchestrator and Route Integrity                  | componentModelServing                | Model Serving Infrastructure             |
 | controlOutputValidationAndSanitization     | Output Validation and Sanitization                | componentAgentOutputHandling         | Output Handling                          |
+| controlOutputValidationAndSanitization     | Output Validation and Sanitization                | componentApplicationOutputHandling   | Output Handling                          |
 | controlOutputValidationAndSanitization     | Output Validation and Sanitization                | componentOrchestrationOutputHandling | Output Handling                          |
-| controlOutputValidationAndSanitization     | Output Validation and Sanitization                | componentOutputHandling              | Unknown (componentOutputHandling)        |
 | controlRedTeaming                          | Red Teaming                                       | all                                  | All Components                           |
 | controlRetrievalAndVectorSystemIntegrity   | Retrieval and Vector System Integrity Management  | componentDataFilteringAndProcessing  | Data Filtering and Processing            |
 | controlRetrievalAndVectorSystemIntegrity   | Retrieval and Vector System Integrity Management  | componentDataSources                 | Data Sources                             |
 | controlRetrievalAndVectorSystemIntegrity   | Retrieval and Vector System Integrity Management  | componentDataStorage                 | Data Storage Infrastructure              |
+| controlRuntimePrivacyEnhancingTechnologies | Privacy Enhancing Technologies for Inference      | componentApplicationOutputHandling   | Output Handling                          |
 | controlRuntimePrivacyEnhancingTechnologies | Privacy Enhancing Technologies for Inference      | componentModelServing                | Model Serving Infrastructure             |
-| controlRuntimePrivacyEnhancingTechnologies | Privacy Enhancing Technologies for Inference      | componentOutputHandling              | Unknown (componentOutputHandling)        |
 | controlSecureByDefaultMLTooling            | Secure-by-Default ML Tooling                      | componentModelEvaluation             | Model Evaluation                         |
 | controlSecureByDefaultMLTooling            | Secure-by-Default ML Tooling                      | componentModelServing                | Model Serving Infrastructure             |
 | controlSecureByDefaultMLTooling            | Secure-by-Default ML Tooling                      | componentModelStorage                | Model Storage                            |
