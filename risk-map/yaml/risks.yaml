@@ -45,16 +45,15 @@ risks:
         Data Poisoning can be considered comparable to maliciously modifying the logic
         of an application to change its behavior.
       - >
-        Data Poisoning attacks can happen during training or tuning, while data is
-        held in storage, or even before the data is ingested into an organization.
-        For example, foundation models are often trained on distributed web-scale datasets
-        crawled from the Internet. An attack could <a href="https://arxiv.org/abs/2302.10149"
-        target="_blank" rel="noopener">indirectly pollute a public data source</a>
-        that is eventually ingested. A malicious or compromised insider could also
-        more directly poison the datasets while held in storage or during the training
-        process, by submitting poisoned prompt-response examples for inclusion in the
-        tuning data, as demonstrated in a 2023 research paper on <a href="https://arxiv.org/pdf/2305.00944.pdf">poisoning
-        models during instruction tuning</a>.
+        Data Poisoning attacks can happen during training or tuning, while data is held
+        in storage, or even before the data is ingested into an organization. For example,
+        foundation models are often trained on distributed web-scale datasets crawled
+        from the Internet. An attack could indirectly pollute a public data source ({{ref:carlini-2023-poisoning-web-scale}})
+        that is eventually ingested. A malicious or compromised insider could also more
+        directly poison the datasets while held in storage or during the training process,
+        by submitting poisoned prompt-response examples for inclusion in the tuning data,
+        as demonstrated in a 2023 research paper on poisoning models during instruction
+        tuning ({{ref:wan-2023-poisoning-instruction-tuning}}).
       - >
         Data Poisoning attacks can also install backdoors by specific alterations of
         the training data. Backdoored models would continue to function normally, but
@@ -77,9 +76,8 @@ risks:
       - controlModelAndDataInventoryManagement
     examples:
       - >
-        Researchers showed that they could <a href="https://arxiv.org/abs/2302.10149"
-        target="_blank" rel="noopener">indirectly pollute popular data sources used
-        for training models</a> with minimal cost.
+        Researchers showed that they could indirectly pollute popular data sources used
+        for training models ({{ref:carlini-2023-poisoning-web-scale}}) with minimal cost.
     tourContent:
       introduced:
         - >
@@ -123,6 +121,15 @@ risks:
       - privileged
       - service-provider
       - infrastructure-provider
+    externalReferences:
+      - type: paper
+        id: carlini-2023-poisoning-web-scale
+        title: Poisoning Web-Scale Training Datasets is Practical
+        url: https://arxiv.org/abs/2302.10149
+      - type: paper
+        id: wan-2023-poisoning-instruction-tuning
+        title: Poisoning Language Models During Instruction Tuning
+        url: https://arxiv.org/abs/2305.00944
   - id: riskUnauthorizedTrainingData
     title: Unauthorized Training Data
     shortDescription:
@@ -209,9 +216,9 @@ risks:
         code's dependency chain.
       - >
         Another method of Model Source Tampering is model architecture backdoors, which
-        are <a href="https://arxiv.org/pdf/2402.06957.pdf">backdoors embedded within
-        the definition of the neural network architecture</a>. Such backdoors can
-        survive full retraining of a model.
+        are backdoors embedded within the definition of the neural network architecture
+        ({{ref:langford-2024-architectural-backdoors}}). Such backdoors can survive full
+        retraining of a model.
     category: risksSupplyChainAndDevelopment
     personas:
       - personaModelProvider
@@ -280,6 +287,10 @@ risks:
         title: Compromised PyTorch-nightly dependency chain between December 25th
           and December 30th, 2022
         url: https://pytorch.org/blog/compromised-nightly-dependency/
+      - type: paper
+        id: langford-2024-architectural-backdoors
+        title: Architectural Neural Backdoors from First Principles
+        url: https://arxiv.org/abs/2402.06957
   - id: riskExcessiveDataHandling
     title: Excessive Data Handling
     shortDescription:
@@ -534,9 +545,8 @@ risks:
       - controlInterComponentTransportSecurity
     examples:
       - >
-        <a href="https://www.wiz.io/blog/wiz-and-hugging-face-address-risks-to-ai-infrastructure#what-did-we-find-11"
-        target="_blank" rel="noopener">Researchers discovered that models on HuggingFace
-        were using a shared infrastructure for inference</a>, which allowed a malicious
+        Researchers discovered that models on HuggingFace were using a shared infrastructure
+        for inference ({{ref:wiz-2024-huggingface-collaboration}}), which allowed a malicious
         model to tamper with any other model.
     tourContent:
       introduced:
@@ -585,6 +595,10 @@ risks:
         id: thehackernews-2023-shelltorch
         title: 'Warning: PyTorch Models Vulnerable to Remote Code Execution via ShellTorch'
         url: https://thehackernews.com/2023/10/warning-pytorch-models-vulnerable-to.html
+      - type: paper
+        id: wiz-2024-huggingface-collaboration
+        title: Hugging Face works with Wiz to strengthen AI cloud security
+        url: https://www.wiz.io/blog/wiz-and-hugging-face-address-risks-to-ai-infrastructure
   - id: riskDenialOfMLService
     title: Denial of ML Service
     shortDescription:
@@ -603,13 +617,13 @@ risks:
         the repeated queries can take the model offline, making it unavailable to other
         users.
       - >
-        There are also <a href="https://arxiv.org/pdf/2006.03463.pdf">energy-latency
-        attacks</a>: attackers can carefully craft “sponge examples” (also known
-        as queries of death), which are inputs designed to maximize energy consumption
-        and latency, pushing ML systems towards their worst-case performance. Adversaries
-        might use their own tools to accelerate construction of such sponge examples.
-        These attacks are especially relevant for on-device models, since the increased
-        energy consumption can drain batteries and make the model unavailable.
+        There are also energy-latency attacks ({{ref:shumailov-2020-sponge-examples}}):
+        attackers can carefully craft “sponge examples” (also known as queries of death),
+        which are inputs designed to maximize energy consumption and latency, pushing
+        ML systems towards their worst-case performance. Adversaries might use their own
+        tools to accelerate construction of such sponge examples. These attacks are especially
+        relevant for on-device models, since the increased energy consumption can drain
+        batteries and make the model unavailable.
     category: risksRuntimeInputSecurity
     personas:
       - personaPlatformProvider
@@ -621,9 +635,8 @@ risks:
       - controlApplicationAccessManagement
     examples:
       - >
-        Researchers have proven how slight perturbation to images <a href="https://arxiv.org/abs/2205.13618"
-        target="_blank" rel="noopener">can cause denial of service on object detection
-        models</a>.
+        Researchers have proven how slight perturbation to images can cause denial of
+        service on object detection models ({{ref:shapira-2022-phantom-sponges}}).
     tourContent:
       introduced:
         - >
@@ -656,6 +669,16 @@ risks:
       - external
       - api
       - user
+    externalReferences:
+      - type: paper
+        id: shumailov-2020-sponge-examples
+        title: 'Sponge Examples: Energy-Latency Attacks on Neural Networks'
+        url: https://arxiv.org/abs/2006.03463
+      - type: paper
+        id: shapira-2022-phantom-sponges
+        title: 'Phantom Sponges: Exploiting Non-Maximum Suppression to Attack Deep Object
+          Detectors'
+        url: https://arxiv.org/abs/2205.13618
   - id: riskModelReverseEngineering
     title: Model Reverse Engineering
     shortDescription:
@@ -667,8 +690,7 @@ risks:
         Cloning or recreating a model by analyzing a model's inputs, outputs, and behaviors.
       - >
         The stolen or cloned model can be used for building imitation products or developing
-        <a href="https://arxiv.org/abs/2004.15015">adversarial attacks</a> on the
-        original model.
+        adversarial attacks ({{ref:wallace-2020-imitation-attacks}}) on the original model.
       - >
         If a model API does not have rate limits, one method of Model Reverse Engineering
         is repeatedly calling the API to gather responses in order to create a dataset
@@ -687,9 +709,9 @@ risks:
       - controlApplicationAccessManagement
     examples:
       - >
-        A Stanford University research team created <a href="https://crfm.stanford.edu/2023/03/13/alpaca.html"
-        target="_blank" rel="noopener">Alpaca 7B</a>, a model fine-tuned from
-        the LLaMA 7B model based on 52,000 instruction-following examples.
+        A Stanford University research team created Alpaca 7B ({{ref:stanford-crfm-2023-alpaca}}),
+        a model fine-tuned from the LLaMA 7B model based on 52,000 instruction-following
+        examples.
     tourContent:
       introduced:
         - >
@@ -719,6 +741,16 @@ risks:
     actorAccess:
       - api
       - user
+    externalReferences:
+      - type: paper
+        id: wallace-2020-imitation-attacks
+        title: Imitation Attacks and Defenses for Black-box Machine Translation
+          Systems
+        url: https://arxiv.org/abs/2004.15015
+      - type: paper
+        id: stanford-crfm-2023-alpaca
+        title: 'Alpaca: A Strong, Replicable Instruction-Following Model'
+        url: https://crfm.stanford.edu/2023/03/13/alpaca.html
   - id: riskInsecureIntegratedComponent
     title: Insecure Integrated Component
     shortDescription:
@@ -787,13 +819,12 @@ risks:
         able to eavesdrop on user conversations ({{ref:theverge-2019-alexa-google-home-srlabs}})
         that occurred near Alexa / Google Home devices.
       - >
-        A <a href="https://blog.gitguardian.com/breaking-mcp-server-hosting/"
-        target="_blank" rel="noopener">path traversal vulnerability</a>
-        in Smithery.ai's MCP server hosting platform (October 2025) exposed
-        3,000+ hosted MCP servers and thousands of downstream API keys
-        through a tenant isolation failure in the Docker build configuration.
-        An attacker with this access could modify hosted tool definitions
-        or intercept credentials used by AI agents connecting to those servers.
+        A path traversal vulnerability ({{ref:gitguardian-2025-mcp-server-hosting-breach}})
+        in Smithery.ai's MCP server hosting platform (October 2025) exposed 3,000+ hosted
+        MCP servers and thousands of downstream API keys through a tenant isolation failure
+        in the Docker build configuration. An attacker with this access could modify hosted
+        tool definitions or intercept credentials used by AI agents connecting to those
+        servers.
     tourContent:
       introduced:
         - >
@@ -839,6 +870,10 @@ risks:
         id: theverge-2019-alexa-google-home-srlabs
         title: Security researchers expose new Alexa and Google Home vulnerability
         url: https://www.theverge.com/2019/10/21/20924886/alexa-google-home-security-vulnerability-srlabs-phishing-eavesdropping
+      - type: paper
+        id: gitguardian-2025-mcp-server-hosting-breach
+        title: 'From Path Traversal to Supply Chain Compromise: Breaking MCP Server Hosting'
+        url: https://blog.gitguardian.com/breaking-mcp-server-hosting/
   - id: riskPromptInjection
     title: Prompt Injection
     shortDescription:
@@ -853,18 +888,17 @@ risks:
         behavior. These attacks can be both direct (entered directly by the user) or
         indirect (read from other sources such as a doc, email, or website).
       - >
-        <a href="https://arxiv.org/pdf/2307.02483.pdf">Jailbreaks</a> are one type
-        of Prompt Injection attack, causing the model to behave in ways that they’ve
-        been trained to avoid, such as outputting unsafe content or leaking personally
-        identifiable information.  These are well-known vulnerabilities such as "ignore
-        your previous instructions" or “Do Anything Now” (DAN).
+        Jailbreaks ({{ref:wei-2023-jailbroken}}) are one type of Prompt Injection attack,
+        causing the model to behave in ways that they’ve been trained to avoid, such as
+        outputting unsafe content or leaking personally identifiable information.  These
+        are well-known vulnerabilities such as "ignore your previous instructions" or
+        “Do Anything Now” (DAN).
       - >
-        Aside from jailbreaks, <a href="https://arxiv.org/pdf/2302.12173.pdf">Prompt
-        Injections</a> generally cause the LLM to execute malicious “injected”
-        instructions as part of data that were not meant to be executed by the LLM.
-        The blast radius of such attacks can become much bigger in the presence of
-        other risks such as {{riskInsecureIntegratedComponent}} and
-        {{riskRogueActions}}.
+        Aside from jailbreaks, Prompt Injections ({{ref:greshake-2023-indirect-prompt-injection}})
+        generally cause the LLM to execute malicious “injected” instructions as part of
+        data that were not meant to be executed by the LLM. The blast radius of such attacks
+        can become much bigger in the presence of other risks such as {{riskInsecureIntegratedComponent}}
+        and {{riskRogueActions}}.
       - >
         With foundation models becoming multi-modal, multi-modal prompt injection has
         also become possible. These attacks use injection inputs other than text to
@@ -882,12 +916,12 @@ risks:
       - controlOutputValidationAndSanitization
     examples:
       - >
-        An example of indirect Prompt Injection was performed by <a href="https://arxiv.org/abs/2302.12173"
-        target="_blank" rel="noopener">planting malicious data inside a resource fed into
-        the LLM's prompt</a>. In another example, a multi-modal prompt injection image
-        attacks against GPT-4V ({{ref:simonwillison-2023-multimodal-prompt-injection}})
-        showed that images can contain text that triggers a Prompt Injection attack when
-        the model is asked to describe the image.
+        An example of indirect Prompt Injection was performed by planting malicious data
+        inside a resource fed into the LLM's prompt ({{ref:greshake-2023-indirect-prompt-injection}}).
+        In another example, a multi-modal prompt injection image attacks against GPT-4V
+        ({{ref:simonwillison-2023-multimodal-prompt-injection}}) showed that images can
+        contain text that triggers a Prompt Injection attack when the model is asked to
+        describe the image.
     tourContent:
       introduced:
         - >
@@ -926,6 +960,15 @@ risks:
         id: simonwillison-2023-multimodal-prompt-injection
         title: Multi-modal prompt injection image attacks against GPT-4V
         url: https://simonwillison.net/2023/Oct/14/multi-modal-prompt-injection/
+      - type: paper
+        id: wei-2023-jailbroken
+        title: 'Jailbroken: How Does LLM Safety Training Fail?'
+        url: https://arxiv.org/abs/2307.02483
+      - type: paper
+        id: greshake-2023-indirect-prompt-injection
+        title: "Not what you've signed up for: Compromising Real-World LLM-Integrated
+          Applications with Indirect Prompt Injection"
+        url: https://arxiv.org/abs/2302.12173
   - id: riskModelEvasion
     title: Model Evasion
     shortDescription:
@@ -1113,14 +1156,12 @@ risks:
       - controlUserPoliciesAndEducation
     examples:
       - >
-        One study showed that <a href="https://arxiv.org/abs/2210.17546" target="_blank"
-        rel="noopener">recitation checkers that scan for verbatim repetition of training
-        data</a> may be insufficient.
+        One study showed that recitation checkers that scan for verbatim repetition of
+        training data ({{ref:ippolito-2022-verbatim-memorization}}) may be insufficient.
       - >
-        An example of <a href="https://arxiv.org/pdf/1610.05820.pdf" target="_blank"
-        rel="noopener">membership inference attacks</a> showed the possibility of
-        inferring whether a specific user or data point was used to train or tune the
-        model.
+        An example of membership inference attacks ({{ref:shokri-2016-membership-inference}})
+        showed the possibility of inferring whether a specific user or data point was
+        used to train or tune the model.
     tourContent:
       introduced:
         - >
@@ -1161,6 +1202,16 @@ risks:
       - agent
       - privileged
       - infrastructure-provider
+    externalReferences:
+      - type: paper
+        id: ippolito-2022-verbatim-memorization
+        title: Preventing Verbatim Memorization in Language Models Gives a False
+          Sense of Privacy
+        url: https://arxiv.org/abs/2210.17546
+      - type: paper
+        id: shokri-2016-membership-inference
+        title: Membership Inference Attacks against Machine Learning Models
+        url: https://arxiv.org/abs/1610.05820
   - id: riskInferredSensitiveData
     title: Inferred Sensitive Data
     shortDescription:
@@ -1199,10 +1250,8 @@ risks:
       - controlAdversarialTrainingAndTesting
     examples:
       - >
-        Examples include papers on <a href="https://osf.io/preprints/psyarxiv/hv28a"
-        target="_blank" rel="noopener">AI inferences about sexual orientation</a>
-        or <a href="https://confilegal.com/wp-content/uploads/2016/11/ESTUDIO-UNIVERSIDAD-DE-JIAO-TONG-SHANGHAI.pdf">criminal
-        record from faces</a>.
+        Examples include papers on AI inferences about sexual orientation ({{ref:wang-2018-dnn-sexual-orientation}})
+        or criminal record from faces ({{ref:wu-2016-automated-criminality-inference}}).
     tourContent:
       introduced:
         - >
@@ -1237,6 +1286,16 @@ risks:
       - external
       - api
       - user
+    externalReferences:
+      - type: paper
+        id: wang-2018-dnn-sexual-orientation
+        title: Deep Neural Networks Are More Accurate Than Humans at Detecting
+          Sexual Orientation From Facial Images
+        url: https://doi.org/10.1037/pspa0000098
+      - type: paper
+        id: wu-2016-automated-criminality-inference
+        title: Automated Inference on Criminality using Face Images
+        url: https://arxiv.org/abs/1611.04135
   - id: riskInsecureModelOutput
     title: Insecure Model Output
     shortDescription:
@@ -1376,15 +1435,13 @@ risks:
         An attack on ChatGPT plugins was described in Plugin Vulnerabilities: Visit a
         Website and Have Your Source Code Stolen ({{ref:embracethered-2023-chatgpt-plugin-source-code-stolen}}).
       - >
-        The <a href="https://generalanalysis.com/blog/supabase-mcp-blog"
-        target="_blank" rel="noopener">Supabase/Cursor data exfiltration (2025)</a>
-        demonstrated capability amplification through over-permissioned agents: a
-        developer's Cursor IDE agent connected to Supabase using service_role
-        credentials that bypassed all Row-Level Security. An attacker embedded SQL
-        exfiltration commands in a support ticket, and when the agent summarized
-        tickets it executed the attacker's commands with its elevated permissions,
-        traversing privilege boundaries the ticket author could never cross
-        directly.
+        The Supabase/Cursor data exfiltration (2025) ({{ref:generalanalysis-2026-supabase-mcp}})
+        demonstrated capability amplification through over-permissioned agents: a developer's
+        Cursor IDE agent connected to Supabase using service_role credentials that bypassed
+        all Row-Level Security. An attacker embedded SQL exfiltration commands in a support
+        ticket, and when the agent summarized tickets it executed the attacker's commands
+        with its elevated permissions, traversing privilege boundaries the ticket author
+        could never cross directly.
     tourContent:
       introduced:
         - >
@@ -1428,6 +1485,10 @@ risks:
         id: embracethered-2023-chatgpt-plugin-source-code-stolen
         title: 'Plugin Vulnerabilities: Visit a Website and Have Your Source Code Stolen'
         url: https://embracethered.com/blog/posts/2023/chatgpt-plugin-vulns-chat-with-code/
+      - type: paper
+        id: generalanalysis-2026-supabase-mcp
+        title: Supabase MCP can leak your entire SQL database
+        url: https://generalanalysis.com/blog/supabase-mcp-blog
   - id: riskAcceleratorAndSystemSideChannels
     title: Accelerator and System Side-channels
     shortDescription:
@@ -1470,14 +1531,13 @@ risks:
       - controlIsolatedConfidentialComputing
     examples:
       - >
-        Research has demonstrated <a href="https://arxiv.org/abs/2006.12784" target="_blank"
-        rel="noopener">GPU side-channel attacks</a> that can extract neural network
-        weights and training data from co-located processes on shared GPU hardware.
+        Research has demonstrated GPU side-channel attacks ({{ref:zhu-2020-hermes-attack}})
+        that can extract neural network weights and training data from co-located processes
+        on shared GPU hardware.
       - >
-        Security researchers have shown <a href="https://arxiv.org/abs/2505.06738"
-        target="_blank" rel="noopener">cache-based side-channel attacks</a> on
-        local LLM inference that can leak sensitive input and output text by
-        exploiting hardware cache access patterns.
+        Security researchers have shown cache-based side-channel attacks ({{ref:gao-2025-hardware-cache-side-channels}})
+        on local LLM inference that can leak sensitive input and output text by exploiting
+        hardware cache access patterns.
     tourContent:
       introduced:
         - >
@@ -1501,6 +1561,16 @@ risks:
           page-table isolation, retpolines), using secure scheduling algorithms, applying
           noise injection or randomization techniques, and monitoring for anomalous
           access patterns indicative of side-channel attacks.
+    externalReferences:
+      - type: paper
+        id: zhu-2020-hermes-attack
+        title: 'Hermes Attack: Steal DNN Models with Lossless Inference Accuracy'
+        url: https://arxiv.org/abs/2006.12784
+      - type: paper
+        id: gao-2025-hardware-cache-side-channels
+        title: 'I Know What You Said: Unveiling Hardware Cache Side-Channels in Local
+          Large Language Model Inference'
+        url: https://arxiv.org/abs/2505.06738
   - id: riskEconomicDenialOfWallet
     title: Economic Denial of Wallet
     shortDescription:
@@ -1544,15 +1614,13 @@ risks:
       - controlAgentExecutionBounds
     examples:
       - >
-        Research has shown <a href="https://arxiv.org/abs/2410.10760" target="_blank"
-        rel="noopener">denial-of-service poisoning attacks</a> where injecting a
-        single malicious training sample via a fine-tuning API can force LLMs to
-        generate maximum-length outputs, amplifying inference costs.
+        Research has shown denial-of-service poisoning attacks ({{ref:gao-2024-dos-poisoning}})
+        where injecting a single malicious training sample via a fine-tuning API can force
+        LLMs to generate maximum-length outputs, amplifying inference costs.
       - >
-        Security studies demonstrate <a href="https://arxiv.org/abs/2512.07086" target="_blank"
-        rel="noopener">resource exhaustion attacks on LLM APIs</a> where crafted
-        prompts cause infinite generation loops, achieving 100x latency increases
-        and reducing throughput to 1% of normal capacity.
+        Security studies demonstrate resource exhaustion attacks on LLM APIs ({{ref:li-2025-thinktrap}})
+        where crafted prompts cause infinite generation loops, achieving 100x latency
+        increases and reducing throughput to 1% of normal capacity.
     tourContent:
       introduced:
         - >
@@ -1571,6 +1639,16 @@ risks:
           rate limiting and usage monitoring, anomaly detection for unusual
           consumption patterns, and access controls to prevent unauthorized
           or excessive resource usage.
+    externalReferences:
+      - type: paper
+        id: gao-2024-dos-poisoning
+        title: Denial-of-Service Poisoning Attacks against Large Language Models
+        url: https://arxiv.org/abs/2410.10760
+      - type: paper
+        id: li-2025-thinktrap
+        title: 'ThinkTrap: Denial-of-Service Attacks against Black-box LLM Services via
+          Infinite Thinking'
+        url: https://arxiv.org/abs/2512.07086
   - id: riskFederatedDistributedTrainingPrivacy
     title: Federated/Distributed Training Privacy
     shortDescription:
@@ -1615,14 +1693,13 @@ risks:
       - controlSecureByDefaultMLTooling
     examples:
       - >
-        Research demonstrates <a href="https://arxiv.org/abs/1906.08935" target="_blank"
-        rel="noopener">gradient inversion attacks</a> that can reconstruct private
-        training images from gradient updates in federated learning systems.
+        Research demonstrates gradient inversion attacks ({{ref:zhu-2019-deep-leakage-gradients}})
+        that can reconstruct private training images from gradient updates in federated
+        learning systems.
       - >
-        Studies show <a href="https://arxiv.org/abs/2402.06289" target="_blank"
-        rel="noopener">membership inference attacks on federated learning</a>
-        where attackers can determine if specific data points were used in a
-        target client's training set by exploiting updates from all participants.
+        Studies show membership inference attacks on federated learning ({{ref:zhu-2024-fedmia}})
+        where attackers can determine if specific data points were used in a target client's
+        training set by exploiting updates from all participants.
     tourContent:
       introduced:
         - >
@@ -1642,6 +1719,16 @@ risks:
           multi-party computation for aggregation, robust participant authentication,
           gradient compression and noise injection, and monitoring for anomalous
           client behavior during training.
+    externalReferences:
+      - type: paper
+        id: zhu-2019-deep-leakage-gradients
+        title: Deep Leakage from Gradients
+        url: https://arxiv.org/abs/1906.08935
+      - type: paper
+        id: zhu-2024-fedmia
+        title: 'FedMIA: An Effective Membership Inference Attack Exploiting All for One
+          Principle in Federated Learning'
+        url: https://arxiv.org/abs/2402.06289
   - id: riskAdapterPEFTInjection
     title: Adapter/PEFT Injection
     shortDescription:
@@ -1688,14 +1775,13 @@ risks:
       - controlSecureByDefaultMLTooling
     examples:
       - >
-        Research demonstrates <a href="https://arxiv.org/abs/2403.00108" target="_blank"
-        rel="noopener">backdoor attacks on LoRA adapters</a> where malicious
-        fine-tuning components can compromise model behavior while appearing benign.
+        Research demonstrates backdoor attacks on LoRA adapters ({{ref:liu-2024-loratk}})
+        where malicious fine-tuning components can compromise model behavior while appearing
+        benign.
       - >
-        Security studies show <a href="https://arxiv.org/abs/2310.00648" target="_blank"
-        rel="noopener">trojan attacks targeting parameter-efficient fine-tuning</a>
-        where compromised model weights propagate backdoors through downstream
-        PEFT adaptation.
+        Security studies show trojan attacks targeting parameter-efficient fine-tuning
+        ({{ref:hong-2023-peta}}) where compromised model weights propagate backdoors through
+        downstream PEFT adaptation.
     tourContent:
       introduced:
         - >
@@ -1715,6 +1801,15 @@ risks:
           integrity, secure adapter repositories with provenance tracking, runtime
           monitoring for anomalous behavior, sandboxed adapter loading processes,
           and comprehensive testing of adapter functionality before deployment.
+    externalReferences:
+      - type: paper
+        id: liu-2024-loratk
+        title: 'LoRATK: LoRA Once, Backdoor Everywhere in the Share-and-Play Ecosystem'
+        url: https://arxiv.org/abs/2403.00108
+      - type: paper
+        id: hong-2023-peta
+        title: 'PETA: Parameter-Efficient Trojan Attacks'
+        url: https://arxiv.org/abs/2310.00648
   - id: riskToolRegistryTampering
     title: Tool Registry Tampering
     shortDescription:
@@ -1781,20 +1876,16 @@ risks:
         security risks including prompt injection through compromised servers, credential
         exposure, and unverified third-party tool adoption.
       - >
-        <a href="https://invariantlabs.ai/blog/mcp-security-notification-tool-poisoning-attacks"
-        target="_blank" rel="noopener">Invariant Labs demonstrated</a>
-        (April 2025) that MCP servers can silently modify tool descriptions
-        after initial user approval, exfiltrating SSH keys and MCP
-        credentials from Claude Desktop and Cursor without triggering
-        re-approval prompts.
+        Invariant Labs demonstrated ({{ref:invariantlabs-2025-mcp-tool-poisoning}}) (April
+        2025) that MCP servers can silently modify tool descriptions after initial user
+        approval, exfiltrating SSH keys and MCP credentials from Claude Desktop and Cursor
+        without triggering re-approval prompts.
       - >
-        A <a href="https://blog.gitguardian.com/breaking-mcp-server-hosting/"
-        target="_blank" rel="noopener">tenant isolation failure</a>
-        in the Smithery.ai MCP server hosting platform (October 2025)
-        demonstrated that infrastructure compromise of a trusted registry
-        can enable modification of hosted tool definitions across 3,000+
-        MCP servers, allowing attackers to redirect agent tool selection
-        at scale on a previously vetted platform.
+        A tenant isolation failure ({{ref:gitguardian-2025-mcp-server-hosting-breach}})
+        in the Smithery.ai MCP server hosting platform (October 2025) demonstrated that
+        infrastructure compromise of a trusted registry can enable modification of hosted
+        tool definitions across 3,000+ MCP servers, allowing attackers to redirect agent
+        tool selection at scale on a previously vetted platform.
     tourContent:
       introduced:
         - >
@@ -1835,6 +1926,14 @@ risks:
         id: paloalto-2025-mcp-security-overview
         title: 'Model Context Protocol (MCP): A Security Overview'
         url: https://www.paloaltonetworks.com/blog/cloud-security/model-context-protocol-mcp-a-security-overview/
+      - type: paper
+        id: invariantlabs-2025-mcp-tool-poisoning
+        title: 'MCP Security Notification: Tool Poisoning Attacks'
+        url: https://invariantlabs.ai/blog/mcp-security-notification-tool-poisoning-attacks
+      - type: paper
+        id: gitguardian-2025-mcp-server-hosting-breach
+        title: 'From Path Traversal to Supply Chain Compromise: Breaking MCP Server Hosting'
+        url: https://blog.gitguardian.com/breaking-mcp-server-hosting/
   - id: riskOrchestratorRouteHijacking
     title: Orchestrator/Route Hijack
     shortDescription:
@@ -1881,9 +1980,9 @@ risks:
       - controlInterComponentTransportSecurity
     examples:
       - >
-        Security research shows <a href="https://arxiv.org/abs/2501.01818" target="_blank"
-        rel="noopener">prompt-based routing attacks</a> where crafted inputs can
-        manipulate AI orchestration systems to route requests to unintended models.
+        Security research shows prompt-based routing attacks ({{ref:shafran-2025-rerouting-llm-routers}})
+        where crafted inputs can manipulate AI orchestration systems to route requests
+        to unintended models.
       - >
         A server-side request forgery vulnerability in vLLM ({{ref:cve-2026-24779}}, patched
         in 0.14.1) demonstrated that host restriction bypasses in AI serving infrastructure
@@ -1913,6 +2012,10 @@ risks:
         id: cve-2026-24779
         title: 'CVE-2026-24779: Server-Side Request Forgery in vLLM MediaConnector'
         url: https://nvd.nist.gov/vuln/detail/CVE-2026-24779
+      - type: paper
+        id: shafran-2025-rerouting-llm-routers
+        title: Rerouting LLM Routers
+        url: https://arxiv.org/abs/2501.01818
   - id: riskEvaluationBenchmarkManipulation
     title: Evaluation/Benchmark Manipulation
     shortDescription:
@@ -1956,14 +2059,12 @@ risks:
       - controlModelAndDataIntegrityManagement
     examples:
       - >
-        Research demonstrates <a href="https://arxiv.org/abs/2502.13295" target="_blank"
-        rel="noopener">benchmark gaming attacks</a> where reasoning models hack
-        benchmarks by exploiting task specifications rather than developing genuine
-        capability.
+        Research demonstrates benchmark gaming attacks ({{ref:bondarenko-2025-specification-gaming}})
+        where reasoning models hack benchmarks by exploiting task specifications rather
+        than developing genuine capability.
       - >
-        Studies show <a href="https://arxiv.org/abs/2510.13570" target="_blank"
-        rel="noopener">selective adversarial attacks on LLM benchmarks</a> where
-        semantic-preserving perturbations to evaluation questions can manipulate
+        Studies show selective adversarial attacks on LLM benchmarks ({{ref:dubrovsky-2025-selective-adversarial-benchmarks}})
+        where semantic-preserving perturbations to evaluation questions can manipulate
         model rankings and mislead assessment processes.
     tourContent:
       introduced:
@@ -1984,6 +2085,15 @@ risks:
           integrity verification, using diverse and protected evaluation sets,
           employing red teaming and adversarial testing, monitoring for evaluation
           anomalies, and maintaining strict access controls for evaluation data.
+    externalReferences:
+      - type: paper
+        id: bondarenko-2025-specification-gaming
+        title: Demonstrating specification gaming in reasoning models
+        url: https://arxiv.org/abs/2502.13295
+      - type: paper
+        id: dubrovsky-2025-selective-adversarial-benchmarks
+        title: Selective Adversarial Attacks on LLM Benchmarks
+        url: https://arxiv.org/abs/2510.13570
   - id: riskCovertChannelsInModelOutputs
     title: Covert Channels in Model Outputs
     shortDescription:
@@ -2027,15 +2137,13 @@ risks:
       - controlModelAndDataIntegrityManagement
     examples:
       - >
-        Research demonstrates <a href="https://arxiv.org/abs/2410.03768" target="_blank"
-        rel="noopener">emergent steganographic collusion in LLMs</a> where models
-        trained with misspecified reward incentives spontaneously develop hidden
-        encoding schemes in generated text, undetectable by standard oversight.
+        Research demonstrates emergent steganographic collusion in LLMs ({{ref:mathew-2024-steganographic-collusion}})
+        where models trained with misspecified reward incentives spontaneously develop
+        hidden encoding schemes in generated text, undetectable by standard oversight.
       - >
-        Studies show <a href="https://arxiv.org/abs/2410.17175" target="_blank"
-        rel="noopener">remote timing attacks on LLM inference</a> where
-        efficiency optimizations introduce data-dependent timing that leaks
-        conversation topics and PII through encrypted network traffic.
+        Studies show remote timing attacks on LLM inference ({{ref:carlini-2024-remote-timing-attacks}})
+        where efficiency optimizations introduce data-dependent timing that leaks conversation
+        topics and PII through encrypted network traffic.
     tourContent:
       introduced:
         - >
@@ -2056,6 +2164,16 @@ risks:
           for anomalous response patterns, analyzing model behavior for covert
           channels, and applying randomization techniques to disrupt potential
           information encoding mechanisms.
+    externalReferences:
+      - type: paper
+        id: mathew-2024-steganographic-collusion
+        title: 'Hidden in Plain Text: Emergence and Mitigation of Steganographic Collusion
+          in LLMs'
+        url: https://arxiv.org/abs/2410.03768
+      - type: paper
+        id: carlini-2024-remote-timing-attacks
+        title: Remote Timing Attacks on Efficient Language Model Inference
+        url: https://arxiv.org/abs/2410.17175
   - id: riskMaliciousLoaderDeserialization
     title: Malicious Loader/Deserialization
     shortDescription:
@@ -2107,18 +2225,16 @@ risks:
       - controlSecureByDefaultMLTooling
     examples:
       - >
-        Research has demonstrated <a href="https://blog.trailofbits.com/2021/03/15/never-a-dill-moment-exploiting-machine-learning-pickle-files/"
-        target="_blank" rel="noopener">pickle deserialization attacks</a> where
-        malicious model files execute arbitrary code during loading.
+        Research has demonstrated pickle deserialization attacks ({{ref:trailofbits-2021-pickle-exploitation}})
+        where malicious model files execute arbitrary code during loading.
       - >
-        Security researchers have shown <a href="https://hiddenlayer.com/research/weaponizing-machine-learning-models-with-ransomware/"
-        target="_blank" rel="noopener">weaponized ML models</a> that can deploy
-        ransomware or establish backdoors when loaded by unsuspecting users.
+        Security researchers have shown weaponized ML models ({{ref:hiddenlayer-2022-weaponizing-ml-ransomware}})
+        that can deploy ransomware or establish backdoors when loaded by unsuspecting
+        users.
       - >
-        Studies reveal <a href="https://arxiv.org/abs/2601.14163" target="_blank"
-        rel="noopener">widespread remote code execution risks in ML model hosting
-        ecosystems</a> where unsafe deserialization and custom code execution
-        during model loading affect tens of thousands of repositories.
+        Studies reveal widespread remote code execution risks in ML model hosting ecosystems
+        ({{ref:siddiq-2026-rce-model-hosting}}) where unsafe deserialization and custom
+        code execution during model loading affect tens of thousands of repositories.
     tourContent:
       introduced:
         - >
@@ -2137,6 +2253,20 @@ risks:
           input validation and sanitization, verifying model integrity through
           cryptographic signatures, sandboxing model loading processes, and using
           secure-by-default ML tooling that prevents code execution during deserialization.
+    externalReferences:
+      - type: paper
+        id: trailofbits-2021-pickle-exploitation
+        title: 'Never a dill moment: Exploiting machine learning pickle files'
+        url: https://blog.trailofbits.com/2021/03/15/never-a-dill-moment-exploiting-machine-learning-pickle-files/
+      - type: paper
+        id: hiddenlayer-2022-weaponizing-ml-ransomware
+        title: Weaponizing ML Models with Ransomware
+        url: https://hiddenlayer.com/research/weaponizing-machine-learning-models-with-ransomware/
+      - type: paper
+        id: siddiq-2026-rce-model-hosting
+        title: An Empirical Study on Remote Code Execution in Machine Learning Model
+          Hosting Ecosystems
+        url: https://arxiv.org/abs/2601.14163
   - id: riskToolSourceProvenance
     title: Tool Source Provenance
     shortDescription:
@@ -2191,10 +2321,9 @@ risks:
         (December 2025) identified Tool Poisoning, Tool Shadowing, and Schema Poisoning
         as three of the top 11 MCP security risks.
       - >
-        The NeurIPS 2025 paper <a href="https://arxiv.org/html/2508.02110v2"
-        target="_blank" rel="noopener">"Attractive Metadata Attack"</a>
-        demonstrated that metadata manipulation alone is sufficient to redirect
-        tool selection in agentic systems, achieving 81-95% attack success rates.
+        The NeurIPS 2025 paper "Attractive Metadata Attack" ({{ref:mo-2025-attractive-metadata-attack}})
+        demonstrated that metadata manipulation alone is sufficient to redirect tool selection
+        in agentic systems, achieving 81-95% attack success rates.
     tourContent:
       introduced:
         - >
@@ -2235,6 +2364,10 @@ risks:
         id: checkmarx-2025-mcp-emerging-risks
         title: 11 Emerging AI Security Risks with MCP (Model Context Protocol)
         url: https://checkmarx.com/zero-post/11-emerging-ai-security-risks-with-mcp-model-context-protocol/
+      - type: paper
+        id: mo-2025-attractive-metadata-attack
+        title: 'Attractive Metadata Attack: Inducing LLM Agents to Invoke Malicious Tools'
+        url: https://arxiv.org/abs/2508.02110
   - id: riskPromptResponseCachePoisoning
     title: Prompt/Response Cache Poisoning
     shortDescription:
@@ -2281,15 +2414,13 @@ risks:
       - controlUserDataManagement
     examples:
       - >
-        Research has shown <a href="https://arxiv.org/abs/2601.23088" target="_blank"
-        rel="noopener">semantic cache key collision attacks</a> where crafted
-        prompts can hijack cached LLM responses, serving attacker-controlled
+        Research has shown semantic cache key collision attacks ({{ref:zhang-2026-semantic-cache-collision}})
+        where crafted prompts can hijack cached LLM responses, serving attacker-controlled
         content to other users through shared caching mechanisms.
       - >
-        Studies demonstrate <a href="https://arxiv.org/abs/2508.09442" target="_blank"
-        rel="noopener">privacy risks in KV-cache systems</a> where user inputs
-        can be reconstructed from plaintext cache contents in multi-tenant LLM
-        serving infrastructure.
+        Studies demonstrate privacy risks in KV-cache systems ({{ref:luo-2025-kv-cache-privacy}})
+        where user inputs can be reconstructed from plaintext cache contents in multi-tenant
+        LLM serving infrastructure.
     tourContent:
       introduced:
         - >
@@ -2306,6 +2437,17 @@ risks:
           Mitigation involves implementing strong cache isolation per user or tenant,
           validating cached content integrity, using cryptographically secure cache
           keys, and applying access controls to prevent unauthorized cache manipulation.
+    externalReferences:
+      - type: paper
+        id: zhang-2026-semantic-cache-collision
+        title: 'From Similarity to Vulnerability: Key Collision Attack on LLM Semantic
+          Caching'
+        url: https://arxiv.org/abs/2601.23088
+      - type: paper
+        id: luo-2025-kv-cache-privacy
+        title: 'Shadow in the Cache: Unveiling and Mitigating Privacy Risks of KV-cache
+          in LLM Inference'
+        url: https://arxiv.org/abs/2508.09442
   - id: riskRetrievalVectorStorePoisoning
     title: Retrieval/Vector Store Poisoning
     shortDescription:
@@ -2352,14 +2494,12 @@ risks:
       - controlRetrievalAndVectorSystemIntegrity
     examples:
       - >
-        Researchers have demonstrated <a href="https://arxiv.org/abs/2310.19156"
-        target="_blank" rel="noopener">adversarial attacks on retrieval systems</a>
-        where malicious documents are crafted to rank highly for specific queries
-        while containing harmful content.
+        Researchers have demonstrated adversarial attacks on retrieval systems ({{ref:zhong-2023-retrieval-corpus-poisoning}})
+        where malicious documents are crafted to rank highly for specific queries while
+        containing harmful content.
       - >
-        Studies show that <a href="https://arxiv.org/abs/2402.13532" target="_blank"
-        rel="noopener">poisoning attacks on vector databases</a> can successfully
-        manipulate RAG system outputs by injecting adversarial embeddings.
+        Studies show that poisoning attacks on vector databases ({{ref:long-2024-dense-retrieval-backdoors}})
+        can successfully manipulate RAG system outputs by injecting adversarial embeddings.
     tourContent:
       introduced:
         - >
@@ -2377,6 +2517,16 @@ risks:
           during ingestion, maintaining data integrity through cryptographic verification,
           and filtering both inputs and outputs to detect and prevent malicious content
           retrieval.
+    externalReferences:
+      - type: paper
+        id: zhong-2023-retrieval-corpus-poisoning
+        title: Poisoning Retrieval Corpora by Injecting Adversarial Passages
+        url: https://arxiv.org/abs/2310.19156
+      - type: paper
+        id: long-2024-dense-retrieval-backdoors
+        title: Backdoor Attacks on Dense Retrieval via Public and Unintentional
+          Triggers
+        url: https://arxiv.org/abs/2402.13532
   - id: riskAgentDelegationChainOpacity
     title: Agent Delegation Chain Opacity
     shortDescription:
@@ -2451,16 +2601,13 @@ risks:
       - controlAgentInventoryManagement
     examples:
       - >
-        Palo Alto Networks Unit 42 <a
-        href="https://unit42.paloaltonetworks.com/agent-session-smuggling-in-agent2agent-systems/"
-        target="_blank" rel="noopener">demonstrated "agent session smuggling"
-        (2025)</a> in Google's Agent-to-Agent (A2A) protocol, where a malicious
-        remote agent injects hidden instructions during established cross-agent
-        communication sessions. The smuggled instructions trigger unauthorized
-        tool execution while remaining invisible to end users who only see the
-        final consolidated response — the delegation chain is opaque because no
-        mechanism exposes intermediate agent activity or attributes the
-        unauthorized action to the originating malicious agent.
+        Palo Alto Networks Unit 42 demonstrated "agent session smuggling" (2025) ({{ref:unit42-2025-agent-session-smuggling}})
+        in Google's Agent-to-Agent (A2A) protocol, where a malicious remote agent injects
+        hidden instructions during established cross-agent communication sessions. The
+        smuggled instructions trigger unauthorized tool execution while remaining invisible
+        to end users who only see the final consolidated response — the delegation chain
+        is opaque because no mechanism exposes intermediate agent activity or attributes
+        the unauthorized action to the originating malicious agent.
     tourContent:
       introduced:
         - >
@@ -2495,6 +2642,11 @@ risks:
     actorAccess:
       - agent
       - privileged
+    externalReferences:
+      - type: paper
+        id: unit42-2025-agent-session-smuggling
+        title: 'When AI Agents Go Rogue: Agent Session Smuggling Attack in A2A Systems'
+        url: https://unit42.paloaltonetworks.com/agent-session-smuggling-in-agent2agent-systems/
   - id: riskStaleAgentIdentityBinding
     title: Stale Agent Identity Binding
     shortDescription:
@@ -2563,15 +2715,13 @@ risks:
       - controlComponentIdentityProvenance
     examples:
       - >
-        Zhou's framework on <a href="https://arxiv.org/abs/2603.14332"
-        target="_blank" rel="noopener">governing dynamic AI agent capabilities
-        (2026)</a> frames this as a capability-context separation problem: an
-        agent's capabilities can change after authorization — through silent
-        escalation, underlying model substitution, or runtime behavioral drift
-        — without any mechanism to detect that the identity credentials still
-        authorizing the agent are now bound to a different capability set. The
-        paper proposes cryptographic binding between agent identity and the
-        specific tool set authorized at issuance as the mitigation.
+        Zhou's framework on governing dynamic AI agent capabilities (2026) ({{ref:zhou-2026-cryptographic-tool-binding}})
+        frames this as a capability-context separation problem: an agent's capabilities
+        can change after authorization — through silent escalation, underlying model substitution,
+        or runtime behavioral drift — without any mechanism to detect that the identity
+        credentials still authorizing the agent are now bound to a different capability
+        set. The paper proposes cryptographic binding between agent identity and the specific
+        tool set authorized at issuance as the mitigation.
     tourContent:
       introduced:
         - >
@@ -2610,6 +2760,12 @@ risks:
       - supply-chain
       - privileged
       - infrastructure-provider
+    externalReferences:
+      - type: paper
+        id: zhou-2026-cryptographic-tool-binding
+        title: 'Governing Dynamic Capabilities: Cryptographic Binding and Reproducibility
+          Verification for AI Agent Tool Use'
+        url: https://arxiv.org/abs/2603.14332
   - id: riskMCPTransportHijacking
     title: MCP Transport Hijacking
     shortDescription:
@@ -3021,25 +3177,21 @@ risks:
       - controlAgentObservability
     examples:
       - >
-        In the <a href="https://generalanalysis.com/blog/supabase-mcp-blog"
-        target="_blank" rel="noopener">Supabase/Cursor data exfiltration
-        (2025)</a>, a developer's Cursor IDE agent connected to Supabase using
-        service_role credentials that bypassed all Row-Level Security. An
-        attacker embedded SQL exfiltration commands in a support ticket. When
-        the agent summarized tickets, it executed the attacker's commands with
-        its elevated permissions, exfiltrating OAuth secrets the ticket author
-        could never access directly — a textbook confused deputy where the
-        agent used its own root-level database access without validating the
-        caller's authorization.
+        In the Supabase/Cursor data exfiltration (2025) ({{ref:generalanalysis-2026-supabase-mcp}}),
+        a developer's Cursor IDE agent connected to Supabase using service_role credentials
+        that bypassed all Row-Level Security. An attacker embedded SQL exfiltration commands
+        in a support ticket. When the agent summarized tickets, it executed the attacker's
+        commands with its elevated permissions, exfiltrating OAuth secrets the ticket
+        author could never access directly — a textbook confused deputy where the agent
+        used its own root-level database access without validating the caller's authorization.
       - >
-        In the <a href="https://invariantlabs.ai/blog/whatsapp-mcp-exploited"
-        target="_blank" rel="noopener">Invariant Labs WhatsApp MCP exploit
-        (2025)</a>, a malicious MCP server poisoned its tool descriptions with
-        hidden instructions targeting a co-installed WhatsApp MCP server. The
-        agent — which had legitimate WhatsApp send authority — exfiltrated chat
-        history to an attacker-controlled number. The malicious server had no
-        WhatsApp access of its own; it exploited the agent as a confused deputy
-        to launder its requests through the agent's cross-server authority.
+        In the Invariant Labs WhatsApp MCP exploit (2025) ({{ref:invariantlabs-2025-whatsapp-mcp-exploited}}),
+        a malicious MCP server poisoned its tool descriptions with hidden instructions
+        targeting a co-installed WhatsApp MCP server. The agent — which had legitimate
+        WhatsApp send authority — exfiltrated chat history to an attacker-controlled number.
+        The malicious server had no WhatsApp access of its own; it exploited the agent
+        as a confused deputy to launder its requests through the agent's cross-server
+        authority.
     tourContent:
       introduced:
         - >
@@ -3086,6 +3238,14 @@ risks:
         id: aws-iam-confused-deputy
         title: 'AWS IAM User Guide: The confused deputy problem'
         url: https://docs.aws.amazon.com/IAM/latest/UserGuide/confused-deputy.html
+      - type: paper
+        id: generalanalysis-2026-supabase-mcp
+        title: Supabase MCP can leak your entire SQL database
+        url: https://generalanalysis.com/blog/supabase-mcp-blog
+      - type: paper
+        id: invariantlabs-2025-whatsapp-mcp-exploited
+        title: 'WhatsApp MCP Exploited: Exfiltrating your message history via MCP'
+        url: https://invariantlabs.ai/blog/whatsapp-mcp-exploited
   - id: riskCrossTenantCredentialPropagation
     title: Cross-Tenant Credential Propagation
     shortDescription:
@@ -3162,15 +3322,12 @@ risks:
         MCP users for approximately 1,000 customers, because tenant context was not maintained
         across MCP sessions.
       - >
-        Wiz researchers discovered the <a
-        href="https://www.wiz.io/blog/azure-active-directory-bing-misconfiguration"
-        target="_blank" rel="noopener">BingBang vulnerability (2023)</a>
-        affecting approximately 25% of Azure AD multi-tenant application
-        registrations, which accepted valid OAuth tokens from any Azure tenant
-        without checking the tenant ID claim. A token issued for an attacker's
-        tenant was accepted by apps belonging to other tenants, including
-        Microsoft's internal Bing management applications — a cross-tenant
-        credential propagation through the identity layer where the credential
+        Wiz researchers discovered the BingBang vulnerability (2023) ({{ref:wiz-2023-bingbang-aad-misconfiguration}})
+        affecting approximately 25% of Azure AD multi-tenant application registrations,
+        which accepted valid OAuth tokens from any Azure tenant without checking the tenant
+        ID claim. A token issued for an attacker's tenant was accepted by apps belonging
+        to other tenants, including Microsoft's internal Bing management applications
+        — a cross-tenant credential propagation through the identity layer where the credential
         itself was valid across tenant boundaries.
       - >
         In the UNC6395/Salesloft Drift breach (2025) ({{ref:valencesecurity-2025-salesforce-oauth-breach}}),
@@ -3227,6 +3384,11 @@ risks:
         id: valencesecurity-2025-salesforce-oauth-breach
         title: 'Salesforce OAuth Token Breach: What Every Security Team Must Know'
         url: https://www.valencesecurity.com/resources/blogs/salesforce-oauth-token-breach-what-every-security-team-must-know
+      - type: paper
+        id: wiz-2023-bingbang-aad-misconfiguration
+        title: 'BingBang: AAD misconfiguration led to Bing.com results manipulation and
+          account takeover'
+        url: https://www.wiz.io/blog/azure-active-directory-bing-misconfiguration
   - id: riskZombieShadowMCPServers
     title: Zombie / Shadow MCP Servers
     shortDescription:

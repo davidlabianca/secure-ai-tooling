@@ -37,13 +37,55 @@
 | riskUnauthorizedTrainingData             | Unauthorized Training Data               | Using unauthorized data for model training. Using a model trained with Unauthorized Training Data might lead to legal or ethical challenges.<br>                                                                                                                                                                | risksSupplyChainAndDevelopment   |
 | riskZombieShadowMCPServers               | Zombie / Shadow MCP Servers              | Decommissioned or unregistered MCP servers remain accessible and respond to agent tool calls, allowing attackers to intercept or redirect legitimate requests.<br>                                                                                                                                              | risksDeploymentAndInfrastructure |
 
+## References for riskAcceleratorAndSystemSideChannels
+- [Hermes Attack: Steal DNN Models with Lossless Inference Accuracy](https://arxiv.org/abs/2006.12784) (paper)
+- [I Know What You Said: Unveiling Hardware Cache Side-Channels in Local Large Language Model Inference](https://arxiv.org/abs/2505.06738) (paper)
+
+
+## References for riskAdapterPEFTInjection
+- [LoRATK: LoRA Once, Backdoor Everywhere in the Share-and-Play Ecosystem](https://arxiv.org/abs/2403.00108) (paper)
+- [PETA: Parameter-Efficient Trojan Attacks](https://arxiv.org/abs/2310.00648) (paper)
+
+
+## References for riskAgentDelegationChainOpacity
+- [When AI Agents Go Rogue: Agent Session Smuggling Attack in A2A Systems](https://unit42.paloaltonetworks.com/agent-session-smuggling-in-agent2agent-systems/) (paper)
+
+
 ## References for riskAgenticDelegationConfusedDeputy
 - [AWS IAM User Guide: The confused deputy problem](https://docs.aws.amazon.com/IAM/latest/UserGuide/confused-deputy.html) (spec)
+- [Supabase MCP can leak your entire SQL database](https://generalanalysis.com/blog/supabase-mcp-blog) (paper)
+- [WhatsApp MCP Exploited: Exfiltrating your message history via MCP](https://invariantlabs.ai/blog/whatsapp-mcp-exploited) (paper)
+
+
+## References for riskCovertChannelsInModelOutputs
+- [Hidden in Plain Text: Emergence and Mitigation of Steganographic Collusion in LLMs](https://arxiv.org/abs/2410.03768) (paper)
+- [Remote Timing Attacks on Efficient Language Model Inference](https://arxiv.org/abs/2410.17175) (paper)
 
 
 ## References for riskCrossTenantCredentialPropagation
 - [Asana warns MCP AI feature exposed customer data to other orgs](https://www.bleepingcomputer.com/news/security/asana-warns-mcp-ai-feature-exposed-customer-data-to-other-orgs/) (news)
 - [Salesforce OAuth Token Breach: What Every Security Team Must Know](https://www.valencesecurity.com/resources/blogs/salesforce-oauth-token-breach-what-every-security-team-must-know) (editorial)
+- [BingBang: AAD misconfiguration led to Bing.com results manipulation and account takeover](https://www.wiz.io/blog/azure-active-directory-bing-misconfiguration) (paper)
+
+
+## References for riskDataPoisoning
+- [Poisoning Web-Scale Training Datasets is Practical](https://arxiv.org/abs/2302.10149) (paper)
+- [Poisoning Language Models During Instruction Tuning](https://arxiv.org/abs/2305.00944) (paper)
+
+
+## References for riskDenialOfMLService
+- [Sponge Examples: Energy-Latency Attacks on Neural Networks](https://arxiv.org/abs/2006.03463) (paper)
+- [Phantom Sponges: Exploiting Non-Maximum Suppression to Attack Deep Object Detectors](https://arxiv.org/abs/2205.13618) (paper)
+
+
+## References for riskEconomicDenialOfWallet
+- [Denial-of-Service Poisoning Attacks against Large Language Models](https://arxiv.org/abs/2410.10760) (paper)
+- [ThinkTrap: Denial-of-Service Attacks against Black-box LLM Services via Infinite Thinking](https://arxiv.org/abs/2512.07086) (paper)
+
+
+## References for riskEvaluationBenchmarkManipulation
+- [Demonstrating specification gaming in reasoning models](https://arxiv.org/abs/2502.13295) (paper)
+- [Selective Adversarial Attacks on LLM Benchmarks](https://arxiv.org/abs/2510.13570) (paper)
 
 
 ## References for riskExcessiveDataHandling
@@ -54,8 +96,19 @@
 - [Samsung Bans ChatGPT Among Employees After Sensitive Code Leak](https://www.forbes.com/sites/siladityaray/2023/05/02/samsung-bans-chatgpt-and-other-chatbots-for-employees-after-sensitive-code-leak/) (news)
 
 
+## References for riskFederatedDistributedTrainingPrivacy
+- [Deep Leakage from Gradients](https://arxiv.org/abs/1906.08935) (paper)
+- [FedMIA: An Effective Membership Inference Attack Exploiting All for One Principle in Federated Learning](https://arxiv.org/abs/2402.06289) (paper)
+
+
+## References for riskInferredSensitiveData
+- [Deep Neural Networks Are More Accurate Than Humans at Detecting Sexual Orientation From Facial Images](https://doi.org/10.1037/pspa0000098) (paper)
+- [Automated Inference on Criminality using Face Images](https://arxiv.org/abs/1611.04135) (paper)
+
+
 ## References for riskInsecureIntegratedComponent
 - [Security researchers expose new Alexa and Google Home vulnerability](https://www.theverge.com/2019/10/21/20924886/alexa-google-home-security-vulnerability-srlabs-phishing-eavesdropping) (news)
+- [From Path Traversal to Supply Chain Compromise: Breaking MCP Server Hosting](https://blog.gitguardian.com/breaking-mcp-server-hosting/) (paper)
 
 
 ## References for riskInsecureModelOutput
@@ -66,9 +119,16 @@
 - [Model Context Protocol specification (2025-11-25): Transports](https://modelcontextprotocol.io/specification/2025-11-25/basic/transports) (spec)
 
 
+## References for riskMaliciousLoaderDeserialization
+- [Never a dill moment: Exploiting machine learning pickle files](https://blog.trailofbits.com/2021/03/15/never-a-dill-moment-exploiting-machine-learning-pickle-files/) (paper)
+- [Weaponizing ML Models with Ransomware](https://hiddenlayer.com/research/weaponizing-machine-learning-models-with-ransomware/) (paper)
+- [An Empirical Study on Remote Code Execution in Machine Learning Model Hosting Ecosystems](https://arxiv.org/abs/2601.14163) (paper)
+
+
 ## References for riskModelDeploymentTampering
 - [Compromised PyTorch-nightly dependency chain between December 25th and December 30th, 2022](https://pytorch.org/blog/compromised-nightly-dependency/) (advisory)
 - [Warning: PyTorch Models Vulnerable to Remote Code Execution via ShellTorch](https://thehackernews.com/2023/10/warning-pytorch-models-vulnerable-to.html) (news)
+- [Hugging Face works with Wiz to strengthen AI cloud security](https://www.wiz.io/blog/wiz-and-hugging-face-address-risks-to-ai-infrastructure) (paper)
 
 
 ## References for riskModelEvasion
@@ -79,36 +139,68 @@
 - [Meta's powerful AI language model has leaked online — what happens now?](https://www.theverge.com/2023/3/8/23629362/meta-ai-language-model-llama-leak-online-misuse) (news)
 
 
+## References for riskModelReverseEngineering
+- [Imitation Attacks and Defenses for Black-box Machine Translation Systems](https://arxiv.org/abs/2004.15015) (paper)
+- [Alpaca: A Strong, Replicable Instruction-Following Model](https://crfm.stanford.edu/2023/03/13/alpaca.html) (paper)
+
+
 ## References for riskModelSourceTampering
 - [Compromised PyTorch-nightly dependency chain between December 25th and December 30th, 2022](https://pytorch.org/blog/compromised-nightly-dependency/) (advisory)
+- [Architectural Neural Backdoors from First Principles](https://arxiv.org/abs/2402.06957) (paper)
 
 
 ## References for riskOrchestratorRouteHijacking
 - [CVE-2026-24779: Server-Side Request Forgery in vLLM MediaConnector](https://nvd.nist.gov/vuln/detail/CVE-2026-24779) (cve)
+- [Rerouting LLM Routers](https://arxiv.org/abs/2501.01818) (paper)
 
 
 ## References for riskPromptInjection
 - [Multi-modal prompt injection image attacks against GPT-4V](https://simonwillison.net/2023/Oct/14/multi-modal-prompt-injection/) (editorial)
+- [Jailbroken: How Does LLM Safety Training Fail?](https://arxiv.org/abs/2307.02483) (paper)
+- [Not what you've signed up for: Compromising Real-World LLM-Integrated Applications with Indirect Prompt Injection](https://arxiv.org/abs/2302.12173) (paper)
+
+
+## References for riskPromptResponseCachePoisoning
+- [From Similarity to Vulnerability: Key Collision Attack on LLM Semantic Caching](https://arxiv.org/abs/2601.23088) (paper)
+- [Shadow in the Cache: Unveiling and Mitigating Privacy Risks of KV-cache in LLM Inference](https://arxiv.org/abs/2508.09442) (paper)
+
+
+## References for riskRetrievalVectorStorePoisoning
+- [Poisoning Retrieval Corpora by Injecting Adversarial Passages](https://arxiv.org/abs/2310.19156) (paper)
+- [Backdoor Attacks on Dense Retrieval via Public and Unintentional Triggers](https://arxiv.org/abs/2402.13532) (paper)
 
 
 ## References for riskRogueActions
 - [Plugin Vulnerabilities: Visit a Website and Have Your Source Code Stolen](https://embracethered.com/blog/posts/2023/chatgpt-plugin-vulns-chat-with-code/) (editorial)
+- [Supabase MCP can leak your entire SQL database](https://generalanalysis.com/blog/supabase-mcp-blog) (paper)
 
 
 ## References for riskRunawayAgentToolLoops
 - [Microsoft AutoGen Issue #108: Infinite Loops with GPT-4](https://github.com/microsoft/autogen/issues/108) (editorial)
 
 
+## References for riskSensitiveDataDisclosure
+- [Preventing Verbatim Memorization in Language Models Gives a False Sense of Privacy](https://arxiv.org/abs/2210.17546) (paper)
+- [Membership Inference Attacks against Machine Learning Models](https://arxiv.org/abs/1610.05820) (paper)
+
+
 ## References for riskShadowAndUnknownAgents
 - [Gartner Identifies Critical GenAI Blind Spots That CIOs Must Urgently Address](https://www.gartner.com/en/newsroom/press-releases/2025-11-19-gartner-identifies-critical-genai-blind-spots-that-cios-must-urgently-address0) (editorial)
 
 
+## References for riskStaleAgentIdentityBinding
+- [Governing Dynamic Capabilities: Cryptographic Binding and Reproducibility Verification for AI Agent Tool Use](https://arxiv.org/abs/2603.14332) (paper)
+
+
 ## References for riskToolRegistryTampering
 - [Model Context Protocol (MCP): A Security Overview](https://www.paloaltonetworks.com/blog/cloud-security/model-context-protocol-mcp-a-security-overview/) (editorial)
+- [MCP Security Notification: Tool Poisoning Attacks](https://invariantlabs.ai/blog/mcp-security-notification-tool-poisoning-attacks) (paper)
+- [From Path Traversal to Supply Chain Compromise: Breaking MCP Server Hosting](https://blog.gitguardian.com/breaking-mcp-server-hosting/) (paper)
 
 
 ## References for riskToolSourceProvenance
 - [11 Emerging AI Security Risks with MCP (Model Context Protocol)](https://checkmarx.com/zero-post/11-emerging-ai-security-risks-with-mcp-model-context-protocol/) (editorial)
+- [Attractive Metadata Attack: Inducing LLM Agents to Invoke Malicious Tools](https://arxiv.org/abs/2508.02110) (paper)
 
 
 ## References for riskUnauthorizedTrainingData
