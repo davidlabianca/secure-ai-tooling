@@ -883,11 +883,11 @@ risks:
     examples:
       - >
         An example of indirect Prompt Injection was performed by <a href="https://arxiv.org/abs/2302.12173"
-        target="_blank" rel="noopener">planting malicious data inside a resource
-        fed into the LLM's prompt</a>. In another example, a <a href="https://simonwillison.net/2023/Oct/14/multi-modal-prompt-injection/"
-        target="_blank" rel="noopener">multi-modal prompt injection image attacks
-        against GPT-4V</a> showed that images can contain text that triggers a Prompt
-        Injection attack when the model is asked to describe the image.
+        target="_blank" rel="noopener">planting malicious data inside a resource fed into
+        the LLM's prompt</a>. In another example, a multi-modal prompt injection image
+        attacks against GPT-4V ({{ref:simonwillison-2023-multimodal-prompt-injection}})
+        showed that images can contain text that triggers a Prompt Injection attack when
+        the model is asked to describe the image.
     tourContent:
       introduced:
         - >
@@ -921,6 +921,11 @@ risks:
       - external
       - api
       - user
+    externalReferences:
+      - type: editorial
+        id: simonwillison-2023-multimodal-prompt-injection
+        title: Multi-modal prompt injection image attacks against GPT-4V
+        url: https://simonwillison.net/2023/Oct/14/multi-modal-prompt-injection/
   - id: riskModelEvasion
     title: Model Evasion
     shortDescription:
@@ -1368,10 +1373,8 @@ risks:
       - controlAgentObservability
     examples:
       - >
-        An attack on ChatGPT plugins was described in
-        <a href="https://embracethered.com/blog/posts/2023/chatgpt-plugin-vulns-chat-with-code/"
-        target="_blank" rel="noopener">Plugin Vulnerabilities: Visit a Website and
-        Have Your Source Code Stolen</a>.
+        An attack on ChatGPT plugins was described in Plugin Vulnerabilities: Visit a
+        Website and Have Your Source Code Stolen ({{ref:embracethered-2023-chatgpt-plugin-source-code-stolen}}).
       - >
         The <a href="https://generalanalysis.com/blog/supabase-mcp-blog"
         target="_blank" rel="noopener">Supabase/Cursor data exfiltration (2025)</a>
@@ -1420,6 +1423,11 @@ risks:
       - api
       - user
       - agent
+    externalReferences:
+      - type: editorial
+        id: embracethered-2023-chatgpt-plugin-source-code-stolen
+        title: 'Plugin Vulnerabilities: Visit a Website and Have Your Source Code Stolen'
+        url: https://embracethered.com/blog/posts/2023/chatgpt-plugin-vulns-chat-with-code/
   - id: riskAcceleratorAndSystemSideChannels
     title: Accelerator and System Side-channels
     shortDescription:
@@ -1769,10 +1777,9 @@ risks:
       - controlInterComponentTransportSecurity
     examples:
       - >
-        <a href="https://www.paloaltonetworks.com/blog/cloud-security/model-context-protocol-mcp-a-security-overview/"
-        target="_blank" rel="noopener">Palo Alto Networks</a> identified MCP
-        security risks including prompt injection through compromised servers,
-        credential exposure, and unverified third-party tool adoption.
+        Palo Alto Networks ({{ref:paloalto-2025-mcp-security-overview}}) identified MCP
+        security risks including prompt injection through compromised servers, credential
+        exposure, and unverified third-party tool adoption.
       - >
         <a href="https://invariantlabs.ai/blog/mcp-security-notification-tool-poisoning-attacks"
         target="_blank" rel="noopener">Invariant Labs demonstrated</a>
@@ -1823,6 +1830,11 @@ risks:
       - external
       - agent
       - privileged
+    externalReferences:
+      - type: editorial
+        id: paloalto-2025-mcp-security-overview
+        title: 'Model Context Protocol (MCP): A Security Overview'
+        url: https://www.paloaltonetworks.com/blog/cloud-security/model-context-protocol-mcp-a-security-overview/
   - id: riskOrchestratorRouteHijacking
     title: Orchestrator/Route Hijack
     shortDescription:
@@ -2175,10 +2187,9 @@ risks:
       - controlAgentPluginPermissions
     examples:
       - >
-        The <a href="https://checkmarx.com/zero-post/11-emerging-ai-security-risks-with-mcp-model-context-protocol/"
-        target="_blank" rel="noopener">Checkmarx CxZero MCP Risk Taxonomy</a>
-        (December 2025) identified Tool Poisoning, Tool Shadowing, and Schema
-        Poisoning as three of the top 11 MCP security risks.
+        The Checkmarx CxZero MCP Risk Taxonomy ({{ref:checkmarx-2025-mcp-emerging-risks}})
+        (December 2025) identified Tool Poisoning, Tool Shadowing, and Schema Poisoning
+        as three of the top 11 MCP security risks.
       - >
         The NeurIPS 2025 paper <a href="https://arxiv.org/html/2508.02110v2"
         target="_blank" rel="noopener">"Attractive Metadata Attack"</a>
@@ -2219,6 +2230,11 @@ risks:
       - supply-chain
       - agent
       - external
+    externalReferences:
+      - type: editorial
+        id: checkmarx-2025-mcp-emerging-risks
+        title: 11 Emerging AI Security Risks with MCP (Model Context Protocol)
+        url: https://checkmarx.com/zero-post/11-emerging-ai-security-risks-with-mcp-model-context-protocol/
   - id: riskPromptResponseCachePoisoning
     title: Prompt/Response Cache Poisoning
     shortDescription:
@@ -2774,12 +2790,11 @@ risks:
       - controlAgentCredentialIsolation
     examples:
       - >
-        A <a href="https://www.gartner.com/en/newsroom/press-releases/2025-11-19-gartner-identifies-critical-genai-blind-spots-that-cios-must-urgently-address0"
-        target="_blank" rel="noopener">Gartner survey of 302 cybersecurity
-        leaders (2025)</a> found that 69% of organizations suspect or have
-        evidence that employees are using prohibited public GenAI. Gartner
-        predicts that by 2030, more than 40% of enterprises will experience
-        security or compliance incidents linked to unauthorized shadow AI.
+        A Gartner survey of 302 cybersecurity leaders (2025) ({{ref:gartner-2025-genai-blind-spots-press-release}})
+        found that 69% of organizations suspect or have evidence that employees are using
+        prohibited public GenAI. Gartner predicts that by 2030, more than 40% of enterprises
+        will experience security or compliance incidents linked to unauthorized shadow
+        AI.
     tourContent:
       introduced:
         - >
@@ -2819,6 +2834,12 @@ risks:
       - privileged
       - supply-chain
       - infrastructure-provider
+    externalReferences:
+      - type: editorial
+        id: gartner-2025-genai-blind-spots-press-release
+        title: Gartner Identifies Critical GenAI Blind Spots That CIOs Must Urgently
+          Address
+        url: https://www.gartner.com/en/newsroom/press-releases/2025-11-19-gartner-identifies-critical-genai-blind-spots-that-cios-must-urgently-address0
   - id: riskRunawayAgentToolLoops
     title: Runaway Agent Tool Loops
     shortDescription:
@@ -2882,15 +2903,13 @@ risks:
       - controlAgentExecutionBounds
     examples:
       - >
-        The <a href="https://github.com/microsoft/autogen/issues/108"
-        target="_blank" rel="noopener">Microsoft AutoGen infinite loop issue
-        (#108)</a> documented agents entering infinite tool-calling cycles
-        because the termination condition checked for exact "TERMINATE" text,
-        but agents generated variations that never matched. The loop continued
-        until OpenAI rate limits triggered. No adversary was involved — the
-        failure was emergent from a broken termination function, demonstrating
-        the autonomous failure mode that distinguishes this risk from
-        adversarial cost-spike attacks.
+        The Microsoft AutoGen infinite loop issue (#108) ({{ref:github-autogen-infinite-loops-issue-108}})
+        documented agents entering infinite tool-calling cycles because the termination
+        condition checked for exact "TERMINATE" text, but agents generated variations
+        that never matched. The loop continued until OpenAI rate limits triggered. No
+        adversary was involved — the failure was emergent from a broken termination function,
+        demonstrating the autonomous failure mode that distinguishes this risk from adversarial
+        cost-spike attacks.
     tourContent:
       introduced:
         - >
@@ -2923,6 +2942,11 @@ risks:
       - safety
     actorAccess:
       - agent
+    externalReferences:
+      - type: editorial
+        id: github-autogen-infinite-loops-issue-108
+        title: 'Microsoft AutoGen Issue #108: Infinite Loops with GPT-4'
+        url: https://github.com/microsoft/autogen/issues/108
   - id: riskAgenticDelegationConfusedDeputy
     title: Agentic Delegation Confused Deputy
     shortDescription:
@@ -3149,15 +3173,12 @@ risks:
         credential propagation through the identity layer where the credential
         itself was valid across tenant boundaries.
       - >
-        In the <a
-        href="https://www.valencesecurity.com/resources/blogs/salesforce-oauth-token-breach-what-every-security-team-must-know"
-        target="_blank" rel="noopener">UNC6395/Salesloft Drift breach (2025)</a>,
-        a threat actor compromised Salesloft's infrastructure and stole
-        per-customer OAuth tokens that Drift stored for approximately 700
-        Salesforce organizations. Each bearer token granted direct Salesforce
-        API access bypassing MFA — a single compromise of a multi-tenant
-        intermediary's centralized credential store yielded cross-tenant access
-        through the identity layer.
+        In the UNC6395/Salesloft Drift breach (2025) ({{ref:valencesecurity-2025-salesforce-oauth-breach}}),
+        a threat actor compromised Salesloft's infrastructure and stole per-customer OAuth
+        tokens that Drift stored for approximately 700 Salesforce organizations. Each
+        bearer token granted direct Salesforce API access bypassing MFA — a single compromise
+        of a multi-tenant intermediary's centralized credential store yielded cross-tenant
+        access through the identity layer.
     tourContent:
       introduced:
         - >
@@ -3202,6 +3223,10 @@ risks:
         id: bleepingcomputer-2025-asana-mcp-data-exposure
         title: Asana warns MCP AI feature exposed customer data to other orgs
         url: https://www.bleepingcomputer.com/news/security/asana-warns-mcp-ai-feature-exposed-customer-data-to-other-orgs/
+      - type: editorial
+        id: valencesecurity-2025-salesforce-oauth-breach
+        title: 'Salesforce OAuth Token Breach: What Every Security Team Must Know'
+        url: https://www.valencesecurity.com/resources/blogs/salesforce-oauth-token-breach-what-every-security-team-must-know
   - id: riskZombieShadowMCPServers
     title: Zombie / Shadow MCP Servers
     shortDescription:

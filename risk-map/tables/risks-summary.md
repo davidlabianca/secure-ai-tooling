@@ -43,6 +43,7 @@
 
 ## References for riskCrossTenantCredentialPropagation
 - [Asana warns MCP AI feature exposed customer data to other orgs](https://www.bleepingcomputer.com/news/security/asana-warns-mcp-ai-feature-exposed-customer-data-to-other-orgs/) (news)
+- [Salesforce OAuth Token Breach: What Every Security Team Must Know](https://www.valencesecurity.com/resources/blogs/salesforce-oauth-token-breach-what-every-security-team-must-know) (editorial)
 
 
 ## References for riskExcessiveDataHandling
@@ -84,6 +85,30 @@
 
 ## References for riskOrchestratorRouteHijacking
 - [CVE-2026-24779: Server-Side Request Forgery in vLLM MediaConnector](https://nvd.nist.gov/vuln/detail/CVE-2026-24779) (cve)
+
+
+## References for riskPromptInjection
+- [Multi-modal prompt injection image attacks against GPT-4V](https://simonwillison.net/2023/Oct/14/multi-modal-prompt-injection/) (editorial)
+
+
+## References for riskRogueActions
+- [Plugin Vulnerabilities: Visit a Website and Have Your Source Code Stolen](https://embracethered.com/blog/posts/2023/chatgpt-plugin-vulns-chat-with-code/) (editorial)
+
+
+## References for riskRunawayAgentToolLoops
+- [Microsoft AutoGen Issue #108: Infinite Loops with GPT-4](https://github.com/microsoft/autogen/issues/108) (editorial)
+
+
+## References for riskShadowAndUnknownAgents
+- [Gartner Identifies Critical GenAI Blind Spots That CIOs Must Urgently Address](https://www.gartner.com/en/newsroom/press-releases/2025-11-19-gartner-identifies-critical-genai-blind-spots-that-cios-must-urgently-address0) (editorial)
+
+
+## References for riskToolRegistryTampering
+- [Model Context Protocol (MCP): A Security Overview](https://www.paloaltonetworks.com/blog/cloud-security/model-context-protocol-mcp-a-security-overview/) (editorial)
+
+
+## References for riskToolSourceProvenance
+- [11 Emerging AI Security Risks with MCP (Model Context Protocol)](https://checkmarx.com/zero-post/11-emerging-ai-security-risks-with-mcp-model-context-protocol/) (editorial)
 
 
 ## References for riskUnauthorizedTrainingData
