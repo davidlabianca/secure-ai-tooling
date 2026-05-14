@@ -41,12 +41,41 @@
 - [AWS IAM User Guide: The confused deputy problem](https://docs.aws.amazon.com/IAM/latest/UserGuide/confused-deputy.html) (spec)
 
 
+## References for riskCrossTenantCredentialPropagation
+- [Asana warns MCP AI feature exposed customer data to other orgs](https://www.bleepingcomputer.com/news/security/asana-warns-mcp-ai-feature-exposed-customer-data-to-other-orgs/) (news)
+
+
+## References for riskExcessiveDataHandling
+- [Clearview AI agrees to restrict use of face database](https://www.theguardian.com/us-news/2022/may/09/clearview-chicago-settlement-aclu) (news)
+
+
+## References for riskExcessiveDataHandlingDuringInference
+- [Samsung Bans ChatGPT Among Employees After Sensitive Code Leak](https://www.forbes.com/sites/siladityaray/2023/05/02/samsung-bans-chatgpt-and-other-chatbots-for-employees-after-sensitive-code-leak/) (news)
+
+
+## References for riskInsecureIntegratedComponent
+- [Security researchers expose new Alexa and Google Home vulnerability](https://www.theverge.com/2019/10/21/20924886/alexa-google-home-security-vulnerability-srlabs-phishing-eavesdropping) (news)
+
+
+## References for riskInsecureModelOutput
+- [AI hallucinates software packages and devs download them – even if potentially poisoned with malware](https://www.theregister.com/2024/03/28/ai_bots_hallucinate_software_packages/) (news)
+
+
 ## References for riskMCPTransportHijacking
 - [Model Context Protocol specification (2025-11-25): Transports](https://modelcontextprotocol.io/specification/2025-11-25/basic/transports) (spec)
 
 
 ## References for riskModelDeploymentTampering
 - [Compromised PyTorch-nightly dependency chain between December 25th and December 30th, 2022](https://pytorch.org/blog/compromised-nightly-dependency/) (advisory)
+- [Warning: PyTorch Models Vulnerable to Remote Code Execution via ShellTorch](https://thehackernews.com/2023/10/warning-pytorch-models-vulnerable-to.html) (news)
+
+
+## References for riskModelEvasion
+- [Slight Street Sign Modifications Can Completely Fool Machine Learning Algorithms](https://spectrum.ieee.org/slight-street-sign-modifications-can-fool-machine-learning-algorithms) (news)
+
+
+## References for riskModelExfiltration
+- [Meta's powerful AI language model has leaked online — what happens now?](https://www.theverge.com/2023/3/8/23629362/meta-ai-language-model-llama-leak-online-misuse) (news)
 
 
 ## References for riskModelSourceTampering
@@ -55,6 +84,10 @@
 
 ## References for riskOrchestratorRouteHijacking
 - [CVE-2026-24779: Server-Side Request Forgery in vLLM MediaConnector](https://nvd.nist.gov/vuln/detail/CVE-2026-24779) (cve)
+
+
+## References for riskUnauthorizedTrainingData
+- [Spotify Takes Down Thousands of AI-Generated Tracks](https://aibusiness.com/ml/spotify-takes-down-thousands-of-ai-generated-tracks) (news)
 
 
 ## References for riskZombieShadowMCPServers
