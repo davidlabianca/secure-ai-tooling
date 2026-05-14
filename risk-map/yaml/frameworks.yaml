@@ -11,8 +11,8 @@ title: Frameworks
 description:
   - >
     The following sections describe the current external guidance supported for use in
-    mappings throughout CoSAI-RM. These mappings are leveraged in `controls.yaml` and
-    `risks.yaml`
+    mappings throughout CoSAI-RM. These mappings are leveraged in the controls.yaml and
+    risks.yaml files.
 frameworks:
   - id: mitre-atlas
     name: MITRE ATLAS
