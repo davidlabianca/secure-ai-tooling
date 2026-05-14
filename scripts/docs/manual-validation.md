@@ -39,6 +39,11 @@ the prior `pre-commit.sh --force` workflow.
 # Validate everything, no commit, no regeneration:
 ./scripts/tools/validate-all.sh
 
+# Validate everything and verify generated markdown tables are current.
+# This writes generated tables only to a temporary directory and does not
+# change tracked files or the git index:
+./scripts/tools/validate-all.sh --check-generation
+
 # Help:
 ./scripts/tools/validate-all.sh --help
 ```

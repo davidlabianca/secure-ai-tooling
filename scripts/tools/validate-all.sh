@@ -8,9 +8,14 @@
 # to catch issues before you stage for commit.
 #
 # Usage:
-#   ./scripts/tools/validate-all.sh          # run all validators
-#   ./scripts/tools/validate-all.sh --quiet  # suppress per-validator banners
-#   ./scripts/tools/validate-all.sh --help   # show this help
+#   ./scripts/tools/validate-all.sh                    # run all validators
+#   ./scripts/tools/validate-all.sh --quiet            # suppress per-validator banners
+#   ./scripts/tools/validate-all.sh --check-generation # also verify generated tables
+#   ./scripts/tools/validate-all.sh --help             # show this help
+#
+# --check-generation regenerates tables into a temporary directory and compares
+# them with risk-map/tables. It does not write tracked files or change the git
+# index. The temporary directory is cleaned up on success, failure, INT, and TERM.
 #
 # Exit codes:
 #   0  All validators passed
@@ -21,6 +26,7 @@
 set -u
 
 QUIET=false
+CHECK_GENERATION=false
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -28,8 +34,12 @@ while [[ $# -gt 0 ]]; do
             QUIET=true
             shift
             ;;
+        --check-generation)
+            CHECK_GENERATION=true
+            shift
+            ;;
         --help|-h)
-            sed -n '2,19p' "$0"
+            sed -n '2,23p' "$0"
             exit 0
             ;;
         *)
@@ -67,6 +77,45 @@ pass_msg() { echo -e "${GREEN}[PASS]${RESET} $1"; }
 fail_msg() { echo -e "${RED}[FAIL]${RESET} $1"; }
 
 FAILURES=0
+GEN_TMPDIR=""
+
+cleanup_generation_tmp() {
+    if [[ -n "${GEN_TMPDIR:-}" && -d "$GEN_TMPDIR" ]]; then
+        rm -rf "$GEN_TMPDIR"
+    fi
+}
+
+handle_generation_signal() {
+    cleanup_generation_tmp
+    trap - INT TERM
+    exit 130
+}
+
+check_generated_tables() {
+    GEN_TMPDIR="$(mktemp -d)"
+    trap cleanup_generation_tmp EXIT
+    trap handle_generation_signal INT TERM
+
+    local generated_table_dir="$GEN_TMPDIR/tables"
+    local drift_report="$GEN_TMPDIR/table-drift.txt"
+
+    mkdir -p "$generated_table_dir"
+
+    if ! python3 scripts/hooks/yaml_to_markdown.py --all --all-formats --output-dir "$generated_table_dir" --quiet; then
+        fail_msg "Markdown table generation check failed"
+        return 1
+    fi
+
+    if ! diff -r -q risk-map/tables "$generated_table_dir" > "$drift_report"; then
+        fail_msg "Generated markdown tables are out of sync"
+        echo "Table drift detected:" >&2
+        cat "$drift_report" >&2
+        return 1
+    fi
+
+    pass_msg "Generated markdown tables match risk-map/tables"
+    return 0
+}
 
 # Each validator accepts --force to run against the full tree. Output is
 # routed straight to the user's terminal so error messages retain their
@@ -111,6 +160,15 @@ if python3 scripts/hooks/validate_issue_templates.py --force; then
 else
     fail_msg "Issue template validation reported errors"
     FAILURES=$((FAILURES + 1))
+fi
+
+if [[ "$CHECK_GENERATION" == "true" ]]; then
+    banner "Generated table parity"
+    if check_generated_tables; then
+        :
+    else
+        FAILURES=$((FAILURES + 1))
+    fi
 fi
 
 echo

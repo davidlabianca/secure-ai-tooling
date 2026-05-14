@@ -98,6 +98,17 @@ python3 scripts/hooks/yaml_to_markdown.py controls --format xref-risks
 python3 scripts/hooks/yaml_to_markdown.py components --format summary
 ```
 
+**Pre-push drift check:**
+
+```bash
+# Verify committed tables match generated output without modifying the tree
+./scripts/tools/validate-all.sh --check-generation
+```
+
+This strict mode generates tables in a temporary directory, compares them with
+`risk-map/tables/`, and exits non-zero when drift is found. It does not update
+tracked files or change the git index.
+
 **Available formats:**
 
 - `full` - Complete tables with all columns (default)
