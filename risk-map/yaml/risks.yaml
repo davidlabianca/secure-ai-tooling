@@ -21,8 +21,8 @@ description:
     Each risk is mapped to the relevant controls that can be enacted, and is associated
     with the Model Creator, the Model Consumer, or both, based on who is responsible
     for enacting the controls that can mitigate the risk:
-  - - 'Model Creator: Those who train or develop AI models for use by themselves
-      or others.'
+  - - 'Model Creator: Those who train or develop AI models for use by themselves or
+      others.'
     - 'Model Consumer: Those who use AI models to build AI-powered products and applications.'
   - >
     This mapping does not specify controls related to Assurance and Governance functions,
@@ -130,7 +130,8 @@ risks:
         Using unauthorized data for model training. Using a model trained with Unauthorized
         Training Data might lead to legal or ethical challenges.
     longDescription:
-      - Training a model using data that is not authorized to be used for that model.
+      - Training a model using data that is not authorized to be used for that
+        model.
       - >
         A model trained or fine tuned on unauthorized data could pose legal or ethical
         challenges. Unauthorized Training Data may include any data that violates
@@ -342,7 +343,8 @@ risks:
         The collection, retention, or processing of user inputs and session data
         during runtime that exceeds what is necessary for the immediate task or
         violates legal or organizational policies.
-      - Excessive Data Handling during inference can create significant privacy risks.
+      - Excessive Data Handling during inference can create significant privacy
+        risks.
       - >
         This includes logging entire user conversations, improperly retaining data
         retrieved by tools, or sharing interaction data with third parties without
@@ -978,18 +980,18 @@ risks:
     longDescription:
       - Disclosure of private or confidential data through querying of the model.
       - >
-        For non-agentic systems, this data might include memorized training/tuning data, 
-        user chat history, and confidential data in the prompt preamble. Agentic systems 
-        magnify this risk, as they may be granted privileged access to a user's email, 
-        files, or even an entire computer, creating the potential to exfiltrate vast 
-        amounts of personal or corporate data like source code and internal documents. 
-        Sensitive data disclosure is a risk to user privacy, an organization's reputation, 
-        and intellectual property.
+        For non-agentic systems, this data might include memorized training/tuning data,  user
+        chat history, and confidential data in the prompt preamble. Agentic systems  magnify
+        this risk, as they may be granted privileged access to a user's email,  files,
+        or even an entire computer, creating the potential to exfiltrate vast  amounts
+        of personal or corporate data like source code and internal documents.  Sensitive
+        data disclosure is a risk to user privacy, an organization's reputation,  and
+        intellectual property.
       - >
-        Sensitive information is generally disclosed in two ways: leakage of data provided 
-        to the model or agent during use (such as user input and data that passes through 
-        integrated systems, like emails, texts, or system prompts) and leakage of data 
-        used for training and tuning of the model.
+        Sensitive information is generally disclosed in two ways: leakage of data provided  to
+        the model or agent during use (such as user input and data that passes through  integrated
+        systems, like emails, texts, or system prompts) and leakage of data  used for
+        training and tuning of the model.
       - - >
           **AI Systems:** AI systems can leak sensitive data sourced from
           three primary sources:
@@ -1018,7 +1020,8 @@ risks:
           **Memorization:** A model may inadvertently reveal parts of its
           training data verbatim. This phenomenon, also called recitation, can expose
           sensitive details like names, addresses, or other Personally Identifiable
-          Information (PII). Note: The risk of memorization is significantly higher when a
+          Information (PII). Note: The risk of memorization is significantly higher when
+          a
           model is retrained on private user data and then used by others, as it could
           expose one user's information to another.
       - - >
@@ -1026,8 +1029,10 @@ risks:
           disclosure is exponentially multiplied, since agents may access user data that
           passes through integrated systems, like emails, texts, or proprietary
           organizational information. In extreme cases, agents can even reveal credentials
-          and API keys they have been trusted with. Additionally, agents may use tools to
-          not only access sensitive data on behalf of the user, but also use those tools to
+          and API keys they have been trusted with. Additionally, agents may use tools
+          to
+          not only access sensitive data on behalf of the user, but also use those tools
+          to
           leak sensitive data. For example, an agent can leak information by:
         - >
           Creating and sharing a document with an attacker.
@@ -1038,7 +1043,8 @@ risks:
         - >
           Using any tool that allows it to pass information to the outside world.
       - - >
-          Context-hijacking attacks show that an adversary can potentially confuse the agent
+          Context-hijacking attacks show that an adversary can potentially confuse the
+          agent
           to reveal data that is not appropriate for a specific context, such as sharing
           health history when the agent should be booking a restaurant reservation.
     category: risksRuntimeDataSecurity
@@ -1262,17 +1268,16 @@ risks:
       - >
         Given the projected ability for advanced generative AI models to not only
         understand their environment, but also to initiate actions with varying levels
-        of autonomy, Rogue Actions have the potential to become a serious risk to 
-        organizational reputation, user trust, security, and safety.
+        of autonomy, Rogue Actions have the potential to become a serious risk to  organizational
+        reputation, user trust, security, and safety.
       - - >
-          **Accidental rogue actions:** This risk, sometimes known as 
-          misalignment, could be due to mistakes in task planning, reasoning, or 
-          environment sensing, and might be exacerbated by the inherent variability in 
-          LLM responses. Prompt engineering shows the spacing and ordering of examples 
-          can have a significant impact on the response, so varying input (even when not 
-          maliciously planted) could result in unexpected outcomes. Even simple ambiguity 
-          can cause rogue actions, such as an agent emailing the wrong "Mike," 
-          unintentionally sharing private data.
+          **Accidental rogue actions:** This risk, sometimes known as  misalignment, could
+          be due to mistakes in task planning, reasoning, or  environment sensing, and
+          might be exacerbated by the inherent variability in  LLM responses. Prompt engineering
+          shows the spacing and ordering of examples  can have a significant impact on
+          the response, so varying input (even when not  maliciously planted) could result
+          in unexpected outcomes. Even simple ambiguity  can cause rogue actions, such
+          as an agent emailing the wrong "Mike,"  unintentionally sharing private data.
         - >
           **Malicious actions:** This risk could include manipulating model
           output using attacks such as indirect prompt injection, poisoning, or evasion.
@@ -1282,7 +1287,8 @@ risks:
           Malicious actions may also be asynchronous. An attacker can plant a dormant
           "named trigger" that activates later during an unrelated task—for instance,
           a rule hidden in a calendar invite that opens the front door whenever the user
-          says an unrelated keyword. Other actions may be time-based, occurring after a
+          says an unrelated keyword. Other actions may be time-based, occurring after
+          a
           set number of interactions, making the rogue action appear spontaneous and
           disconnected from the malicious source.
         - >
@@ -1298,11 +1304,10 @@ risks:
           initialization.
       - >
         Rogue Actions are related to Insecure Integrated Components, but differ by the
-        degree of model functionality or agency.  The severity of a rogue action is 
-        directly proportional to the agent's capabilities, and the possibility that an 
-        agent has excessive functionality or permissions available to it increases the 
-        risk and blast radius of Rogue Actions when compared to Insecure Integrated 
-        Components.
+        degree of model functionality or agency.  The severity of a rogue action is  directly
+        proportional to the agent's capabilities, and the possibility that an  agent has
+        excessive functionality or permissions available to it increases the  risk and
+        blast radius of Rogue Actions when compared to Insecure Integrated  Components.
     category: risksRuntimeOutputSecurity
     personas:
       - personaPlatformProvider
@@ -1396,8 +1401,8 @@ risks:
         An attacker can exploit these channels to extract sensitive AI assets,
         including model weights, training data, private inputs, or cryptographic
         keys. These attacks bypass traditional software-based security by exploiting
-        fundamental hardware properties. The risk is highest in shared environments 
-        where an attacker can co-locate their workload with a victim's.
+        fundamental hardware properties. The risk is highest in shared environments  where
+        an attacker can co-locate their workload with a victim's.
     category: risksDeploymentAndInfrastructure
     personas:
       - personaPlatformProvider
@@ -1673,16 +1678,20 @@ risks:
         redirect agent tool selection.
       - >
         This risk is distinct from {{riskToolSourceProvenance}},
-        which addresses the use of unvetted sources. {{riskToolRegistryTampering}} assumes the source
+        which addresses the use of unvetted sources. {{riskToolRegistryTampering}} assumes
+        the source
         was properly vetted but was subsequently compromised. The trust model
-        is different: {{riskToolSourceProvenance}} is a failure to verify, while {{riskToolRegistryTampering}} is a failure of
+        is different: {{riskToolSourceProvenance}} is a failure to verify, while {{riskToolRegistryTampering}}
+        is a failure of
         ongoing integrity assurance.
       - >
         {{riskToolRegistryTampering}} is structurally related to {{riskOrchestratorRouteHijacking}},
         which targets model routing configuration. Both involve
         tampering with metadata that directs system behavior, but {{riskOrchestratorRouteHijacking}}
-        operates on model routing infrastructure while {{riskToolRegistryTampering}} operates on tool
-        discovery and selection mechanisms. A successful {{riskToolRegistryTampering}} exploit
+        operates on model routing infrastructure while {{riskToolRegistryTampering}} operates
+        on tool
+        discovery and selection mechanisms. A successful {{riskToolRegistryTampering}}
+        exploit
         typically manifests as {{riskRogueActions}}.
       - >
         The attack surface includes tool registry databases, MCP server
@@ -1819,11 +1828,10 @@ risks:
         rel="noopener">prompt-based routing attacks</a> where crafted inputs can
         manipulate AI orchestration systems to route requests to unintended models.
       - >
-        A <a href="https://nvd.nist.gov/vuln/detail/CVE-2026-24779" target="_blank"
-        rel="noopener">server-side request forgery vulnerability in vLLM</a>
-        (CVE-2026-24779, patched in 0.14.1) demonstrated that host restriction
-        bypasses in AI serving infrastructure can allow attackers to coerce the
-        server into making arbitrary requests to internal network resources.
+        A server-side request forgery vulnerability in vLLM ({{ref:cve-2026-24779}}, patched
+        in 0.14.1) demonstrated that host restriction bypasses in AI serving infrastructure
+        can allow attackers to coerce the server into making arbitrary requests to internal
+        network resources.
     tourContent:
       introduced:
         - >
@@ -1843,6 +1851,11 @@ risks:
           integrity verification, robust access controls for routing systems,
           cryptographic signing of routing configurations, monitoring for anomalous
           routing patterns, and validation of model endpoints before request forwarding.
+    externalReferences:
+      - type: cve
+        id: cve-2026-24779
+        title: 'CVE-2026-24779: Server-Side Request Forgery in vLLM MediaConnector'
+        url: https://nvd.nist.gov/vuln/detail/CVE-2026-24779
   - id: riskEvaluationBenchmarkManipulation
     title: Evaluation/Benchmark Manipulation
     shortDescription:
@@ -2090,7 +2103,8 @@ risks:
       - >
         This risk operates at the tool selection layer, before a prompt is
         constructed. Unlike {{riskPromptInjection}}, which
-        targets model input processing, {{riskToolSourceProvenance}} targets the trust assumptions
+        targets model input processing, {{riskToolSourceProvenance}} targets the trust
+        assumptions
         in tool discovery. The agent's reasoning core treats tool metadata
         as authoritative, and unvetted sources exploit that trust.
       - >
