@@ -1690,7 +1690,13 @@ risks:
         APIs. Compromise may be persistent (modified registry entries) or
         transient (man-in-the-middle on discovery endpoints). Detection
         requires runtime integrity monitoring of tool metadata against
-        known-good baselines.
+        known-good baselines. The exposure is widest where a previously
+        vetted registry or manifest can be modified without raising an
+        integrity alert, where unauthorized changes to tool descriptions,
+        schemas, or metadata go unnoticed after initial registration, and
+        where tooling lets a tool revise its own description or capabilities
+        without explicit re-approval — each case leaving no signal between
+        the post-vetting change and the agent acting on it.
       - >
         {{riskInsecureIntegratedComponent}} addresses
         vulnerabilities in the tools themselves. {{riskToolRegistryTampering}} is complementary:
@@ -1728,10 +1734,6 @@ risks:
         can enable modification of hosted tool definitions across 3,000+
         MCP servers, allowing attackers to redirect agent tool selection
         at scale on a previously vetted platform.
-    relevantQuestions:
-      - Could a previously vetted tool registry or MCP server manifest be modified without triggering an integrity alert?
-      - Do you monitor for unauthorized changes to tool descriptions, schemas, or metadata after initial registration?
-      - Can tools in your system update their own descriptions or capabilities without explicit re-approval?
     tourContent:
       introduced:
         - >
@@ -2078,7 +2080,13 @@ risks:
         and discovery endpoints to decide which tools to invoke. When these
         sources are adopted without provenance verification, cryptographic
         signing, or publisher identity validation, the agent may receive
-        deliberately deceptive tool descriptions or schemas.
+        deliberately deceptive tool descriptions or schemas. Three gaps widen
+        this exposure: third-party tools that are discovered or registered
+        without any check of the publisher's identity or provenance,
+        registries or manifests that are added without cryptographic
+        signature verification, and a tool-selection step that trusts a
+        tool's described functionality without independently confirming the
+        tool behaves as claimed.
       - >
         This risk operates at the tool selection layer, before a prompt is
         constructed. Unlike {{riskPromptInjection}}, which
@@ -2117,10 +2125,6 @@ risks:
         target="_blank" rel="noopener">"Attractive Metadata Attack"</a>
         demonstrated that metadata manipulation alone is sufficient to redirect
         tool selection in agentic systems, achieving 81-95% attack success rates.
-    relevantQuestions:
-      - Do you discover or register tools from third-party sources without verifying the publisher's identity or provenance?
-      - Do you allow tool registries or MCP server manifests to be added to your system without cryptographic signature verification?
-      - Does your tool selection process rely on tool descriptions or metadata without independent validation of the tool's claimed functionality?
     tourContent:
       introduced:
         - >
@@ -2335,15 +2339,22 @@ risks:
         omitting the original caller, intermediate agents, or token exchange
         steps in log records. Even when individual agents authenticate correctly,
         the provenance of a given action becomes opaque if correlation IDs and
-        delegation context are not preserved in immutable, queryable logs.
+        delegation context are not preserved in immutable, queryable logs. A
+        system is exposed when an agent action does not carry an immutable
+        delegation chain with correlation IDs, when intermediate agents do not
+        emit structured delegation events that downstream consumers and
+        auditors can independently verify, or when the delegation logs are
+        themselves mutable or readable beyond the set of authorized auditors.
       - >
-        Potential impacts include inability to investigate incidents (the full
-        actor path cannot be reconstructed), inability to attribute actions for
-        compliance or forensics, failure to detect anomalous delegation patterns,
-        and inability to perform effective credential revocation for a specific
-        delegation chain. Consequences include accountability failures, regulatory
-        violations, prolonged breach dwell time, and erosion of trust in
-        autonomous agent systems.
+        Potential impacts include inability to investigate incidents — the full
+        actor path, from the originating human through each intermediate agent
+        to the tool that acted, cannot be reconstructed after the fact —
+        inability to attribute actions for compliance or forensics, failure to
+        detect broken, shadowed, or otherwise anomalous delegation chains in
+        real time, and inability to perform effective credential revocation for
+        a specific delegation chain. Consequences include accountability
+        failures, regulatory violations, prolonged breach dwell time, and
+        erosion of trust in autonomous agent systems.
       - >
         This risk is distinct from {{riskRogueActions}}, which addresses what an
         agent does wrong; Agent Delegation Chain Opacity addresses the inability
@@ -2395,12 +2406,6 @@ risks:
           timestamps, bound to an append-only store. Real-time detection of
           missing or out-of-order spans shifts the control from post-incident
           reconstruction to in-flight chain integrity monitoring.
-    relevantQuestions:
-      - Does every agent action carry an immutable delegation chain with correlation IDs?
-      - Can you reconstruct the full actor path (human to agent1 to agent2 to tool) after the fact?
-      - Do intermediate agents in your delegation chains emit structured delegation events that downstream consumers and auditors can independently verify?
-      - Are delegation logs tamper-proof and accessible only to authorized auditors?
-      - How do you detect broken or shadowed delegation chains in real time?
     mappings:
       stride:
         - repudiation
@@ -2432,7 +2437,13 @@ risks:
         invalidating the agent's credentials or identity. The substituted model
         inherits the original agent's full privileges because agent identity
         and model artifact exist on separate infrastructure layers with no
-        cryptographic binding between them.
+        cryptographic binding between them. The exposure is present wherever
+        an agent identity is not cryptographically bound to a specific signed
+        model artifact or manifest, wherever a model update or swap does not
+        automatically invalidate or re-scope the agent's credentials, and
+        wherever no runtime attestation of the model artifact precedes tool
+        authorization — leaving no point at which a substitution that occurs
+        after credential issuance would be detected.
       - >
         This risk is the AI/agentic extension of classical stale credential
         binding failures. In Kubernetes, long-lived service account tokens
@@ -2506,11 +2517,6 @@ risks:
           model manifests, runtime attestation of the model artifact before
           authorizing tool access, and automated credential invalidation on any
           change to the bound model artifact.
-    relevantQuestions:
-      - Is the agent identity cryptographically bound to a specific signed model artifact or manifest?
-      - Does a model update or swap automatically invalidate or re-scope the agent's credentials?
-      - Does the system perform runtime attestation of the model artifact before authorizing tool access?
-      - How do you detect model substitution after initial credential issuance?
     mappings:
       stride:
         - spoofing
@@ -2560,7 +2566,12 @@ risks:
         configured MCP connections, DNS rebinding against locally-running MCP
         servers (acknowledged in the MCP specification's own Security Warning),
         replay of captured JSON-RPC messages, and session hijacking via
-        intercepted session identifiers.
+        intercepted session identifiers. Each of these vectors exploits a gap
+        in transport-layer protection: connections that do not enforce mutual
+        TLS, session tokens that are not bound to transport-layer identifiers,
+        sessions that are long-lived or that lack replay protection, and
+        servers that do not validate the Origin header on incoming connections
+        to block DNS rebinding.
       - >
         This risk is distinct from {{riskInsecureIntegratedComponent}}, which covers
         vulnerabilities within MCP server implementations (e.g., path traversal).
@@ -2621,11 +2632,6 @@ risks:
           headers on all incoming connections, restricting local servers to
           localhost binding, and implementing replay protection with short-lived
           sessions.
-    relevantQuestions:
-      - Is mutual TLS enforced for all MCP connections?
-      - Are session tokens bound to transport-layer identifiers?
-      - Do you enforce strict replay protection and short-lived sessions?
-      - Do MCP servers validate the Origin header on all incoming connections to prevent DNS rebinding?
     mappings:
       stride:
         - tampering
@@ -2670,7 +2676,13 @@ risks:
         agents). Supply-chain injection of backdoored agent templates is a
         related vector addressed by {{riskToolSourceProvenance}} and
         {{riskToolRegistryTampering}}; this risk covers the downstream identity
-        lifecycle failure when such agents persist undetected.
+        lifecycle failure when such agents persist undetected. The exposure is
+        present where agents receive credentials without first registering with
+        a central identity service, where there is no runtime mechanism to
+        detect and block actions from unregistered or decommissioned agents,
+        where credentials are reused across ephemeral agents, and where an
+        orchestration layer that spawns a new agent passes credentials down by
+        inheritance rather than issuing fresh, individually attested ones.
       - >
         The insider threat dimension is also relevant: a compromised or rogue
         insider can create shadow agents that persist beyond their own access
@@ -2725,11 +2737,6 @@ risks:
           before credential issuance, cryptographic attestation of agent identity,
           runtime detection of unregistered agents, and automated credential
           revocation on lifecycle state changes.
-    relevantQuestions:
-      - Are all agents required to register with a central identity service before receiving credentials?
-      - Can you detect and block actions from unregistered or decommissioned agents?
-      - How do you handle credential reuse across ephemeral agents?
-      - How do you handle credential inheritance when orchestration layers spawn new agents dynamically?
     mappings:
       stride:
         - spoofing
@@ -2788,7 +2795,13 @@ risks:
         safety failures in time-sensitive systems — impacts with no financial
         dimension. Prompt injection can trigger runaway loops (see
         {{riskPromptInjection}}), but the underlying vulnerability is the absence
-        of loop bounds at the orchestration layer.
+        of loop bounds at the orchestration layer: deployments that do not
+        enforce per-agent, per-session, or per-tool-call resource budgets and
+        rate limits, that allow recursive or deeply nested tool chains without
+        an automatic bound or a human-approval checkpoint, that rely on MCP
+        servers unable to reject or throttle requests based on cumulative
+        context or cost, and that do not monitor for context-window saturation
+        during tool-calling sequences.
       - >
         Potential impacts include context-window exhaustion leading to silent
         task failure, massive unexpected costs, service degradation for other
@@ -2834,11 +2847,6 @@ risks:
           frameworks; monitoring for context-window saturation and loop patterns;
           and implementing circuit breakers that halt agent execution when
           cumulative resource thresholds are exceeded.
-    relevantQuestions:
-      - Do you enforce per-agent, per-session, or per-tool-call resource budgets and rate limits?
-      - Are recursive or deeply nested tool chains automatically bounded or human-approved?
-      - Can MCP servers reject or throttle requests based on cumulative context or cost?
-      - Do you monitor for context-window saturation during agent tool-calling sequences?
     mappings:
       stride:
         - denial-of-service
@@ -2894,7 +2902,14 @@ risks:
         legitimate-looking API calls from less-privileged agents. The trigger
         mechanism varies (see {{riskPromptInjection}} for injection attacks
         specifically), but the underlying vulnerability is the same: the deputy
-        does not check the caller's authorization scope before acting.
+        does not check the caller's authorization scope before acting, and
+        cannot distinguish that scope from its own when it selects which tools
+        to invoke. The exposure persists wherever a delegation step does not
+        enforce least-privilege narrowing together with an explicit
+        caller-authorization check, wherever confused-deputy protections are
+        applied at only one of the IAM and MCP layers rather than both, and
+        wherever there is no runtime detection of an agent executing an action
+        that exceeds the caller's authorization scope.
       - >
         This risk is distinct from {{riskRogueActions}}, which covers unintended
         agent actions broadly (accidental and malicious). The confused deputy
@@ -2964,11 +2979,6 @@ risks:
           the intersection of its own permissions and the caller's
           authorization, and applying least-privilege narrowing at each
           delegation hop.
-    relevantQuestions:
-      - Does every delegation step enforce least-privilege narrowing and explicit caller authorization?
-      - Can you detect when an agent executes an action that exceeds the caller's authorization scope at runtime?
-      - Are confused deputy protections enforced at both the IAM and MCP layers?
-      - Can the deputy distinguish the caller's authorization scope from its own permissions when selecting which tools to invoke?
     mappings:
       stride:
         - elevation-of-privilege
@@ -3026,7 +3036,13 @@ risks:
         organizations. A compromise in one tenant — through credential theft,
         infrastructure exploitation, or insider access — yields credentials
         that work across tenant boundaries because nothing restricts their
-        scope to the originating tenant.
+        scope to the originating tenant. The exposure is present wherever
+        agent identities are not strictly scoped to a single tenant, wherever
+        credential pools, OAuth token caches, and MCP server endpoints are
+        shared rather than isolated per tenant, and wherever tenant-boundary
+        validation is not enforced at every MCP hop and delegation step — any
+        of which lets a compromise confined to one tenant reach another
+        tenant's resources.
       - >
         This risk is distinct from {{riskAcceleratorAndSystemSideChannels}}, which
         covers hardware-layer cross-tenant leakage (timing, cache, speculative
@@ -3100,11 +3116,6 @@ risks:
           cross-tenant validity, enforcing tenant boundary validation at every
           MCP hop and delegation step, and isolating credential pools, token
           caches, and MCP endpoints per tenant.
-    relevantQuestions:
-      - Are agent identities strictly scoped to a single tenant with no shared credentials?
-      - Does the system enforce tenant boundaries at every MCP hop and delegation step?
-      - Can a compromised agent in one tenant affect resources in another?
-      - Are credential pools, OAuth token caches, and MCP server endpoints isolated per tenant?
     mappings:
       stride:
         - elevation-of-privilege
@@ -3168,7 +3179,14 @@ risks:
         after the legitimate server is decommissioned. Dynamic discovery
         mechanisms that do not require runtime attestation or liveness
         verification exacerbate the risk — agents trust registry presence as
-        proof of legitimacy.
+        proof of legitimacy. The exposure is present where an MCP server can
+        become discoverable without registering under cryptographic
+        attestation, where decommissioning does not guarantee complete removal
+        from every discovery mechanism (registry, DNS, load balancer, and
+        agent configuration alike), where agents do not re-verify a tool
+        server's liveness and identity at invocation time rather than trusting
+        the discovery-time record, and where nothing automatically detects and
+        blocks calls routed to decommissioned or unverified endpoints.
       - >
         This risk is distinct from {{riskToolSourceProvenance}}, which addresses
         adopting unvetted tool sources — zombie servers were previously vetted
@@ -3236,11 +3254,6 @@ risks:
           verification for all MCP server endpoints, automating removal from
           all discovery mechanisms on decommission, and monitoring for agent
           calls to unresponsive or unverified endpoints.
-    relevantQuestions:
-      - Are all MCP servers required to register with cryptographic attestation before being discoverable?
-      - Does the system automatically detect and block calls to decommissioned or unverified MCP endpoints?
-      - How do you ensure complete removal of MCP servers from all discovery mechanisms?
-      - Do agents verify tool server liveness and identity at invocation time, not just at discovery time?
     mappings:
       stride:
         - spoofing
