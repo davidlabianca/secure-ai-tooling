@@ -225,10 +225,9 @@ risks:
       - controlSecureByDefaultMLTooling
     examples:
       - >
-        The nightly build of <a href="https://pytorch.org/blog/compromised-nightly-dependency/">PyTorch
-        package was subjected to a supply chain attack</a> (specifically, a dependency
-        confusion attack that installed a compromised dependency that ran a malicious
-        binary).
+        The nightly build of PyTorch package was subjected to a supply chain attack ({{ref:pytorch-2022-torchtriton-compromise}})
+        (specifically, a dependency confusion attack that installed a compromised dependency
+        that ran a malicious binary).
     tourContent:
       introduced:
         - >
@@ -271,6 +270,12 @@ risks:
       - privileged
       - infrastructure-provider
       - physical
+    externalReferences:
+      - type: advisory
+        id: pytorch-2022-torchtriton-compromise
+        title: Compromised PyTorch-nightly dependency chain between December 25th
+          and December 30th, 2022
+        url: https://pytorch.org/blog/compromised-nightly-dependency/
   - id: riskExcessiveDataHandling
     title: Excessive Data Handling
     shortDescription:
@@ -492,12 +497,11 @@ risks:
       - >
         A second type is compromise of the model serving infrastructure. For example,
         it was reported that <a href="https://thehackernews.com/2023/10/warning-pytorch-models-vulnerable-to.html">PyTorch
-        models were vulnerable to remote code execution</a> due to multiple critical
-        security flaws in the **TorchServe** tool that is widely used
-        for serving the models. This is an attack on a serving infrastructure for PyTorch,
-        TorchServe, whereas the <a href="https://pytorch.org/blog/compromised-nightly-dependency/">PyTorch
-        example of Model Source Tampering</a> was about a supply chain attack on dependency
-        code for PyTorch itself.
+        models were vulnerable to remote code execution</a> due to multiple critical security
+        flaws in the **TorchServe** tool that is widely used for serving the models. This
+        is an attack on a serving infrastructure for PyTorch, TorchServe, whereas the
+        PyTorch example of Model Source Tampering ({{ref:pytorch-2022-torchtriton-compromise}})
+        was about a supply chain attack on dependency code for PyTorch itself.
     category: risksDeploymentAndInfrastructure
     personas:
       - personaPlatformProvider
@@ -555,6 +559,12 @@ risks:
       - infrastructure-provider
       - api
       - user
+    externalReferences:
+      - type: advisory
+        id: pytorch-2022-torchtriton-compromise
+        title: Compromised PyTorch-nightly dependency chain between December 25th
+          and December 30th, 2022
+        url: https://pytorch.org/blog/compromised-nightly-dependency/
   - id: riskDenialOfMLService
     title: Denial of ML Service
     shortDescription:

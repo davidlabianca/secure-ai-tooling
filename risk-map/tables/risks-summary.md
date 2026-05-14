@@ -37,5 +37,13 @@
 | riskUnauthorizedTrainingData             | Unauthorized Training Data               | Using unauthorized data for model training. Using a model trained with Unauthorized Training Data might lead to legal or ethical challenges.<br>                                                                                                                                                                | risksSupplyChainAndDevelopment   |
 | riskZombieShadowMCPServers               | Zombie / Shadow MCP Servers              | Decommissioned or unregistered MCP servers remain accessible and respond to agent tool calls, allowing attackers to intercept or redirect legitimate requests.<br>                                                                                                                                              | risksDeploymentAndInfrastructure |
 
+## References for riskModelDeploymentTampering
+- [Compromised PyTorch-nightly dependency chain between December 25th and December 30th, 2022](https://pytorch.org/blog/compromised-nightly-dependency/) (advisory)
+
+
+## References for riskModelSourceTampering
+- [Compromised PyTorch-nightly dependency chain between December 25th and December 30th, 2022](https://pytorch.org/blog/compromised-nightly-dependency/) (advisory)
+
+
 ## References for riskOrchestratorRouteHijacking
 - [CVE-2026-24779: Server-Side Request Forgery in vLLM MediaConnector](https://nvd.nist.gov/vuln/detail/CVE-2026-24779) (cve)
