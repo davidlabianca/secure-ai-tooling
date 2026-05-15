@@ -85,45 +85,6 @@
 | personaEndUser              | AI System Users                          | riskShadowAndUnknownAgents               | Shadow and Unknown Agents                |
 | personaEndUser              | AI System Users                          | riskStaleAgentIdentityBinding            | Stale Agent Identity Binding             |
 | personaEndUser              | AI System Users                          | riskZombieShadowMCPServers               | Zombie / Shadow MCP Servers              |
-| personaModelConsumer        | Model Consumer (Legacy)                  | riskAcceleratorAndSystemSideChannels     | Accelerator and System Side-channels     |
-| personaModelConsumer        | Model Consumer (Legacy)                  | riskAdapterPEFTInjection                 | Adapter/PEFT Injection                   |
-| personaModelConsumer        | Model Consumer (Legacy)                  | riskCovertChannelsInModelOutputs         | Covert Channels in Model Outputs         |
-| personaModelConsumer        | Model Consumer (Legacy)                  | riskDenialOfMLService                    | Denial of ML Service                     |
-| personaModelConsumer        | Model Consumer (Legacy)                  | riskEconomicDenialOfWallet               | Economic Denial of Wallet                |
-| personaModelConsumer        | Model Consumer (Legacy)                  | riskInferredSensitiveData                | Inferred Sensitive Data                  |
-| personaModelConsumer        | Model Consumer (Legacy)                  | riskInsecureIntegratedComponent          | Insecure Integrated Component            |
-| personaModelConsumer        | Model Consumer (Legacy)                  | riskInsecureModelOutput                  | Insecure Model Output                    |
-| personaModelConsumer        | Model Consumer (Legacy)                  | riskMaliciousLoaderDeserialization       | Malicious Loader/Deserialization         |
-| personaModelConsumer        | Model Consumer (Legacy)                  | riskModelDeploymentTampering             | Model Deployment Tampering               |
-| personaModelConsumer        | Model Consumer (Legacy)                  | riskModelEvasion                         | Model Evasion                            |
-| personaModelConsumer        | Model Consumer (Legacy)                  | riskModelExfiltration                    | Model Exfiltration                       |
-| personaModelConsumer        | Model Consumer (Legacy)                  | riskModelReverseEngineering              | Model Reverse Engineering                |
-| personaModelConsumer        | Model Consumer (Legacy)                  | riskOrchestratorRouteHijacking           | Orchestrator/Route Hijack                |
-| personaModelConsumer        | Model Consumer (Legacy)                  | riskPromptInjection                      | Prompt Injection                         |
-| personaModelConsumer        | Model Consumer (Legacy)                  | riskPromptResponseCachePoisoning         | Prompt/Response Cache Poisoning          |
-| personaModelConsumer        | Model Consumer (Legacy)                  | riskRetrievalVectorStorePoisoning        | Retrieval/Vector Store Poisoning         |
-| personaModelConsumer        | Model Consumer (Legacy)                  | riskRogueActions                         | Rogue Actions                            |
-| personaModelConsumer        | Model Consumer (Legacy)                  | riskSensitiveDataDisclosure              | Sensitive Data Disclosure                |
-| personaModelCreator         | Model Creator (Legacy)                   | riskAcceleratorAndSystemSideChannels     | Accelerator and System Side-channels     |
-| personaModelCreator         | Model Creator (Legacy)                   | riskAdapterPEFTInjection                 | Adapter/PEFT Injection                   |
-| personaModelCreator         | Model Creator (Legacy)                   | riskCovertChannelsInModelOutputs         | Covert Channels in Model Outputs         |
-| personaModelCreator         | Model Creator (Legacy)                   | riskDataPoisoning                        | Data Poisoning                           |
-| personaModelCreator         | Model Creator (Legacy)                   | riskEvaluationBenchmarkManipulation      | Evaluation/Benchmark Manipulation        |
-| personaModelCreator         | Model Creator (Legacy)                   | riskExcessiveDataHandling                | Excessive Data Handling                  |
-| personaModelCreator         | Model Creator (Legacy)                   | riskExcessiveDataHandlingDuringInference | Excessive Data Handling During Inference |
-| personaModelCreator         | Model Creator (Legacy)                   | riskFederatedDistributedTrainingPrivacy  | Federated/Distributed Training Privacy   |
-| personaModelCreator         | Model Creator (Legacy)                   | riskInferredSensitiveData                | Inferred Sensitive Data                  |
-| personaModelCreator         | Model Creator (Legacy)                   | riskMaliciousLoaderDeserialization       | Malicious Loader/Deserialization         |
-| personaModelCreator         | Model Creator (Legacy)                   | riskModelDeploymentTampering             | Model Deployment Tampering               |
-| personaModelCreator         | Model Creator (Legacy)                   | riskModelEvasion                         | Model Evasion                            |
-| personaModelCreator         | Model Creator (Legacy)                   | riskModelExfiltration                    | Model Exfiltration                       |
-| personaModelCreator         | Model Creator (Legacy)                   | riskModelSourceTampering                 | Model Source Tampering                   |
-| personaModelCreator         | Model Creator (Legacy)                   | riskOrchestratorRouteHijacking           | Orchestrator/Route Hijack                |
-| personaModelCreator         | Model Creator (Legacy)                   | riskPromptInjection                      | Prompt Injection                         |
-| personaModelCreator         | Model Creator (Legacy)                   | riskPromptResponseCachePoisoning         | Prompt/Response Cache Poisoning          |
-| personaModelCreator         | Model Creator (Legacy)                   | riskRetrievalVectorStorePoisoning        | Retrieval/Vector Store Poisoning         |
-| personaModelCreator         | Model Creator (Legacy)                   | riskSensitiveDataDisclosure              | Sensitive Data Disclosure                |
-| personaModelCreator         | Model Creator (Legacy)                   | riskUnauthorizedTrainingData             | Unauthorized Training Data               |
 | personaModelProvider        | Model Provider                           | riskDataPoisoning                        | Data Poisoning                           |
 | personaModelProvider        | Model Provider                           | riskEvaluationBenchmarkManipulation      | Evaluation/Benchmark Manipulation        |
 | personaModelProvider        | Model Provider                           | riskExcessiveDataHandling                | Excessive Data Handling                  |
