@@ -67,7 +67,6 @@ risks:
       - personaAgenticProvider
       - personaApplicationDeveloper
       - personaEndUser
-      - personaModelCreator
     controls:
       - controlTrainingDataSanitization
       - controlSecureByDefaultMLTooling
@@ -149,7 +148,6 @@ risks:
     personas:
       - personaModelProvider
       - personaDataProvider
-      - personaModelCreator
     controls:
       - controlTrainingDataSanitization
       - controlTrainingDataManagement
@@ -226,7 +224,6 @@ risks:
       - personaModelServing
       - personaApplicationDeveloper
       - personaEndUser
-      - personaModelCreator
     controls:
       - controlIsolatedConfidentialComputing
       - controlModelAndDataAccessControls
@@ -311,7 +308,6 @@ risks:
     personas:
       - personaModelProvider
       - personaDataProvider
-      - personaModelCreator
     controls:
       - controlTrainingDataManagement
       - controlUserTransparencyAndControls
@@ -379,7 +375,6 @@ risks:
       - personaModelServing
       - personaApplicationDeveloper
       - personaEndUser
-      - personaModelCreator
     controls:
       - controlUserDataManagement
       - controlUserTransparencyAndControls
@@ -452,8 +447,6 @@ risks:
     personas:
       - personaModelProvider
       - personaModelServing
-      - personaModelCreator
-      - personaModelConsumer
     controls:
       - controlIsolatedConfidentialComputing
       - controlModelAndDataInventoryManagement
@@ -535,8 +528,6 @@ risks:
       - personaModelServing
       - personaApplicationDeveloper
       - personaEndUser
-      - personaModelCreator
-      - personaModelConsumer
     controls:
       - controlIsolatedConfidentialComputing
       - controlModelAndDataExecutionIntegrity
@@ -630,7 +621,6 @@ risks:
       - personaModelServing
       - personaApplicationDeveloper
       - personaEndUser
-      - personaModelConsumer
     controls:
       - controlApplicationAccessManagement
     examples:
@@ -704,7 +694,6 @@ risks:
     personas:
       - personaModelProvider
       - personaDataProvider
-      - personaModelConsumer
     controls:
       - controlApplicationAccessManagement
     examples:
@@ -806,7 +795,6 @@ risks:
       - personaAgenticProvider
       - personaApplicationDeveloper
       - personaEndUser
-      - personaModelConsumer
     controls:
       - controlAgentPluginPermissions
       - controlModelAndDataExecutionIntegrity
@@ -908,8 +896,6 @@ risks:
       - personaModelServing
       - personaApplicationDeveloper
       - personaEndUser
-      - personaModelCreator
-      - personaModelConsumer
     controls:
       - controlInputValidationAndSanitization
       - controlAdversarialTrainingAndTesting
@@ -1014,8 +1000,6 @@ risks:
       - personaAgenticProvider
       - personaApplicationDeveloper
       - personaEndUser
-      - personaModelCreator
-      - personaModelConsumer
     controls:
       - controlAdversarialTrainingAndTesting
     examples:
@@ -1141,8 +1125,6 @@ risks:
       - personaDataProvider
       - personaApplicationDeveloper
       - personaEndUser
-      - personaModelCreator
-      - personaModelConsumer
     controls:
       - controlModelPrivacyEnhancingTechnologies
       - controlRuntimePrivacyEnhancingTechnologies
@@ -1242,8 +1224,6 @@ risks:
       - personaModelServing
       - personaApplicationDeveloper
       - personaEndUser
-      - personaModelCreator
-      - personaModelConsumer
     controls:
       - controlTrainingDataManagement
       - controlOutputValidationAndSanitization
@@ -1320,7 +1300,6 @@ risks:
       - personaAgenticProvider
       - personaApplicationDeveloper
       - personaEndUser
-      - personaModelConsumer
     controls:
       - controlOutputValidationAndSanitization
       - controlAdversarialTrainingAndTesting
@@ -1424,7 +1403,6 @@ risks:
       - personaAgenticProvider
       - personaApplicationDeveloper
       - personaEndUser
-      - personaModelConsumer
     controls:
       - controlAgentPluginPermissions
       - controlAgentPluginUserControl
@@ -1523,8 +1501,6 @@ risks:
       - personaModelServing
       - personaApplicationDeveloper
       - personaEndUser
-      - personaModelCreator
-      - personaModelConsumer
     controls:
       - controlSecureByDefaultMLTooling
       - controlModelAndDataAccessControls
@@ -1608,7 +1584,6 @@ risks:
       - personaModelServing
       - personaApplicationDeveloper
       - personaEndUser
-      - personaModelConsumer
     controls:
       - controlApplicationAccessManagement
       - controlAgentExecutionBounds
@@ -1685,7 +1660,6 @@ risks:
       - personaDataProvider
       - personaApplicationDeveloper
       - personaEndUser
-      - personaModelCreator
     controls:
       - controlModelPrivacyEnhancingTechnologies
       - controlRuntimePrivacyEnhancingTechnologies
@@ -1766,8 +1740,6 @@ risks:
       - personaModelServing
       - personaApplicationDeveloper
       - personaEndUser
-      - personaModelCreator
-      - personaModelConsumer
     controls:
       - controlModelAndDataExecutionIntegrity
       - controlModelAndDataIntegrityManagement
@@ -1969,8 +1941,6 @@ risks:
       - personaModelServing
       - personaApplicationDeveloper
       - personaEndUser
-      - personaModelCreator
-      - personaModelConsumer
     controls:
       - controlIsolatedConfidentialComputing
       - controlModelAndDataIntegrityManagement
@@ -2054,7 +2024,6 @@ risks:
       - personaModelServing
       - personaApplicationDeveloper
       - personaEndUser
-      - personaModelCreator
     controls:
       - controlModelAndDataIntegrityManagement
     examples:
@@ -2130,8 +2099,6 @@ risks:
       - personaAgenticProvider
       - personaApplicationDeveloper
       - personaEndUser
-      - personaModelCreator
-      - personaModelConsumer
     controls:
       - controlOutputValidationAndSanitization
       - controlModelAndDataIntegrityManagement
@@ -2215,8 +2182,6 @@ risks:
       - personaModelServing
       - personaApplicationDeveloper
       - personaEndUser
-      - personaModelCreator
-      - personaModelConsumer
     controls:
       - controlInputValidationAndSanitization
       - controlModelAndDataAccessControls
@@ -2404,8 +2369,6 @@ risks:
       - personaModelServing
       - personaApplicationDeveloper
       - personaEndUser
-      - personaModelCreator
-      - personaModelConsumer
     controls:
       - controlModelAndDataAccessControls
       - controlModelAndDataIntegrityManagement
@@ -2484,8 +2447,6 @@ risks:
       - personaAgenticProvider
       - personaApplicationDeveloper
       - personaEndUser
-      - personaModelCreator
-      - personaModelConsumer
     controls:
       - controlTrainingDataSanitization
       - controlModelAndDataIntegrityManagement

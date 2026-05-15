@@ -62,55 +62,6 @@
 | personaGovernance           | AI System Governance                     | controlThreatDetection                     | Threat Detection                                  |
 | personaGovernance           | AI System Governance                     | controlUserPoliciesAndEducation            | User Policies and Education                       |
 | personaGovernance           | AI System Governance                     | controlVulnerabilityManagement             | Vulnerability Management                          |
-| personaModelConsumer        | Model Consumer (Legacy)                  | controlAdversarialTrainingAndTesting       | Adversarial Training and Testing                  |
-| personaModelConsumer        | Model Consumer (Legacy)                  | controlAgentObservability                  | Agent Observability                               |
-| personaModelConsumer        | Model Consumer (Legacy)                  | controlAgentPluginPermissions              | Agent Permissions                                 |
-| personaModelConsumer        | Model Consumer (Legacy)                  | controlAgentPluginUserControl              | Agent User Control                                |
-| personaModelConsumer        | Model Consumer (Legacy)                  | controlApplicationAccessManagement         | Application Access and Resource Management        |
-| personaModelConsumer        | Model Consumer (Legacy)                  | controlIncidentResponseManagement          | Incident Response Management                      |
-| personaModelConsumer        | Model Consumer (Legacy)                  | controlInputValidationAndSanitization      | Input Validation and Sanitization                 |
-| personaModelConsumer        | Model Consumer (Legacy)                  | controlInternalPoliciesAndEducation        | Internal Policies and Education                   |
-| personaModelConsumer        | Model Consumer (Legacy)                  | controlIsolatedConfidentialComputing       | Isolated and Confidential Computing               |
-| personaModelConsumer        | Model Consumer (Legacy)                  | controlModelAndDataAccessControls          | Model and Data Access Controls                    |
-| personaModelConsumer        | Model Consumer (Legacy)                  | controlModelAndDataExecutionIntegrity      | Model and Data Execution Integrity                |
-| personaModelConsumer        | Model Consumer (Legacy)                  | controlModelAndDataIntegrityManagement     | Model and Data Integrity Management               |
-| personaModelConsumer        | Model Consumer (Legacy)                  | controlModelAndDataInventoryManagement     | Model and Data Inventory Management               |
-| personaModelConsumer        | Model Consumer (Legacy)                  | controlOrchestratorAndRouteIntegrity       | Orchestrator and Route Integrity                  |
-| personaModelConsumer        | Model Consumer (Legacy)                  | controlOutputValidationAndSanitization     | Output Validation and Sanitization                |
-| personaModelConsumer        | Model Consumer (Legacy)                  | controlProductGovernance                   | Product Governance                                |
-| personaModelConsumer        | Model Consumer (Legacy)                  | controlRedTeaming                          | Red Teaming                                       |
-| personaModelConsumer        | Model Consumer (Legacy)                  | controlRetrievalAndVectorSystemIntegrity   | Retrieval and Vector System Integrity Management  |
-| personaModelConsumer        | Model Consumer (Legacy)                  | controlRiskGovernance                      | Risk Governance                                   |
-| personaModelConsumer        | Model Consumer (Legacy)                  | controlRuntimePrivacyEnhancingTechnologies | Privacy Enhancing Technologies for Inference      |
-| personaModelConsumer        | Model Consumer (Legacy)                  | controlSecureByDefaultMLTooling            | Secure-by-Default ML Tooling                      |
-| personaModelConsumer        | Model Consumer (Legacy)                  | controlThreatDetection                     | Threat Detection                                  |
-| personaModelConsumer        | Model Consumer (Legacy)                  | controlUserDataManagement                  | User Data Management                              |
-| personaModelConsumer        | Model Consumer (Legacy)                  | controlUserPoliciesAndEducation            | User Policies and Education                       |
-| personaModelConsumer        | Model Consumer (Legacy)                  | controlUserTransparencyAndControls         | User Transparency and Controls                    |
-| personaModelConsumer        | Model Consumer (Legacy)                  | controlVulnerabilityManagement             | Vulnerability Management                          |
-| personaModelCreator         | Model Creator (Legacy)                   | controlAdversarialTrainingAndTesting       | Adversarial Training and Testing                  |
-| personaModelCreator         | Model Creator (Legacy)                   | controlIncidentResponseManagement          | Incident Response Management                      |
-| personaModelCreator         | Model Creator (Legacy)                   | controlInputValidationAndSanitization      | Input Validation and Sanitization                 |
-| personaModelCreator         | Model Creator (Legacy)                   | controlInternalPoliciesAndEducation        | Internal Policies and Education                   |
-| personaModelCreator         | Model Creator (Legacy)                   | controlIsolatedConfidentialComputing       | Isolated and Confidential Computing               |
-| personaModelCreator         | Model Creator (Legacy)                   | controlModelAndDataAccessControls          | Model and Data Access Controls                    |
-| personaModelCreator         | Model Creator (Legacy)                   | controlModelAndDataExecutionIntegrity      | Model and Data Execution Integrity                |
-| personaModelCreator         | Model Creator (Legacy)                   | controlModelAndDataIntegrityManagement     | Model and Data Integrity Management               |
-| personaModelCreator         | Model Creator (Legacy)                   | controlModelAndDataInventoryManagement     | Model and Data Inventory Management               |
-| personaModelCreator         | Model Creator (Legacy)                   | controlModelPrivacyEnhancingTechnologies   | Privacy Enhancing Technologies for Model Training |
-| personaModelCreator         | Model Creator (Legacy)                   | controlOrchestratorAndRouteIntegrity       | Orchestrator and Route Integrity                  |
-| personaModelCreator         | Model Creator (Legacy)                   | controlOutputValidationAndSanitization     | Output Validation and Sanitization                |
-| personaModelCreator         | Model Creator (Legacy)                   | controlProductGovernance                   | Product Governance                                |
-| personaModelCreator         | Model Creator (Legacy)                   | controlRedTeaming                          | Red Teaming                                       |
-| personaModelCreator         | Model Creator (Legacy)                   | controlRetrievalAndVectorSystemIntegrity   | Retrieval and Vector System Integrity Management  |
-| personaModelCreator         | Model Creator (Legacy)                   | controlRiskGovernance                      | Risk Governance                                   |
-| personaModelCreator         | Model Creator (Legacy)                   | controlRuntimePrivacyEnhancingTechnologies | Privacy Enhancing Technologies for Inference      |
-| personaModelCreator         | Model Creator (Legacy)                   | controlSecureByDefaultMLTooling            | Secure-by-Default ML Tooling                      |
-| personaModelCreator         | Model Creator (Legacy)                   | controlThreatDetection                     | Threat Detection                                  |
-| personaModelCreator         | Model Creator (Legacy)                   | controlTrainingDataManagement              | Training Data Management                          |
-| personaModelCreator         | Model Creator (Legacy)                   | controlTrainingDataSanitization            | Training Data Sanitization                        |
-| personaModelCreator         | Model Creator (Legacy)                   | controlUserDataManagement                  | User Data Management                              |
-| personaModelCreator         | Model Creator (Legacy)                   | controlVulnerabilityManagement             | Vulnerability Management                          |
 | personaModelProvider        | Model Provider                           | controlAdversarialTrainingAndTesting       | Adversarial Training and Testing                  |
 | personaModelProvider        | Model Provider                           | controlIncidentResponseManagement          | Incident Response Management                      |
 | personaModelProvider        | Model Provider                           | controlModelAndDataAccessControls          | Model and Data Access Controls                    |
