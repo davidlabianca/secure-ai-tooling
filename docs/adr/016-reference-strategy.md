@@ -257,3 +257,41 @@ This ADR composes with [ADR-015](015-site-content-sanitization-invariants.md) an
 - **[ADR-015](015-site-content-sanitization-invariants.md)**'s allowlist still includes `<a>`, but the renderer now emits `<a>` only from generator-expanded `{{ref:identifier}}` sentinels, never from raw author markdown. ADR-015's bounded-emission property strengthens: the `href` attribute flows from a schema-validated `externalReferences[].url` field, not from inline markdown. The defense-in-depth XSS check at the renderer remains in place because the stacked-posture commitment from [ADR-014](014-yaml-content-security-posture.md) P4 does not weaken.
 
 The three ADRs together: ADR-014 sets the posture, ADR-017 defines what authors may write in prose strings (now URL-free), ADR-016 (this ADR) defines how references are structured and referenced, and ADR-015 defines what the site renderer emits to the DOM. The grammars compose: a single tokenizer recognizes ADR-017's tokens plus this ADR's two sentinel forms; the linter blocks every URL form that is not inside an `externalReferences` entry; the renderer's `<a>` emission is sourced from a structured field that has already passed schema validation.
+
+## Addendum 2026-05-14: Site-side `{type: "ref"}` rendering wired through `renderProse`
+
+Authored 2026-05-14 during the B2 conformance sweep ([#295](https://github.com/cosai-oasis/secure-ai-tooling/issues/295)); applies to [D5](#d5-generator-behavior). This addendum closes a gap between D5's specification and the site-side implementation that surfaced when B2's bleed-thru gate ran against a fresh `site/generated/persona-site-data.json`.
+
+### Gap
+
+[D5](#d5-generator-behavior) specifies that `{{<entity-id>}}` sentinels expand to `{type: "ref", id, title}` structured prose items "which the renderer turns into an in-page link." [ADR-015](015-site-content-sanitization-invariants.md) D1 further pins the rendered shape: "for `ref` items the href is the in-page fragment derived from the resolved entity," with no `rel`/`target` attributes (those are link-only).
+
+In practice, the A6 sanitizer PR shipped `renderProse` with `{type: "link"}` handling only and an explicit OUT-OF-SCOPE comment for `{type: "ref"}` (`site/tests/sanitizer.test.mjs:23-33` locked the A6 surface). The comment assumed "other site code paths" would render ref items. No such code path materialized. The omission stayed latent because pre-B2 prose carried raw `<a href="#…">` HTML for intra-document references, which the un-wired `renderRichParagraphs` rendered (incorrectly but visually) via `innerHTML`. B1 + B2 finished migrating every intra-document anchor to `{{<entity-id>}}` sentinels — so by the time the conformance sweep ran, every intra-document reference flowed through the structured-item path that nothing rendered. The user-visible result was `[object Object]` in 16 risks.
+
+### Resolution
+
+`renderProse` (in `site/assets/sanitizer.mjs`) is extended to dispatch on `input.type`, with three accepted shapes:
+
+| `input` shape | rendered HTML |
+|---|---|
+| `string` | sanitized through the markdown-subset grammar (unchanged) |
+| `{type: "link", title, url}` | `<a href="${url}" rel="noopener noreferrer" target="_blank">${title}</a>` (unchanged) |
+| `{type: "ref", id, title}` | `<a href="#${id}">${title}</a>` (new — no `rel`/`target`, per [ADR-015](015-site-content-sanitization-invariants.md) D1) |
+
+The `id` is validated against `^[A-Za-z][A-Za-z0-9_-]*$` before emission as defence-in-depth; an id that fails validation triggers the same escape-with-warn path as the link-item invalid-URL case. Upstream, [D6](#d6-linter--new-pre-commit-hook-validate_prose_referencespy)'s linter and the schema's identifier-enum validation are the primary guards on id shape; the renderer's regex is a second layer.
+
+### Coordination with ADR-015
+
+ADR-015 D1 already specified the ref render shape in prose; this addendum captures the implementation realization without changing the D1 contract. The `{type: "ref"}` branch is added to `renderProse` rather than to `renderRichParagraphs` so that ADR-015's bounded-emission invariant — `<a>` emission flows through a single sanitizer module — continues to hold across both item types.
+
+### Test coverage
+
+Bundled into B2 PR #295:
+
+- `site/tests/fixtures/sanitizer/positive/a-ref-anchor.json` — positive ref fixture (`tag: "a"`, `variant: "ref"`)
+- `site/tests/fixtures/sanitizer/negative/a-ref-invalid-id.json` — id with HTML-breakout characters rejected
+- `site/tests/fixtures/sanitizer/negative/a-ref-no-href-on-link.json` — ref items do not emit `rel`/`target`
+- `site/tests/sanitizer.test.mjs` — A6 SCOPE comment expanded to document the new shape
+- `site/tests/app-render-rich-paragraphs.test.mjs` — three new test cases covering ref dispatch in `renderRichParagraphs`, plus a regression fixture lifted from `riskAgentDelegationChainOpacity` (one of the 16 affected risks).
+
+The 16-risk bleed-through identified by the conformance-sweep gate goes to zero with this change.

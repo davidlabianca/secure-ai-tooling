@@ -1,4 +1,5 @@
 import { buildResultsModel } from "./persona-logic.mjs";
+import { renderProse } from "./sanitizer.mjs";
 
 const APP_NAME = "CoSAI Risk Map Explorer";
 const DATA_PATH = "./generated/persona-site-data.json";
@@ -65,14 +66,26 @@ function getResultsModel() {
   return buildResultsModel(state.data, state.answers, [...state.manualSelectedIds], state.personaOverrides);
 }
 
-function renderRichParagraphs(items, className = "body-copy") {
+export function renderRichParagraphs(items, className = "body-copy") {
   return items
     .map((item) => {
       if (Array.isArray(item)) {
-        const inner = item.map((paragraph) => `<p class="${className}">${paragraph}</p>`).join("");
+        // A7's structured-item shape: a nested array containing any object
+        // segment ({type: "link", title, url}) is one inline paragraph whose
+        // string and object segments are joined through renderProse into a
+        // single <p>. Pre-A7 nested arrays were all-strings (legacy
+        // subsection-of-<p> shape) and keep that rendering.
+        const containsObject = item.some((seg) => seg !== null && typeof seg === "object");
+        if (containsObject) {
+          const inner = item.map((seg) => renderProse(seg)).join("");
+          return `<p class="${className}">${inner}</p>`;
+        }
+        const inner = item.map((paragraph) => `<p class="${className}">${renderProse(paragraph)}</p>`).join("");
         return `<div class="subsection">${inner}</div>`;
       }
-      return `<p class="${className}">${item}</p>`;
+      // Top-level item: string OR {type: "link", title, url}. Per ADR-011 the
+      // schema permits both at this position; renderProse handles both shapes.
+      return `<p class="${className}">${renderProse(item)}</p>`;
     })
     .join("");
 }

@@ -116,7 +116,7 @@ The field is **optional** at the persona-entry level. Empty arrays are rejected 
 
 **Personas-specific concerns.**
 
-- **Volume.** Personas prose carries no outbound citations today. The 10 persona descriptions are taxonomic and self-contained; the existing `<a href="risks.html">` and `<a href="controls.html">` cross-page links in the file-level `description` (`personas.yaml:18-22`) are intra-document anchors that migrate to `{{idXxx}}` sentinels per [ADR-016](016-reference-strategy.md) D2 and do not become `externalReferences`. The most likely future citations are framework-mapping references (e.g., a paper-style citation underpinning the choice to map `personaDataProvider` to `iso-22989: AI Partner (data supplier)`), but adding those is a content decision, not a schema obligation.
+- **Volume.** Personas prose carries no outbound citations today; the 10 persona descriptions are taxonomic and self-contained. The two cross-page `<a href="risks.html">` / `<a href="controls.html">` sites at `personas.yaml:17-22` (in the file-level `description[0]`) were resolved by removal in B2 (issue #295); see the [Addendum 2026-05-13](#addendum-2026-05-13-resolution-of-personas-level-cross-page-anchors) below. The most likely future citations are framework-mapping references (e.g., a paper-style citation underpinning the choice to map `personaDataProvider` to `iso-22989: AI Partner (data supplier)`), but adding those is a content decision, not a schema obligation.
 
 - **Required vs. optional.** Optional, consistent with risks/controls/components. The shared schema's array shape and per-type regex coverage are sufficient; no personas-specific minimum is appropriate.
 
@@ -281,3 +281,27 @@ Every machine-enforceable rule is enforced or has a named conformance-sweep mech
 - **Successor self-assessment design (deferred).** If the framework concludes that the persona-site explorer is *not* a sufficient successor for the legacy quiz, a future framework-content ADR in `risk-map/docs/design/` designs the successor artifact and a future tooling-side ADR adds its schema. This ADR does not pre-empt either decision; it archives the legacy and clears the path.
 - **`definitions/utils/text` schema-pattern call (sweep-wide).** The optional `<>()` reject pattern in [ADR-017](017-yaml-prose-authoring-subset.md) D3 lives on the shared `riskmap.schema.json#/definitions/utils/text`. A sweep-wide decision applies to risks, controls, components, and personas at once. If adopted, personas inherits via the existing `$ref` with no further edit.
 - **Persona-design framework-content ADR (out of this ADR's scope).** Open questions on `mappings` value shape (D8), persona ordering (D8), `lifecycleRole` enum (alternative considered), and successor self-assessment design (D6) all belong in `risk-map/docs/design/persona-design.md` rather than `docs/adr/`. Tracked as a separate concern; this ADR records the deliberate split.
+
+## Addendum 2026-05-13: Resolution of personas-level cross-page anchors
+
+Authored 2026-05-13; accepted alongside the B2 outbound-link and HTML-cleanup work in [#295](https://github.com/cosai-oasis/secure-ai-tooling/issues/295). This addendum corrects a claim in [D5](#d5-externalreferences-integration) above; it does not reset the ADR's status.
+
+### Claim being corrected
+
+D5's "Volume." bullet originally asserted that the two `<a href="risks.html">` / `<a href="controls.html">` link sites at `personas.yaml:17-22` (in `description[0]`) were "intra-document anchors that migrate to `{{idXxx}}` sentinels per [ADR-016](016-reference-strategy.md) D2 and do not become `externalReferences`."
+
+That migration claim has no target form. ADR-016 D2 specifies the `{{<entity-id>}}` wire form as resolving against the canonical entity-id enums (risks, controls, components, personas) — there is no page-level variant (`{{page:risks}}`, `{{risks}}` with no entity, or similar) in the grammar, and none was ever specified. The two sites are page-level cross-page navigation, not entity citations: they have no entity-id target to resolve to, and no `externalReferences` semantic (they cite no external work).
+
+### Resolution
+
+The two anchors are **removed** from `personas.yaml` in B2; the display text "risks" and "controls" is retained as plain prose. [ADR-014](014-yaml-content-security-posture.md) P3 ("Cross-references are structured, not prose") establishes that prose is not a linking surface for intra-framework relationships; the same discipline applies here. Page-level reader navigation between the personas, risks, and controls pages is the site template's responsibility (main nav, footer, breadcrumbs), not a content-YAML responsibility.
+
+This is consistent with the personas-prose discipline the rest of D5 records: personas carries no outbound citations today, the prose stays plain, and any future framework-mapping citations land via the `externalReferences` field rather than inline anchors. It is also consistent with the markdown-subset and array-item block structure rules in [ADR-017](017-yaml-prose-authoring-subset.md) D1/D2 — the cleaned `description[0]` is a plain prose block with no remaining HTML.
+
+### References
+
+- [ADR-014](014-yaml-content-security-posture.md) P3 — cross-references are structured, not prose (prose is not a linking surface)
+- [ADR-016](016-reference-strategy.md) D2 — `{{<entity-id>}}` wire-form grammar (entity-id-bound, no page form)
+- [ADR-017](017-yaml-prose-authoring-subset.md) D1, D2 — markdown-subset and array-item block structure
+- [#295](https://github.com/cosai-oasis/secure-ai-tooling/issues/295) — B2 outbound + HTML cleanup
+- Commit `dd6bd22` — anchor removal in `personas.yaml`

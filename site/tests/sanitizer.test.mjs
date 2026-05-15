@@ -15,21 +15,33 @@
  * - Idempotence sanity test
  *
  * ---------------------------------------------------------------------------
- * A6 SCOPE (locked)
+ * SCOPE — expanded 2026-05-14 (B2 PR #295)
  * ---------------------------------------------------------------------------
- * renderProse accepts: string | {type: "link", title: string, url: string}
+ * renderProse accepts: string
+ *                    | {type: "link", title: string, url: string}
+ *                    | {type: "ref",  id: string,    title: string}
  * renderProse returns: string (HTML-safe prose fragment)
  *
- * {type: "ref", id, title} rendering is OUT OF SCOPE for A6. The ref type
- * produces in-page fragment anchors (href="#id", no rel, no target) and is
- * handled outside renderProse by other site code paths. This test file does
- * not validate ref rendering.
+ * Original A6 SCOPE: link items only. Ref items were OUT OF SCOPE for A6
+ * with the assumption that "other site code paths" would handle them. The
+ * conformance sweep's bleed-thru gate caught the unfulfilled assumption
+ * (no other code path materialized; ref items leaked "[object Object]"
+ * once B1 + B2 finished migrating every outbound anchor to sentinels). B2
+ * extends renderProse to handle ref items as in-page fragment anchors per
+ * ADR-015 D1 and ADR-016 D5. See ADR-016 D5 Addendum (2026-05-14).
  *
- * If renderProse is later extended to handle ref items, add:
- *   - positive fixture(s) under fixtures/sanitizer/positive/ with tag "a"
- *     and a field distinguishing the ref path (e.g. "variant": "ref")
- *   - negative fixture(s) under fixtures/sanitizer/negative/ with negativeForTag "a"
- *   - update this scope comment to reflect the expanded surface
+ * Ref-rendering shape:
+ *   {type: "ref", id, title}  ->  <a href="#${escapeHtml(id)}">${escapeLinkTitle(title)}</a>
+ *
+ * id is validated against ^[A-Za-z][A-Za-z0-9_-]*$ before emission. An id
+ * that fails validation triggers the escape-with-warn path identically to
+ * the link-item invalid-URL path.
+ *
+ * Fixture conventions for ref items:
+ *   - positive fixtures under fixtures/sanitizer/positive/ carry tag "a"
+ *     and "variant": "ref" to distinguish from link-item positive fixtures
+ *   - negative fixtures under fixtures/sanitizer/negative/ carry
+ *     negativeForTag "a" and (optionally) "variant": "ref"
  * ---------------------------------------------------------------------------
  */
 
