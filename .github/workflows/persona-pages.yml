@@ -80,19 +80,22 @@ jobs:
           test -f _site/generated/persona-site-data.json
 
       - name: Configure GitHub Pages
-        if: github.event_name != 'pull_request'
+        if: github.event_name != 'pull_request' && github.repository == 'cosai-oasis/secure-ai-tooling'
         uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
         with:
           enablement: true
 
       - name: Upload GitHub Pages artifact
-        if: github.event_name != 'pull_request'
+        if: github.event_name != 'pull_request' && github.repository == 'cosai-oasis/secure-ai-tooling'
         uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
         with:
           path: _site
 
   deploy:
-    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    if: |
+      github.event_name != 'pull_request'
+      && github.ref == 'refs/heads/main'
+      && github.repository == 'cosai-oasis/secure-ai-tooling'
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
@@ -121,6 +124,8 @@ jobs:
           deploy_result="${{ needs.deploy.result }}"
           if [[ "${{ github.event_name }}" == "pull_request" && "$deploy_result" == "skipped" ]]; then
             deploy_display="n/a (PRs don't deploy)"
+          elif [[ "${{ github.repository }}" != "cosai-oasis/secure-ai-tooling" && "$deploy_result" == "skipped" ]]; then
+            deploy_display="n/a (fork; Pages deploy not authorized)"
           else
             deploy_display="$deploy_result"
           fi
