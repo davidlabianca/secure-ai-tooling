@@ -16,10 +16,9 @@ id: personas
 title: Personas
 description:
   - >
-    The following personas identify who is impacted by
-    <a href="risks.html">risks</a> and who is responsible for enacting the
-    <a href="controls.html">controls</a> that mitigate them, based on their
-    activities and responsibilities in the AI ecosystem.
+    The following personas identify who is impacted by risks and who is
+    responsible for enacting the controls that mitigate them, based on
+    their activities and responsibilities in the AI ecosystem.
   - >
     CoSAI identifies eight standard personas representing distinct sets of
     activities across AI system development, deployment, and governance.
@@ -57,7 +56,7 @@ personas:
       - Model artifact integrity and availability for distribution
     identificationQuestions:
       - Are you training or fine-tuning AI/ML models for use by others, including classical ML, statistical, optimization, and rule-based models?
-      - Do you modify existing models (e.g., distillation, quantization, or adaptation) for use by others?
+      - Do you modify, extend, or wrap existing models (e.g., distillation, quantization, adaptation, or adding guardrails) for use by others as a distributable model artifact?
       - Do you evaluate, benchmark, or perform quality assurance on AI/ML models as part of training, adaptation, or distribution decisions?
       - Are you making models available for others to download, license, or integrate?
       - Do you host or curate a catalog of AI/ML models provided by third parties?
@@ -78,6 +77,20 @@ personas:
       - Data provenance tracking
       - Data licensing and compliance
       - Data privacy protections
+    identificationQuestions:
+      - Do you collect, curate, or prepare data for use by others in training, evaluating, or operating AI/ML systems?
+      - Do you supply datasets or data feeds to model providers or application developers, including labeled datasets, synthetic data, or benchmark corpora?
+      - Do you label or annotate data (e.g., classification tags, bounding boxes, or preference judgments) so others can train or evaluate AI/ML systems?
+      - Do you document or verify data provenance, lineage, licensing, or usage restrictions for datasets that others rely on?
+      - >
+        Do you operate a catalog, marketplace, repository, or delivery service
+        through which others can discover or obtain AI-relevant datasets, rather
+        than AI models or software artifacts?
+      - >
+        Do you determine whether specific datasets may be shared or used for AI
+        purposes based on privacy, consent, contractual, or regulatory
+        requirements, as the data owner or supplier rather than as an
+        enterprise-wide governance or compliance function?
 
   - id: personaPlatformProvider
     title: AI Platform Provider
@@ -192,6 +205,28 @@ personas:
       - Input validation and sanitization
       - Output filtering and monitoring
       - User access controls
+    identificationQuestions:
+      - >
+        Do you build or maintain applications, products, or services that embed
+        AI/ML capabilities for end users or downstream systems?
+      - >
+        Do you integrate AI/ML models into applications or services (e.g., via
+        APIs, embedded models, or prompt-engineered workflows)?
+      - >
+        Do you define how user inputs, business logic, or application context
+        are passed to AI models and how model outputs are used, within a
+        specific application rather than a reusable framework?
+      - >
+        Do you implement application-layer controls around AI features for your
+        application's end users, such as authentication, authorization, input
+        validation, output filtering, or user-facing safeguards?
+      - >
+        Do you customize AI features (e.g., prompt design, output handling, or
+        application-specific guardrails) for a specific application use case,
+        consuming an existing model rather than producing one for others?
+      - >
+        Do you deliver AI-powered functionality directly to end users or
+        downstream systems as a finished product or service?
 
   - id: personaGovernance
     title: AI System Governance
@@ -207,6 +242,25 @@ personas:
       - Compliance enforcement
       - Risk assessment and management
       - Incident response coordination
+    identificationQuestions:
+      - Do you define security, compliance, or risk management requirements that AI systems in your organization must satisfy?
+      - >
+        Do you assess whether AI controls are implemented effectively across
+        teams or systems you do not directly operate, including through audits,
+        control testing, metrics reviews, or compliance checks?
+      - >
+        Do you approve, gate, or oversee the use of AI systems based on policy,
+        legal, regulatory, or enterprise risk assessments?
+      - >
+        Do you maintain processes for AI incidents, exceptions, or risk
+        acceptances (e.g., escalation procedures, documentation requirements, or
+        corrective-action tracking) at an organizational or program level?
+      - >
+        Do you assign or review accountability for AI risks and controls across
+        multiple teams, systems, or organizational boundaries?
+      - >
+        Do you monitor conformance to AI policies or external obligations over
+        time, including standards, internal policies, or regulatory commitments?
 
   - id: personaEndUser
     title: AI System Users

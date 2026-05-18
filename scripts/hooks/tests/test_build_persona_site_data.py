@@ -16,6 +16,7 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO_ROOT))
 
 from scripts.build_persona_site_data import (  # noqa: E402
+    _make_schema_registry,
     build_site_data,
     humanize_identifier,
     load_yaml,
@@ -63,16 +64,19 @@ def test_build_site_data_classifies_guided_and_manual_fallback_personas(
     persona_by_id = {persona["id"]: persona for persona in site_data["personas"]}
 
     assert persona_by_id["personaModelProvider"]["matchMode"] == "guided"
+    assert persona_by_id["personaDataProvider"]["matchMode"] == "guided"
     assert persona_by_id["personaPlatformProvider"]["matchMode"] == "guided"
     assert persona_by_id["personaAgenticProvider"]["matchMode"] == "guided"
+    assert persona_by_id["personaApplicationDeveloper"]["matchMode"] == "guided"
+    assert persona_by_id["personaGovernance"]["matchMode"] == "guided"
     assert persona_by_id["personaEndUser"]["matchMode"] == "guided"
 
     assert set(site_data["manualFallbackPersonaIds"]) == {
-        "personaApplicationDeveloper",
-        "personaDataProvider",
-        "personaGovernance",
         "personaModelServing",
     }
+    assert persona_by_id["personaDataProvider"]["questionCount"] == 6
+    assert persona_by_id["personaApplicationDeveloper"]["questionCount"] == 6
+    assert persona_by_id["personaGovernance"]["questionCount"] == 6
     assert persona_by_id["personaModelServing"]["questionCount"] == 0
 
 
@@ -331,13 +335,18 @@ def test_persona_site_data_schema_matches_generated_output(
     with schema_path.open("r", encoding="utf-8") as handle:
         schema = json.load(handle)
 
+    # persona-site-data.schema.json $refs external-references.schema.json for the
+    # externalReferences array shape. Reuse the production helper so the resolver
+    # tracks any future $ref additions to the schema without a parallel maintenance burden.
+    registry = _make_schema_registry(risk_map_schemas_dir)
+
     site_data = build_site_data(
         load_yaml(personas_yaml_path),
         load_yaml(risks_yaml_path),
         load_yaml(controls_yaml_path),
     )
 
-    jsonschema.validate(instance=site_data, schema=schema)
+    jsonschema.validate(instance=site_data, schema=schema, registry=registry)
 
 
 def test_risks_yaml_conforms_to_tightened_prose_schema(

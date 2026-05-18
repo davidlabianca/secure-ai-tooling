@@ -32,6 +32,8 @@ Next, define the control's properties in the main `controls.yaml` data file. Thi
 - **File to edit**: `controls.yaml`
 - **Action**: Add a new entry to the `controls` list. When filling out the properties, you must select valid IDs from the other schema files.
 
+> **Persona model for controls**: List personas that are **in a position to implement** the control — parties who can take action to deploy or enforce it. This is distinct from the risk persona model, where personas are parties who *bear the consequences* of the risk. For example, `personaGovernance` appears on controls (governance teams define and enforce policies) but not on risks. Conversely, `personaEndUser` appears on most risks (users bear consequences) but rarely on controls.
+
 > **Note on universal controls**: For controls that apply broadly (e.g., governance or assurance tasks), you can use the string `"all"` for `components` and `risks`. For controls that don't apply to any specific component, use `"none"`.
 
 > **Optional Metadata Fields**: You can also add optional metadata fields like `mappings` (framework cross-references), `lifecycleStage`, `impactType`, and `actorAccess` to provide additional context. These fields support both specific arrays (e.g., `lifecycleStage: [planning, deployment]`) and universal values (e.g., `lifecycleStage: all`). See [Metadata Fields Guide](guide-metadata.md) for details.

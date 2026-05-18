@@ -367,9 +367,13 @@ function emit(tokens, originalInput) {
 /**
  * Render a prose item to an HTML-safe string.
  *
- * Accepts two input shapes:
+ * Accepts three input shapes:
  *   - string: tokenized through the markdown-subset grammar
  *   - {type: "link", title: string, url: string}: rendered as an outbound <a>
+ *     with renderer-constructed rel="noopener noreferrer" target="_blank"
+ *   - {type: "ref", id: string, title: string}: rendered as an in-page
+ *     fragment anchor (<a href="#id">title</a>) per ADR-015 D1 and
+ *     ADR-016 D5. No rel/target — those are link-only.
  *
  * Any other input shape is coerced to string, escaped, and warned about.
  *
@@ -377,7 +381,7 @@ function emit(tokens, originalInput) {
  * console.warn("renderProse: escaped unexpected markup", {input, escaped}) is
  * emitted per call if any disallowed token was found.
  *
- * @param {string | {type: string, title?: string, url?: string}} input
+ * @param {string | {type: string, title?: string, url?: string, id?: string}} input
  * @returns {string} HTML-safe prose fragment
  */
 export function renderProse(input) {
@@ -395,6 +399,30 @@ export function renderProse(input) {
       }
 
       // Invalid URL: escape the title text and warn.
+      const escaped = escapedTitle;
+      console.warn("renderProse: escaped unexpected markup", { input, escaped });
+      return escaped;
+    }
+
+    if (input.type === "ref") {
+      // Intra-document fragment anchor per ADR-015 D1 (href is "the in-page
+      // fragment derived from the resolved entity") and ADR-016 D5 ("the
+      // renderer turns into an in-page link"). No rel/target — those are
+      // link-only per ADR-015 D1.
+      //
+      // The id is validated against the entity-id shape ([A-Za-z][A-Za-z0-9_-]*)
+      // before emission as defence-in-depth: the upstream builder only emits
+      // ref items whose ids were resolved against schema-enforced enums
+      // (ADR-016 D6), but the renderer does not trust input shape — any id
+      // with HTML-breakout characters is rejected and the title is escaped
+      // and emitted as plain text, matching the link-item invalid-URL path.
+      const id = String(input.id ?? "");
+      const escapedTitle = escapeLinkTitle(String(input.title ?? ""));
+
+      if (/^[A-Za-z][A-Za-z0-9_-]*$/.test(id)) {
+        return `<a href="#${escapeHtml(id)}">${escapedTitle}</a>`;
+      }
+
       const escaped = escapedTitle;
       console.warn("renderProse: escaped unexpected markup", { input, escaped });
       return escaped;

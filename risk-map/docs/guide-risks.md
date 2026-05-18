@@ -26,6 +26,8 @@ Next, provide the full definition of the risk in `risks.yaml`. This includes its
 - **File to edit**: `risks.yaml`
 - **Action**: Add a new entry to the `risks` list. The `personas` and `controls` lists must contain valid IDs from their respective schema files.
 
+> **Persona model for risks**: List personas that are **impacted by** the risk — parties who bear the consequences if the risk materializes. This is distinct from the control persona model, where personas are parties who *implement* the control. For example, `personaEndUser` appears on most risks (users bear consequences) but rarely on controls (users don't implement security measures). Conversely, `personaGovernance` appears on controls (governance teams implement policies) but not on risks.
+
 > **Optional Metadata Fields**: You can also add optional metadata fields like `mappings` (framework cross-references), `lifecycleStage`, `impactType`, and `actorAccess` to provide additional context. These fields support both specific arrays (e.g., `lifecycleStage: [planning, deployment]`) and universal values (e.g., `lifecycleStage: all` or `lifecycleStage: none`). See [Metadata Fields Guide](guide-metadata.md) for details.
 
 ```yaml

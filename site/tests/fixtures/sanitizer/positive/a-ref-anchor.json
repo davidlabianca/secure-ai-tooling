@@ -1,0 +1,9 @@
+{
+  "tag": "a",
+  "variant": "ref",
+  "description": "A structured ref item ({type: ref, id, title}) renders as an in-page fragment anchor per ADR-015 D1 / ADR-016 D5. href points to '#<id>'; no rel, no target (those are link-only).",
+  "input": {"type": "ref", "id": "riskPromptInjection", "title": "Prompt Injection"},
+  "expectedSubstring": "<a href=\"#riskPromptInjection\"",
+  "expectedSubstringAlso": ">Prompt Injection</a>",
+  "expectedSubstringAndAlso": "</a>"
+}

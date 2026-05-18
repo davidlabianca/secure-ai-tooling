@@ -58,12 +58,13 @@ Minimal controls.yaml shape expected by parse_controls_yaml():
   - each entry has: id (str), title (str), category (str)
   - components: list[str]  (the field under test)
 
-Live-corpus debt (verified 2026-05-04):
-  controls.yaml references componentInputHandling (line 338) and
-  componentOutputHandling (lines 73 and 377).  Neither exists in
-  components.yaml — the actual components are
-  componentApplicationInputHandling / componentApplicationOutputHandling.
-  This produces ≥3 dangling reference instances across 3 controls.
+Live-corpus state (verified 2026-05-13, post-#297):
+  The pre-#297 debt — controls.yaml referencing componentInputHandling /
+  componentOutputHandling (3 dangling instances across 3 controls) — was
+  resolved by rerouting to componentApplicationInputHandling /
+  componentApplicationOutputHandling. Live-corpus regression tests pinned
+  to that count have been retired; the synthetic dirty fixtures below
+  preserve forward-guard coverage of the warning-fires path.
 """
 
 import subprocess
@@ -101,9 +102,6 @@ _SCRIPT = Path(__file__).parent.parent / "validate_riskmap.py"
 
 # Repository root (worktree root) — used as cwd for live-corpus subprocess tests.
 _REPO_ROOT = Path(__file__).resolve().parent.parent.parent.parent
-
-# Known dangling component IDs in the live corpus (as of 2026-05-04).
-_LIVE_DANGLING_COMPONENT_IDS = {"componentInputHandling", "componentOutputHandling"}
 
 # Escape-hatch literals that must never produce a warning.
 _ESCAPE_HATCHES = ("all", "none")
@@ -445,23 +443,19 @@ class TestCheckControlsComponentsMirror:
             f"Expected 'componentAlpha' (valid ref) NOT in warning text; got: {result}"
         )
 
-    def test_live_corpus_regression_produces_known_dangling_refs(self, mirror_fn):
+    def test_live_corpus_produces_zero_warnings(self, mirror_fn):
         """
-        Running against the actual controls.yaml + components.yaml surfaces
-        exactly the 3 known dangling references present as of 2026-05-04.
+        Running against the actual controls.yaml + components.yaml on disk
+        (post-#297) produces no mirror warnings.
 
         Given: Parsed controls from risk-map/yaml/controls.yaml
                Parsed components from risk-map/yaml/components.yaml
         When: check_controls_components_mirror() is called
-        Then: Warning count == 3 AND warnings mention componentInputHandling
-              AND warnings mention componentOutputHandling
+        Then: Warning count == 0 — the live corpus is clean
 
-        This assertion is intentionally exact (==, not >=) to guard BOTH directions of drift:
-        - content debt remediated (cleanup) → count drops below 3 → fail (update expected count)
-        - new dangling refs introduced → count rises above 3 → fail (track the new defect)
-        If the content debt is ever remediated (componentInputHandling →
-        componentApplicationInputHandling, etc.), update this test and
-        _LIVE_DANGLING_COMPONENT_IDS to reflect the new expected count.
+        Forward-guard: replaces the retired count==3 regression that tracked
+        the pre-#297 dangling refs. Synthetic dirty fixtures (componentGhost
+        etc.) preserve coverage of the warning-emitting path.
         """
         from riskmap_validator.utils import parse_components_yaml, parse_controls_yaml
 
@@ -474,18 +468,7 @@ class TestCheckControlsComponentsMirror:
 
         result = mirror_fn(controls, component_ids)
 
-        assert len(result) == 3, (
-            "Expected exactly 3 warnings for known dangling refs (as of 2026-05-04). "
-            "If the corpus drifted (cleanup OR new defects), update this test and "
-            f"_LIVE_DANGLING_COMPONENT_IDS. Got {len(result)}: {result}"
-        )
-        combined = " ".join(result)
-        assert "componentInputHandling" in combined, (
-            f"Expected 'componentInputHandling' in warnings; got: {result}"
-        )
-        assert "componentOutputHandling" in combined, (
-            f"Expected 'componentOutputHandling' in warnings; got: {result}"
-        )
+        assert result == [], f"Expected 0 mirror warnings on the live corpus; got {len(result)}: {result}"
 
 
 # ===========================================================================
@@ -502,7 +485,7 @@ class TestBlockToggleCLI:
 
     # -----------------------------------------------------------------------
     # Live corpus: the actual risk-map/yaml/ tree in the worktree.
-    # Has 3 known dangling refs (componentInputHandling ×1, componentOutputHandling ×2).
+    # Post-#297: clean (0 dangling refs).
     # -----------------------------------------------------------------------
 
     def test_live_corpus_no_block_flag_exits_0(self, run_validate_riskmap):
@@ -510,9 +493,9 @@ class TestBlockToggleCLI:
         Running without --block against the live corpus exits 0.
 
         Warn-only default must not be broken by adding --block.  This is a
-        regression guard: today validate_riskmap.py exits 0 on the live corpus.
+        regression guard: validate_riskmap.py exits 0 on the live corpus.
 
-        Given: The live risk-map/yaml/ corpus (3 dangling component refs)
+        Given: The live risk-map/yaml/ corpus (clean post-#297)
         When: validate_riskmap.py --force --allow-isolated (no --block)
         Then: Exit code is 0
         """
@@ -522,38 +505,19 @@ class TestBlockToggleCLI:
             f"stdout: {result.stdout}\nstderr: {result.stderr}"
         )
 
-    def test_live_corpus_with_block_flag_exits_1(self, run_validate_riskmap):
+    def test_live_corpus_with_block_flag_exits_0(self, run_validate_riskmap):
         """
-        Running with --block against the live corpus exits 1 because the 3
-        dangling component refs promote warnings to errors.
+        Running with --block against the live corpus (post-#297) exits 0
+        because no dangling component refs remain.
 
-        Given: The live risk-map/yaml/ corpus (3 dangling component refs)
-        When: validate_riskmap.py --force --allow-isolated --block
-        Then: Exit code is 1 (mirror warnings promoted to failures)
+        Forward-guard: replaces the retired count==1 expectation that tracked
+        pre-#297 content debt. Synthetic dirty corpus fixtures cover the
+        warning-fires path.
         """
         result = run_validate_riskmap(_REPO_ROOT, "--block")
-        assert result.returncode == 1, (
-            f"Expected exit 1 with --block on live corpus; got {result.returncode}\n"
+        assert result.returncode == 0, (
+            f"Expected exit 0 with --block on clean live corpus; got {result.returncode}\n"
             f"stdout: {result.stdout}\nstderr: {result.stderr}"
-        )
-
-    def test_live_corpus_with_block_output_names_dangling_components(self, run_validate_riskmap):
-        """
-        When --block fires on the live corpus, the output text names the
-        dangling component IDs so developers can locate the defects.
-
-        Given: The live corpus and --block
-        When: validate_riskmap.py --force --allow-isolated --block
-        Then: Output (stdout or stderr) mentions at least one of
-              componentInputHandling or componentOutputHandling
-        """
-        result = run_validate_riskmap(_REPO_ROOT, "--block")
-        combined = result.stdout + result.stderr
-        mentions_known_dangling = any(cid in combined for cid in _LIVE_DANGLING_COMPONENT_IDS)
-        assert mentions_known_dangling, (
-            "Expected output to name at least one dangling component ID "
-            f"({_LIVE_DANGLING_COMPONENT_IDS}); "
-            f"stdout: {result.stdout!r}\nstderr: {result.stderr!r}"
         )
 
     # -----------------------------------------------------------------------
@@ -708,20 +672,18 @@ class TestBlockToggleCLI:
 # ===========================================================================
 # Test Summary
 # ===========================================================================
-# Total tests: 22
 #
-# TestCheckControlsComponentsMirror  (12 tests — pure function)
+# TestCheckControlsComponentsMirror  (pure function)
 #   — clean controls return empty list; single dangling ref names control +
 #     component; multiple missing refs in one control both appear; multiple
 #     controls each appear; escape "all" no warning; escape "none" no warning;
 #     empty components list no warning; empty controls dict no warning; return
-#     type is list; each element is str; valid refs not in warnings; live-corpus
-#     regression (>=3 warnings, componentInputHandling + componentOutputHandling).
+#     type is list; each element is str; valid refs not in warnings;
+#     live-corpus forward-guard (post-#297: 0 warnings on clean corpus).
 #
-# TestBlockToggleCLI  (10 tests — subprocess CLI)
+# TestBlockToggleCLI  (subprocess CLI)
 #   — live corpus + no --block -> exit 0 (regression guard);
-#     live corpus + --block -> exit 1 (3 dangling refs fire the toggle);
-#     live corpus + --block -> output names dangling component IDs;
+#     live corpus + --block -> exit 0 (clean post-#297; forward-guard);
 #     clean synthesised corpus + --block -> exit 0;
 #     clean synthesised corpus + no --block -> exit 0;
 #     dirty synthesised corpus + --block -> exit 1;
@@ -729,18 +691,3 @@ class TestBlockToggleCLI:
 #     dirty corpus + --block -> output names missing component;
 #     escape-hatch "all" corpus + --block -> exit 0;
 #     --help output contains '--block'.
-#
-# Red-phase failure modes
-#   - TestCheckControlsComponentsMirror: ImportError at collection time
-#     (check_controls_components_mirror not yet defined in validator.py)
-#   - TestBlockToggleCLI: argparse exit 2
-#     ("unrecognised arguments: --block") for all tests that pass --block,
-#     including --help (which today shows no --block flag in the output);
-#     the no-block exit-code tests pass today (see note below).
-#
-# Tests that pass today (intentional)
-#   - test_live_corpus_no_block_flag_exits_0: regression guard on existing
-#     behaviour; validate_riskmap.py already exits 0 on the live corpus.
-#   - test_clean_corpus_no_block_flag_exits_0: same reason.
-#   - test_dirty_corpus_no_block_flag_exits_0: validate_riskmap.py exits 0
-#     today because it does not yet run the mirror check at all.

@@ -1,0 +1,7 @@
+{
+  "negativeForTag": "a",
+  "variant": "ref",
+  "description": "A ref item with a non-conforming id (contains '\"' which would break out of the href attribute) must not produce an <a> tag. The id is validated against ^[A-Za-z][A-Za-z0-9_-]*$ before emission per ADR-015 D1 bounded-emission posture.",
+  "input": {"type": "ref", "id": "risk\"PromptInjection", "title": "Bad Id"},
+  "mustNotContain": "<a href=\"#"
+}

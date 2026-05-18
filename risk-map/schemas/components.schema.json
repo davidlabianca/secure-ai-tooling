@@ -43,7 +43,15 @@
       "properties": {
         "id": {
           "type": "string",
-          "enum": ["componentsModelTraining", "componentsData", "componentsAgent", "componentsOrchestration"]
+          "enum": [
+            "componentsModelTraining",
+            "componentsData",
+            "componentsAgent",
+            "componentsOrchestration",
+            "componentsModelDeployment",
+            "componentsModelCore",
+            "componentsApplicationCore"
+          ]
         },
         "title": { "type": "string" },
         "description": { "$ref": "riskmap.schema.json#/definitions/utils/text" }

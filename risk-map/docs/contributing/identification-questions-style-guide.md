@@ -69,7 +69,7 @@ Write scoping clauses when:
 When a technical term may be unfamiliar or has multiple interpretations, add a parenthetical example immediately after the term.
 
 **Example from `personaModelProvider` Q2:**
-> Do you modify existing models **(e.g., distillation, quantization, or adaptation)** for use by others?
+> Do you modify, extend, or wrap existing models **(e.g., distillation, quantization, adaptation, or adding guardrails)** for use by others as a distributable model artifact?
 
 Keep examples to 2–4 items. Longer lists obscure the point; shorter lists may seem exclusive. Use "e.g." (not "i.e.") to signal that the list is illustrative, not exhaustive.
 

@@ -47,7 +47,15 @@
             "riskToolRegistryTampering",
             "riskToolSourceProvenance",
             "riskUnauthorizedTrainingData",
-            "riskExcessiveDataHandlingDuringInference"
+            "riskExcessiveDataHandlingDuringInference",
+            "riskAgentDelegationChainOpacity",
+            "riskAgenticDelegationConfusedDeputy",
+            "riskCrossTenantCredentialPropagation",
+            "riskMCPTransportHijacking",
+            "riskRunawayAgentToolLoops",
+            "riskShadowAndUnknownAgents",
+            "riskStaleAgentIdentityBinding",
+            "riskZombieShadowMCPServers"
           ]
         },
         "title": { "type": "string" },

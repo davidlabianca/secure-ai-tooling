@@ -70,7 +70,13 @@
             "controlUserDataManagement",
             "controlUserPoliciesAndEducation",
             "controlUserTransparencyAndControls",
-            "controlVulnerabilityManagement"
+            "controlVulnerabilityManagement",
+            "controlAgentCredentialIsolation",
+            "controlAgentExecutionBounds",
+            "controlAgentIntegrityManagement",
+            "controlAgentInventoryManagement",
+            "controlComponentIdentityProvenance",
+            "controlInterComponentTransportSecurity"
           ]
         },
         "title": { "type": "string" },
