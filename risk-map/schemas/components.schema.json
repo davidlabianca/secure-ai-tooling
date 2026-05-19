@@ -6,7 +6,7 @@
   "type": "object",
   "properties": {
     "title": { "type": "string" },
-    "description": { "$ref": "riskmap.schema.json#/definitions/utils/text" },
+    "description": { "$ref": "riskmap.schema.json#/definitions/utils/prose-strict" },
     "categories": {
       "type": "array",
       "items": { "$ref": "#/definitions/category" }
@@ -34,7 +34,7 @@
           "type": "array",
           "items": { "$ref": "#/definitions/subcategory" }
         },
-        "description": { "$ref": "riskmap.schema.json#/definitions/utils/text" }
+        "description": { "$ref": "riskmap.schema.json#/definitions/utils/prose-strict" }
       },
       "required": ["id", "title"],
       "additionalProperties": false
@@ -55,7 +55,7 @@
           ]
         },
         "title": { "type": "string" },
-        "description": { "$ref": "riskmap.schema.json#/definitions/utils/text" }
+        "description": { "$ref": "riskmap.schema.json#/definitions/utils/prose-strict" }
       },
       "required": ["id", "title"],
       "additionalProperties": false
@@ -96,7 +96,7 @@
           ]
         },
         "title": { "type": "string" },
-        "description": { "$ref": "riskmap.schema.json#/definitions/utils/text" },
+        "description": { "$ref": "riskmap.schema.json#/definitions/utils/prose-strict" },
         "category": {
           "$ref": "#/definitions/category/properties/id"
         },

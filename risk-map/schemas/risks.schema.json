@@ -6,7 +6,7 @@
   "type": "object",
   "properties": {
     "title": { "type": "string" },
-    "description": { "$ref": "riskmap.schema.json#/definitions/utils/text" },
+    "description": { "$ref": "riskmap.schema.json#/definitions/utils/prose-strict" },
     "risks": {
       "type": "array",
       "items": { "$ref": "#/definitions/risk" }
@@ -59,8 +59,8 @@
           ]
         },
         "title": { "type": "string", "maxLength": 120 },
-        "shortDescription": { "$ref": "riskmap.schema.json#/definitions/utils/text" },
-        "longDescription": { "$ref": "riskmap.schema.json#/definitions/utils/text" },
+        "shortDescription": { "$ref": "riskmap.schema.json#/definitions/utils/prose-strict" },
+        "longDescription": { "$ref": "riskmap.schema.json#/definitions/utils/prose-strict" },
         "category": {
           "type": "string",
           "enum": [
@@ -78,16 +78,16 @@
         "tourContent": {
           "type": "object",
           "properties": {
-            "introduced": { "$ref": "riskmap.schema.json#/definitions/utils/text" },
-            "exposed": { "$ref": "riskmap.schema.json#/definitions/utils/text" },
-            "mitigated": { "$ref": "riskmap.schema.json#/definitions/utils/text" }
+            "introduced": { "$ref": "riskmap.schema.json#/definitions/utils/prose-strict" },
+            "exposed": { "$ref": "riskmap.schema.json#/definitions/utils/prose-strict" },
+            "mitigated": { "$ref": "riskmap.schema.json#/definitions/utils/prose-strict" }
           }
         },
         "controls": {
           "type": "array",
           "items": { "$ref": "controls.schema.json#/definitions/control/properties/id" }
         },
-        "examples": { "$ref": "riskmap.schema.json#/definitions/utils/text" },
+        "examples": { "$ref": "riskmap.schema.json#/definitions/utils/prose-strict" },
         "mappings": {
           "type": "object",
           "description": "Cross-references to external security frameworks. Per ADR-019 D5 + ADR-022 D5b: mitre-atlas, iso-22989, and eu-ai-act receive per-framework strict patterns from frameworks.schema.json; stride, nist-ai-rmf, and owasp-top10-llm fall through to the loose catch-all because their current entries use non-canonical forms. Keys must match valid framework IDs in frameworks.schema.json.",
