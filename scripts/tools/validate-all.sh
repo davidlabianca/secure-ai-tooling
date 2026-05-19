@@ -99,10 +99,8 @@ handle_generation_signal() {
 }
 
 check_generated_tables() {
-    # mktemp can fail (e.g. full $TMPDIR, permission errors). Without this
-    # guard, $GEN_TMPDIR would be empty and subsequent paths like
-    # "$GEN_TMPDIR/tables" would resolve to "/tables", writing outside the
-    # repo. Fail fast with a clear message instead.
+    # Without this guard an empty GEN_TMPDIR turns "$GEN_TMPDIR/tables"
+    # into "/tables", writing outside the repo.
     if ! GEN_TMPDIR="$(mktemp -d)"; then
         fail_msg "Could not create temporary directory for generation check"
         return 1
