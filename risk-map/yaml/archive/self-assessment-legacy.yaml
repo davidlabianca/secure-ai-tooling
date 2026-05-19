@@ -12,6 +12,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# ADR-021 D6: Archived legacy self-assessment artifact.
+#
+# This file is preserved for historical reference and superseded by the
+# persona explorer (driven by `identificationQuestions` in personas.yaml).
+# Schema is frozen; no further content edits are accepted. See
+# docs/adr/021-personas-and-self-assessment-schema.md for the supersession
+# rationale.
+
+_legacy: true
+_supersededBy: persona-explorer-ux
+
 selfAssessment:
   title: Risk Self Assessment
   description:

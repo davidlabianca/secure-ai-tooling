@@ -67,7 +67,7 @@ The caller specifies output style via a format flag:
    - `controls.yaml`
    - `components.yaml`
    - `personas.yaml`
-   - `self-assessment.yaml` (reference only — not a review target)
+   - `risk-map/yaml/archive/self-assessment-legacy.yaml` (reference only — archived per ADR-021 D6; not a review target)
 
 **For `issue` mode:**
 
@@ -80,7 +80,7 @@ You do **not** require JSON schemas as input. Schema structure knowledge is embe
 - `./risk-map/schemas/controls.schema.json`
 - `./risk-map/schemas/components.schema.json`
 - `./risk-map/schemas/personas.schema.json`
-- `./risk-map/schemas/self-assessment.schema.json`
+- `./risk-map/schemas/archive/self-assessment-legacy.schema.json`
 
 If provided, use them to supplement (not override) the embedded schema awareness below.
 

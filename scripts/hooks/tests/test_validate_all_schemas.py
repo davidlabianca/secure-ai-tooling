@@ -44,7 +44,7 @@ class TestFindPairs:
             assert yaml_file.is_file(), f"Yaml not found: {yaml_file}"
 
     def test_pairs_cover_known_source_files(self):
-        """The ten canonical yaml/schema pairs must be discovered."""
+        """The nine canonical yaml/schema pairs must be discovered (self-assessment archived per ADR-021 D6)."""
         expected_stems = {
             "actor-access",
             "components",
@@ -55,7 +55,6 @@ class TestFindPairs:
             "mermaid-styles",
             "personas",
             "risks",
-            "self-assessment",
         }
         pairs = _find_pairs()
         discovered_stems = {s.name.removesuffix(".schema.json") for s, _ in pairs}

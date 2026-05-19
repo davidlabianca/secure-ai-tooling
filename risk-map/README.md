@@ -44,7 +44,7 @@ The framework is organized into a set of YAML files for easy reading and JSON sc
     - `risks.yaml`: A catalog of AI security risks.
     - `controls.yaml`: A list of security controls.
     - `personas.yaml`: Definitions of the primary personas.
-    - `self-assessment.yaml`: Security self-assessment questionnaire based on this framework.
+    - `archive/self-assessment-legacy.yaml`: Legacy two-persona self-assessment questionnaire, archived per [ADR-021](../docs/adr/021-personas-and-self-assessment-schema.md) D6 and superseded by the persona explorer.
 - **Tabular Data Files (`./tables/*.md`)**: Contents of the CoSAI risk map in markdown table format for easy review and reading.
   - tables/
     - Three formats:
@@ -111,7 +111,7 @@ We made several design choices while creating this visualization:
 
 While significant progress has been made, opportunities for continued enhancement include:
 
-- **Enhanced risk assessment personalization**: Expanding the self-assessment questionnaire to provide more granular risk profiles
+- **Enhanced risk assessment personalization**: Extending the persona explorer (the successor to the archived self-assessment per [ADR-021](../docs/adr/021-personas-and-self-assessment-schema.md) D6) toward more granular risk profiles
 - **Supply chain visualization**: Adding explicit representation of supply chain risks that affect multiple lifecycle stages
 
 ## Control Mapping

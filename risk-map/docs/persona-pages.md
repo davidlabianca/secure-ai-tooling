@@ -19,7 +19,7 @@ What the explorer is NOT:
 
 - Scoring or grading of responses
 - Persistence of answers across sessions (no cookies, no localStorage)
-- A replacement for `risk-map/yaml/self-assessment.yaml` — the two coexist
+- A drop-in replacement for the archived `risk-map/yaml/archive/self-assessment-legacy.yaml` — the persona explorer is its successor, per [ADR-021](../../docs/adr/021-personas-and-self-assessment-schema.md) D6
 
 ## Overview
 
@@ -42,7 +42,7 @@ The framework YAML stays the source of truth.
 5. Controls are derived from `controls.yaml.personas`.
 6. Shared risks and controls are deduplicated client-side after persona selection.
 
-The legacy `risk-map/yaml/self-assessment.yaml` remains unchanged and can coexist with the explorer.
+The legacy self-assessment is archived at `risk-map/yaml/archive/self-assessment-legacy.yaml` per [ADR-021](../../docs/adr/021-personas-and-self-assessment-schema.md) D6; the persona explorer is its successor.
 
 ## Local Build And Preview
 

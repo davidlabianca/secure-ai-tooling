@@ -25,7 +25,7 @@ cross-schema `$ref` resolution.
 - `yaml/mermaid-styles.yaml` → `schemas/mermaid-styles.schema.json`
 - `yaml/personas.yaml` → `schemas/personas.schema.json`
 - `yaml/risks.yaml` → `schemas/risks.schema.json`
-- `yaml/self-assessment.yaml` → `schemas/self-assessment.schema.json`
+- `yaml/archive/self-assessment-legacy.yaml` → `schemas/archive/self-assessment-legacy.schema.json` (archived per ADR-021 D6)
 
 ## 2. Schema Meta-Validation
 

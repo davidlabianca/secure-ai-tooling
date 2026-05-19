@@ -5,9 +5,11 @@
   "description": "Schema for validating YAML-based self-assessment definition",
   "type": "object",
   "properties": {
+    "_legacy": { "const": true },
+    "_supersededBy": { "const": "persona-explorer-ux" },
     "selfAssessment": { "$ref": "#/definitions/selfAssessment" }
   },
-  "required": ["selfAssessment"],
+  "required": ["_legacy", "_supersededBy", "selfAssessment"],
   "definitions": {
     "selfAssessment": {
       "type": "object",

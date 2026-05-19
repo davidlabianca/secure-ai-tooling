@@ -175,7 +175,7 @@ The legacy `EDH-I` pattern (hyphen + sub-identifier) is replaced by a flat camel
 ### Source data and schema
 - `risk-map/yaml/risks.yaml` — 28 `id:` values + 13 `href="#ID"` anchors
 - `risk-map/yaml/controls.yaml` — ~94 risk references in `risks:` arrays
-- `risk-map/yaml/self-assessment.yaml` — ~10 risk references
+- `risk-map/yaml/archive/self-assessment-legacy.yaml` — ~10 risk references (archived per ADR-021 D6)
 - `risk-map/schemas/risks.schema.json` — 28 enum entries
 
 ### Validation and generation scripts
