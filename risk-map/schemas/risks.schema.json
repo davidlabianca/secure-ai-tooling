@@ -88,10 +88,6 @@
           "items": { "$ref": "controls.schema.json#/definitions/control/properties/id" }
         },
         "examples": { "$ref": "riskmap.schema.json#/definitions/utils/text" },
-        "relevantQuestions": {
-          "type": "array",
-          "items": { "type": "string" }
-        },
         "mappings": {
           "type": "object",
           "description": "Cross-references to external security frameworks. Per ADR-019 D5 + ADR-022 D5b: mitre-atlas, iso-22989, and eu-ai-act receive per-framework strict patterns from frameworks.schema.json; stride, nist-ai-rmf, and owasp-top10-llm fall through to the loose catch-all because their current entries use non-canonical forms. Keys must match valid framework IDs in frameworks.schema.json.",
