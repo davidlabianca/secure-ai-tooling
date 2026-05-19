@@ -230,6 +230,26 @@ def test_check_generation_cleans_tempdir_on_sigint(tmp_path: Path):
     assert not (tmp_path / "git-invocations.log").exists()
 
 
+def test_check_generation_fails_cleanly_when_mktemp_fails(tmp_path: Path):
+    """A failing `mktemp -d` must surface as a clean validator failure, not
+    cascade into a write outside the temp tree (e.g. mkdir -p "/tables").
+    """
+    repo, env = _make_stubbed_repo(tmp_path)
+    before_status = _git_status(repo)
+
+    # Override mktemp on PATH so the script's `mktemp -d` returns non-zero
+    # with no stdout. This simulates a full TMPDIR or permission failure.
+    stub_bin = Path(env["PATH"].split(os.pathsep)[0])
+    _write_executable(stub_bin / "mktemp", "#!/bin/bash\nexit 1\n")
+
+    result = _run_validate_all(repo, env, "--check-generation")
+
+    assert result.returncode == 1
+    assert "Could not create temporary directory" in result.stdout
+    _assert_repo_unchanged(repo, before_status)
+    assert not (tmp_path / "git-invocations.log").exists()
+
+
 def test_help_documents_check_generation_purity_contract(tmp_path: Path):
     repo, env = _make_stubbed_repo(tmp_path)
 
