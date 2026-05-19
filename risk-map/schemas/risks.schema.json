@@ -58,7 +58,7 @@
             "riskZombieShadowMCPServers"
           ]
         },
-        "title": { "type": "string" },
+        "title": { "type": "string", "maxLength": 120 },
         "shortDescription": { "$ref": "riskmap.schema.json#/definitions/utils/text" },
         "longDescription": { "$ref": "riskmap.schema.json#/definitions/utils/text" },
         "category": {
