@@ -1,24 +1,25 @@
 #!/usr/bin/env python3
 """
-Tests for Decision 4 (C1-schema-tightenings): migrate description-field $refs from
-`riskmap.schema.json#/definitions/utils/text` to `riskmap.schema.json#/definitions/utils/prose-strict`
-across the four content schemas, per ADRs 018-021 D4.
+Tests for Decision 4 (C1-schema-tightenings): description-field $refs in the
+four content schemas point at `riskmap.schema.json#/definitions/utils/prose-strict`
+(not `utils/text`), per ADRs 018-021 D4.
 
 Scope: 15 $ref sites in 4 content schemas (risks, controls, components, personas).
-Supporting schemas (frameworks, actor-access, impact-type, lifecycle-stage) are out of
-scope for this PR — they remain on utils/text.
+Supporting schemas (frameworks, actor-access, impact-type, lifecycle-stage) are
+out of scope for this PR — they remain on utils/text.
 
-Coexistence note: definitions/utils/text is NOT removed from riskmap.schema.json by this PR.
-Supporting schemas + self-assessment.schema.json (C3 sibling PR) still reference it.
-A future PR will retire utils/text once all consumers migrate.
+Coexistence: definitions/utils/text is retained in riskmap.schema.json.
+Supporting schemas + self-assessment.schema.json (C3 sibling PR) still
+reference it. Removal is a follow-up once all consumers migrate.
 
 Coverage:
-- Each of the 15 $ref sites points at utils/prose-strict (not utils/text) post-migration.
-- Zero residual utils/text $refs remain in each of the 4 content schemas.
+- Each of the 15 $ref sites references utils/prose-strict.
+- Zero residual utils/text $refs in each of the 4 content schemas
+  (JSON-walk regex assertion, robust against reformatting).
 - riskmap.schema.json#/definitions/utils/text still exists (coexistence guard).
-- Live-corpus audit per schema: the YAML corpus for each content schema validates clean
-  against the post-migration schema (prose-strict compatibility probe). If a corpus field
-  carries an empty array or empty string, the probe surfaces it BEFORE tightening lands.
+- Live-corpus audit per schema: each content YAML corpus validates clean
+  against its parent schema's prose-strict shape. Surfaces content drift
+  (empty arrays / empty strings) if it ever appears.
 
 Sites under test (15 total):
   risks.schema.json (7):
@@ -43,11 +44,6 @@ Sites under test (15 total):
   personas.schema.json (2):
     /properties/description
     /definitions/persona/properties/description
-
-Note on RED phase:
-  All $ref-value and zero-residual tests FAIL today (sites still reference utils/text).
-  Coexistence guard and corpus audit tests PASS today (the YAML corpus is prose-strict
-  compatible; B3 and predecessor PRs cleaned empty prose fields).
 """
 
 import json
@@ -95,7 +91,7 @@ MIGRATION_SITES: list[tuple[str, list[str]]] = [
     ("personas.schema.json", ["definitions", "persona", "properties", "description"]),
 ]
 
-# Schemas where all utils/text $refs must be zero post-migration.
+# Content schemas where every utils/text $ref must be migrated to prose-strict.
 CONTENT_SCHEMAS: list[str] = [
     "risks.schema.json",
     "controls.schema.json",
@@ -147,16 +143,13 @@ def schemas_dir(risk_map_schemas_dir: Path) -> Path:
 
 
 # ============================================================================
-# Decision 4 — each site $refs prose-strict (RED today)
+# Decision 4 — each site $refs prose-strict
 # ============================================================================
 
 
 class TestProseMigrationRefValue:
     """
-    Each of the 15 $ref sites must point at utils/prose-strict after migration.
-
-    RED phase: all 15 tests FAIL today (sites still reference utils/text).
-    GREEN post-tightening.
+    Each of the 15 $ref sites references utils/prose-strict per ADRs 018-021 D4.
     """
 
     @pytest.mark.parametrize(
@@ -187,24 +180,21 @@ class TestProseMigrationRefValue:
         actual_ref = node.get("$ref")
         assert actual_ref == PROSE_STRICT_REF, (
             f"{schema_file} /{'/'.join(key_path)} must $ref '{PROSE_STRICT_REF}'; "
-            f"currently: {actual_ref!r} — RED phase (utils/text → utils/prose-strict migration pending)"
+            f"got: {actual_ref!r} (per ADRs 018-021 D4 utils/text → utils/prose-strict migration)"
         )
 
 
 # ============================================================================
-# Decision 4 — zero residual utils/text $refs in each content schema (RED today)
+# Decision 4 — zero residual utils/text $refs in each content schema
 # ============================================================================
 
 
 class TestZeroResidualUtilsTextRefs:
     """
-    After migration, no utils/text $ref must remain in any of the 4 content schemas.
+    No utils/text $ref remains in any of the 4 content schemas.
 
-    Uses a JSON serialisation regex walk rather than line-number counting, so it
-    remains robust if the schema is reformatted or lines shift.
-
-    RED phase: FAILS today (all 15 sites still reference utils/text).
-    GREEN post-tightening.
+    Uses a JSON-serialisation regex walk rather than line-number counting, so it
+    remains robust against reformatting or line shifts.
     """
 
     @pytest.mark.parametrize(
@@ -218,57 +208,56 @@ class TestZeroResidualUtilsTextRefs:
         schema_file: str,
     ):
         """
-        Test that no utils/text $ref remains in the content schema after migration.
+        Test that no utils/text $ref remains in the content schema.
 
         Given: A content schema file
         When: Its full JSON serialisation is scanned for utils/text refs
         Then: No matches are found
 
-        Note: utils/text $refs in SUPPORTING schemas (frameworks, actor-access,
-        impact-type, lifecycle-stage) are explicitly out of scope for this PR.
-        This test only asserts the 4 content schemas.
+        Supporting schemas (frameworks, actor-access, impact-type,
+        lifecycle-stage) are explicitly out of scope for this PR; they retain
+        utils/text. This test only asserts the 4 content schemas.
         """
         schema = _load_schema(schemas_dir, schema_file)
         serialised = json.dumps(schema)
         matches = UTILS_TEXT_REF_PATTERN.findall(serialised)
         assert not matches, (
-            f"{schema_file} still contains {len(matches)} utils/text $ref(s) after migration. "
-            f"All {len(matches)} must be replaced with utils/prose-strict — RED phase. "
-            "Note: supporting schemas (frameworks, actor-access, impact-type, lifecycle-stage) "
-            "are allowed to retain utils/text (out of scope for this PR)."
+            f"{schema_file} contains {len(matches)} residual utils/text $ref(s). "
+            "Every content-schema description site must reference utils/prose-strict. "
+            "(Supporting schemas — frameworks, actor-access, impact-type, "
+            "lifecycle-stage — are explicitly out of scope and may retain utils/text.)"
         )
 
 
 # ============================================================================
-# Coexistence guard — utils/text still exists in riskmap.schema.json (GREEN today)
+# Coexistence guard — utils/text still exists in riskmap.schema.json
 # ============================================================================
 
 
 class TestUtilsTextCoexistenceGuard:
     """
-    riskmap.schema.json#/definitions/utils/text must still exist after this PR.
-    Supporting schemas (frameworks, actor-access, impact-type, lifecycle-stage) and
-    self-assessment.schema.json (C3 sibling PR) still reference it. Removal is a
-    future follow-up once all consumers migrate.
-
-    Expected to PASS today and post-tightening.
+    riskmap.schema.json#/definitions/utils/text is retained alongside
+    utils/prose-strict. Supporting schemas (frameworks, actor-access,
+    impact-type, lifecycle-stage) and self-assessment.schema.json (archived
+    by C3 sibling PR) still reference it; removal is a follow-up once all
+    consumers migrate.
     """
 
     def test_utils_text_still_exists_in_riskmap_schema(self, schemas_dir: Path):
         """
-        Test that definitions/utils/text is still present in riskmap.schema.json.
+        Test that definitions/utils/text is present in riskmap.schema.json.
 
         Given: riskmap.schema.json
         When: definitions/utils/text is looked up
-        Then: It is present (prose-strict migration does NOT remove utils/text from riskmap)
+        Then: It is present (C1 does not remove utils/text from riskmap)
 
-        Removal of utils/text is deferred until all consumers (supporting schemas +
-        self-assessment.schema.json) have migrated. This is a follow-up PR concern.
+        Removal is deferred until all consumers (supporting schemas +
+        self-assessment.schema.json) have migrated — follow-up PR concern.
         """
         schema = _load_schema(schemas_dir, "riskmap.schema.json")
         utils = schema.get("definitions", {}).get("utils", {})
         assert "text" in utils, (
-            "riskmap.schema.json#/definitions/utils/text must still exist after C1 tightening. "
+            "riskmap.schema.json#/definitions/utils/text must still exist. "
             "Removal is deferred — supporting schemas still reference utils/text."
         )
 
@@ -278,7 +267,7 @@ class TestUtilsTextCoexistenceGuard:
 
         Given: riskmap.schema.json
         When: definitions/utils/prose-strict is looked up
-        Then: It is present (already landed in a previous PR)
+        Then: It is present (landed in Phase A via A2 task 2.2.9a)
         """
         schema = _load_schema(schemas_dir, "riskmap.schema.json")
         utils = schema.get("definitions", {}).get("utils", {})
@@ -289,15 +278,14 @@ class TestUtilsTextCoexistenceGuard:
 
     def test_supporting_schemas_still_use_utils_text(self, schemas_dir: Path):
         """
-        Test that at least one supporting schema still uses utils/text (confirming it
-        must not be removed from riskmap.schema.json by this PR).
+        Test that at least one supporting schema still uses utils/text.
 
         Given: The 4 supporting schemas that are out of scope for this PR
         When: Their JSON is scanned for utils/text $refs
         Then: At least one schema has a utils/text $ref
 
-        This confirms that removing utils/text from riskmap.schema.json would break
-        something, validating the coexistence requirement.
+        Confirms that removing utils/text from riskmap.schema.json would break a
+        live consumer, validating why coexistence must be preserved.
         """
         supporting_schemas = [
             "frameworks.schema.json",
@@ -320,28 +308,23 @@ class TestUtilsTextCoexistenceGuard:
 
 
 # ============================================================================
-# Live-corpus audit — YAML corpus validates clean against post-migration schema
+# Live-corpus audit — YAML corpus validates clean against prose-strict shape
 # ============================================================================
 
 
 class TestCorpusProseStrictCompatibility:
     """
-    Audit probe: each YAML corpus file must validate clean against the full
-    parent schema (which, post-migration, uses prose-strict for all description fields).
+    Forward guard: each YAML corpus file validates clean against its full parent
+    schema (which uses prose-strict for all description fields).
 
-    prose-strict adds: minItems:1 on outer array, minLength:1 on string items at both
-    depths, minItems:1 on inner array. The YAML corpus must already conform to these
-    constraints for the migration to be safe.
+    prose-strict requires: minItems:1 on outer array, minLength:1 on string items
+    at both depths, minItems:1 on inner array. A failure here surfaces content
+    drift (an empty array or empty string finding its way into a description
+    field) — route back to the maintainer to fix before the next tightening pass.
 
-    If any test FAILS today, it surfaces content drift (empty prose fields) that the
-    maintainer must fix BEFORE the schema migration lands.
-
-    Expected to PASS today (all YAML content is non-empty).
-    GREEN post-tightening.
-
-    Note: This validates against the *full parent schema* (not just definitions/<entity>),
-    because file-level description is also migrated and must be exercised.
-    The full-schema validation exercises the complete wiring including cross-file $refs.
+    Validates against the *full parent schema* (not just definitions/<entity>)
+    so the file-level description and complete cross-file $ref wiring are
+    exercised.
     """
 
     @pytest.mark.parametrize(
@@ -359,18 +342,14 @@ class TestCorpusProseStrictCompatibility:
         """
         Test that the full YAML corpus validates clean against the parent schema.
 
-        Given: A content schema (post-migration: description fields use prose-strict)
-               and its corresponding YAML corpus file
+        Given: A content schema (description fields use prose-strict) and its
+               corresponding YAML corpus file
         When: The YAML data is validated against the full parent schema
         Then: No errors are raised
 
-        DRIFT ALERT: If this fails, the schema_file + error messages identify
-        which YAML fields carry empty arrays or empty strings. Route back to
-        the maintainer to fix content before applying the schema constraint.
-
-        Note: Pre-migration, this test validates against utils/text (permissive).
-        Post-migration, it validates against prose-strict (strict). The test should
-        pass in both states if corpus content is well-formed.
+        On failure: schema_file + per-error JSON-path identify which YAML
+        fields carry empty arrays or empty strings, so the maintainer can fix
+        the offending content.
         """
         yaml_path = risk_map_yaml_dir / yaml_file
         if not yaml_path.is_file():
@@ -390,8 +369,7 @@ class TestCorpusProseStrictCompatibility:
             if excess:
                 error_summary += f"\n  ... and {excess} more errors"
             pytest.fail(
-                f"CONTENT DRIFT: {yaml_file} has validation errors against {schema_file}. "
-                f"Fix before migration lands:\n{error_summary}"
+                f"CONTENT DRIFT: {yaml_file} has validation errors against {schema_file}:\n{error_summary}"
             )
 
 
@@ -404,25 +382,18 @@ Test Summary
 Total test methods: 15 + 4 + 3 + 4 = 26
 Test classes: 4
 
-- TestProseMigrationRefValue (15 parametrized)
-    RED today: all 15 sites reference utils/text.
-    GREEN post-tightening.
-
+- TestProseMigrationRefValue (15 parametrized) — each site references
+  utils/prose-strict.
 - TestZeroResidualUtilsTextRefs (4 parametrized — one per content schema)
-    RED today: each schema has multiple utils/text $refs.
-    GREEN post-tightening.
-
-- TestUtilsTextCoexistenceGuard (3)
-    GREEN today: utils/text exists, prose-strict exists, supporting schemas use utils/text.
-    GREEN post-tightening.
-
+  — no utils/text $ref remains.
+- TestUtilsTextCoexistenceGuard (3) — utils/text retained, prose-strict
+  present, supporting schemas still consume utils/text.
 - TestCorpusProseStrictCompatibility (4 parametrized — one per YAML file)
-    GREEN today: corpus content is non-empty and prose-strict compatible.
-    GREEN post-tightening.
+  — live YAML validates clean against its parent schema.
 
 Coverage areas:
 - Per-site $ref value assertion: all 15 sites point at prose-strict
 - Zero-residual regex walk: no utils/text remains in content schemas
 - Coexistence: utils/text retained in riskmap.schema.json (supporting schemas need it)
-- Corpus audit: YAML content is prose-strict compatible before tightening lands
+- Corpus audit: YAML content is prose-strict compatible
 """

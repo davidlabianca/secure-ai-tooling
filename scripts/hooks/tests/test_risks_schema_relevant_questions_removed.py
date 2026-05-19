@@ -1,23 +1,20 @@
 #!/usr/bin/env python3
 """
-Tests for Decision 1 (C1-schema-tightenings): remove `relevantQuestions` from
-risks.schema.json per ADR-019 D6.
+Tests for Decision 1 (C1-schema-tightenings): `relevantQuestions` is removed
+from risks.schema.json per ADR-019 D6.
 
-B3 (PR #293) cleaned `relevantQuestions` content from risks.yaml. This PR
-closes the loop on the schema side: the property definition is dropped from
-definitions/risk/properties, so any YAML author who accidentally writes
-`relevantQuestions` gets a validation error instead of silent acceptance.
+B3 (PR #293) cleaned the field from risks.yaml content; C1 closes the loop
+on the schema side. With the property definition dropped from
+definitions/risk/properties (and additionalProperties:false from Decision 2),
+any YAML author who writes `relevantQuestions` gets a validation error
+instead of silent acceptance.
 
 Coverage:
-- definitions/risk/properties does NOT contain 'relevantQuestions' (post-tightening assertion).
-- A synthetic risk entry with relevantQuestions raises ValidationError (RED today: passes with current schema).
-- The live risks.yaml corpus contains no risk entries with relevantQuestions keys (audit probe).
-
-Note on RED phase:
-  Tests in TestRelevantQuestionsRemovedFromSchema / TestRelevantQuestionsRejected
-  are expected to FAIL against the current (pre-tightening) schema. They will
-  pass after the SWE removes the property definition.
-  TestRisksYamlHasNoRelevantQuestions is expected to PASS today (B3 already cleaned).
+- definitions/risk/properties does not declare 'relevantQuestions'.
+- A synthetic risk entry carrying relevantQuestions fails validation
+  (combined effect of D1 removal + D2 additionalProperties:false).
+- The live risks.yaml corpus carries no relevantQuestions keys (forward guard
+  against a regression that would reintroduce the field).
 """
 
 import sys
@@ -111,19 +108,17 @@ def risks_yaml_data(risk_map_yaml_dir: Path) -> dict:
 
 
 # ============================================================================
-# Decision 1 — relevantQuestions REMOVED from schema (RED today; GREEN post-tightening)
+# Decision 1 — relevantQuestions absent from schema
 # ============================================================================
 
 
 class TestRelevantQuestionsRemovedFromSchema:
     """
-    definitions/risk/properties must NOT contain 'relevantQuestions' after tightening.
+    definitions/risk/properties does not contain 'relevantQuestions'.
 
-    ADR-019 D6: the field was removed from the YAML corpus by B3 (PR #293).
-    The schema property definition must also be removed so the closed schema
-    (post additionalProperties:false, Decision 2) rejects stray uses.
-
-    RED phase: these tests FAIL today because the schema still declares the property.
+    ADR-019 D6: the field was removed from the YAML corpus by B3 (PR #293) and
+    from the schema by C1. With additionalProperties:false also in place
+    (Decision 2), stray uses of the field are rejected at validation time.
     """
 
     def test_relevant_questions_absent_from_risk_properties(self, risk_properties: dict):
@@ -135,31 +130,28 @@ class TestRelevantQuestionsRemovedFromSchema:
         Then: 'relevantQuestions' is absent (per ADR-019 D6 cleanup)
         """
         assert "relevantQuestions" not in risk_properties, (
-            "definitions/risk/properties must not declare 'relevantQuestions' after C1 tightening "
-            "(ADR-019 D6: field removed from YAML corpus by B3; schema must follow)"
+            "definitions/risk/properties must not declare 'relevantQuestions' "
+            "(ADR-019 D6: field removed from YAML corpus by B3; schema follows)"
         )
 
 
 # ============================================================================
-# Decision 1 — synthetic entry with relevantQuestions is rejected (RED today)
+# Decision 1 — synthetic entry with relevantQuestions is rejected
 # ============================================================================
 
 
 class TestRelevantQuestionsRejected:
     """
-    A synthetic risk entry carrying relevantQuestions must raise ValidationError
-    once additionalProperties:false is in place (Decision 2 depends on Decision 1).
+    A synthetic risk entry carrying relevantQuestions raises ValidationError.
 
-    This test exercises the combined effect of D1+D2: after both land, a stray
-    relevantQuestions field is caught by additionalProperties:false.
-
-    RED phase: FAILS today because (a) the property is still declared and
-    (b) additionalProperties:false is not yet on definitions/risk.
+    Exercises the combined effect of D1+D2: the property no longer exists in
+    the schema, and additionalProperties:false on definitions/risk rejects
+    any stray field — including the retired relevantQuestions key.
     """
 
     def test_risk_with_relevant_questions_raises_validation_error(self, risk_validator: Draft7Validator):
         """
-        Test that a risk entry with relevantQuestions is rejected after tightening.
+        Test that a risk entry with relevantQuestions is rejected.
 
         Given: A synthetic risk with a 'relevantQuestions' field
         When: It is validated against definitions/risk
@@ -169,7 +161,7 @@ class TestRelevantQuestionsRejected:
         entry["relevantQuestions"] = ["Is this risk applicable?"]
         errors = list(risk_validator.iter_errors(entry))
         assert errors, (
-            "A risk entry with 'relevantQuestions' must fail validation after C1 tightening "
+            "A risk entry with 'relevantQuestions' must fail validation "
             "(ADR-019 D6 removal + additionalProperties:false from Decision 2)"
         )
 
@@ -189,17 +181,15 @@ class TestRelevantQuestionsRejected:
 
 
 # ============================================================================
-# Corpus audit — risks.yaml has no relevantQuestions keys (GREEN today; stays GREEN)
+# Corpus audit — risks.yaml has no relevantQuestions keys
 # ============================================================================
 
 
 class TestRisksYamlHasNoRelevantQuestions:
     """
-    Audit probe: the live risks.yaml corpus must have no risk entries carrying
+    Audit probe: the live risks.yaml corpus carries no risk entries with
     'relevantQuestions'. B3 (PR #293) cleaned these; this test is a forward
-    guard that surfaces regressions before schema tightening lands.
-
-    Expected to PASS today and after tightening.
+    guard that catches any regression that would reintroduce the field.
     """
 
     def test_no_relevant_questions_in_corpus(self, risks_yaml_data: dict):
@@ -228,17 +218,11 @@ Test Summary
 Total test methods: 4
 Test classes: 3
 
-- TestRelevantQuestionsRemovedFromSchema (1)
-    RED today: schema still declares the property.
-    GREEN post-tightening: property definition removed.
-
-- TestRelevantQuestionsRejected (2)
-    RED today: property still accepted by schema; additionalProperties not yet false.
-    GREEN post-tightening: combined D1+D2 effect rejects stray field.
-
-- TestRisksYamlHasNoRelevantQuestions (1)
-    GREEN today: B3 already cleaned corpus.
-    GREEN post-tightening: still passes.
+- TestRelevantQuestionsRemovedFromSchema (1) — property absent from
+  definitions/risk/properties.
+- TestRelevantQuestionsRejected (2) — synthetic entry with the field is
+  rejected (D1+D2 combined effect); minimal valid entry still passes.
+- TestRisksYamlHasNoRelevantQuestions (1) — live corpus forward-guard.
 
 Coverage areas:
 - Schema structural check: relevantQuestions absent from definitions/risk/properties

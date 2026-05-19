@@ -1,26 +1,22 @@
 #!/usr/bin/env python3
 """
-Tests for Decision 3 (C1-schema-tightenings): add `maxLength` constraints to
+Tests for Decision 3 (C1-schema-tightenings): `maxLength` constraints on
 `title` fields in risks.schema.json and controls.schema.json.
 
-Per ADR-019 D8: risks.schema.json definitions/risk/properties/title gets maxLength:120.
-Per ADR-020 D7: controls.schema.json definitions/control/properties/title gets maxLength:100.
+Per ADR-019 D8: risks.schema.json definitions/risk/properties/title declares
+maxLength:120.
+Per ADR-020 D7: controls.schema.json definitions/control/properties/title
+declares maxLength:100.
 
-These limits were set conservatively above the longest current corpus entry to
-avoid breaking existing content while capping future drift.
+The limits sit conservatively above the longest current corpus entry — max
+risk title 40 chars, max control title 49 chars — capping future drift
+without breaking existing content.
 
 Coverage:
-- definitions/risk/properties/title declares maxLength:120.
-- definitions/control/properties/title declares maxLength:100.
-- A synthetic risk title of length 121 is rejected; length 120 passes.
-- A synthetic control title of length 101 is rejected; length 100 passes.
-- Corpus audit: every current risks.yaml title is ≤120 chars (no existing drift).
-- Corpus audit: every current controls.yaml title is ≤100 chars (no existing drift).
-
-Note on RED phase:
-  Tests in TestRiskTitleMaxLengthDeclared / TestControlTitleMaxLengthDeclared
-  and all synthetic boundary tests FAIL today (pre-tightening: no maxLength declared).
-  Corpus audit tests PASS today (no current corpus entry exceeds limits).
+- Schema structural check: maxLength declared at the correct value.
+- Behavioral boundary: at-limit titles pass, over-limit titles are rejected.
+- Corpus audit: every current risks.yaml / controls.yaml title is within
+  its limit (forward guard against future content drift).
 """
 
 import sys
@@ -143,16 +139,13 @@ def controls_yaml_data(risk_map_yaml_dir: Path) -> dict:
 
 
 # ============================================================================
-# Decision 3 — risk title maxLength declared (RED today)
+# Decision 3 — risk title maxLength declared
 # ============================================================================
 
 
 class TestRiskTitleMaxLengthDeclared:
     """
-    definitions/risk/properties/title must declare maxLength:120 after C1 tightening.
-
-    RED phase: FAILS today (no maxLength on title).
-    GREEN post-tightening.
+    definitions/risk/properties/title declares maxLength:120 per ADR-019 D8.
     """
 
     def test_risk_title_has_max_length_120(self, risk_title_schema: dict):
@@ -170,16 +163,13 @@ class TestRiskTitleMaxLengthDeclared:
 
 
 # ============================================================================
-# Decision 3 — control title maxLength declared (RED today)
+# Decision 3 — control title maxLength declared
 # ============================================================================
 
 
 class TestControlTitleMaxLengthDeclared:
     """
-    definitions/control/properties/title must declare maxLength:100 after C1 tightening.
-
-    RED phase: FAILS today (no maxLength on title).
-    GREEN post-tightening.
+    definitions/control/properties/title declares maxLength:100 per ADR-020 D7.
     """
 
     def test_control_title_has_max_length_100(self, control_title_schema: dict):
@@ -197,7 +187,7 @@ class TestControlTitleMaxLengthDeclared:
 
 
 # ============================================================================
-# Decision 3 — risk title boundary enforcement (RED today)
+# Decision 3 — risk title boundary enforcement
 # ============================================================================
 
 
@@ -205,10 +195,8 @@ class TestRiskTitleBoundaryEnforcement:
     """
     Behavioral tests for the risk title maxLength boundary.
 
-    A title of exactly 120 chars must pass; 121 chars must fail.
-
-    RED phase: both boundary tests FAIL today (no maxLength declared → 121-char title accepted).
-    GREEN post-tightening.
+    A title of exactly 120 chars passes; 121 chars is rejected by the
+    maxLength constraint.
     """
 
     def test_risk_title_at_max_length_passes(self, risk_validator: Draft7Validator):
@@ -240,12 +228,12 @@ class TestRiskTitleBoundaryEnforcement:
         errors = list(risk_validator.iter_errors(entry))
         assert errors, (
             f"Risk title of length {RISK_TITLE_MAX_LENGTH + 1} must fail validation "
-            f"(maxLength:{RISK_TITLE_MAX_LENGTH}); currently accepted — RED phase"
+            f"(maxLength:{RISK_TITLE_MAX_LENGTH})"
         )
 
 
 # ============================================================================
-# Decision 3 — control title boundary enforcement (RED today)
+# Decision 3 — control title boundary enforcement
 # ============================================================================
 
 
@@ -253,10 +241,8 @@ class TestControlTitleBoundaryEnforcement:
     """
     Behavioral tests for the control title maxLength boundary.
 
-    A title of exactly 100 chars must pass; 101 chars must fail.
-
-    RED phase: both boundary tests FAIL today (no maxLength declared → 101-char title accepted).
-    GREEN post-tightening.
+    A title of exactly 100 chars passes; 101 chars is rejected by the
+    maxLength constraint.
     """
 
     def test_control_title_at_max_length_passes(self, control_validator: Draft7Validator):
@@ -288,24 +274,22 @@ class TestControlTitleBoundaryEnforcement:
         errors = list(control_validator.iter_errors(entry))
         assert errors, (
             f"Control title of length {CONTROL_TITLE_MAX_LENGTH + 1} must fail validation "
-            f"(maxLength:{CONTROL_TITLE_MAX_LENGTH}); currently accepted — RED phase"
+            f"(maxLength:{CONTROL_TITLE_MAX_LENGTH})"
         )
 
 
 # ============================================================================
-# Corpus audit — no current entry exceeds the maxLength limits (GREEN today)
+# Corpus audit — no current entry exceeds the maxLength limits
 # ============================================================================
 
 
 class TestRiskTitleCorpusAudit:
     """
-    Audit probe: every current risks.yaml title must be ≤120 characters.
+    Forward guard: every current risks.yaml title is ≤120 characters.
 
-    This probe verifies that tightening does not break existing content.
-    If this test FAILS today, there is content drift that must be fixed
-    BEFORE the schema constraint is added — surface the offending entries.
-
-    Expected to PASS today and post-tightening.
+    The schema constraint enforces the limit; this test surfaces a violation
+    with the offending entries listed by name and length if content drift
+    ever reintroduces an over-limit title.
     """
 
     def test_all_risk_titles_within_max_length(self, risks_yaml_data: dict):
@@ -316,8 +300,7 @@ class TestRiskTitleCorpusAudit:
         When: Each title's length is measured
         Then: No title exceeds 120 characters
 
-        DRIFT ALERT: If this fails, list offending risk IDs and their title lengths
-        so the maintainer can shorten them before the schema tightening lands.
+        On failure: lists offending risk IDs + title lengths for the maintainer.
         """
         offenders = [
             (r.get("id", "<unknown>"), r.get("title", ""), len(r.get("title", "")))
@@ -325,17 +308,14 @@ class TestRiskTitleCorpusAudit:
             if len(r.get("title", "")) > RISK_TITLE_MAX_LENGTH
         ]
         assert not offenders, (
-            f"CONTENT DRIFT: risks.yaml has titles exceeding maxLength:{RISK_TITLE_MAX_LENGTH}. "
-            f"Fix these before applying the schema constraint:\n"
+            f"CONTENT DRIFT: risks.yaml has titles exceeding maxLength:{RISK_TITLE_MAX_LENGTH}:\n"
             + "\n".join(f"  {rid!r}: length={length}, title={title!r}" for rid, title, length in offenders)
         )
 
 
 class TestControlTitleCorpusAudit:
     """
-    Audit probe: every current controls.yaml title must be ≤100 characters.
-
-    Expected to PASS today and post-tightening.
+    Forward guard: every current controls.yaml title is ≤100 characters.
     """
 
     def test_all_control_titles_within_max_length(self, controls_yaml_data: dict):
@@ -346,8 +326,7 @@ class TestControlTitleCorpusAudit:
         When: Each title's length is measured
         Then: No title exceeds 100 characters
 
-        DRIFT ALERT: If this fails, list offending control IDs so the maintainer
-        can shorten them before the schema tightening lands.
+        On failure: lists offending control IDs + title lengths for the maintainer.
         """
         offenders = [
             (c.get("id", "<unknown>"), c.get("title", ""), len(c.get("title", "")))
@@ -355,8 +334,7 @@ class TestControlTitleCorpusAudit:
             if len(c.get("title", "")) > CONTROL_TITLE_MAX_LENGTH
         ]
         assert not offenders, (
-            f"CONTENT DRIFT: controls.yaml has titles exceeding maxLength:{CONTROL_TITLE_MAX_LENGTH}. "
-            f"Fix these before applying the schema constraint:\n"
+            f"CONTENT DRIFT: controls.yaml has titles exceeding maxLength:{CONTROL_TITLE_MAX_LENGTH}:\n"
             + "\n".join(f"  {cid!r}: length={length}, title={title!r}" for cid, title, length in offenders)
         )
 
@@ -367,34 +345,20 @@ class TestControlTitleCorpusAudit:
 """
 Test Summary
 ============
-Total test methods: 8 (excluding skip stub)
+Total test methods: 8
 Test classes: 6
 
-- TestRiskTitleMaxLengthDeclared (1)
-    RED today: maxLength not declared.
-    GREEN post-tightening.
-
-- TestControlTitleMaxLengthDeclared (1)
-    RED today: maxLength not declared.
-    GREEN post-tightening.
-
-- TestRiskTitleBoundaryEnforcement (2)
-    at-boundary pass: RED today (maxLength not declared, so 120-char title trivially passes —
-      but the schema structural test above would fail first).
-    over-boundary fail: RED today (121-char title accepted without maxLength).
-    GREEN post-tightening.
-
-- TestControlTitleBoundaryEnforcement (2)
-    Same RED/GREEN pattern as risk boundary.
-
-- TestRiskTitleCorpusAudit (1)
-    GREEN today: max corpus title = 40 chars (well under 120).
-
-- TestControlTitleCorpusAudit (1)
-    GREEN today: max corpus title = 49 chars (well under 100).
+- TestRiskTitleMaxLengthDeclared (1) — schema declares maxLength:120.
+- TestControlTitleMaxLengthDeclared (1) — schema declares maxLength:100.
+- TestRiskTitleBoundaryEnforcement (2) — at-limit passes, over-limit fails.
+- TestControlTitleBoundaryEnforcement (2) — same boundary pattern at 100.
+- TestRiskTitleCorpusAudit (1) — live risks.yaml forward guard
+  (current max corpus title: 40 chars).
+- TestControlTitleCorpusAudit (1) — live controls.yaml forward guard
+  (current max corpus title: 49 chars).
 
 Coverage areas:
 - Schema structural check: maxLength declared at correct value
 - Behavioral boundary: at-limit pass, over-limit fail
-- Corpus audit: no existing content exceeds new limits (drift-free)
+- Corpus audit: no existing content exceeds limits (drift-free)
 """

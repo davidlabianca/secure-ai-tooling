@@ -1,15 +1,13 @@
 #!/usr/bin/env python3
 """
-Tests for Decision 2 (C1-schema-tightenings): add `additionalProperties: false`
-to every `definitions/<entity>` block across all eight target schemas, per
+Tests for Decision 2 (C1-schema-tightenings): `additionalProperties: false`
+on every `definitions/<entity>` block across the eight target schemas, per
 ADRs 018-022 D-sections.
 
-Plan task 2.2.6: every top-level definitions/<entity> in the 8 content + supporting
-schemas gets additionalProperties:false. Sites tested here (11 new edits; 1 already
-done — framework-mapping-patterns at frameworks.schema.json:82 is excluded from
-delta assertions but its preservation is confirmed).
+Plan task 2.2.6: every top-level definitions/<entity> in the 8 content +
+supporting schemas closes the schema against unknown keys. Sites tested here
+(12 new edits + 1 pre-existing that must be preserved):
 
-Sites under test (12 new + 1 existing preserved):
   risks.schema.json:         definitions/risk
   controls.schema.json:      definitions/category, definitions/control
   components.schema.json:    definitions/category, definitions/subcategory,
@@ -20,25 +18,26 @@ Sites under test (12 new + 1 existing preserved):
   impact-type.schema.json:   definitions/impactType
   lifecycle-stage.schema.json: definitions/lifecycleStage
 
-Excluded from delta tests (already has additionalProperties:false):
-  frameworks.schema.json:    definitions/framework-mapping-patterns (line 82 pre-existing)
+Pre-existing (must remain):
+  frameworks.schema.json:    definitions/framework-mapping-patterns (ADR-022 D5b)
 
-Excluded from scope (file-root additionalProperties):
-  Plan task 2.2.6 targets definitions/<entity> blocks only.
+Out of scope:
+  file-root additionalProperties — plan task 2.2.6 targets definitions/<entity>
+  blocks only.
+  self-assessment.schema.json#/definitions/selfAssessment — handled by the C3
+  sibling PR (archive self-assessment), not this PR.
 
 Coverage:
-- Each of the 11 sites declares additionalProperties:false.
+- Each of the 12 new sites declares additionalProperties:false.
 - Each entity definition rejects a synthetic entry carrying a stray field.
-- The existing framework-mapping-patterns additionalProperties:false is preserved.
-- The mappings.additionalProperties sub-block (catch-all array shape in risks/controls/
-  components/personas) is NOT the boolean false; it is preserved as {type:array,...}.
-- The live risks.yaml corpus validates clean against definitions/risk after both
-  Decision 1 (relevantQuestions removed) and Decision 2 (additionalProperties:false)
-  are in place — ordering guard so Decision 1 must land first.
-
-Note on RED phase:
-  All *_has_additional_properties_false and *_rejects_stray_field tests are expected
-  to FAIL today (pre-tightening). The preserved/guard tests are expected to PASS today.
+- The pre-existing framework-mapping-patterns additionalProperties:false
+  is preserved.
+- The mappings.additionalProperties sub-block (catch-all array shape in
+  risks/controls/components/personas) remains a schema object {type:array,...}
+  — the Decision-2 sibling at the entity level must not collapse it to
+  boolean false.
+- The live risks.yaml corpus validates clean against definitions/risk under
+  the combined D1+D2 state — ordering guard so D1 lands before D2.
 """
 
 import sys
@@ -75,7 +74,7 @@ NEW_STRICT_SITES: list[tuple[str, str]] = [
     ("lifecycle-stage.schema.json", "lifecycleStage"),
 ]
 
-# Pre-existing strict site (already has additionalProperties:false before this PR).
+# Strict site established by ADR-022 D5b; preserved through C1.
 ALREADY_STRICT_SITES: list[tuple[str, str]] = [
     ("frameworks.schema.json", "framework-mapping-patterns"),
 ]
@@ -235,20 +234,17 @@ def _entity_validator(schemas_dir: Path, schema_file: str, entity_key: str) -> D
 
 
 # ============================================================================
-# Decision 2 — each site declares additionalProperties:false (RED today)
+# Decision 2 — each site declares additionalProperties:false
 # ============================================================================
 
 
 class TestEntityDefinitionsHaveAdditionalPropertiesFalse:
     """
-    Every definitions/<entity> block in the 8 target schemas must declare
-    additionalProperties:false after C1 tightening.
+    Every definitions/<entity> block in the 8 target schemas declares
+    additionalProperties:false per ADRs 018-022 D-sections.
 
-    Note: self-assessment.schema.json#/definitions/selfAssessment is explicitly
-    out of C1 scope — it is handled by the C3 sibling PR (archive self-assessment).
-
-    RED phase: all tests FAIL today (property absent or not false).
-    GREEN post-tightening: all tests pass.
+    self-assessment.schema.json#/definitions/selfAssessment is explicitly
+    out of C1 scope (handled by the C3 sibling PR — archive self-assessment).
     """
 
     @pytest.mark.parametrize(
@@ -282,17 +278,14 @@ class TestEntityDefinitionsHaveAdditionalPropertiesFalse:
 
 
 # ============================================================================
-# Decision 2 — each entity definition rejects synthetic stray-field entries (RED today)
+# Decision 2 — each entity definition rejects synthetic stray-field entries
 # ============================================================================
 
 
 class TestEntityDefinitionsRejectAdditionalProperties:
     """
-    Once additionalProperties:false is in place, a synthetic entry with a stray
-    field (e.g., a typo like 'descripton') must raise ValidationError.
-
-    RED phase: all tests FAIL today (stray fields accepted by open schemas).
-    GREEN post-tightening: all tests pass.
+    A synthetic entry carrying a stray field (e.g., a typo like 'descripton')
+    raises ValidationError against any of the 12 closed entity definitions.
     """
 
     @pytest.mark.parametrize(
@@ -326,7 +319,7 @@ class TestEntityDefinitionsRejectAdditionalProperties:
         errors = list(validator.iter_errors(entry))
         assert errors, (
             f"{schema_file} definitions/{entity_key} must reject entry with stray field "
-            f"'{_STRAY_FIELD}' (additionalProperties:false not yet enforced — RED phase)"
+            f"'{_STRAY_FIELD}' (additionalProperties:false on the entity definition)"
         )
 
     @pytest.mark.parametrize(
@@ -347,8 +340,9 @@ class TestEntityDefinitionsRejectAdditionalProperties:
         When: It is validated against definitions/<entity_key>
         Then: No errors are raised
 
-        This baseline must PASS today so stray-field failures are clearly causal.
-        If this test fails, the minimal entry or schema required fields need updating.
+        Baseline sentinel: the stray-field rejection tests above need a clean
+        positive control. If this fails, the minimal entry or schema required
+        fields need updating.
         """
         base = _MINIMAL_ENTRIES.get((schema_file, entity_key))
         if base is None:
@@ -368,11 +362,9 @@ class TestEntityDefinitionsRejectAdditionalProperties:
 
 class TestFrameworkMappingPatternsPreservesAdditionalPropertiesFalse:
     """
-    frameworks.schema.json definitions/framework-mapping-patterns already has
-    additionalProperties:false (pre-existing since ADR-022 D5b). This guard
-    confirms Decision 2 edits do not accidentally revert it.
-
-    Expected to PASS today and post-tightening.
+    frameworks.schema.json definitions/framework-mapping-patterns has carried
+    additionalProperties:false since ADR-022 D5b. This guard confirms the C1
+    edits never accidentally revert it.
     """
 
     @pytest.mark.parametrize(
@@ -387,19 +379,19 @@ class TestFrameworkMappingPatternsPreservesAdditionalPropertiesFalse:
         entity_key: str,
     ):
         """
-        Test that the pre-existing additionalProperties:false on framework-mapping-patterns
-        is not removed during C1 tightening edits.
+        Test that additionalProperties:false on framework-mapping-patterns is
+        present (preserved through C1).
 
         Given: frameworks.schema.json definitions/framework-mapping-patterns
         When: additionalProperties is inspected
-        Then: It is false (unchanged from before this PR)
+        Then: It is false (ADR-022 D5b shape preserved)
         """
         schema = _load_schema(schemas_dir, schema_file)
         entity_defn = schema.get("definitions", {}).get(entity_key, {})
         ap = entity_defn.get("additionalProperties", "<MISSING>")
         assert ap is False, (
-            f"{schema_file} definitions/{entity_key} had additionalProperties:false "
-            f"before C1; it must be preserved (got: {ap!r})"
+            f"{schema_file} definitions/{entity_key} must declare "
+            f"additionalProperties:false (preserved from ADR-022 D5b); got: {ap!r}"
         )
 
 
@@ -410,13 +402,13 @@ class TestFrameworkMappingPatternsPreservesAdditionalPropertiesFalse:
 
 class TestMappingsAdditionalPropertiesIsNotBoolean:
     """
-    The mappings field inside risk/control/component/persona entities uses a sub-block:
+    The mappings field inside risk/control/component/persona entities uses
+    a sub-block:
         additionalProperties: {type: array, items: {type: string}}
-    This is a schema-object catch-all for loose frameworks, NOT the boolean false.
-    Decision 2 adds additionalProperties:false at the definitions/<entity> level,
-    which must not collapse or replace the mappings.additionalProperties catch-all.
-
-    Expected to PASS today and post-tightening.
+    This is a schema-object catch-all for loose frameworks (stride, nist-ai-rmf,
+    owasp-top10-llm), NOT the boolean false. Decision 2 adds
+    additionalProperties:false at the definitions/<entity> level — that sibling
+    must not collapse or replace the mappings.additionalProperties catch-all.
     """
 
     # Schemas that have a mappings field with additionalProperties catch-all.
@@ -476,23 +468,15 @@ class TestMappingsAdditionalPropertiesIsNotBoolean:
 
 class TestRisksYamlValidatesCleanPostTightening:
     """
-    After both Decision 1 (relevantQuestions removed from schema) and Decision 2
-    (additionalProperties:false on definitions/risk) land, the live risks.yaml
-    corpus must still validate clean against definitions/risk.
+    The live risks.yaml corpus validates clean against definitions/risk under
+    the combined D1+D2 state (relevantQuestions removed + additionalProperties
+    closed). This pins the Risk R10 ordering invariant: D1 must land before D2
+    so the corpus never hits a state where the still-present relevantQuestions
+    field collides with a just-closed schema.
 
-    If this test fails post-tightening, it means either:
-    (a) A corpus risk entry uses a field not declared in definitions/risk, OR
-    (b) Decision 1 content removal is incomplete (relevantQuestions still in YAML).
-
-    The commit ordering in C1 requires D1 to land before D2, precisely so that
-    scenario (b) cannot happen: if relevantQuestions were still in YAML when
-    additionalProperties:false activated, every risk with that field would break.
-
-    This test is GREEN today and GREEN post-tightening (always-green ordering
-    sentinel): the corpus is already clean (B3 removed relevantQuestions), and
-    all remaining fields in risks.yaml are declared in definitions/risk/properties.
-    The test validates that D1 and D2 are applied in the correct order so the
-    corpus never hits a state where an undeclared field breaks a closed schema.
+    A failure here means either (a) a corpus risk entry uses a field not
+    declared in definitions/risk, or (b) Decision 1 content removal regressed
+    (relevantQuestions reintroduced to YAML).
     """
 
     def test_risks_yaml_corpus_validates_against_definitions_risk(
@@ -503,12 +487,12 @@ class TestRisksYamlValidatesCleanPostTightening:
         """
         Test that every risk entry in risks.yaml passes definitions/risk validation.
 
-        Given: The full risks.yaml corpus and a post-tightening definitions/risk validator
+        Given: The full risks.yaml corpus and the definitions/risk validator
         When: Each risk entry is validated
         Then: No ValidationError is raised for any entry
 
-        This is the ordering guard: if relevantQuestions were still in YAML when
-        additionalProperties:false is active, this test would fail.
+        Risk R10 ordering guard: a failure here surfaces either a corpus
+        regression or a D1-before-D2 ordering violation.
         """
         risks_path = risk_map_yaml_dir / "risks.yaml"
         if not risks_path.is_file():
@@ -532,7 +516,7 @@ class TestRisksYamlValidatesCleanPostTightening:
 
         assert not failures, (
             "risks.yaml corpus has validation failures against definitions/risk "
-            "(post-D1+D2 ordering guard):\n" + "\n".join(failures)
+            "(D1+D2 ordering guard):\n" + "\n".join(failures)
         )
 
 
@@ -542,32 +526,25 @@ class TestRisksYamlValidatesCleanPostTightening:
 """
 Test Summary
 ============
-Total parametrized sites: 12 new + 4 pre-existing mappings hosts
-Total test methods (non-parametrized): 1 (corpus ordering guard)
+Parametrized sites: 12 new entity definitions + 1 pre-existing
+  (framework-mapping-patterns) + 4 mappings-host entities
+Standalone test methods: 1 (corpus ordering guard)
 Test classes: 5
 
-- TestEntityDefinitionsHaveAdditionalPropertiesFalse (12 parametrized)
-    RED today: all 12 entity definitions lack additionalProperties:false.
-    GREEN post-tightening.
-
-- TestEntityDefinitionsRejectAdditionalProperties (12+12 parametrized: reject + baseline)
-    Stray-field rejection: RED today.
-    Baseline valid entry: GREEN today (confirms minimal entries are well-formed).
-
-- TestFrameworkMappingPatternsPreservesAdditionalPropertiesFalse (1 parametrized)
-    GREEN today: pre-existing. GREEN post-tightening.
-
-- TestMappingsAdditionalPropertiesIsNotBoolean (4 parametrized)
-    GREEN today: mappings AP is a schema object. GREEN post-tightening.
-
-- TestRisksYamlValidatesCleanPostTightening (1)
-    GREEN today and GREEN post-tightening (always-green ordering sentinel):
-    corpus is D1-clean (relevantQuestions removed by B3); all remaining fields
-    are declared in definitions/risk/properties.
+- TestEntityDefinitionsHaveAdditionalPropertiesFalse (12 parametrized) —
+  every entity definition declares additionalProperties:false.
+- TestEntityDefinitionsRejectAdditionalProperties (12+12 parametrized) —
+  stray-field entries rejected; minimal valid entries accepted (baseline).
+- TestFrameworkMappingPatternsPreservesAdditionalPropertiesFalse (1) —
+  pre-existing additionalProperties:false (ADR-022 D5b) preserved.
+- TestMappingsAdditionalPropertiesIsNotBoolean (4) — per-entity mappings
+  catch-all remains a schema object {type:array,...}, not boolean false.
+- TestRisksYamlValidatesCleanPostTightening (1) — risks.yaml validates
+  clean under combined D1+D2 (Risk R10 ordering invariant).
 
 Coverage areas:
 - Structural: additionalProperties:false declared on all 12 new sites
 - Behavioral: stray fields rejected, valid entries accepted
 - Preservation: framework-mapping-patterns intact, mappings catch-all intact
-- Ordering guard: corpus clean after combined D1+D2
+- Ordering guard: corpus clean under combined D1+D2
 """
