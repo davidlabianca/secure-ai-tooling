@@ -14,6 +14,8 @@ import subprocess
 import time
 from pathlib import Path
 
+import pytest
+
 REPO_ROOT = Path(__file__).parent.parent.parent.parent
 SCRIPT_SOURCE = REPO_ROOT / "scripts" / "tools" / "validate-all.sh"
 REAL_GIT = shutil.which("git")
@@ -92,7 +94,13 @@ def _make_stubbed_repo(tmp_path: Path, table_content: str = "canonical\n") -> tu
         'if [[ "$1" == "scripts/hooks/yaml_to_markdown.py" ]]; then\n'
         '    output_dir=""\n'
         "    while [[ $# -gt 0 ]]; do\n"
-        '        if [[ "$1" == "--output-dir" ]]; then\n'
+        # Tolerate both --output-dir <DIR> and --output-dir=<DIR> forms so a
+        # later refactor of the script invocation doesn't silently capture
+        # an empty path.
+        '        if [[ "$1" == --output-dir=* ]]; then\n'
+        '            output_dir="${1#*=}"\n'
+        "            shift\n"
+        '        elif [[ "$1" == "--output-dir" ]]; then\n'
         '            output_dir="$2"\n'
         "            shift 2\n"
         "        else\n"
@@ -198,7 +206,11 @@ def test_check_generation_cleans_tempdir_when_generator_fails(tmp_path: Path):
     assert not (tmp_path / "git-invocations.log").exists()
 
 
-def test_check_generation_cleans_tempdir_on_sigint(tmp_path: Path):
+@pytest.mark.parametrize("sig", [signal.SIGINT, signal.SIGTERM], ids=["sigint", "sigterm"])
+def test_check_generation_cleans_tempdir_on_signal(tmp_path: Path, sig: signal.Signals):
+    """The trap installed by check_generated_tables covers INT and TERM;
+    both signal paths must clean up the temp directory.
+    """
     repo, env = _make_stubbed_repo(tmp_path)
     before_status = _git_status(repo)
     temp_capture = tmp_path / "tempdir.txt"
@@ -221,12 +233,32 @@ def test_check_generation_cleans_tempdir_on_sigint(tmp_path: Path):
 
     assert temp_capture.exists(), "generator stub did not capture the temporary directory"
     temp_dir = Path(temp_capture.read_text(encoding="utf-8").strip())
-    os.killpg(process.pid, signal.SIGINT)
+    os.killpg(process.pid, sig)
     stdout, stderr = process.communicate(timeout=10)
 
     assert process.returncode != 0, stderr + stdout
     _assert_repo_unchanged(repo, before_status)
     assert not temp_dir.exists()
+    assert not (tmp_path / "git-invocations.log").exists()
+
+
+def test_check_generation_flags_extra_file_in_tables_dir(tmp_path: Path):
+    """`diff -r -q` must report drift when risk-map/tables contains a file
+    that the generator does not produce (e.g. a stale rename leftover).
+    """
+    repo, env = _make_stubbed_repo(tmp_path)
+    stale_file = repo / "risk-map" / "tables" / "stale-leftover.md"
+    stale_file.write_text("orphan\n", encoding="utf-8")
+    _run_git(repo, "add", "risk-map/tables/stale-leftover.md")
+    _run_git(repo, "commit", "-m", "Add stale file to surface file-set drift")
+    before_status = _git_status(repo)
+
+    result = _run_validate_all(repo, env, "--check-generation")
+
+    assert result.returncode == 1
+    assert "Table drift detected:" in result.stderr
+    assert "stale-leftover.md" in result.stderr
+    _assert_repo_unchanged(repo, before_status)
     assert not (tmp_path / "git-invocations.log").exists()
 
 

@@ -107,7 +107,8 @@ python3 scripts/hooks/yaml_to_markdown.py components --format summary
 
 This strict mode generates tables in a temporary directory, compares them with
 `risk-map/tables/`, and exits non-zero when drift is found. It does not update
-tracked files or change the git index.
+tracked files or change the git index. Any warnings the generator writes to
+stderr still surface in the output; only generator stdout is suppressed.
 
 **Available formats:**
 
