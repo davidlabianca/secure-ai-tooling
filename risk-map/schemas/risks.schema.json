@@ -162,7 +162,8 @@
           "$ref": "external-references.schema.json#/definitions/externalReferences"
         }
       },
-      "required": ["id", "title", "shortDescription", "longDescription", "category", "personas", "controls"]
+      "required": ["id", "title", "shortDescription", "longDescription", "category", "personas", "controls"],
+      "additionalProperties": false
     }
   }
 }

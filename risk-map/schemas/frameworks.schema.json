@@ -74,7 +74,8 @@
           "minItems": 1
         }
       },
-      "required": ["id", "name", "fullName", "description", "baseUri", "applicableTo"]
+      "required": ["id", "name", "fullName", "description", "baseUri", "applicableTo"],
+      "additionalProperties": false
     },
     "framework-mapping-patterns": {
       "type": "object",

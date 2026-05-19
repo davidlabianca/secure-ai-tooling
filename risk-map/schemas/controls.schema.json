@@ -34,7 +34,8 @@
         },
         "title": { "type": "string" }
       },
-      "required": ["id", "title"]
+      "required": ["id", "title"],
+      "additionalProperties": false
     },
     "control": {
       "type": "object",
@@ -184,7 +185,8 @@
           "$ref": "external-references.schema.json#/definitions/externalReferences"
         }
       },
-      "required": ["title", "description", "category", "personas", "components", "risks"]
+      "required": ["title", "description", "category", "personas", "components", "risks"],
+      "additionalProperties": false
     }
   }
 }

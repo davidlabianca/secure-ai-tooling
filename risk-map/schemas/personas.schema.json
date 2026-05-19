@@ -72,7 +72,8 @@
           "$ref": "external-references.schema.json#/definitions/externalReferences"
         }
       },
-      "required": ["id", "title", "description"]
+      "required": ["id", "title", "description"],
+      "additionalProperties": false
     }
   }
 }
