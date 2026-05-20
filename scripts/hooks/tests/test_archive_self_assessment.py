@@ -26,6 +26,7 @@ CONSUMER_SURFACES = [
     "scripts/docs/validation-flow.md",
     "scripts/agents/content-reviewer.md",
     ".github/workflows/validation.yml",
+    ".pre-commit-config.yaml",
 ]
 
 

@@ -1,5 +1,5 @@
 {
-  "$id": "self-assessment.schema.json",
+  "$id": "self-assessment-legacy.schema.json",
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "CoSAI-RM Self-Assessment Schema",
   "description": "Schema for validating YAML-based self-assessment definition",
