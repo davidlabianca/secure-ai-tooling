@@ -2,11 +2,13 @@
 """
 Tests for scripts/hooks/precommit/validate_identification_questions.py
 
-This module tests the pre-commit lint that enforces the four structural rules
+This module tests the pre-commit lint that enforces the structural checks
 from risk-map/docs/contributing/identification-questions-style-guide.md against
 personas.yaml (ADR-021 D7).
 
-The four structural rules machine-enforced by the lint:
+The structural checks machine-enforced by the lint:
+  Rule 0 — Presence: non-deprecated personas should include the
+            identificationQuestions block.
   Rule 1 — Count: when identificationQuestions is present on a non-deprecated
             persona, the array length must be 5–7.
   Rule 2 — Second-person opener: every question must begin with an approved
@@ -27,13 +29,13 @@ risk-map/schemas/personas.schema.json, not hardcoded values.
 
 Test Coverage:
 ==============
-Total Tests: 55 across 9 test classes
-- Rule 1 (count):           8 tests  (TestRule1Count)
+Total Tests: 59 across 9 test classes
+- Rule 1 (count/presence): 11 tests  (TestRule1Count)
 - Rule 2 (opener):          9 tests  (TestRule2SecondPersonOpener)
 - Rule 3 (parenthetical):  13 tests  (TestRule3ParentheticalCardinality)
   - 3 tests cover _count_paren_items depth-aware nested-paren handling
 - Rule 4 (e.g. not i.e.):  7 tests  (TestRule4EgNotIe)
-- Warn/block toggle:        7 tests  (TestWarnBlockToggle)
+- Warn/block toggle:        8 tests  (TestWarnBlockToggle)
 - Stderr format:            4 tests  (TestStderrFormat)
 - Schema-driven enumeration:5 tests  (TestSchemaDrivenEnumeration)
 - Integration (corpus):     2 tests  (TestCorpusIntegration)
@@ -147,12 +149,12 @@ VALID_7_QUESTIONS = VALID_5_QUESTIONS + [
 
 
 # ===========================================================================
-# Rule 1 — Count (5–7 questions per non-deprecated persona when field present)
+# Rule 1 — Presence + count (5–7 questions per non-deprecated persona when present)
 # ===========================================================================
 
 
 class TestRule1Count:
-    """Tests for the count rule: 5–7 questions when identificationQuestions present."""
+    """Tests for the presence and count rules."""
 
     def test_exactly_5_questions_passes(self, tmp_path):
         """
@@ -247,20 +249,80 @@ class TestRule1Count:
         # No warnings — deprecated persona is exempt
         assert warnings == []
 
-    def test_missing_identification_questions_field_not_flagged(self, tmp_path):
+    def test_non_deprecated_missing_identification_questions_field_emits_one_warning(self, tmp_path):
         """
-        Personas without identificationQuestions field produce no count warning.
+        Non-deprecated personas without identificationQuestions emit one warning.
 
         Given: A non-deprecated persona with no identificationQuestions key at all
         When: validate_personas_file is called
-        Then: No count-rule warning (absence of the optional field is allowed)
+        Then: One array-level warning is returned for the missing block
 
-        Per ADR-021 D8: identificationQuestions stays optional in the schema.
+        Per ADR-021 D8: identificationQuestions stays optional in the schema,
+        but the pre-commit hook surfaces omissions as warn-only diagnostics.
         """
         schema_path = tmp_path / "personas.schema.json"
         yaml_path = tmp_path / "personas.yaml"
         schema_path.write_text(json.dumps(_make_schema(["personaNoQuestions"])))
         yaml_data = _make_personas_yaml([_make_persona("personaNoQuestions", questions=None)])
+        yaml_path.write_text(yaml.dump(yaml_data))
+
+        warnings = validate_personas_file(str(yaml_path), str(schema_path), block=False)
+        assert warnings == [
+            (
+                f"validate-identification-questions: {yaml_path}:"
+                "personaNoQuestions:identificationQuestions[*]: "
+                "non-deprecated persona missing identificationQuestions block"
+            )
+        ]
+
+    def test_deprecated_missing_identification_questions_field_remains_exempt(self, tmp_path):
+        """
+        Deprecated personas without identificationQuestions remain exempt.
+
+        Given: A deprecated persona with no identificationQuestions key
+        When: validate_personas_file is called
+        Then: No presence warning is returned
+        """
+        schema_path = tmp_path / "personas.schema.json"
+        yaml_path = tmp_path / "personas.yaml"
+        schema_path.write_text(json.dumps(_make_schema(["personaLegacy"])))
+        yaml_data = _make_personas_yaml([_make_persona("personaLegacy", questions=None, deprecated=True)])
+        yaml_path.write_text(yaml.dump(yaml_data))
+
+        warnings = validate_personas_file(str(yaml_path), str(schema_path), block=False)
+        assert warnings == []
+
+    def test_empty_identification_questions_uses_count_rule_not_presence_rule(self, tmp_path):
+        """
+        Empty identificationQuestions arrays are handled by the existing count rule.
+
+        Given: A non-deprecated persona with identificationQuestions: []
+        When: validate_personas_file is called
+        Then: The count warning fires, not the missing-block warning
+        """
+        schema_path = tmp_path / "personas.schema.json"
+        yaml_path = tmp_path / "personas.yaml"
+        schema_path.write_text(json.dumps(_make_schema(["personaEmptyQuestions"])))
+        yaml_data = _make_personas_yaml([_make_persona("personaEmptyQuestions", questions=[])])
+        yaml_path.write_text(yaml.dump(yaml_data))
+
+        warnings = validate_personas_file(str(yaml_path), str(schema_path), block=False)
+        assert len(warnings) == 1
+        assert "count below floor" in warnings[0]
+        assert "missing identificationQuestions block" not in warnings[0]
+
+    def test_present_well_formed_identification_questions_produce_no_warnings(self, tmp_path):
+        """
+        Well-formed identificationQuestions continue to produce no warnings.
+
+        Given: A non-deprecated persona with five valid questions
+        When: validate_personas_file is called
+        Then: No warnings are returned
+        """
+        schema_path = tmp_path / "personas.schema.json"
+        yaml_path = tmp_path / "personas.yaml"
+        schema_path.write_text(json.dumps(_make_schema(["personaValidQuestions"])))
+        yaml_data = _make_personas_yaml([_make_persona("personaValidQuestions", questions=VALID_5_QUESTIONS)])
         yaml_path.write_text(yaml.dump(yaml_data))
 
         warnings = validate_personas_file(str(yaml_path), str(schema_path), block=False)
@@ -758,7 +820,9 @@ class TestWarnBlockToggle:
     Block mode (--block flag): any rule violation causes exit non-zero.
     """
 
-    def _write_minimal_files(self, tmp_path, questions: list[str], deprecated: bool = False) -> tuple[Path, Path]:
+    def _write_minimal_files(
+        self, tmp_path, questions: list[str] | None, deprecated: bool = False
+    ) -> tuple[Path, Path]:
         """Write a schema and personas YAML with a single persona to tmp_path."""
         schema_path = tmp_path / "personas.schema.json"
         yaml_path = tmp_path / "personas.yaml"
@@ -797,6 +861,21 @@ class TestWarnBlockToggle:
         with pytest.raises(SystemExit) as exc_info:
             validate_personas_file(str(yaml_path), str(schema_path), block=True)
         assert exc_info.value.code != 0
+
+    def test_block_mode_missing_identification_questions_signals_failure(self, tmp_path, capsys):
+        """
+        Block mode also fails when the missing identificationQuestions warning fires.
+
+        Given: A non-deprecated persona with no identificationQuestions key
+        When: validate_personas_file is called with block=True
+        Then: It raises SystemExit with a non-zero code and emits the missing-block warning
+        """
+        yaml_path, schema_path = self._write_minimal_files(tmp_path, questions=None)
+        with pytest.raises(SystemExit) as exc_info:
+            validate_personas_file(str(yaml_path), str(schema_path), block=True)
+        assert exc_info.value.code != 0
+        captured = capsys.readouterr()
+        assert "non-deprecated persona missing identificationQuestions block" in captured.err
 
     def test_block_mode_clean_input_exits_0(self, tmp_path):
         """
@@ -1183,13 +1262,13 @@ class TestCorpusIntegration:
 """
 Test Summary
 ============
-Total Tests: 55 across 9 test classes
+Total Tests: 59 across 9 test classes
 
-Rule 1 — Count:                8 tests  (TestRule1Count)
+Rule 1 — Presence/count:       11 tests  (TestRule1Count)
 Rule 2 — Second-person opener: 9 tests  (TestRule2SecondPersonOpener)
 Rule 3 — Parenthetical:       13 tests  (TestRule3ParentheticalCardinality)
 Rule 4 — e.g. not i.e.:       7 tests  (TestRule4EgNotIe)
-Warn/block toggle:             7 tests  (TestWarnBlockToggle)
+Warn/block toggle:             8 tests  (TestWarnBlockToggle)
 Stderr format:                 4 tests  (TestStderrFormat)
 Schema-driven enumeration:     5 tests  (TestSchemaDrivenEnumeration)
 Integration (corpus):          2 tests  (TestCorpusIntegration)
@@ -1200,6 +1279,8 @@ Depth-aware nested-paren tests (Rule 3):
   - test_nested_parenthetical_with_or_separator_inside_inner_paren
 
 Coverage areas:
+  - validate_personas_file: missing identificationQuestions presence warning,
+    deprecated missing-block exemption, empty-list count fallback
   - check_count_rule: all branches (0, <5, 5, 6, 7, >7)
   - check_opener_rule: all approved openers + multiple rejection cases
   - check_parenthetical_cardinality_rule: 1/2/3/4/5 items, comma vs. or, none,
