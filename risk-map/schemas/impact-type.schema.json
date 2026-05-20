@@ -47,7 +47,8 @@
           "description": "Whether this is a traditional security concern or AI-specific"
         }
       },
-      "required": ["id", "title", "description"]
+      "required": ["id", "title", "description"],
+      "additionalProperties": false
     }
   }
 }

@@ -6,7 +6,7 @@
   "type": "object",
   "properties": {
     "title": { "type": "string" },
-    "description": { "$ref": "riskmap.schema.json#/definitions/utils/text" },
+    "description": { "$ref": "riskmap.schema.json#/definitions/utils/prose-strict" },
     "categories": {
       "type": "array",
       "items": { "$ref": "#/definitions/category" }
@@ -34,9 +34,10 @@
           "type": "array",
           "items": { "$ref": "#/definitions/subcategory" }
         },
-        "description": { "$ref": "riskmap.schema.json#/definitions/utils/text" }
+        "description": { "$ref": "riskmap.schema.json#/definitions/utils/prose-strict" }
       },
-      "required": ["id", "title"]
+      "required": ["id", "title"],
+      "additionalProperties": false
     },
     "subcategory": {
       "type": "object",
@@ -54,9 +55,10 @@
           ]
         },
         "title": { "type": "string" },
-        "description": { "$ref": "riskmap.schema.json#/definitions/utils/text" }
+        "description": { "$ref": "riskmap.schema.json#/definitions/utils/prose-strict" }
       },
-      "required": ["id", "title"]
+      "required": ["id", "title"],
+      "additionalProperties": false
     },
     "component": {
       "type": "object",
@@ -94,7 +96,7 @@
           ]
         },
         "title": { "type": "string" },
-        "description": { "$ref": "riskmap.schema.json#/definitions/utils/text" },
+        "description": { "$ref": "riskmap.schema.json#/definitions/utils/prose-strict" },
         "category": {
           "$ref": "#/definitions/category/properties/id"
         },
@@ -131,7 +133,8 @@
           "$ref": "external-references.schema.json#/definitions/externalReferences"
         }
       },
-      "required": ["id", "title", "category", "edges"]
+      "required": ["id", "title", "category", "edges"],
+      "additionalProperties": false
     },
     "edges": {
       "type": "object",
@@ -145,7 +148,8 @@
           "items": { "$ref": "#/definitions/component/properties/id" }
         }
       },
-      "anyOf": [{ "required": ["to"] }, { "required": ["from"] }]
+      "anyOf": [{ "required": ["to"] }, { "required": ["from"] }],
+      "additionalProperties": false
     }
   }
 }

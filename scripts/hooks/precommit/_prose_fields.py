@@ -2,8 +2,16 @@
 Shared prose-field discovery for the ADR-017/ADR-016 prose linters.
 
 Both ``validate_yaml_prose_subset`` and ``validate_prose_references`` import
-``find_prose_fields`` from here so the iteration shape is identical.  The
-schema's ``utils/text`` definition admits one level of nesting::
+``find_prose_fields`` from here so the iteration shape is identical.  Prose
+fields are identified by one of two recognised ``$ref`` markers:
+
+- ``riskmap.schema.json#/definitions/utils/prose-strict`` — used by the four
+  content schemas (risks, controls, components, personas) after the
+  prose-strict schema migration (ADR-017/ADR-019).
+- ``riskmap.schema.json#/definitions/utils/text`` — used by supporting schemas
+  (frameworks, actor-access, impact-type, lifecycle-stage, self-assessment).
+
+Both refs admit one level of nesting::
 
     {type: array, items: {oneOf: [
         {type: string},
@@ -34,20 +42,26 @@ import yaml
 from precommit._linter_types import ProseField
 from precommit._prose_tokens import tokenize
 
-# $ref value that marks a field as a prose field in schema definitions.
-_PROSE_REF = "riskmap.schema.json#/definitions/utils/text"
+# Both $ref values that mark a field as a prose field in schema definitions.
+# utils/prose-strict is used by content schemas; utils/text by supporting schemas.
+_PROSE_REFS: frozenset[str] = frozenset(
+    {
+        "riskmap.schema.json#/definitions/utils/text",
+        "riskmap.schema.json#/definitions/utils/prose-strict",
+    }
+)
 
 
 def _is_prose_ref(ref: str) -> bool:
-    """Return True if the $ref value marks a prose field."""
-    return ref == _PROSE_REF
+    """Return True if the $ref value marks a prose field (either utils/text or utils/prose-strict)."""
+    return ref in _PROSE_REFS
 
 
 def _walk_property(path: str, prop_schema: dict, names: list[str]) -> None:
     """Recursively collect prose-marked field paths.
 
     Handles three cases:
-    - Leaf prose ref (e.g. shortDescription -> $ref: .../utils/text)
+    - Leaf prose ref (e.g. shortDescription -> $ref: .../utils/text or .../utils/prose-strict)
     - Array of objects (e.g. entries[].description) -- walks items.properties
     - Nested object (e.g. tourContent.introduced) -- walks its properties
 
@@ -99,11 +113,12 @@ def _find_prose_field_names_in_schema(schema: dict) -> list[str]:
 def _find_wrapper_prose_field_names_in_schema(schema: dict) -> list[str]:
     """Return prose field names declared directly at the schema root.
 
-    Wrapper case: a top-level property whose ``$ref`` resolves to ``utils/text``
-    -- the prose field is keyed at the YAML document root, sibling to any
-    entity arrays.  Only direct ``$ref`` matches are returned; array-typed
-    top-level properties (entity arrays) are intentionally ignored here -- the
-    entity-array path is handled by ``_find_prose_field_names_in_schema``.
+    Wrapper case: a top-level property whose ``$ref`` resolves to either
+    ``utils/text`` or ``utils/prose-strict`` -- the prose field is keyed at the
+    YAML document root, sibling to any entity arrays.  Only direct ``$ref``
+    matches are returned; array-typed top-level properties (entity arrays) are
+    intentionally ignored here -- the entity-array path is handled by
+    ``_find_prose_field_names_in_schema``.
 
     Args:
         schema: Parsed JSON schema dict.
@@ -196,7 +211,7 @@ def _collect_entries(data: dict, schema: dict) -> Iterator[tuple[str, dict]]:
 def _iter_prose_strings(field_value: object) -> Iterator[tuple[int, int | None, str]]:
     """Yield ``(index, nested_index, raw_text)`` tuples for every prose string.
 
-    Handles four shape cases admitted by the ``utils/text`` schema:
+    Handles four shape cases admitted by the ``utils/text`` and ``utils/prose-strict`` schemas:
 
     - **Bare string** -- yields ``(0, None, value)``.
     - **Flat array of strings** -- yields ``(idx, None, value)`` per element.
@@ -240,6 +255,7 @@ def find_prose_fields(yaml_path: Path, schema_dir: Path) -> Iterator[ProseField]
     """Yield ProseField objects for every prose string in a YAML file.
 
     Schema introspection drives field discovery: only properties marked with
+    ``$ref: riskmap.schema.json#/definitions/utils/prose-strict`` or
     ``$ref: riskmap.schema.json#/definitions/utils/text`` are treated as prose
     fields. The YAML file is matched to a schema by stem name first, then by
     top-level array-key overlap.
@@ -309,8 +325,9 @@ def find_prose_fields(yaml_path: Path, schema_dir: Path) -> Iterator[ProseField]
                 )
 
     # File-level wrapper path: prose fields declared at the schema root with
-    # a direct ``$ref`` to ``utils/text``.  The synthetic entry_id is the
-    # YAML file stem so wrapper diagnostics carry a stable, file-scoped id.
+    # a direct ``$ref`` to ``utils/text`` or ``utils/prose-strict``.  The
+    # synthetic entry_id is the YAML file stem so wrapper diagnostics carry a
+    # stable, file-scoped id.
     if wrapper_field_names:
         wrapper_entry_id = yaml_path.stem
         for field_name in wrapper_field_names:

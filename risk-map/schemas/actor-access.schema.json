@@ -46,7 +46,8 @@
           "description": "Whether this is a traditional or modern/AI-specific access level"
         }
       },
-      "required": ["id", "title", "description"]
+      "required": ["id", "title", "description"],
+      "additionalProperties": false
     }
   }
 }

@@ -22,7 +22,6 @@ Coverage:
 - Current risks.yaml and controls.yaml still pass check-jsonschema.
 """
 
-import json
 import subprocess
 import sys
 from pathlib import Path
@@ -30,10 +29,12 @@ from pathlib import Path
 import pytest
 from jsonschema import Draft7Validator
 from jsonschema.exceptions import SchemaError
-from referencing import Registry, Resource
-from referencing.jsonschema import DRAFT7
+from referencing import Registry
 
+sys.path.insert(0, str(Path(__file__).parent))
 sys.path.insert(0, str(Path(__file__).parent.parent))
+
+from conftest import _load_schema, _make_registry  # noqa: E402, I001  conftest needs sys.path manipulation
 
 
 # ============================================================================
@@ -102,31 +103,6 @@ EU_AI_ACT_VALID: list[str] = ["Article 5", "Article 5(1)", "Article 50"]
 # ============================================================================
 
 
-def _load_schema(schemas_dir: Path, filename: str) -> dict:
-    path = schemas_dir / filename
-    if not path.is_file():
-        pytest.fail(f"Schema not found: {path}")
-    with open(path) as fh:
-        return json.load(fh)
-
-
-def _make_registry(schemas_dir: Path) -> Registry:
-    """
-    Build a referencing.Registry that resolves bare-filename $refs against
-    schemas in the given directory. Replaces the deprecated jsonschema.RefResolver.
-    """
-
-    def retrieve(uri: str):
-        # The validator hands us the URI portion of a $ref; for our refs the
-        # URI is a bare schema filename relative to schemas_dir.
-        name = uri.rsplit("/", 1)[-1]
-        path = schemas_dir / name
-        with open(path) as fh:
-            return Resource.from_contents(json.load(fh), default_specification=DRAFT7)
-
-    return Registry(retrieve=retrieve)
-
-
 @pytest.fixture(scope="module")
 def risks_schema(risk_map_schemas_dir: Path) -> dict:
     return _load_schema(risk_map_schemas_dir, "risks.schema.json")
@@ -138,7 +114,7 @@ def controls_schema(risk_map_schemas_dir: Path) -> dict:
 
 
 @pytest.fixture(scope="module")
-def schemas_registry(risk_map_schemas_dir: Path) -> Registry:
+def schemas_registry(risk_map_schemas_dir: Path):
     """Shared registry for risks + controls cross-file $ref resolution."""
     return _make_registry(risk_map_schemas_dir)
 
