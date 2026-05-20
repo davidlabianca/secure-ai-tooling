@@ -2,8 +2,9 @@
 """
 Pre-commit lint: ADR-017 D4 prose grammar subset for risk-map YAML files.
 
-Walks every prose field identified by schema introspection (fields marked as
-``$ref: riskmap.schema.json#/definitions/utils/text``) and rejects any INVALID_*
+Walks every prose field identified by schema introspection (fields marked with
+either ``$ref: riskmap.schema.json#/definitions/utils/prose-strict`` on content
+schemas or ``…/utils/text`` on supporting schemas) and rejects any INVALID_*
 token kind produced by the shared tokenizer, except INVALID_CAMELCASE_ID which
 is explicitly delegated to validate_prose_references per ADR-017 D4 rule 5.
 
