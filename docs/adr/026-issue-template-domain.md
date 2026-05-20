@@ -1,6 +1,6 @@
 # ADR-026: Issue-template domain — generator scope, schema-derived enums, and ADR-content alignment contract
 
-**Status:** Draft
+**Status:** Accepted
 **Date:** 2026-05-19
 **Authors:** Architect agent, with maintainer review
 
