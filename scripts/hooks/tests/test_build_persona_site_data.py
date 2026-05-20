@@ -16,6 +16,7 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO_ROOT))
 
 from scripts.build_persona_site_data import (  # noqa: E402
+    GUIDED_QUESTION_THRESHOLD,
     _make_schema_registry,
     build_site_data,
     humanize_identifier,
@@ -54,7 +55,7 @@ def test_build_site_data_classifies_guided_and_manual_fallback_personas(
     risks_yaml_path: Path,
     controls_yaml_path: Path,
 ):
-    """Personas with incomplete question coverage should be routed through manual fallback."""
+    """All active personas now meet the guided question threshold, so none route to manual fallback."""
     site_data = build_site_data(
         load_yaml(personas_yaml_path),
         load_yaml(risks_yaml_path),
@@ -70,14 +71,40 @@ def test_build_site_data_classifies_guided_and_manual_fallback_personas(
     assert persona_by_id["personaApplicationDeveloper"]["matchMode"] == "guided"
     assert persona_by_id["personaGovernance"]["matchMode"] == "guided"
     assert persona_by_id["personaEndUser"]["matchMode"] == "guided"
+    assert persona_by_id["personaModelServing"]["matchMode"] == "guided"
 
-    assert set(site_data["manualFallbackPersonaIds"]) == {
-        "personaModelServing",
-    }
+    # personaModelServing was the last persona without identification questions
+    # (the gap closed in #330). With it now at 6 questions, no live persona
+    # falls below GUIDED_QUESTION_THRESHOLD. The manual-fallback branch is held
+    # under test by test_build_site_data_routes_below_threshold_to_manual_fallback.
+    assert site_data["manualFallbackPersonaIds"] == []
     assert persona_by_id["personaDataProvider"]["questionCount"] == 6
     assert persona_by_id["personaApplicationDeveloper"]["questionCount"] == 6
     assert persona_by_id["personaGovernance"]["questionCount"] == 6
-    assert persona_by_id["personaModelServing"]["questionCount"] == 0
+    assert persona_by_id["personaModelServing"]["questionCount"] == 6
+
+
+def test_build_site_data_routes_below_threshold_to_manual_fallback():
+    """A persona with fewer than GUIDED_QUESTION_THRESHOLD questions routes to manual fallback.
+
+    The live corpus no longer exercises this branch (personaModelServing reached
+    the threshold in #330), so this synthetic case keeps the manual path covered.
+    """
+    questions = [f"Do you do task {n}?" for n in range(GUIDED_QUESTION_THRESHOLD - 1)]
+    personas_data = {
+        "personas": [
+            {"id": "personaSparse", "title": "Sparse", "identificationQuestions": questions},
+        ]
+    }
+    risks_data = {"risks": []}
+    controls_data = {"controls": [], "categories": []}
+
+    site_data = build_site_data(personas_data, risks_data, controls_data)
+    persona_by_id = {persona["id"]: persona for persona in site_data["personas"]}
+
+    assert persona_by_id["personaSparse"]["matchMode"] == "manual"
+    assert persona_by_id["personaSparse"]["questionCount"] == GUIDED_QUESTION_THRESHOLD - 1
+    assert site_data["manualFallbackPersonaIds"] == ["personaSparse"]
 
 
 def test_build_site_data_preserves_question_order_and_prompt_mapping(
