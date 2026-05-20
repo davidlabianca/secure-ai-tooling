@@ -7,8 +7,10 @@ config exactly. Each hook only runs when its trigger files are staged; unused
 hooks show `(no files to check) Skipped` in the output.
 
 1. **Schema Validation** — one `check-jsonschema` hook per yaml/schema pair
-   (10 pairs: actor-access, components, controls, frameworks, impact-type,
-   lifecycle-stage, mermaid-styles, personas, risks, self-assessment).
+   (9 pairs: actor-access, components, controls, frameworks, impact-type,
+   lifecycle-stage, mermaid-styles, personas, risks), plus a dedicated hook
+   for the archived legacy self-assessment pair under
+   `risk-map/(yaml|schemas)/archive/` (per ADR-021 D6).
 2. **Schema Meta-Validation** — `check-metaschema` validates each
    `risk-map/schemas/*.schema.json` is itself a structurally valid JSON
    Schema against its declared `$schema` metaschema.

@@ -118,15 +118,15 @@ repos:
           - file://./risk-map/schemas/
           - risk-map/yaml/risks.yaml
       - id: check-jsonschema
-        name: 'schema: self-assessment.yaml'
-        files: ^risk-map/(yaml/self-assessment\.yaml|schemas/self-assessment\.schema\.json)$
+        name: 'schema: self-assessment-legacy.yaml'
+        files: ^risk-map/(yaml/archive/self-assessment-legacy\.yaml|schemas/archive/self-assessment-legacy\.schema\.json)$
         pass_filenames: false
         args:
           - --schemafile
-          - risk-map/schemas/self-assessment.schema.json
+          - risk-map/schemas/archive/self-assessment-legacy.schema.json
           - --base-uri
           - file://./risk-map/schemas/
-          - risk-map/yaml/self-assessment.yaml
+          - risk-map/yaml/archive/self-assessment-legacy.yaml
 
   # ---------------------------------------------------------------------------
   # Metaschema check: validate that each .schema.json file in risk-map/schemas/
