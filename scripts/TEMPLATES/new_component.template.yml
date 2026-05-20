@@ -49,11 +49,13 @@ body:
     validations:
       required: true
 
-  - type: input
+  - type: dropdown
     id: component-subcategory
     attributes:
       label: Component Subcategory (Optional)
       description: Subcategory if applicable
+      options:
+        {{COMPONENT_SUBCATEGORIES}}
 
   - type: markdown
     attributes:

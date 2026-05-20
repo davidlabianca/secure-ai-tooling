@@ -106,11 +106,23 @@ Current placeholders and their schema sources:
 | `{{CONTROL_CATEGORIES}}` | `controls.schema.json` → `definitions.category.properties.id` | dropdown | |
 | `{{RISK_CATEGORIES}}` | `risks.schema.json` → `definitions.risk.properties.category` | dropdown | |
 | `{{COMPONENT_CATEGORIES}}` | `components.schema.json` → `definitions.category.properties.id` | dropdown | |
+| `{{COMPONENT_SUBCATEGORIES}}` | `components.schema.json` → `definitions.subcategory.properties.id` | dropdown | Closed 7-value subcategory enum (ADR-026 D3). |
 | `{{CONTROL_FRAMEWORKS_LIST}}` | `risk-map/yaml/frameworks.yaml` (entries with `controls` in `appliesTo`) | inline text | Comma-separated framework IDs for the framework-mappings field description. |
 | `{{RISK_FRAMEWORKS_LIST}}` | `risk-map/yaml/frameworks.yaml` (entries with `risks` in `appliesTo`) | inline text | Comma-separated framework IDs for the framework-mappings field description. |
 | `{{FRAMEWORK_MAPPINGS}}` | `risk-map/yaml/frameworks.yaml` | textarea blocks | Expands into one textarea per applicable framework. Reserved for future template surfaces; not currently used in the five active sources. |
 
 `{{*_FRAMEWORKS_LIST}}` and `{{FRAMEWORK_MAPPINGS}}` read from `frameworks.yaml`, not a JSON schema. The other placeholders are `PLACEHOLDER_MAPPINGS` entries in `scripts/hooks/issue_template_generator/template_renderer.py`; framework placeholders are handled by dedicated branches in `expand_placeholders`.
+
+### Schema-mirrored test constants
+
+Some renderer unit tests hardcode the expected enum values for a placeholder so they can assert on rendered output without re-deriving it from the schema — for example `_EXPECTED_SUBCATEGORY_VALUES` in `scripts/hooks/issue_template_generator/tests/test_template_renderer.py`. These constants are **mirrors, not sources of truth**: the JSON schema under `risk-map/schemas/` owns the enum.
+
+A mirror that nobody cross-checks drifts silently — the fixture-based tests keep passing against the stale constant while the production schema moves on. The convention that prevents this:
+
+- Any test constant that mirrors a closed-enum schema field MUST be paired with one integration test that loads the **real** schema and asserts the constant matches it. For the subcategory enum that guard is `test_expand_component_subcategories_with_production_schema`.
+- The constant's comment names the schema path it mirrors and the guard test that holds it honest, so a maintainer editing the enum knows the schema is authoritative and where the cross-check lives.
+
+This is the issue-template-generator instance of a general rule; the project-wide test-maintenance home for it is the pending ADR-025 D4 contributor doc (`scripts/docs/testing.md`).
 
 ---
 
