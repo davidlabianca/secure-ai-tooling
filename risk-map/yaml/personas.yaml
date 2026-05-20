@@ -142,6 +142,25 @@ personas:
       - Implement runtime privacy-enhancing technologies to protect sensitive input data
       - Provide transparency mechanisms regarding model serving parameters and data usage
       - Facilitate red teaming and adversarial simulation to validate model serving security
+    identificationQuestions:
+      - >-
+        Do you operate or manage the runtime service that serves AI/ML model predictions to
+        applications, users, or downstream systems?
+      - >-
+        Do you expose or secure model inference endpoints at the serving layer, including
+        request handling, authentication, authorization, or rate limiting?
+      - >-
+        Are you responsible for selecting, loading, or routing requests to deployed model
+        versions during inference?
+      - >-
+        Do you validate or sanitize inference inputs before they reach a model, including prompts,
+        feature payloads, or API requests?
+      - >-
+        Do you monitor, filter, or enforce controls on model outputs before they are returned
+        to callers or users?
+      - >-
+        Do you verify deployed model artifacts, runtime configuration, or serving routes before
+        or during inference?
 
   - id: personaAgenticProvider
     title: Agentic Platform and Framework Providers
