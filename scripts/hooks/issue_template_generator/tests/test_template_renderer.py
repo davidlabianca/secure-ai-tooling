@@ -2812,3 +2812,429 @@ class TestExcludeIdsMechanism:
         # Deprecated legacy personas must still be absent
         assert "personaModelCreator" not in result
         assert "personaModelConsumer" not in result
+
+
+# ============================================================================
+# ADR-026 D3 / D6.5 — COMPONENT_SUBCATEGORIES placeholder unit tests
+#
+# Mirrors the style of existing COMPONENT_CATEGORIES tests above.
+# The 7 subcategory enum values are sourced from
+# components.schema.json / definitions.subcategory.properties.id.
+#
+# This class pins the COMPONENT_SUBCATEGORIES placeholder contract, closed by #326:
+#   - COMPONENT_SUBCATEGORIES is registered in PLACEHOLDER_MAPPINGS
+#   - it is wired to components.schema.json subcategory enum path
+# Issue: #326 / ADR-026 D3
+# ============================================================================
+
+# Mirror of the components.schema.json subcategory enum
+# (definitions.subcategory.properties.id), in schema-declaration order. The
+# schema is the source of truth; this list is a convenience mirror for the
+# fixture-based unit tests below. test_expand_component_subcategories_with_production_schema
+# cross-checks it against the real schema, so a drifted mirror fails a test
+# rather than silently passing.
+_EXPECTED_SUBCATEGORY_VALUES = [
+    "componentsModelTraining",
+    "componentsData",
+    "componentsAgent",
+    "componentsOrchestration",
+    "componentsModelDeployment",
+    "componentsModelCore",
+    "componentsApplicationCore",
+]
+
+
+@pytest.fixture
+def sample_schema_parser_with_subcategories(tmp_path: Path) -> "SchemaParser":
+    """
+    Create a SchemaParser with a components schema that includes both
+    category and subcategory definitions for testing COMPONENT_SUBCATEGORIES.
+    """
+    import json
+
+    schema_dir = tmp_path / "schemas"
+    schema_dir.mkdir()
+
+    components_schema = {
+        "$id": "components.schema.json",
+        "definitions": {
+            "category": {
+                "properties": {
+                    "id": {"enum": ["componentsInfrastructure", "componentsModel", "componentsApplication"]}
+                }
+            },
+            "subcategory": {
+                "properties": {
+                    "id": {
+                        "enum": [
+                            "componentsModelTraining",
+                            "componentsData",
+                            "componentsAgent",
+                            "componentsOrchestration",
+                            "componentsModelDeployment",
+                            "componentsModelCore",
+                            "componentsApplicationCore",
+                        ]
+                    }
+                }
+            },
+            "component": {"properties": {"id": {"enum": ["componentDataSources", "componentModelServing"]}}},
+        },
+    }
+    (schema_dir / "components.schema.json").write_text(json.dumps(components_schema))
+    return SchemaParser(schema_dir)
+
+
+class TestComponentSubcategoriesPlaceholder:
+    """
+    Unit tests for {{COMPONENT_SUBCATEGORIES}} placeholder expansion.
+
+    Contract (ADR-026 D3):
+    - COMPONENT_SUBCATEGORIES must exist in PLACEHOLDER_MAPPINGS
+    - field_type must be 'dropdown' (same as COMPONENT_CATEGORIES)
+    - schema_paths must point to components.schema.json /
+      definitions.subcategory.properties.id
+    - Expanded output must be a plain-string list (no label/value objects)
+    - The 7 enum values must render in schema-declaration order
+    """
+
+    def test_component_subcategories_exists_in_placeholder_mappings(self) -> None:
+        """
+        Asserts that COMPONENT_SUBCATEGORIES is registered in PLACEHOLDER_MAPPINGS.
+
+        Given: TemplateRenderer.PLACEHOLDER_MAPPINGS
+        When: The 'COMPONENT_SUBCATEGORIES' key is looked up
+        Then: The key exists
+
+        Pins that COMPONENT_SUBCATEGORIES is registered in PLACEHOLDER_MAPPINGS.
+        Issue: #326 / ADR-026 D3
+        """
+        assert "COMPONENT_SUBCATEGORIES" in TemplateRenderer.PLACEHOLDER_MAPPINGS, (
+            "COMPONENT_SUBCATEGORIES missing from PLACEHOLDER_MAPPINGS (ADR-026 D3). "
+            "The subcategory field is a closed enum and must be registered."
+        )
+
+    def test_component_subcategories_field_type_is_dropdown(self) -> None:
+        """
+        Asserts that COMPONENT_SUBCATEGORIES has field_type='dropdown',
+        consistent with COMPONENT_CATEGORIES (plain-string list for GitHub dropdowns).
+
+        Given: PLACEHOLDER_MAPPINGS['COMPONENT_SUBCATEGORIES']
+        When: field_type is read
+        Then: field_type == 'dropdown'
+
+        Pins the COMPONENT_SUBCATEGORIES mapping registration. Issue: #326
+        """
+        assert "COMPONENT_SUBCATEGORIES" in TemplateRenderer.PLACEHOLDER_MAPPINGS
+        field_type = TemplateRenderer.PLACEHOLDER_MAPPINGS["COMPONENT_SUBCATEGORIES"].get("field_type")
+        assert field_type == "dropdown", (
+            f"COMPONENT_SUBCATEGORIES field_type must be 'dropdown', got: {field_type!r}"
+        )
+
+    def test_component_subcategories_schema_path_is_correct(self) -> None:
+        """
+        Asserts that COMPONENT_SUBCATEGORIES schema_paths entry references
+        components.schema.json and definitions.subcategory.properties.id.
+
+        Given: PLACEHOLDER_MAPPINGS['COMPONENT_SUBCATEGORIES']
+        When: schema_paths is examined
+        Then: Contains ('components.schema.json', 'definitions.subcategory.properties.id')
+
+        Pins the COMPONENT_SUBCATEGORIES mapping registration. Issue: #326
+        """
+        assert "COMPONENT_SUBCATEGORIES" in TemplateRenderer.PLACEHOLDER_MAPPINGS
+        schema_paths = TemplateRenderer.PLACEHOLDER_MAPPINGS["COMPONENT_SUBCATEGORIES"].get("schema_paths", [])
+        assert ("components.schema.json", "definitions.subcategory.properties.id") in schema_paths, (
+            f"Expected ('components.schema.json', 'definitions.subcategory.properties.id') "
+            f"in schema_paths, got: {schema_paths}"
+        )
+
+    def test_expand_component_subcategories_placeholder_produces_dropdown_format(
+        self,
+        sample_schema_parser_with_subcategories: SchemaParser,
+        sample_frameworks_data: dict[str, Any],
+    ) -> None:
+        """
+        Asserts that expanding {{COMPONENT_SUBCATEGORIES}} yields a plain-string
+        dropdown list (same format as {{COMPONENT_CATEGORIES}}).
+
+        Given: Template stub with {{COMPONENT_SUBCATEGORIES}} and entity_type='components'
+        When: expand_placeholders() is called
+        Then: Placeholder is removed and plain-string list items appear (no label/value)
+
+        Pins COMPONENT_SUBCATEGORIES presence in PLACEHOLDER_MAPPINGS.
+        Issue: #326
+        """
+        renderer = TemplateRenderer(sample_schema_parser_with_subcategories, sample_frameworks_data)
+        template = """options:
+        {{COMPONENT_SUBCATEGORIES}}"""
+
+        result = renderer.expand_placeholders(template, "components")
+
+        assert "{{COMPONENT_SUBCATEGORIES}}" not in result, (
+            "Placeholder was not expanded (COMPONENT_SUBCATEGORIES not in PLACEHOLDER_MAPPINGS)."
+        )
+        # Dropdown format: plain strings, not label/value objects
+        assert "label:" not in result
+        assert "value:" not in result
+        for value in _EXPECTED_SUBCATEGORY_VALUES:
+            assert f"- {value}" in result, f"Expected subcategory value missing: {value}"
+
+    def test_expand_component_subcategories_all_seven_values_present(
+        self,
+        sample_schema_parser_with_subcategories: SchemaParser,
+        sample_frameworks_data: dict[str, Any],
+    ) -> None:
+        """
+        Asserts all 7 subcategory enum values are present in the expansion.
+
+        Given: Template with {{COMPONENT_SUBCATEGORIES}}
+        When: expand_placeholders() is called
+        Then: All 7 values are rendered as dropdown items
+
+        Pins ADR-026 D3 dropdown rendering. Issue: #326 / ADR-026 D3
+        """
+        renderer = TemplateRenderer(sample_schema_parser_with_subcategories, sample_frameworks_data)
+        template = """options:
+        {{COMPONENT_SUBCATEGORIES}}"""
+
+        result = renderer.expand_placeholders(template, "components")
+
+        assert "{{COMPONENT_SUBCATEGORIES}}" not in result
+        for value in _EXPECTED_SUBCATEGORY_VALUES:
+            assert value in result, f"Subcategory enum value '{value}' missing from expanded output."
+
+    def test_expand_component_subcategories_preserves_declaration_order(
+        self,
+        sample_schema_parser_with_subcategories: SchemaParser,
+        sample_frameworks_data: dict[str, Any],
+    ) -> None:
+        """
+        Asserts that the 7 subcategory values appear in schema-declaration order.
+
+        Given: Template with {{COMPONENT_SUBCATEGORIES}}
+        When: expand_placeholders() is called
+        Then: Values appear in the same order as the schema enum
+
+        Pins ADR-026 D3 dropdown rendering. Issue: #326 / ADR-026 D3
+        """
+        renderer = TemplateRenderer(sample_schema_parser_with_subcategories, sample_frameworks_data)
+        template = """options:
+        {{COMPONENT_SUBCATEGORIES}}"""
+
+        result = renderer.expand_placeholders(template, "components")
+
+        assert "{{COMPONENT_SUBCATEGORIES}}" not in result
+        positions = [result.index(v) for v in _EXPECTED_SUBCATEGORY_VALUES]
+        assert positions == sorted(positions), (
+            "Subcategory values are not in schema-declaration order. "
+            f"Expected order: {_EXPECTED_SUBCATEGORY_VALUES}."
+        )
+
+    def test_expand_component_subcategories_preserves_indentation(
+        self,
+        sample_schema_parser_with_subcategories: SchemaParser,
+        sample_frameworks_data: dict[str, Any],
+    ) -> None:
+        """
+        Asserts that indentation is preserved when expanding {{COMPONENT_SUBCATEGORIES}},
+        consistent with the existing COMPONENT_CATEGORIES indentation behaviour.
+
+        Given: Template with 8-space indented {{COMPONENT_SUBCATEGORIES}}
+        When: expand_placeholders() is called
+        Then: All expanded items start with 8-space indentation
+
+        Pinned by #326. Issue: #326
+        """
+        renderer = TemplateRenderer(sample_schema_parser_with_subcategories, sample_frameworks_data)
+        template = """body:
+  - type: dropdown
+    attributes:
+      options:
+        {{COMPONENT_SUBCATEGORIES}}"""
+
+        result = renderer.expand_placeholders(template, "components")
+
+        lines = result.split("\n")
+        subcategory_lines = [line for line in lines if any(v in line for v in _EXPECTED_SUBCATEGORY_VALUES)]
+        assert len(subcategory_lines) == len(_EXPECTED_SUBCATEGORY_VALUES), (
+            "Not all subcategory values are present as distinct lines."
+        )
+        for line in subcategory_lines:
+            assert line.startswith("        - "), f"Subcategory dropdown item has incorrect indentation: {line!r}"
+
+    def test_expand_component_subcategories_no_quotes(
+        self,
+        sample_schema_parser_with_subcategories: SchemaParser,
+        sample_frameworks_data: dict[str, Any],
+    ) -> None:
+        """
+        Asserts that expanded subcategory values have no quotes, consistent with
+        how other dropdown placeholders render (COMPONENT_CATEGORIES, etc.).
+
+        Given: Template with {{COMPONENT_SUBCATEGORIES}}
+        When: expand_placeholders() is called
+        Then: No quoted value strings appear in the expanded output
+
+        Pinned by #326. Issue: #326
+        """
+        renderer = TemplateRenderer(sample_schema_parser_with_subcategories, sample_frameworks_data)
+        template = """options:
+        {{COMPONENT_SUBCATEGORIES}}"""
+
+        result = renderer.expand_placeholders(template, "components")
+
+        assert "{{COMPONENT_SUBCATEGORIES}}" not in result
+        for value in _EXPECTED_SUBCATEGORY_VALUES:
+            assert f'"{value}"' not in result, f"Value '{value}' should not be quoted in dropdown output."
+            assert f"- {value}" in result, f"Plain unquoted value '{value}' not found."
+
+    def test_expand_component_subcategories_parses_as_valid_yaml_dropdown(
+        self,
+        sample_schema_parser_with_subcategories: SchemaParser,
+        sample_frameworks_data: dict[str, Any],
+    ) -> None:
+        """
+        Asserts that the expanded {{COMPONENT_SUBCATEGORIES}} renders as a valid
+        YAML list of strings that GitHub's issue form schema accepts for dropdown
+        options (string list, not object list).
+
+        Given: Full dropdown field template with {{COMPONENT_SUBCATEGORIES}}
+        When: expand_placeholders() is called and output is parsed as YAML
+        Then: options is a list of strings, not a list of objects
+
+        Pins ADR-026 D3 dropdown rendering. Issue: #326 / ADR-026 D3
+        """
+        import yaml
+
+        renderer = TemplateRenderer(sample_schema_parser_with_subcategories, sample_frameworks_data)
+        template = """body:
+  - type: dropdown
+    id: component-subcategory
+    attributes:
+      label: Component Subcategory
+      options:
+        {{COMPONENT_SUBCATEGORIES}}"""
+
+        result = renderer.expand_placeholders(template, "components")
+        parsed = yaml.safe_load(result)
+
+        options = parsed["body"][0]["attributes"]["options"]
+        assert isinstance(options, list), "Dropdown options must be a list."
+        assert all(isinstance(opt, str) for opt in options), (
+            "Dropdown options must be plain strings (not objects) for GitHub issue forms."
+        )
+        assert len(options) == len(_EXPECTED_SUBCATEGORY_VALUES), (
+            f"Expected {len(_EXPECTED_SUBCATEGORY_VALUES)} options, got {len(options)}."
+        )
+
+    def test_expand_component_subcategories_with_production_schema(
+        self, risk_map_schemas_dir: Path, sample_frameworks_data: dict[str, Any]
+    ) -> None:
+        """
+        Integration test: expand {{COMPONENT_SUBCATEGORIES}} using the actual
+        production components.schema.json and verify all 7 production values render.
+
+        Given: The real components.schema.json from risk-map/schemas/
+        When: expand_placeholders() is called with entity_type='components'
+        Then: All 7 production subcategory values appear as dropdown items
+
+        Pins COMPONENT_SUBCATEGORIES presence in PLACEHOLDER_MAPPINGS.
+        Issue: #326 / ADR-026 D3
+        """
+        parser = SchemaParser(risk_map_schemas_dir)
+        renderer = TemplateRenderer(parser, sample_frameworks_data)
+
+        template = """options:
+        {{COMPONENT_SUBCATEGORIES}}"""
+
+        result = renderer.expand_placeholders(template, "components")
+
+        assert "{{COMPONENT_SUBCATEGORIES}}" not in result
+        for value in _EXPECTED_SUBCATEGORY_VALUES:
+            assert value in result, f"Production subcategory value '{value}' missing from expanded output."
+
+    def test_component_subcategories_expansion_is_symmetric_with_categories(
+        self,
+        sample_schema_parser_with_subcategories: SchemaParser,
+        sample_frameworks_data: dict[str, Any],
+    ) -> None:
+        """
+        Asserts that expanding both {{COMPONENT_CATEGORIES}} and
+        {{COMPONENT_SUBCATEGORIES}} in the same template produces correct
+        independent outputs for each placeholder.
+
+        Given: Template with both placeholders
+        When: expand_placeholders() is called
+        Then: Both expand correctly with no cross-contamination
+
+        Pins COMPONENT_SUBCATEGORIES presence (production schema). Issue: #326
+        """
+        renderer = TemplateRenderer(sample_schema_parser_with_subcategories, sample_frameworks_data)
+        template = """body:
+  - type: dropdown
+    id: component-category
+    attributes:
+      options:
+        {{COMPONENT_CATEGORIES}}
+  - type: dropdown
+    id: component-subcategory
+    attributes:
+      options:
+        {{COMPONENT_SUBCATEGORIES}}"""
+
+        result = renderer.expand_placeholders(template, "components")
+
+        assert "{{COMPONENT_CATEGORIES}}" not in result
+        assert "{{COMPONENT_SUBCATEGORIES}}" not in result
+
+        # Category values must appear
+        assert "componentsInfrastructure" in result
+        assert "componentsModel" in result
+        assert "componentsApplication" in result
+
+        # Subcategory values must appear
+        for value in _EXPECTED_SUBCATEGORY_VALUES:
+            assert value in result, f"Subcategory value '{value}' missing."
+
+
+class TestD4aManifestHeaders:
+    """
+    Optionally asserts that each of the 3 new source templates begins with a
+    YAML comment block containing "ADR-content alignment manifest" (ADR-026 D4a).
+
+    Only the 3 new sources are checked: new_persona, update_persona,
+    update_component. The 5 existing sources are out of scope for this
+    retroactive requirement.
+
+    Pins that the 3 backfilled source files exist and carry the manifest. Issue: #326
+    """
+
+    @pytest.mark.parametrize("template_name", ["new_persona", "update_persona", "update_component"])
+    def test_new_source_template_begins_with_adr_manifest_comment(
+        self, template_name: str, repo_root: Path
+    ) -> None:
+        """
+        Asserts that each newly authored source template starts with a YAML
+        comment block containing 'ADR-content alignment manifest' (ADR-026 D4a).
+
+        Given: A new source template file in scripts/TEMPLATES/
+        When: The first 20 lines are read
+        Then: A comment line containing 'ADR-content alignment manifest' is present
+
+        Pins existence of the backfilled source file. Issue: #326
+        """
+        source_file = repo_root / "scripts" / "TEMPLATES" / f"{template_name}.template.yml"
+        assert source_file.exists(), (
+            f"Source template {template_name}.template.yml not found — cannot check for D4a manifest header."
+        )
+
+        content = source_file.read_text(encoding="utf-8")
+        # Check the first 20 lines for the manifest comment; the exact ADR list
+        # within the manifest is the SWE's content call.
+        first_lines = "\n".join(content.splitlines()[:20])
+        assert "ADR-content alignment manifest" in first_lines, (
+            f"{template_name}.template.yml is missing the 'ADR-content alignment manifest' "
+            f"comment block in its first 20 lines (ADR-026 D4a). "
+            f"This comment documents which ADR decisions shaped the template content."
+        )

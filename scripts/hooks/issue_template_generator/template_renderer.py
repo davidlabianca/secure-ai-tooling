@@ -67,6 +67,10 @@ class TemplateRenderer:
             "schema_paths": [("components.schema.json", "definitions.category.properties.id")],
             "field_type": "dropdown",
         },
+        "COMPONENT_SUBCATEGORIES": {
+            "schema_paths": [("components.schema.json", "definitions.subcategory.properties.id")],
+            "field_type": "dropdown",
+        },
         # Checkboxes - label-only object format required
         # PERSONAS: full list for controls (governance is controls-only)
         "PERSONAS": {
