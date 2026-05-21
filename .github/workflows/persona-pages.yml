@@ -122,6 +122,9 @@ jobs:
       - name: Summarize pipeline outcome
         run: |
           deploy_result="${{ needs.deploy.result }}"
+          # PR branch is checked first by design: a fork PR reads as
+          # "PRs don't deploy" (the dominant skip reason) rather than the
+          # fork message; the fork branch covers fork pushes to main.
           if [[ "${{ github.event_name }}" == "pull_request" && "$deploy_result" == "skipped" ]]; then
             deploy_display="n/a (PRs don't deploy)"
           elif [[ "${{ github.repository }}" != "cosai-oasis/secure-ai-tooling" && "$deploy_result" == "skipped" ]]; then

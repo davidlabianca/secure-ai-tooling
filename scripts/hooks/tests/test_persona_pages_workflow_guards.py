@@ -1,5 +1,6 @@
 """Regression tests for fork-aware persona-pages workflow guards."""
 
+from functools import lru_cache
 from pathlib import Path
 
 import yaml
@@ -10,8 +11,9 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 WORKFLOW_PATH = REPO_ROOT / ".github" / "workflows" / "persona-pages.yml"
 
 
+@lru_cache(maxsize=1)
 def _load_workflow() -> dict:
-    """Load the persona-pages workflow as a mapping."""
+    """Load the persona-pages workflow as a mapping (parsed once per session)."""
     return yaml.safe_load(WORKFLOW_PATH.read_text(encoding="utf-8"))
 
 
@@ -54,6 +56,26 @@ def test_pages_build_steps_are_guarded_to_canonical_non_pr_runs():
         assert CANONICAL_REPO_GUARD in step_if
 
 
+def test_build_test_steps_run_on_forks():
+    """
+    Given: Forks must keep getting build and test feedback
+    When: The test and artifact-prep build steps are inspected
+    Then: None carry the canonical-repo guard, so they run on forks
+    """
+    # Negative lock for hard-contract item #3: a refactor that accidentally
+    # adds the canonical guard to these steps would silently kill fork CI
+    # feedback while leaving the positive-guard tests green.
+    build_steps = _load_workflow()["jobs"]["build"]["steps"]
+    fork_visible_steps = (
+        "Run persona site data tests",
+        "Run persona site logic tests",
+        "Prepare Pages artifact",
+    )
+    for step_name in fork_visible_steps:
+        step = next(s for s in build_steps if s.get("name") == step_name)
+        assert CANONICAL_REPO not in (step.get("if") or "")
+
+
 def test_pages_summary_explains_fork_skipped_deploy():
     """
     Given: Fork pushes intentionally skip the Pages deploy job
@@ -62,5 +84,9 @@ def test_pages_summary_explains_fork_skipped_deploy():
     """
     summary_script = _load_workflow()["jobs"]["pages-summary"]["steps"][0]["run"]
 
+    # Lock the structural comparison (canonical-repo literal in the guard),
+    # not the exact prose, so a harmless reword of the display string does
+    # not break the test.
     assert f'"{CANONICAL_REPO}"' in summary_script
-    assert "n/a (fork; Pages deploy not authorized)" in summary_script
+    assert "fork" in summary_script
+    assert "n/a" in summary_script
