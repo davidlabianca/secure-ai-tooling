@@ -29,8 +29,8 @@ risk-map/schemas/personas.schema.json, not hardcoded values.
 
 Test Coverage:
 ==============
-Total Tests: 59 across 9 test classes
-- Rule 1 (count/presence): 11 tests  (TestRule1Count)
+Total Tests: 61 across 9 test classes
+- Rule 1 (count/presence): 13 tests  (TestRule1Count)
 - Rule 2 (opener):          9 tests  (TestRule2SecondPersonOpener)
 - Rule 3 (parenthetical):  13 tests  (TestRule3ParentheticalCardinality)
   - 3 tests cover _count_paren_items depth-aware nested-paren handling
@@ -327,6 +327,67 @@ class TestRule1Count:
 
         warnings = validate_personas_file(str(yaml_path), str(schema_path), block=False)
         assert warnings == []
+
+    def test_explicit_null_identification_questions_treated_as_missing_block(self, tmp_path):
+        """
+        An explicit `identificationQuestions: null` is treated as a missing block.
+
+        Given: A non-deprecated persona with identificationQuestions explicitly null
+        When: validate_personas_file is called
+        Then: The same single missing-block warning fires as for an absent key
+
+        Both an absent key and an explicit null resolve to None via dict.get, so
+        the presence check intentionally does not distinguish them.
+        """
+        schema_path = tmp_path / "personas.schema.json"
+        yaml_path = tmp_path / "personas.yaml"
+        schema_path.write_text(json.dumps(_make_schema(["personaNullQuestions"])))
+        # Set the key explicitly to null rather than omitting it.
+        persona = _make_persona("personaNullQuestions", questions=None)
+        persona["identificationQuestions"] = None
+        yaml_path.write_text(yaml.dump(_make_personas_yaml([persona])))
+
+        warnings = validate_personas_file(str(yaml_path), str(schema_path), block=False)
+        assert warnings == [
+            (
+                f"validate-identification-questions: {yaml_path}:"
+                "personaNullQuestions:identificationQuestions[*]: "
+                "non-deprecated persona missing identificationQuestions block"
+            )
+        ]
+
+    def test_multiple_non_deprecated_missing_blocks_warn_in_document_order(self, tmp_path):
+        """
+        Two non-deprecated personas missing the block produce two ordered warnings.
+
+        Given: Two non-deprecated personas, both missing identificationQuestions
+        When: validate_personas_file is called
+        Then: One warning per persona, emitted in YAML document order
+        """
+        schema_path = tmp_path / "personas.schema.json"
+        yaml_path = tmp_path / "personas.yaml"
+        schema_path.write_text(json.dumps(_make_schema(["personaFirst", "personaSecond"])))
+        yaml_data = _make_personas_yaml(
+            [
+                _make_persona("personaFirst", questions=None),
+                _make_persona("personaSecond", questions=None),
+            ]
+        )
+        yaml_path.write_text(yaml.dump(yaml_data))
+
+        warnings = validate_personas_file(str(yaml_path), str(schema_path), block=False)
+        assert warnings == [
+            (
+                f"validate-identification-questions: {yaml_path}:"
+                "personaFirst:identificationQuestions[*]: "
+                "non-deprecated persona missing identificationQuestions block"
+            ),
+            (
+                f"validate-identification-questions: {yaml_path}:"
+                "personaSecond:identificationQuestions[*]: "
+                "non-deprecated persona missing identificationQuestions block"
+            ),
+        ]
 
     def test_6_questions_passes(self):
         """
@@ -1262,9 +1323,9 @@ class TestCorpusIntegration:
 """
 Test Summary
 ============
-Total Tests: 59 across 9 test classes
+Total Tests: 61 across 9 test classes
 
-Rule 1 — Presence/count:       11 tests  (TestRule1Count)
+Rule 1 — Presence/count:       13 tests  (TestRule1Count)
 Rule 2 — Second-person opener: 9 tests  (TestRule2SecondPersonOpener)
 Rule 3 — Parenthetical:       13 tests  (TestRule3ParentheticalCardinality)
 Rule 4 — e.g. not i.e.:       7 tests  (TestRule4EgNotIe)

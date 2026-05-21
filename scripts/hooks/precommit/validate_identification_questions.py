@@ -6,6 +6,7 @@ Enforces four rules from risk-map/docs/contributing/identification-questions-sty
 against every non-deprecated persona that has an identificationQuestions field,
 and warns when a non-deprecated persona omits the block entirely:
 
+  Rule 0 — Presence:         non-deprecated persona includes the block
   Rule 1 — Count:            5 ≤ len(questions) ≤ 7
   Rule 2 — Second-person:    every question starts with an approved opener
   Rule 3 — Parenthetical:    each parenthetical contains ≤ 4 items
@@ -298,6 +299,8 @@ def validate_personas_file(yaml_path: str, schema_path: str, block: bool) -> lis
         if persona.get("deprecated", False):
             continue
 
+        # An absent key and an explicit `identificationQuestions: null` both
+        # resolve to None here and are treated identically as a missing block.
         questions = persona.get("identificationQuestions")
         if questions is None:
             all_warnings.append(
