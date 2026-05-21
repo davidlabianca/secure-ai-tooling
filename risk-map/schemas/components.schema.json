@@ -50,7 +50,8 @@
             "componentsOrchestration",
             "componentsModelDeployment",
             "componentsModelCore",
-            "componentsApplicationCore"
+            "componentsApplicationCore",
+            "componentsRegistries"
           ]
         },
         "title": { "type": "string" },
@@ -90,7 +91,9 @@
             "componentAgentSystemInstruction",
             "componentAgentRendering",
             "componentAgentInputHandling",
-            "componentAgentOutputHandling"
+            "componentAgentOutputHandling",
+            "componentModelRegistry",
+            "componentToolRegistry"
           ]
         },
         "title": { "type": "string" },

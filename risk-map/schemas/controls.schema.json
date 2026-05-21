@@ -76,7 +76,9 @@
             "controlAgentIntegrityManagement",
             "controlAgentInventoryManagement",
             "controlComponentIdentityProvenance",
-            "controlInterComponentTransportSecurity"
+            "controlInterComponentTransportSecurity",
+            "controlModelRegistryIntegrity",
+            "controlToolRegistryandDiscoveryIntegrity"
           ]
         },
         "title": { "type": "string" },

@@ -23,6 +23,10 @@ graph TD
             componentModelServing[Model Serving Infrastructure]
             componentModelStorage[Model Storage]
         end
+        subgraph componentsRegistries ["Registries"]
+            componentModelRegistry[Model Registry and Marketplace]
+            componentToolRegistry[Tool Registry and Discovery]
+        end
     end
 
     subgraph componentsModel ["Model Components"]
@@ -66,8 +70,12 @@ graph TD
     componentModelFrameworksAndCode --> componentModelTrainingTuning
     componentModelEvaluation --> componentModelTrainingTuning
     componentModelTrainingTuning --> componentTheModel
+    componentModelTrainingTuning --> componentModelRegistry
     componentModelStorage --> componentTheModel
     componentModelServing --> componentTheModel
+    componentModelRegistry --> componentModelServing
+    componentModelRegistry --> componentTheModel
+    componentModelRegistry --> componentModelStorage
     componentTheModel --> componentModelEvaluation
     componentTheModel --> componentAgentInputHandling
     componentTheModel --> componentApplicationInputHandling
@@ -84,6 +92,9 @@ graph TD
     componentOrchestrationInputHandling --> componentMemory
     componentOrchestrationInputHandling --> componentRAGContent
     componentTools --> componentOrchestrationOutputHandling
+    componentTools --> componentToolRegistry
+    componentToolRegistry --> componentOrchestrationInputHandling
+    componentToolRegistry --> componentTools
     componentMemory --> componentOrchestrationOutputHandling
     componentRAGContent --> componentOrchestrationOutputHandling
     componentAgentUserQuery --> componentAgentInputHandling
