@@ -1747,23 +1747,56 @@ class TestClosedEnumClosureContract:
     Asserts ADR-026 D3: every closed-enum schema field solicited by a source
     template must resolve through PLACEHOLDER_MAPPINGS (no free-form input
     for a field with a schema-backed closed enum).
+
+    Under ADR-026 Amendment D8, the subcategory closed-enum is now solicited
+    via the {{COMPONENT_CATEGORY_SUBCATEGORY}} tuple-selector (a join-resolver
+    kind registered in PLACEHOLDER_MAPPINGS), not via a standalone
+    {{COMPONENT_SUBCATEGORIES}} flat-dropdown. The closure contract of D3 is
+    still satisfied; the route through the registry is different.
     """
 
-    def test_component_subcategories_placeholder_exists_in_mappings(self) -> None:
+    def test_component_category_subcategory_placeholder_exists_in_mappings(self) -> None:
         """
-        Asserts that COMPONENT_SUBCATEGORIES is registered in PLACEHOLDER_MAPPINGS
-        as required by ADR-026 D3.
+        Asserts that COMPONENT_CATEGORY_SUBCATEGORY is registered in PLACEHOLDER_MAPPINGS.
 
-        The subcategory field in components.schema.json is a closed enum of 7 values.
-        A source template soliciting that field must use a placeholder that resolves
-        to those values via PLACEHOLDER_MAPPINGS — free-form input is not acceptable.
+        Under ADR-026 Amendment D8, the subcategory closed-enum is solicited via
+        the tuple-selector COMPONENT_CATEGORY_SUBCATEGORY, which is a join-resolver
+        entry in PLACEHOLDER_MAPPINGS. D3's closure contract requires every
+        closed-enum solicitation to route through that registry.
+
+        Given: TemplateRenderer.PLACEHOLDER_MAPPINGS
+        When: The 'COMPONENT_CATEGORY_SUBCATEGORY' key is looked up
+        Then: The key exists
+
+        ADR-026 D3 + Amendment D8. Supersedes the retired COMPONENT_SUBCATEGORIES
+        assertion (issue #326 interim). D8 retires the flat dropdown.
+        """
+        import sys
+        from pathlib import Path
+
+        sys.path.insert(0, str(Path(__file__).parent.parent.parent / "hooks"))
+        from issue_template_generator.template_renderer import TemplateRenderer
+
+        assert "COMPONENT_CATEGORY_SUBCATEGORY" in TemplateRenderer.PLACEHOLDER_MAPPINGS, (
+            "COMPONENT_CATEGORY_SUBCATEGORY missing from PLACEHOLDER_MAPPINGS (ADR-026 D3 + D8). "
+            "The tuple-selector must be registered so the subcategory closed-enum is covered "
+            "through the single registry D3 requires."
+        )
+
+    def test_component_subcategories_retired_from_mappings(self) -> None:
+        """
+        Asserts that the retired COMPONENT_SUBCATEGORIES placeholder is absent
+        from PLACEHOLDER_MAPPINGS.
+
+        ADR-026 Amendment D8 retires the flat seven-value dropdown in favour of
+        the join-resolver COMPONENT_CATEGORY_SUBCATEGORY. Keeping both would
+        mean templates could still reference the retired placeholder.
 
         Given: TemplateRenderer.PLACEHOLDER_MAPPINGS
         When: The 'COMPONENT_SUBCATEGORIES' key is looked up
-        Then: The key exists
+        Then: The key is absent
 
-        Pins that COMPONENT_SUBCATEGORIES is registered in PLACEHOLDER_MAPPINGS.
-        Issue: #326 / ADR-026 D3
+        ADR-026 Amendment D8 (supersedes D3's interim flat-dropdown for subcategory).
         """
         import sys
         from pathlib import Path
@@ -1771,88 +1804,87 @@ class TestClosedEnumClosureContract:
         sys.path.insert(0, str(Path(__file__).parent.parent.parent / "hooks"))
         from issue_template_generator.template_renderer import TemplateRenderer
 
-        assert "COMPONENT_SUBCATEGORIES" in TemplateRenderer.PLACEHOLDER_MAPPINGS, (
-            "COMPONENT_SUBCATEGORIES missing from PLACEHOLDER_MAPPINGS (ADR-026 D3). "
-            "The subcategory field is a closed enum of 7 values in components.schema.json "
-            "and must resolve through the mapping registry, not via free-form input."
+        assert "COMPONENT_SUBCATEGORIES" not in TemplateRenderer.PLACEHOLDER_MAPPINGS, (
+            "COMPONENT_SUBCATEGORIES must be ABSENT from PLACEHOLDER_MAPPINGS. "
+            "ADR-026 Amendment D8 retires the flat-dropdown placeholder. "
+            "The tuple-selector COMPONENT_CATEGORY_SUBCATEGORY replaces it."
         )
 
-    def test_component_subcategories_maps_to_correct_schema_path(self) -> None:
+    def test_tuple_selector_covers_all_seven_subcategory_ids(self, repo_root: Path) -> None:
         """
-        Asserts that COMPONENT_SUBCATEGORIES in PLACEHOLDER_MAPPINGS points to
-        the correct schema path: components.schema.json /
-        definitions.subcategory.properties.id (ADR-026 D3).
+        Asserts that all seven subcategory IDs from the taxonomy appear in the
+        rendered tuple-selector dropdown, satisfying D3's closure requirement.
 
-        Given: TemplateRenderer.PLACEHOLDER_MAPPINGS['COMPONENT_SUBCATEGORIES']
-        When: The schema_paths entry is examined
-        Then: It references components.schema.json and definitions.subcategory.properties.id
+        The closure rule says: every closed-enum schema field solicited by a
+        template must be covered via PLACEHOLDER_MAPPINGS. Under D8, subcategory
+        coverage is provided by the tuple-selector, which renders exactly the
+        valid (category, subcategory) pairs. Since each of the 7 subcategory IDs
+        appears in exactly one tuple, all 7 IDs are covered.
 
-        Pins the COMPONENT_SUBCATEGORIES mapping registration. Issue: #326
-        """
-        import sys
-        from pathlib import Path
+        Given: A renderer backed by real schemas and components.yaml
+        When: {{COMPONENT_CATEGORY_SUBCATEGORY}} is expanded
+        Then: Each of the 7 subcategory IDs appears in the rendered output
+              (as part of a tuple string), confirming closed-enum coverage
 
-        sys.path.insert(0, str(Path(__file__).parent.parent.parent / "hooks"))
-        from issue_template_generator.template_renderer import TemplateRenderer
-
-        assert "COMPONENT_SUBCATEGORIES" in TemplateRenderer.PLACEHOLDER_MAPPINGS, (
-            "COMPONENT_SUBCATEGORIES absent from PLACEHOLDER_MAPPINGS — cannot check schema path."
-        )
-        mapping = TemplateRenderer.PLACEHOLDER_MAPPINGS["COMPONENT_SUBCATEGORIES"]
-        schema_paths = mapping.get("schema_paths", [])
-        assert len(schema_paths) >= 1, "COMPONENT_SUBCATEGORIES mapping has no schema_paths entries."
-
-        found_correct_path = any(
-            schema_file == "components.schema.json" and field_path == "definitions.subcategory.properties.id"
-            for schema_file, field_path in schema_paths
-        )
-        assert found_correct_path, (
-            f"COMPONENT_SUBCATEGORIES does not point to "
-            f"components.schema.json / definitions.subcategory.properties.id. "
-            f"Got: {schema_paths}"
-        )
-
-    def test_component_subcategories_field_type_is_dropdown(self) -> None:
-        """
-        Asserts that COMPONENT_SUBCATEGORIES has field_type='dropdown',
-        consistent with the existing COMPONENT_CATEGORIES entry (ADR-026 D3).
-
-        Given: TemplateRenderer.PLACEHOLDER_MAPPINGS['COMPONENT_SUBCATEGORIES']
-        When: The field_type value is read
-        Then: field_type == 'dropdown'
-
-        Pins the COMPONENT_SUBCATEGORIES mapping registration. Issue: #326
+        ADR-026 D3 closure contract + Amendment D8.
         """
         import sys
-        from pathlib import Path
 
-        sys.path.insert(0, str(Path(__file__).parent.parent.parent / "hooks"))
+        import yaml as pyyaml
+
+        sys.path.insert(0, str(repo_root / "scripts" / "hooks"))
+        from issue_template_generator.schema_parser import SchemaParser
         from issue_template_generator.template_renderer import TemplateRenderer
 
-        assert "COMPONENT_SUBCATEGORIES" in TemplateRenderer.PLACEHOLDER_MAPPINGS, (
-            "COMPONENT_SUBCATEGORIES absent from PLACEHOLDER_MAPPINGS."
-        )
-        field_type = TemplateRenderer.PLACEHOLDER_MAPPINGS["COMPONENT_SUBCATEGORIES"].get("field_type")
-        assert field_type == "dropdown", (
-            f"COMPONENT_SUBCATEGORIES field_type must be 'dropdown' (closed enum rendered as "
-            f"GitHub dropdown), got: {field_type!r}"
-        )
+        schema_dir = repo_root / "risk-map" / "schemas"
+        yaml_dir = repo_root / "risk-map" / "yaml"
 
-    def test_rendered_new_component_subcategory_is_dropdown_not_input(self, repo_root: Path) -> None:
+        parser = SchemaParser(schema_dir, yaml_data_dir=yaml_dir)
+        with open(yaml_dir / "frameworks.yaml") as fh:
+            frameworks_data = pyyaml.safe_load(fh)
+
+        renderer = TemplateRenderer(parser, frameworks_data)
+        template = "      options:\n        {{COMPONENT_CATEGORY_SUBCATEGORY}}"
+        result = renderer.expand_placeholders(template, "components")
+
+        # All seven subcategory IDs from the closed enum must appear somewhere in the
+        # rendered output (each as part of its correct tuple).
+        subcategory_ids = [
+            "componentsModelTraining",
+            "componentsData",
+            "componentsAgent",
+            "componentsOrchestration",
+            "componentsModelDeployment",
+            "componentsModelCore",
+            "componentsApplicationCore",
+        ]
+        for sub_id in subcategory_ids:
+            assert sub_id in result, (
+                f"Subcategory ID {sub_id!r} not found in tuple-selector output. "
+                f"D3 closed-enum coverage requires every subcategory ID to appear "
+                f"in the rendered dropdown (as part of a tuple). "
+                f"Full output:\n{result}"
+            )
+
+    def test_rendered_new_component_has_tuple_dropdown_not_standalone_subcategory(self, repo_root: Path) -> None:
         """
-        Asserts that the rendered new_component.yml has type: dropdown for the
-        component-subcategory field, not type: input (ADR-026 D3).
+        Asserts that the rendered new_component.yml contains the combined
+        category/subcategory tuple dropdown (7 tuples) and does NOT contain
+        a standalone all-7-subcategories dropdown (the retired flat dropdown).
 
-        A free-form input field for a closed-enum schema field violates the
-        closed-enum closure contract. The source template must use
-        {{COMPONENT_SUBCATEGORIES}} which expands to a dropdown.
+        ADR-026 D3 + Amendment D8: the single tuple dropdown replaces both the
+        original free-form subcategory input and the interim flat-dropdown from #326.
 
-        Given: The new_component source template after backfill and the production schemas
-        When: The template is rendered
-        Then: The parsed body item with id='component-subcategory' has type='dropdown'
+        Given: The new_component source template with {{COMPONENT_CATEGORY_SUBCATEGORY}}
+        When: The template is rendered via the generator
+        Then:
+          - The body item with id='component-category-subcategory' has type='dropdown'
+          - Its options parse as a list of strings (not mappings) — requires quoting
+          - All 7 expected tuples are present in the rendered content
+          - No bare standalone subcategory IDs appear as isolated dropdown options
 
-        Pins that the rendered field is type: dropdown, not type: input.
-        Issue: #326 / ADR-026 D3
+        ADR-026 D3 + Amendment D8. Supersedes the retired test that asserted
+        a standalone component-subcategory dropdown equal to the schema enum.
         """
         import sys
 
@@ -1863,45 +1895,82 @@ class TestClosedEnumClosureContract:
 
         gen = IssueTemplateGenerator(repo_root)
         source_file = repo_root / "scripts" / "TEMPLATES" / "new_component.template.yml"
-        assert source_file.exists(), "new_component.template.yml not found — prerequisite for this test."
+        assert source_file.exists(), "new_component.template.yml not found — prerequisite."
 
-        # Render directly from source content: the full generate_template
-        # pipeline returns a diff string in dry_run mode, not the rendered body.
         source_content = source_file.read_text(encoding="utf-8")
         rendered = gen.template_renderer.render_template(source_content, "components")
         parsed = yaml.safe_load(rendered)
 
         body_items = parsed.get("body", [])
-        subcategory_items = [item for item in body_items if item.get("id") == "component-subcategory"]
 
-        assert len(subcategory_items) == 1, (
-            "Expected exactly one body item with id='component-subcategory' in rendered new_component."
+        # The combined dropdown field must be present and be type: dropdown.
+        tuple_items = [item for item in body_items if item.get("id") == "component-category-subcategory"]
+        assert len(tuple_items) == 1, (
+            "Expected exactly one body item with id='component-category-subcategory' in rendered "
+            "new_component (ADR-026 D8). The combined tuple dropdown must replace the old "
+            "standalone category + subcategory pair."
         )
-        field_type = subcategory_items[0].get("type")
+        field_type = tuple_items[0].get("type")
         assert field_type == "dropdown", (
-            f"new_component component-subcategory must be type: dropdown (not type: {field_type!r}). "
-            f"ADR-026 D3 requires closed-enum fields to use dropdown, not free-form input."
+            f"component-category-subcategory field must be type: dropdown (got: {field_type!r}). "
+            "ADR-026 D3 requires closed-enum fields to use dropdown."
         )
 
-    def test_rendered_new_component_subcategory_options_equal_schema_enum(self, repo_root: Path) -> None:
-        """
-        Asserts that the component-subcategory dropdown in rendered new_component.yml
-        contains exactly the 7 subcategory enum values from components.schema.json
-        (ADR-026 D3 closed-enum closure).
+        # Options must be strings (YAML-quoted), not mapping objects.
+        # This assertion will FAIL against the current unquoted production because
+        # unquoted 'key: value' options parse as dicts. The SWE fix (option quoting)
+        # is required to make this pass.
+        options = tuple_items[0].get("attributes", {}).get("options", [])
+        assert isinstance(options, list), "component-category-subcategory options must be a list."
+        assert all(isinstance(opt, str) for opt in options), (
+            "component-category-subcategory options must be plain strings (not mapping objects). "
+            "GitHub issue forms require quoted strings for options containing ': '. "
+            "Unquoted 'key: value' lines parse as YAML mappings and fail check-jsonschema. "
+            'The renderer must emit: - "<category-id>: <subcategory-id>" (ADR-026 D8).'
+        )
 
-        Given: The rendered new_component.yml after backfill
-        When: The component-subcategory dropdown options are extracted
-        Then: Options == the 7 subcategory enum values in schema definition order
+        # No standalone subcategory field must remain (old flat dropdown signature).
+        standalone_sub = [item for item in body_items if item.get("id") == "component-subcategory"]
+        assert len(standalone_sub) == 0, (
+            "A body item with id='component-subcategory' is still present. "
+            "ADR-026 Amendment D8 retires the standalone subcategory dropdown. "
+            "Only the combined id='component-category-subcategory' tuple field should exist."
+        )
 
-        Pins the dropdown options against the 7-value schema enum. Issue: #326
+    def test_rendered_new_component_tuple_options_are_seven_strings(self, repo_root: Path) -> None:
         """
-        import json
+        Asserts that the rendered new_component.yml tuple dropdown has exactly
+        7 string options equal to the expected pairs.
+
+        This test asserts the post-SWE-fix state: options must parse as strings
+        (quoting required). It will FAIL against the current unquoted production
+        because unquoted tuple lines parse as YAML dicts, not strings.
+
+        Given: The rendered new_component.yml
+        When: The component-category-subcategory dropdown options are extracted
+              and YAML-parsed
+        Then: Options is a list of 7 strings matching _EXPECTED_TUPLES
+
+        ADR-026 D3 + Amendment D8. Supersedes the retired test that compared
+        options to the flat subcategory schema enum.
+        """
         import sys
 
         import yaml
 
         sys.path.insert(0, str(repo_root / "scripts" / "hooks"))
         from issue_template_generator.generator import IssueTemplateGenerator
+
+        # Valid (category, subcategory) tuples in components.yaml taxonomy order.
+        expected_tuples = [
+            "componentsInfrastructure: componentsData",
+            "componentsInfrastructure: componentsModelDeployment",
+            "componentsModel: componentsModelTraining",
+            "componentsModel: componentsModelCore",
+            "componentsModel: componentsOrchestration",
+            "componentsApplication: componentsAgent",
+            "componentsApplication: componentsApplicationCore",
+        ]
 
         gen = IssueTemplateGenerator(repo_root)
         source_file = repo_root / "scripts" / "TEMPLATES" / "new_component.template.yml"
@@ -1911,20 +1980,22 @@ class TestClosedEnumClosureContract:
         rendered = gen.template_renderer.render_template(source_content, "components")
         parsed = yaml.safe_load(rendered)
 
-        subcategory_items = [item for item in parsed.get("body", []) if item.get("id") == "component-subcategory"]
-        assert len(subcategory_items) == 1, "component-subcategory item not found in rendered body."
+        tuple_items = [
+            item for item in parsed.get("body", []) if item.get("id") == "component-category-subcategory"
+        ]
+        assert len(tuple_items) == 1, "component-category-subcategory item not found in rendered body."
 
-        actual_options = subcategory_items[0].get("attributes", {}).get("options", [])
+        options = tuple_items[0].get("attributes", {}).get("options", [])
 
-        # Load the authoritative enum from the production schema
-        schema_path = repo_root / "risk-map" / "schemas" / "components.schema.json"
-        with open(schema_path, encoding="utf-8") as f:
-            schema = json.load(f)
-        expected_options = schema["definitions"]["subcategory"]["properties"]["id"]["enum"]
-
-        assert actual_options == expected_options, (
-            f"component-subcategory dropdown options do not match schema enum (ADR-026 D3). "
-            f"Expected {expected_options}, got {actual_options}."
+        # Options must be strings, not mapping objects. This fails against unquoted production.
+        assert all(isinstance(opt, str) for opt in options), (
+            "Tuple options must parse as plain strings (YAML-quoted). "
+            "Current production emits unquoted 'key: value' lines that parse as dicts. "
+            'The renderer must emit quoted strings: - "<category>: <subcategory>" (ADR-026 D8).'
+        )
+        assert len(options) == 7, f"Expected exactly 7 tuple options, got {len(options)}: {options}"
+        assert options == expected_tuples, (
+            f"Tuple options do not match expected pairs (ADR-026 D8). Expected: {expected_tuples}. Got: {options}."
         )
 
     def test_no_source_template_references_unregistered_placeholder(self, repo_root: Path) -> None:
