@@ -74,6 +74,17 @@ categories:
             Distinct from training infrastructure (which produces models) and from data
             infrastructure (which feeds training), model deployment infrastructure carries
             the production-time risks of model integrity, availability, and access control.
+      - id: componentsRegistries
+        title: Registry components
+        description:
+          - >
+            Registration-authority, catalog, and discovery infrastructure for AI/ML
+            assets. Distinct from deployment infrastructure (which stores and serves
+            artifacts), registries hold the authoritative metadata and pointers that
+            inform which asset to select and how to obtain it. They share a common
+            threat surface — metadata tampering, namespace governance, publisher
+            identity, and provenance attacks — regardless of what they catalog,
+            spanning both model registries and tool registries.
   - id: componentsModel
     title: Model components
     description:
@@ -243,6 +254,7 @@ components:
     edges:
       to:
         - componentTheModel
+        - componentModelRegistry
       from:
         - componentModelEvaluation
         - componentModelFrameworksAndCode
@@ -251,21 +263,29 @@ components:
     title: Model Storage
     description:
       - >
-        Storage for the model. Model storage refers to multiple stages in the development process:
+        Storage for the model artifact itself — weights, checkpoints, and serialized
+        model files. Model storage refers to multiple stages in the development process:
       - - >
           Local storage during training, in which each checkpoint is stored until overwritten.
         - >
-          Published storage, after training is completed and the model is uploaded
-          to a model hub (a centralized model repository).
+          Published storage, after training is completed and the model artifact is uploaded
+          to an artifact repository (object storage, model registry-backed storage, or
+          vendor-managed artifact endpoints).
       - >
         Note: Many model consumers use remote models served by API. Those model consumers
         that store models themselves, though, should consider the same Model Storage
         risks that apply to model creators.
+      - >
+        The discovery, cataloging, and metadata layer that consumers query to find which
+        model to retrieve is handled separately by {{componentModelRegistry}}; storage's
+        scope is strictly the artifact bytes and their lifecycle.
     category: componentsInfrastructure
     subcategory: componentsModelDeployment
     edges:
       to:
         - componentTheModel
+      from:
+        - componentModelRegistry
   - id: componentModelServing
     title: Model Serving Infrastructure
     description:
@@ -281,6 +301,47 @@ components:
     edges:
       to:
         - componentTheModel
+      from:
+        - componentModelRegistry
+  - id: componentModelRegistry
+    title: Model Registry and Marketplace
+    description:
+      - >
+        The infrastructure that serves as the registration authority for AI/ML models:
+        cataloging and indexing them, holding the authoritative metadata (model cards,
+        provenance records, evaluation results, licensing terms, version history), and
+        publishing authoritative pointers to the storage endpoints where artifacts are
+        retrieved. This includes model hubs (e.g., HuggingFace Hub), model marketplaces,
+        enterprise model catalogs, and model discovery APIs.
+      - >
+        Model registries serve a fundamentally different function from model storage
+        ({{componentModelStorage}}). Storage holds the physical artifacts (weights,
+        checkpoints, binaries); the registry references those artifacts via authoritative
+        pointers and holds the metadata that informs selection. The threat models are
+        distinct: attacks on storage target artifact integrity ({{riskModelSourceTampering}},
+        {{riskModelDeploymentTampering}}), while attacks on a registry target the metadata
+        that informs model selection — model cards, evaluation claims, provenance records,
+        and licensing assertions. A compromised registry can direct consumers to a
+        backdoored model ({{riskInsecureIntegratedComponent}}) by altering its evaluation
+        scores ({{riskEvaluationBenchmarkManipulation}}), misrepresenting its training-data
+        provenance, or changing its licensing terms — even when the model artifacts in
+        storage remain untouched.
+      - >
+        Registries are decoupled from storage: the same artifact in storage may be
+        referenced by multiple registries from different sector-focused authorities
+        (compliance-flavored, performance-flavored, licensing-flavored), and registries
+        are not required in all deployments — internal-only or air-gapped environments
+        may operate without any public registry layer. Controls targeting registry
+        integrity apply only where a registry is part of the deployment.
+    category: componentsInfrastructure
+    subcategory: componentsRegistries
+    edges:
+      to:
+        - componentModelServing
+        - componentTheModel
+        - componentModelStorage
+      from:
+        - componentModelTrainingTuning
   - id: componentTheModel
     title: The Model
     description:
@@ -302,6 +363,7 @@ components:
         - componentModelTrainingTuning
         - componentModelServing
         - componentModelStorage
+        - componentModelRegistry
         - componentAgentOutputHandling
         - componentApplicationOutputHandling
         - componentOrchestrationOutputHandling
@@ -428,21 +490,76 @@ components:
       from:
         - componentTheModel
         - componentReasoningCore
+        - componentToolRegistry
   - id: componentTools
     title: External Tools and Services
     description:
       - >
-        Tools are the external APIs and services an agent uses to take action in the 
-        world, which must be secured with least-privilege permissions. A key risk comes 
-        from deceptive descriptions on third-party tools, which can trick the agent into 
-        performing unintended, harmful functions.
+        Tools are the external APIs and services an agent uses to take action in the
+        world. Each tool must be secured with least-privilege permissions; failures in
+        tool functionality, authorization, or output handling produce risks distinct
+        from those at the catalog layer.
+      - >
+        The discovery, cataloging, and metadata layer that agents query to find which
+        tool to invoke (including parameter schemas, capability declarations, and
+        invocation methods) is handled separately by {{componentToolRegistry}}; this
+        component's scope is strictly the runtime tool services and their invocation
+        surface.
     category: componentsModel
     subcategory: componentsOrchestration
     edges:
       to:
         - componentOrchestrationOutputHandling
+        - componentToolRegistry
       from:
         - componentOrchestrationInputHandling
+        - componentToolRegistry
+  - id: componentToolRegistry
+    title: Tool Registry and Discovery
+    description:
+      - >
+        The infrastructure that serves as the registration authority for tools available
+        to AI agents: cataloging and indexing them, holding the authoritative metadata
+        (tool descriptions, parameter schemas, capability declarations, publisher identity
+        information, invocation methods, and org-specific use restrictions), and publishing
+        authoritative pointers to the tool endpoints where invocations are made. This
+        includes tool registries, MCP server manifest repositories, tool discovery
+        endpoints, schema definition services, and namespace governance systems.
+      - >
+        Registry scope intentionally covers BOTH selection metadata (which tool to invoke)
+        AND invocation metadata (how to invoke it). Selection and invocation are tightly
+        coupled in real tool-registry formats — OpenAPI specs, MCP manifests, and tool
+        schemas bundle "what this does" with "how to call it." Org-specific policies that
+        restrict invocation methods (e.g., masking out invocation paths deemed too risky
+        for a given deployment context) are enforced at the registry layer because that's
+        where they sit between the agent and the tool. Splitting selection and invocation
+        across separate components would force a parallel "use restrictions" component
+        without addressing the coupling.
+      - >
+        Tool registries serve a fundamentally different function from tools themselves
+        ({{componentTools}}). Tools are the external APIs and services that agents invoke
+        (the tool functionality); the registry is the catalog/metadata layer that informs
+        which tool is selected and how the agent should invoke it. The threat models are
+        distinct: attacks on tools target functionality ({{riskInsecureIntegratedComponent}}),
+        while attacks on a registry target the metadata that directs tool selection
+        ({{riskToolSourceProvenance}}, {{riskToolRegistryTampering}}). A compromised
+        registry can redirect an agent to the wrong tool — or to a corrupted invocation
+        method on the right tool — even when the tools themselves remain secure.
+      - >
+        Registries are decoupled from tools: the same tool may be referenced by multiple
+        registries from different sector-focused authorities (compliance-flavored,
+        performance-flavored, licensing-flavored), and registries are not required in all
+        deployments — internal-only or air-gapped agent systems may operate without any
+        public registry layer. Controls targeting registry integrity apply only where a
+        registry is part of the deployment.
+    category: componentsInfrastructure
+    subcategory: componentsRegistries
+    edges:
+      to:
+        - componentOrchestrationInputHandling
+        - componentTools
+      from:
+        - componentTools
   - id: componentMemory
     title: Model Memory
     description:
