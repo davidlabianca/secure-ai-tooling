@@ -141,11 +141,14 @@ _MINIMAL_EDGES: dict = {
     "to": ["componentTheModel"],
 }
 
-# personas.schema.json / definitions/persona — required: id, title, description
+# personas.schema.json / definitions/persona — required: id, title, description.
+# Non-deprecated personas also require identificationQuestions (ADR-021 D8
+# if/then constraint), so an active minimal persona must carry the block.
 _MINIMAL_PERSONA: dict = {
     "id": "personaModelProvider",
     "title": "Model Provider",
     "description": ["A model provider persona."],
+    "identificationQuestions": ["Do you supply or license AI models to other organizations?"],
 }
 
 # frameworks.schema.json / definitions/framework — required: id, name, fullName,

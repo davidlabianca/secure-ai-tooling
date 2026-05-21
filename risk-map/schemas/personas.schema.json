@@ -73,6 +73,12 @@
         }
       },
       "required": ["id", "title", "description"],
+      "if": {
+        "not": { "properties": { "deprecated": { "const": true } }, "required": ["deprecated"] }
+      },
+      "then": {
+        "required": ["identificationQuestions"]
+      },
       "additionalProperties": false
     }
   }

@@ -860,3 +860,143 @@ class TestInstallDepsIntegration:
         assert "install-precommit-hook.sh" not in content, (
             "install-deps.sh still references the deleted bash installer"
         )
+
+
+# ===========================================================================
+# Sweep-validator block-mode posture lock
+# ===========================================================================
+
+
+class TestSweepValidatorsBlockMode:
+    """
+    Config-posture lock: sweep validators must carry --block in their entry.
+
+    Each of the five sweep validators supports a dual-mode CLI: bare invocation
+    warns and exits 0; --block causes a non-zero exit on violations so the
+    pre-commit framework fails the commit.  The hook entry must include --block
+    so staged violations are not silently swallowed.
+
+    Two hooks that do not have dual-mode logic (validate-lifecycle-stage and
+    validate-control-risk-references) must NOT carry --block; the guard tests
+    below pin that invariant to prevent accidental mirroring.
+    """
+
+    def test_validate_component_edges_entry_has_block_flag(self):
+        """
+        Test that validate-component-edges hook entry contains --block.
+
+        Given: .pre-commit-config.yaml validate-component-edges hook
+        When:  inspecting the entry: field
+        Then:  the entry contains the --block token
+        """
+        hooks = _hooks_by_id("validate-component-edges")
+        assert len(hooks) == 1, "Exactly one validate-component-edges hook expected"
+        entry = hooks[0].get("entry", "")
+        assert "--block" in entry, (
+            "validate-component-edges entry must contain --block so staged violations "
+            "fail the commit rather than warn-and-continue; got: " + repr(entry)
+        )
+
+    def test_validate_framework_references_entry_has_block_flag(self):
+        """
+        Test that validate-framework-references hook entry contains --block.
+
+        Given: .pre-commit-config.yaml validate-framework-references hook
+        When:  inspecting the entry: field
+        Then:  the entry contains the --block token
+        """
+        hooks = _hooks_by_id("validate-framework-references")
+        assert len(hooks) == 1, "Exactly one validate-framework-references hook expected"
+        entry = hooks[0].get("entry", "")
+        assert "--block" in entry, (
+            "validate-framework-references entry must contain --block so staged violations "
+            "fail the commit rather than warn-and-continue; got: " + repr(entry)
+        )
+
+    def test_validate_identification_questions_entry_has_block_flag(self):
+        """
+        Test that validate-identification-questions hook entry contains --block.
+
+        Given: .pre-commit-config.yaml validate-identification-questions hook
+        When:  inspecting the entry: field
+        Then:  the entry contains the --block token
+        """
+        hooks = _hooks_by_id("validate-identification-questions")
+        assert len(hooks) == 1, "Exactly one validate-identification-questions hook expected"
+        entry = hooks[0].get("entry", "")
+        assert "--block" in entry, (
+            "validate-identification-questions entry must contain --block so staged violations "
+            "fail the commit rather than warn-and-continue; got: " + repr(entry)
+        )
+
+    def test_validate_yaml_prose_subset_entry_has_block_flag(self):
+        """
+        Test that validate-yaml-prose-subset hook entry contains --block.
+
+        Given: .pre-commit-config.yaml validate-yaml-prose-subset hook
+        When:  inspecting the entry: field
+        Then:  the entry contains the --block token
+        """
+        hooks = _hooks_by_id("validate-yaml-prose-subset")
+        assert len(hooks) == 1, "Exactly one validate-yaml-prose-subset hook expected"
+        entry = hooks[0].get("entry", "")
+        assert "--block" in entry, (
+            "validate-yaml-prose-subset entry must contain --block so staged violations "
+            "fail the commit rather than warn-and-continue; got: " + repr(entry)
+        )
+
+    def test_validate_prose_references_entry_has_block_flag(self):
+        """
+        Test that validate-prose-references hook entry contains --block.
+
+        Given: .pre-commit-config.yaml validate-prose-references hook
+        When:  inspecting the entry: field
+        Then:  the entry contains the --block token
+        """
+        hooks = _hooks_by_id("validate-prose-references")
+        assert len(hooks) == 1, "Exactly one validate-prose-references hook expected"
+        entry = hooks[0].get("entry", "")
+        assert "--block" in entry, (
+            "validate-prose-references entry must contain --block so staged violations "
+            "fail the commit rather than warn-and-continue; got: " + repr(entry)
+        )
+
+    def test_validate_lifecycle_stage_entry_does_not_have_block_flag(self):
+        """
+        Test that validate-lifecycle-stage hook entry does NOT contain --block.
+
+        Given: .pre-commit-config.yaml validate-lifecycle-stage hook
+        When:  inspecting the entry: field
+        Then:  the entry does NOT contain --block
+
+        validate-lifecycle-stage has no dual-mode logic; it exits non-zero on
+        any violation regardless.  Adding --block would be meaningless noise and
+        risks confusing future maintainers about which hooks are sweep validators.
+        """
+        hooks = _hooks_by_id("validate-lifecycle-stage")
+        assert len(hooks) == 1, "Exactly one validate-lifecycle-stage hook expected"
+        entry = hooks[0].get("entry", "")
+        assert "--block" not in entry, (
+            "validate-lifecycle-stage entry must NOT contain --block "
+            "(not a sweep validator; has no dual-mode logic); got: " + repr(entry)
+        )
+
+    def test_validate_control_risk_references_entry_does_not_have_block_flag(self):
+        """
+        Test that validate-control-risk-references hook entry does NOT contain --block.
+
+        Given: .pre-commit-config.yaml validate-control-risk-references hook
+        When:  inspecting the entry: field
+        Then:  the entry does NOT contain --block
+
+        validate-control-risk-references has no dual-mode logic; it exits non-zero
+        on any violation regardless.  This guard prevents accidental --block
+        mirroring from a sweep-validator bulk edit.
+        """
+        hooks = _hooks_by_id("validate-control-risk-references")
+        assert len(hooks) == 1, "Exactly one validate-control-risk-references hook expected"
+        entry = hooks[0].get("entry", "")
+        assert "--block" not in entry, (
+            "validate-control-risk-references entry must NOT contain --block "
+            "(not a sweep validator; has no dual-mode logic); got: " + repr(entry)
+        )
