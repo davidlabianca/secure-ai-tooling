@@ -313,15 +313,18 @@ class TestPersonaBackwardCompatibility:
             f"Existing personas.yaml should validate with updated schema.\nError output:\n{result.stderr}"
         )
 
-    def test_legacy_persona_without_optional_fields_passes_validation(
+    def test_deprecated_persona_without_optional_fields_passes_validation(
         self, tmp_path, personas_schema_path, base_uri
     ):
         """
-        Test that persona with only required fields validates.
+        Test that a deprecated persona with only core fields validates.
 
-        Given: A persona with only id, title, description (no optional fields)
+        Given: A deprecated persona with id, title, description, and deprecated: true
+               but no identificationQuestions or other optional fields
         When: Schema validation is performed
-        Then: Validation passes
+        Then: Validation passes — the ADR-021 D8 conditional constraint exempts
+              deprecated personas, so the minimal valid persona without
+              identificationQuestions is one marked deprecated: true
         """
         yaml_content = """
 title: Test Personas
@@ -332,6 +335,7 @@ personas:
     title: Model Creator
     description:
       - Organizations that train and tune models
+    deprecated: true
 """
         yaml_file = tmp_path / "personas.yaml"
         yaml_file.write_text(yaml_content)
@@ -345,7 +349,9 @@ personas:
             text=True,
         )
 
-        assert result.returncode == 0, f"Legacy persona should validate. Error: {result.stderr}"
+        assert result.returncode == 0, (
+            f"Deprecated persona without identificationQuestions should validate. Error: {result.stderr}"
+        )
 
 
 # ============================================================================
@@ -373,6 +379,9 @@ personas:
     title: Model Provider
     description:
       - Organizations that provide AI models
+    identificationQuestions:
+      - "Do you supply or license AI models to other organizations?"
+      - "Are you responsible for the training and release of AI model artifacts?"
 """
         yaml_file = tmp_path / "personas.yaml"
         yaml_file.write_text(yaml_content)
@@ -450,6 +459,9 @@ personas:
       iso-22989:
         - "Data supplier"
         - "Data provider"
+    identificationQuestions:
+      - "Do you collect, curate, or license datasets used to train AI systems?"
+      - "Are you responsible for the quality and provenance of data supplied to AI pipelines?"
 """
         yaml_file = tmp_path / "personas.yaml"
         yaml_file.write_text(yaml_content)
@@ -490,6 +502,9 @@ personas:
       - "Establish AI governance policies"
       - "Monitor compliance with regulations"
       - "Define risk management frameworks"
+    identificationQuestions:
+      - "Do you set or enforce AI governance policies within your organization?"
+      - "Are you responsible for AI risk management or compliance oversight?"
 """
         yaml_file = tmp_path / "personas.yaml"
         yaml_file.write_text(yaml_content)
@@ -803,6 +818,9 @@ personas:
     description:
       - Test persona
     mappings: {}
+    identificationQuestions:
+      - "Do you operate the compute or serving infrastructure on which AI models run?"
+      - "Are you responsible for platform-level security controls for AI workloads?"
 """
         yaml_file = tmp_path / "personas.yaml"
         yaml_file.write_text(yaml_content)
@@ -842,6 +860,9 @@ personas:
     description:
       - Test persona
     responsibilities: []
+    identificationQuestions:
+      - "Do you build or operate autonomous AI agents that act on behalf of users?"
+      - "Are you responsible for orchestrating multi-step AI workflows or pipelines?"
 """
         yaml_file = tmp_path / "personas.yaml"
         yaml_file.write_text(yaml_content)
@@ -881,6 +902,8 @@ personas:
     mappings:
       iso-22989:
         - "Model provider"
+    identificationQuestions:
+      - "Do you supply or license AI models to other organizations?"
 
   - id: personaDataProvider
     title: Data Provider
@@ -888,11 +911,15 @@ personas:
       - Provider with responsibilities only
     responsibilities:
       - "Provide data"
+    identificationQuestions:
+      - "Do you collect or curate datasets used to train AI systems?"
 
   - id: personaPlatformProvider
     title: Platform Provider
     description:
-      - Provider with no optional fields
+      - Provider with questions only
+    identificationQuestions:
+      - "Do you operate the infrastructure on which AI models are served?"
 
   - id: personaModelCreator
     title: Model Creator (Legacy)
@@ -918,6 +945,215 @@ personas:
 
         assert result.returncode == 0, (
             f"Multiple personas with mixed fields should validate. Error: {result.stderr}"
+        )
+
+
+# ============================================================================
+# Conditional identificationQuestions requirement (ADR-021 D8)
+# ============================================================================
+
+
+class TestIdentificationQuestionsConditionalRequirement:
+    """
+    Schema constraint tests for the if/then conditional requirement on
+    identificationQuestions (ADR-021 D8).
+
+    Non-deprecated personas must supply identificationQuestions.  Deprecated
+    personas (personaModelCreator / personaModelConsumer) are exempt so that
+    their existing minimal entries remain valid.
+
+    The constraint must be expressed as JSON Schema if/then at the
+    definitions.persona level — NOT as a flat addition to required[] — because
+    a flat required addition would wrongly reject the two legitimately-deprecated
+    empty personas.
+    """
+
+    def test_non_deprecated_persona_without_identification_questions_is_rejected(
+        self, tmp_path, personas_schema_path, base_uri
+    ):
+        """
+        Test that a non-deprecated persona missing identificationQuestions fails validation.
+
+        Given: A persona with id/title/description but no deprecated flag and
+               no identificationQuestions field
+        When:  Schema validation is run with check-jsonschema
+        Then:  Validation fails (non-zero exit)
+
+        This is the primary constraint introduced by ADR-021 D8: active personas
+        must declare identification questions so framework consumers can determine
+        which persona applies to their context.
+        """
+        yaml_content = """
+title: Test Personas
+description:
+  - Test personas for validation
+personas:
+  - id: personaEndUser
+    title: End User
+    description:
+      - End users of AI-powered systems
+"""
+        yaml_file = tmp_path / "personas.yaml"
+        yaml_file.write_text(yaml_content)
+
+        result = subprocess.run(
+            [
+                "check-jsonschema",
+                "--base-uri",
+                base_uri,
+                "--schemafile",
+                str(personas_schema_path),
+                str(yaml_file),
+            ],
+            capture_output=True,
+            text=True,
+        )
+
+        assert result.returncode != 0, (
+            "Non-deprecated persona without identificationQuestions must fail validation "
+            "(ADR-021 D8 requires the if/then conditional constraint); "
+            "schema currently lacks this constraint."
+        )
+
+    def test_deprecated_persona_without_identification_questions_is_accepted(
+        self, tmp_path, personas_schema_path, base_uri
+    ):
+        """
+        Test that a deprecated persona without identificationQuestions passes validation.
+
+        Given: A persona with deprecated: true and no identificationQuestions field
+        When:  Schema validation is run with check-jsonschema
+        Then:  Validation passes (zero exit)
+
+        The if/then constraint must be conditional on the absence of deprecated: true
+        so that personaModelCreator and personaModelConsumer (which carry
+        deprecated: true and no identification questions) remain valid.
+        A flat required[] addition would break these entries.
+        """
+        yaml_content = """
+title: Test Personas
+description:
+  - Test personas for validation
+personas:
+  - id: personaModelCreator
+    title: Model Creator
+    description:
+      - Legacy persona superseded by personaModelProvider
+    deprecated: true
+"""
+        yaml_file = tmp_path / "personas.yaml"
+        yaml_file.write_text(yaml_content)
+
+        result = subprocess.run(
+            [
+                "check-jsonschema",
+                "--base-uri",
+                base_uri,
+                "--schemafile",
+                str(personas_schema_path),
+                str(yaml_file),
+            ],
+            capture_output=True,
+            text=True,
+        )
+
+        assert result.returncode == 0, (
+            "Deprecated persona without identificationQuestions must pass validation; "
+            "the constraint must be conditional (if/then), not a flat required[]. "
+            f"Error output:\n{result.stderr}"
+        )
+
+    def test_non_deprecated_persona_with_identification_questions_is_accepted(
+        self, tmp_path, personas_schema_path, base_uri
+    ):
+        """
+        Test that a non-deprecated persona with identificationQuestions passes validation.
+
+        Given: A persona with id/title/description and a valid identificationQuestions array
+        When:  Schema validation is run with check-jsonschema
+        Then:  Validation passes (zero exit)
+
+        Confirms the happy path: once the if/then constraint is present, a well-formed
+        active persona that includes identificationQuestions must still validate cleanly.
+        """
+        yaml_content = """
+title: Test Personas
+description:
+  - Test personas for validation
+personas:
+  - id: personaEndUser
+    title: End User
+    description:
+      - End users of AI-powered systems
+    identificationQuestions:
+      - "Do you directly interact with AI-powered applications as a consumer?"
+      - "Are you a primary recipient of AI-generated outputs rather than a developer or operator?"
+"""
+        yaml_file = tmp_path / "personas.yaml"
+        yaml_file.write_text(yaml_content)
+
+        result = subprocess.run(
+            [
+                "check-jsonschema",
+                "--base-uri",
+                base_uri,
+                "--schemafile",
+                str(personas_schema_path),
+                str(yaml_file),
+            ],
+            capture_output=True,
+            text=True,
+        )
+
+        assert result.returncode == 0, (
+            "Non-deprecated persona with identificationQuestions must pass validation. "
+            f"Error output:\n{result.stderr}"
+        )
+
+    def test_non_deprecated_persona_model_provider_without_identification_questions_is_rejected(
+        self, tmp_path, personas_schema_path, base_uri
+    ):
+        """
+        Test that the D8 constraint applies to personaModelProvider, not only personaEndUser.
+
+        Given: A personaModelProvider with id/title/description but no deprecated flag
+               and no identificationQuestions field
+        When:  Schema validation is run with check-jsonschema
+        Then:  Validation fails (non-zero exit)
+
+        This guards against a regression where the if/then constraint is narrowed
+        to a specific persona id rather than applying generally to all non-deprecated
+        personas (ADR-021 D8).
+        """
+        yaml_content = """
+title: Test Personas
+description:
+  - Test personas for validation
+personas:
+  - id: personaModelProvider
+    title: Model Provider
+    description:
+      - Organizations that supply AI models to consumers
+"""
+        yaml_file = tmp_path / "personas.yaml"
+        yaml_file.write_text(yaml_content)
+
+        result = subprocess.run(
+            [
+                "check-jsonschema",
+                "--base-uri",
+                base_uri,
+                "--schemafile",
+                str(personas_schema_path),
+                str(yaml_file),
+            ],
+            capture_output=True,
+            text=True,
+        )
+
+        assert result.returncode != 0, (
+            "Non-deprecated personaModelProvider without identificationQuestions must fail validation "
+            "(ADR-021 D8 constraint must be general, not limited to personaEndUser)."
         )
 
 
