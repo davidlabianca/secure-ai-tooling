@@ -1,3 +1,8 @@
+# ADR-content alignment manifest
+# This template teaches/solicits conventions from:
+#   - ADR-016: externalReferences field shape; sentinel grammar ({{ref:identifier}}, {{controlXxx}})
+#   - ADR-017 D1: allowed prose authoring tokens
+#   - ADR-022 D5b: canonical framework mapping value forms
 name: Update Existing Control
 description: Propose updates to an existing security control in the CoSAI Risk Map
 title: '[Update Control]: '
@@ -51,6 +56,9 @@ body:
         - "Add componentModelEvaluation to components list - this control is relevant during evaluation phase"
         - "Remove riskPromptInjection from risks - this control doesn't effectively mitigate prompt injection"
         - "Add MITRE ATLAS mapping AML.M0015 (Adversarial Input Detection)"
+
+        Cross-reference framework entities using sentinels, e.g. {{controlInputValidationAndSanitization}} or {{riskPromptInjection}}.
+        Outbound citations go in External Reference Changes below and are cited via {{ref:identifier}}.
       placeholder: |
         Current state: [what it says now]
         Proposed change: [what it should say]
@@ -108,8 +116,36 @@ body:
         📋 See the [Framework Mappings Style Guide](https://github.com/cosai-oasis/secure-ai-tooling/blob/main/risk-map/docs/contributing/framework-mappings-style-guide.md) for per-framework rules.
       placeholder: |
         + mitre-atlas: AML.M0015
-        + nist-ai-rmf: GV-4.1
+        + nist-ai-rmf: GOVERN-4.1
         - mitre-atlas: AML.M0007
+
+  - type: textarea
+    id: external-references
+    attributes:
+      label: External Reference Changes
+      description: |
+        Add or remove structured outbound citations for this control. Each entry populates or removes
+        an entry in the `externalReferences` array in the YAML. Prose fields cite an entry via the
+        sentinel {{ref:identifier}}, where `identifier` matches the entry's `id` field.
+
+        Per-entry shape (YAML):
+          type: <enum>   # cwe, cve, atlas, attack, advisory, paper, news, spec, editorial, other
+          id: <string>   # author-chosen sentinel target; canonical-form for cwe/cve/atlas/attack
+          title: <string>
+          url: https://...  # https only
+
+        Canonical id examples: cwe-89, cve-2024-0001, aml-t0040.001, attack-t1059.003.
+
+        Example entry:
+          - type: spec
+            id: nist-sp-800-218
+            title: NIST SP 800-218 Secure Software Development Framework
+            url: https://csrc.nist.gov/publications/detail/sp/800-218/final
+      placeholder: |
+        + type: paper
+          id: new-research-paper
+          title: Title of relevant research
+          url: https://arxiv.org/abs/...
 
   - type: textarea
     id: supporting-evidence
