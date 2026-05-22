@@ -1721,6 +1721,255 @@ class TestDependabotValidation:
 
 
 # ============================================================================
+# ADR-026 D3 / D6.3 — Closed-enum closure and placeholder-coverage tests
+#
+# These tests assert that:
+#   - Every closed-enum schema field solicited by a source template resolves
+#     through PLACEHOLDER_MAPPINGS to a dropdown (ADR-026 D3).
+#   - No source template contains an unregistered {{TOKEN}} for a non-framework
+#     placeholder (general guard).
+#   - Specifically, new_component's component-subcategory field must be
+#     type: dropdown using {{COMPONENT_SUBCATEGORIES}}, not type: input.
+#
+# These tests pin the ADR-026 D3 closure contract, closed by #326:
+#   - COMPONENT_SUBCATEGORIES is registered in PLACEHOLDER_MAPPINGS
+#   - The new_component template uses type: dropdown for component-subcategory
+#   - new_persona and update_persona sources exist and regenerate from source
+# ============================================================================
+
+# Known framework-level placeholders that are NOT in PLACEHOLDER_MAPPINGS
+# (handled by special-case logic in expand_placeholders).
+_FRAMEWORK_PLACEHOLDERS = {"FRAMEWORK_MAPPINGS", "CONTROL_FRAMEWORKS_LIST", "RISK_FRAMEWORKS_LIST"}
+
+
+class TestClosedEnumClosureContract:
+    """
+    Asserts ADR-026 D3: every closed-enum schema field solicited by a source
+    template must resolve through PLACEHOLDER_MAPPINGS (no free-form input
+    for a field with a schema-backed closed enum).
+    """
+
+    def test_component_subcategories_placeholder_exists_in_mappings(self) -> None:
+        """
+        Asserts that COMPONENT_SUBCATEGORIES is registered in PLACEHOLDER_MAPPINGS
+        as required by ADR-026 D3.
+
+        The subcategory field in components.schema.json is a closed enum of 7 values.
+        A source template soliciting that field must use a placeholder that resolves
+        to those values via PLACEHOLDER_MAPPINGS — free-form input is not acceptable.
+
+        Given: TemplateRenderer.PLACEHOLDER_MAPPINGS
+        When: The 'COMPONENT_SUBCATEGORIES' key is looked up
+        Then: The key exists
+
+        Pins that COMPONENT_SUBCATEGORIES is registered in PLACEHOLDER_MAPPINGS.
+        Issue: #326 / ADR-026 D3
+        """
+        import sys
+        from pathlib import Path
+
+        sys.path.insert(0, str(Path(__file__).parent.parent.parent / "hooks"))
+        from issue_template_generator.template_renderer import TemplateRenderer
+
+        assert "COMPONENT_SUBCATEGORIES" in TemplateRenderer.PLACEHOLDER_MAPPINGS, (
+            "COMPONENT_SUBCATEGORIES missing from PLACEHOLDER_MAPPINGS (ADR-026 D3). "
+            "The subcategory field is a closed enum of 7 values in components.schema.json "
+            "and must resolve through the mapping registry, not via free-form input."
+        )
+
+    def test_component_subcategories_maps_to_correct_schema_path(self) -> None:
+        """
+        Asserts that COMPONENT_SUBCATEGORIES in PLACEHOLDER_MAPPINGS points to
+        the correct schema path: components.schema.json /
+        definitions.subcategory.properties.id (ADR-026 D3).
+
+        Given: TemplateRenderer.PLACEHOLDER_MAPPINGS['COMPONENT_SUBCATEGORIES']
+        When: The schema_paths entry is examined
+        Then: It references components.schema.json and definitions.subcategory.properties.id
+
+        Pins the COMPONENT_SUBCATEGORIES mapping registration. Issue: #326
+        """
+        import sys
+        from pathlib import Path
+
+        sys.path.insert(0, str(Path(__file__).parent.parent.parent / "hooks"))
+        from issue_template_generator.template_renderer import TemplateRenderer
+
+        assert "COMPONENT_SUBCATEGORIES" in TemplateRenderer.PLACEHOLDER_MAPPINGS, (
+            "COMPONENT_SUBCATEGORIES absent from PLACEHOLDER_MAPPINGS — cannot check schema path."
+        )
+        mapping = TemplateRenderer.PLACEHOLDER_MAPPINGS["COMPONENT_SUBCATEGORIES"]
+        schema_paths = mapping.get("schema_paths", [])
+        assert len(schema_paths) >= 1, "COMPONENT_SUBCATEGORIES mapping has no schema_paths entries."
+
+        found_correct_path = any(
+            schema_file == "components.schema.json" and field_path == "definitions.subcategory.properties.id"
+            for schema_file, field_path in schema_paths
+        )
+        assert found_correct_path, (
+            f"COMPONENT_SUBCATEGORIES does not point to "
+            f"components.schema.json / definitions.subcategory.properties.id. "
+            f"Got: {schema_paths}"
+        )
+
+    def test_component_subcategories_field_type_is_dropdown(self) -> None:
+        """
+        Asserts that COMPONENT_SUBCATEGORIES has field_type='dropdown',
+        consistent with the existing COMPONENT_CATEGORIES entry (ADR-026 D3).
+
+        Given: TemplateRenderer.PLACEHOLDER_MAPPINGS['COMPONENT_SUBCATEGORIES']
+        When: The field_type value is read
+        Then: field_type == 'dropdown'
+
+        Pins the COMPONENT_SUBCATEGORIES mapping registration. Issue: #326
+        """
+        import sys
+        from pathlib import Path
+
+        sys.path.insert(0, str(Path(__file__).parent.parent.parent / "hooks"))
+        from issue_template_generator.template_renderer import TemplateRenderer
+
+        assert "COMPONENT_SUBCATEGORIES" in TemplateRenderer.PLACEHOLDER_MAPPINGS, (
+            "COMPONENT_SUBCATEGORIES absent from PLACEHOLDER_MAPPINGS."
+        )
+        field_type = TemplateRenderer.PLACEHOLDER_MAPPINGS["COMPONENT_SUBCATEGORIES"].get("field_type")
+        assert field_type == "dropdown", (
+            f"COMPONENT_SUBCATEGORIES field_type must be 'dropdown' (closed enum rendered as "
+            f"GitHub dropdown), got: {field_type!r}"
+        )
+
+    def test_rendered_new_component_subcategory_is_dropdown_not_input(self, repo_root: Path) -> None:
+        """
+        Asserts that the rendered new_component.yml has type: dropdown for the
+        component-subcategory field, not type: input (ADR-026 D3).
+
+        A free-form input field for a closed-enum schema field violates the
+        closed-enum closure contract. The source template must use
+        {{COMPONENT_SUBCATEGORIES}} which expands to a dropdown.
+
+        Given: The new_component source template after backfill and the production schemas
+        When: The template is rendered
+        Then: The parsed body item with id='component-subcategory' has type='dropdown'
+
+        Pins that the rendered field is type: dropdown, not type: input.
+        Issue: #326 / ADR-026 D3
+        """
+        import sys
+
+        import yaml
+
+        sys.path.insert(0, str(repo_root / "scripts" / "hooks"))
+        from issue_template_generator.generator import IssueTemplateGenerator
+
+        gen = IssueTemplateGenerator(repo_root)
+        source_file = repo_root / "scripts" / "TEMPLATES" / "new_component.template.yml"
+        assert source_file.exists(), "new_component.template.yml not found — prerequisite for this test."
+
+        # Render directly from source content: the full generate_template
+        # pipeline returns a diff string in dry_run mode, not the rendered body.
+        source_content = source_file.read_text(encoding="utf-8")
+        rendered = gen.template_renderer.render_template(source_content, "components")
+        parsed = yaml.safe_load(rendered)
+
+        body_items = parsed.get("body", [])
+        subcategory_items = [item for item in body_items if item.get("id") == "component-subcategory"]
+
+        assert len(subcategory_items) == 1, (
+            "Expected exactly one body item with id='component-subcategory' in rendered new_component."
+        )
+        field_type = subcategory_items[0].get("type")
+        assert field_type == "dropdown", (
+            f"new_component component-subcategory must be type: dropdown (not type: {field_type!r}). "
+            f"ADR-026 D3 requires closed-enum fields to use dropdown, not free-form input."
+        )
+
+    def test_rendered_new_component_subcategory_options_equal_schema_enum(self, repo_root: Path) -> None:
+        """
+        Asserts that the component-subcategory dropdown in rendered new_component.yml
+        contains exactly the 7 subcategory enum values from components.schema.json
+        (ADR-026 D3 closed-enum closure).
+
+        Given: The rendered new_component.yml after backfill
+        When: The component-subcategory dropdown options are extracted
+        Then: Options == the 7 subcategory enum values in schema definition order
+
+        Pins the dropdown options against the 7-value schema enum. Issue: #326
+        """
+        import json
+        import sys
+
+        import yaml
+
+        sys.path.insert(0, str(repo_root / "scripts" / "hooks"))
+        from issue_template_generator.generator import IssueTemplateGenerator
+
+        gen = IssueTemplateGenerator(repo_root)
+        source_file = repo_root / "scripts" / "TEMPLATES" / "new_component.template.yml"
+        assert source_file.exists(), "new_component.template.yml prerequisite missing."
+
+        source_content = source_file.read_text(encoding="utf-8")
+        rendered = gen.template_renderer.render_template(source_content, "components")
+        parsed = yaml.safe_load(rendered)
+
+        subcategory_items = [item for item in parsed.get("body", []) if item.get("id") == "component-subcategory"]
+        assert len(subcategory_items) == 1, "component-subcategory item not found in rendered body."
+
+        actual_options = subcategory_items[0].get("attributes", {}).get("options", [])
+
+        # Load the authoritative enum from the production schema
+        schema_path = repo_root / "risk-map" / "schemas" / "components.schema.json"
+        with open(schema_path, encoding="utf-8") as f:
+            schema = json.load(f)
+        expected_options = schema["definitions"]["subcategory"]["properties"]["id"]["enum"]
+
+        assert actual_options == expected_options, (
+            f"component-subcategory dropdown options do not match schema enum (ADR-026 D3). "
+            f"Expected {expected_options}, got {actual_options}."
+        )
+
+    def test_no_source_template_references_unregistered_placeholder(self, repo_root: Path) -> None:
+        """
+        Asserts that no source template in scripts/TEMPLATES/ contains a
+        {{TOKEN}} placeholder that is absent from PLACEHOLDER_MAPPINGS and is
+        not a known framework-level placeholder (ADR-026 D6 general guard).
+
+        An unregistered placeholder would silently pass through rendering
+        unchanged, producing malformed output that may fail schema validation
+        only at deploy time.
+
+        Given: All source templates in scripts/TEMPLATES/
+        When: Each template is scanned for {{TOKEN}} patterns
+        Then: Every non-framework token resolves in PLACEHOLDER_MAPPINGS
+
+        Currently PASSES for existing 5 sources. Will pass for the 3 new
+        sources only if their placeholders are registered. This test acts
+        as a forward guard. Issue: #326
+        """
+        import re
+        import sys
+
+        sys.path.insert(0, str(repo_root / "scripts" / "hooks"))
+        from issue_template_generator.template_renderer import TemplateRenderer
+
+        known_placeholders = set(TemplateRenderer.PLACEHOLDER_MAPPINGS.keys())
+        registered = known_placeholders | _FRAMEWORK_PLACEHOLDERS
+
+        templates_dir = repo_root / "scripts" / "TEMPLATES"
+        violations: list[str] = []
+
+        for template_file in sorted(templates_dir.glob("*.template.yml")):
+            content = template_file.read_text(encoding="utf-8")
+            tokens = set(re.findall(r"\{\{([A-Z_]+)\}\}", content))
+            unregistered = tokens - registered
+            for token in sorted(unregistered):
+                violations.append(f"{template_file.name}: {{{{{{token}}}}}} not in PLACEHOLDER_MAPPINGS")
+
+        assert not violations, "Unregistered placeholders found in source templates (ADR-026 D6):\n" + "\n".join(
+            f"  {v}" for v in violations
+        )
+
+
+# ============================================================================
 # Integration Tests
 # ============================================================================
 
