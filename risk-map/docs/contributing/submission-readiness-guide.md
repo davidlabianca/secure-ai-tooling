@@ -26,8 +26,9 @@ Work through this list before opening an issue. Every item maps to a section bel
 - [ ] **Classical security equivalent is named** — the long description maps to a pre-AI risk/defense, then explains the AI-specific amplifier.
 - [ ] **Personas use the correct model** — risks list _impacted_ personas; controls list _implementer_ personas.
 - [ ] **No universal controls on risks** — the 7 universal controls apply to all risks implicitly.
-- [ ] **Examples are real** — incidents, research, or vulnerability disclosures with verifiable URLs.
-- [ ] **Framework mappings use valid IDs from the correct framework** — no parent + sub-technique, no wrong entity type.
+- [ ] **Examples are real** — incidents, research, or vulnerability disclosures, each backed by an `externalReferences` entry cited with a `{{ref:identifier}}` sentinel (no inline URLs).
+- [ ] **Prose uses the authoring subset** — `**bold**` / `*italic*` only, no raw HTML, no inline URLs; cross-references and citations use `{{…}}` sentinels.
+- [ ] **Framework mappings use canonical IDs from the correct framework** — no parent + sub-technique, no wrong entity type, canonical form (e.g., `Tampering`, `GOVERN-1.1`, `LLM01:2025`).
 - [ ] **No overlap with existing entries** — searched `risks-summary.md` / `controls-summary.md` and found nothing close.
 - [ ] **Short description is 1-2 sentences** — the long-form detail belongs in the description field.
 
@@ -125,9 +126,9 @@ The `examples` field anchors a risk or control to observable reality. Reviewers 
 
 1. **Real, not hypothetical.** Published incidents, academic research, vulnerability disclosures, or documented bugs qualify. Thought experiments and "what if an attacker..." scenarios do not.
 2. **Not a vendor product announcement.** A blog post announcing a new defensive product is not evidence of a risk or control. A post-mortem describing how that product caught an incident is.
-3. **Verifiable URLs.** Every example must cite a source the reader can open. Format examples as HTML anchors matching existing entries in the YAML files.
+3. **Verifiable source, structured citation.** Every example must cite a source the reader can open. The source URL does **not** go inline in the prose — it lives in the entry's `externalReferences` array (`type`, `id`, `title`, `url`), and the example references it with a `{{ref:identifier}}` sentinel. Raw HTML anchors and inline URLs are rejected at commit ([ADR-016](../../../docs/adr/016-reference-strategy.md), [ADR-017](../../../docs/adr/017-yaml-prose-authoring-subset.md)). See [`yaml-authoring-subset.md`](../yaml-authoring-subset.md) for the two-step flow.
 
-When in doubt, browse existing `examples` fields in `risks.yaml` or `controls.yaml` to calibrate.
+When in doubt, browse existing `examples` fields in `risks.yaml` or `controls.yaml` to calibrate — they use the sentinel + `externalReferences` form.
 
 ---
 
@@ -135,15 +136,16 @@ When in doubt, browse existing `examples` fields in `risks.yaml` or `controls.ya
 
 Different entity types map to different external frameworks. See [`framework-mappings-style-guide.md`](./framework-mappings-style-guide.md) for the full rules.
 
-| Entity  | STRIDE                 | MITRE ATLAS               | OWASP LLM Top 10 | NIST AI RMF           |
-| ------- | ---------------------- | ------------------------- | ---------------- | --------------------- |
-| Risk    | ✓ (lowercase category) | Techniques (`AML.T####`)  | ✓ (`LLM##`)      | —                     |
-| Control | —                      | Mitigations (`AML.M####`) | —                | ✓ (subcategory level) |
+| Entity  | STRIDE                  | MITRE ATLAS               | OWASP LLM Top 10  | NIST AI RMF             |
+| ------- | ----------------------- | ------------------------- | ----------------- | ----------------------- |
+| Risk    | ✓ (`Tampering`)         | Techniques (`AML.T####`)  | ✓ (`LLM01:2025`)  | —                       |
+| Control | —                       | Mitigations (`AML.M####`) | ✓ (`LLM01:2025`)  | ✓ (`GOVERN-1.1`)        |
 
 **Rules of thumb:**
 
 - Risks map to **techniques**; controls map to **mitigations**. Do not mix.
 - Never map a parent technique **and** one of its sub-techniques. Pick the most specific applicable ID.
+- Use the **canonical** identifier form: PascalCase STRIDE (`Tampering`), full-word NIST prefixes (`GOVERN-1.1`), versioned OWASP (`LLM01:2025`). See [`framework-mappings-style-guide.md`](./framework-mappings-style-guide.md).
 - Verify every mapping ID exists in the referenced framework before submitting.
 
 ---
@@ -192,6 +194,8 @@ See [`common-review-findings.md`](./common-review-findings.md) for the full list
   - [`component-titles-style-guide.md`](./component-titles-style-guide.md)
   - [`identification-questions-style-guide.md`](./identification-questions-style-guide.md)
   - [`framework-mappings-style-guide.md`](./framework-mappings-style-guide.md)
+- **Authoring conventions:**
+  - [`yaml-authoring-subset.md`](../yaml-authoring-subset.md) — prose subset (allowed tokens), the no-inline-URL rule, and the `externalReferences` + `{{ref:…}}` citation flow
 - **Process:**
   - [`issue-templates-guide.md`](./issue-templates-guide.md) — which template to use and when
   - [`common-review-findings.md`](./common-review-findings.md) — top reviewer findings with fix guidance

@@ -28,6 +28,8 @@ Write titles of 2-5 words. Shorter titles are preferred when they capture the ri
 | 5 | Excessive Data Handling During Inference | Upper bound — only when scoping is essential |
 | 6+ | — | Avoid — rephrase or split |
 
+The schema also caps risk titles at **120 characters** (`risks.schema.json` `title.maxLength`, per [ADR-022](../../../docs/adr/022-supporting-schemas.md) / C1 #322). The 2-5 word guidance keeps you well inside that limit; the character cap is a hard backstop a conformant title never reaches.
+
 ### Form
 
 Titles must be **noun phrases** that name the threat, vulnerability, or attack vector. They are not sentences, not descriptions of missing controls, and not explanations of consequences.

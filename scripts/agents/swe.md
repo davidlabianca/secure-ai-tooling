@@ -63,6 +63,28 @@ Produce:
 4. **DRY with judgment.** Three similar lines is better than a premature abstraction. Wait for the third duplication before generalizing.
 5. **YAGNI.** Do not add features, config knobs, or abstractions beyond what the task requires. No "future flexibility" code.
 6. **Fail fast.** Validate inputs at system boundaries with specific, actionable error messages. Trust internal code; do not re-validate what the caller already guaranteed.
+7. **Reuse the shared content-enforcement modules.** When implementing or extending a
+   prose-related hook, import the shared tokenizer at
+   `scripts/hooks/precommit/_prose_tokens.py` and the prose-field discovery at
+   `_prose_fields.py` — never re-implement the markdown-subset grammar or the URL/HTML
+   rejection in a second place (ADR-017 D5). When touching the site renderer, route prose
+   through `renderProse` (`site/assets/sanitizer.mjs`); do not interpolate prose into
+   `innerHTML` directly, and do not widen the sanitizer's `ALLOWED_TAGS` or copy attribute
+   values from input — that is an ADR-015 revisit, not an implementation choice.
+
+---
+
+## Content-enforcement context (ADRs 014–022)
+
+For content-touching work, these hooks block at commit and must stay green:
+`validate-yaml-prose-subset` (ADR-017 — markdown subset, no raw HTML, no inline URLs),
+`validate-prose-references` (ADR-016 — `{{…}}` sentinels resolve, no bare IDs),
+`validate-identification-questions` (ADR-021 D7), `validate-framework-references`,
+`validate-lifecycle-stage`, `validate-component-edges`, `validate-control-risk-references`.
+When YAML prose needs a URL, the structured `externalReferences` entry + `{{ref:identifier}}`
+sentinel is the only path — there is no inline-URL form. Framework-mapping IDs use the
+canonical form (ADR-022 D5b). Do not disable a hook or narrow its `files:` trigger to make
+a change pass; surface the conflict instead.
 
 ---
 

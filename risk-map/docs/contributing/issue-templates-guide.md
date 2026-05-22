@@ -150,7 +150,7 @@ The template includes inline links to:
 
 - **Component Changes** - Use `+` to add, `-` to remove (e.g., `+ componentModelEvaluation`, `- componentDataSources`)
 - **Risk Changes** - Same syntax (e.g., `+ riskModelSourceTampering`, `- riskPromptInjection`)
-- **Framework Changes** - Same syntax (e.g., `+ mitre-atlas: AML.M0015`, `- nist-ai-rmf: GV-6.2`)
+- **Framework Changes** - Same syntax (e.g., `+ mitre-atlas: AML.M0015`, `- nist-ai-rmf: GOVERN-6.2`)
 - **Supporting Evidence** - Links to discussions, standards, references
 
 **Example Walkthrough:**
@@ -207,8 +207,7 @@ This provides exact context for maintainers to see what you're changing.
 
 **Optional Fields:**
 
-- Examples (real-world scenarios)
-- Relevant questions (for risk assessment)
+- Examples (real-world scenarios, with sources cited via `externalReferences`)
 - Framework mappings (MITRE ATLAS, STRIDE, OWASP Top 10 for LLM)
 - Lifecycle stages
 - Impact types
@@ -241,12 +240,20 @@ controlModelAndDataIntegrityManagement
 controlAdversarialTrainingAndTesting
 
 Examples:
-<a href="https://arxiv.org/abs/1708.06733" target="_blank" rel="noopener">BadNets: Identifying Vulnerabilities in the Machine Learning Model Supply Chain (Gu et al., 2017)</a>
+  - The BadNets work ({{ref:gu-2017-badnets}}) demonstrated trojaned models in the ML supply chain.
+
+External References:
+  - type: paper
+    id: gu-2017-badnets
+    title: "BadNets: Identifying Vulnerabilities in the Machine Learning Model Supply Chain (Gu et al., 2017)"
+    url: https://arxiv.org/abs/1708.06733
 
 Framework Mappings:
 mitre-atlas: AML.T0018
-stride: tampering
+stride: Tampering
 ```
+
+Prose fields carry no inline URLs or HTML. Each source is a structured `externalReferences` entry referenced from prose by a `{{ref:identifier}}` sentinel ([ADR-016](../../../docs/adr/016-reference-strategy.md), [ADR-017](../../../docs/adr/017-yaml-prose-authoring-subset.md)). Framework-mapping IDs use the canonical form — `Tampering`, not `tampering`. See [`yaml-authoring-subset.md`](../yaml-authoring-subset.md) and [`framework-mappings-style-guide.md`](./framework-mappings-style-guide.md).
 
 **Reference Links:**
 
@@ -274,8 +281,7 @@ stride: tampering
 
 - **Control Changes** - `+`/`-` syntax
 - **Framework Changes** - `+`/`-` syntax
-- **Examples Updates** - Add/modify real-world scenarios
-- **Assessment Questions** - Add/modify relevant questions
+- **Examples Updates** - Add/modify real-world scenarios (sources cited via `externalReferences`)
 - **Tour Content** - Updates for interactive risk tour
 - **Supporting Evidence** - Research, CVEs, standards
 
@@ -647,7 +653,7 @@ Update templates support quick actions using familiar git diff syntax:
 
 ```
 - componentOldItem
-- nist-ai-rmf: GV-6.2
+- nist-ai-rmf: GOVERN-6.2
 ```
 
 **Benefits:**

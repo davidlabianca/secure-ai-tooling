@@ -99,16 +99,36 @@ The workflow at `.github/workflows/persona-pages.yml` handles the explorer:
 - If additional personas gain full `identificationQuestions`, they will automatically move from the manual-fallback section into the guided question flow.
 - `AI System Governance` currently has control mappings but no direct risk mappings in the framework data. The site therefore shows governance controls and a clear risks empty-state note.
 
-## YAML Prose Allowed HTML
+## YAML Prose Rendering
 
-Prose fields (`longDescription`, `shortDescription`, `examples`, `description`) render as HTML without sanitization. Contributors may use:
+Prose fields (`longDescription`, `shortDescription`, `examples`, `description`) carry a
+small markdown subset, **not** raw HTML. Contributors author:
 
-- `<a href="..." target="_blank" rel="noopener">…</a>` — for citations and references
-- `<strong>`, `<em>`, `<code>` — for emphasis and inline code
+- `**bold**` and `*italic*` / `_italic_` — for emphasis (never `<strong>`/`<em>`).
+- `{{<entity-id>}}` sentinels — for intra-framework references (resolve to an in-page link).
+- `{{ref:identifier}}` sentinels — for external citations, backed by an `externalReferences` entry.
 
-Reviewers must reject YAML containing any other tags. A future allowlist validator may codify this in automation.
+Raw HTML tags, inline URLs (any scheme), and bare entity IDs are **rejected at commit**
+by the `validate-yaml-prose-subset` and `validate-prose-references` hooks
+([ADR-017](../../docs/adr/017-yaml-prose-authoring-subset.md),
+[ADR-016](../../docs/adr/016-reference-strategy.md)). The full authoring rules and the
+`externalReferences` citation flow live in
+[yaml-authoring-subset.md](./yaml-authoring-subset.md).
 
-Nested list syntax (`- - >`) encodes a logical sub-group within a prose field and renders as a visually distinct `<div class="subsection">`. Empty list entries (`- ""`) are silently dropped — do not use them as spacing hacks.
+**Render-time sanitization.** The builder expands sentinels to structured prose items
+(`{type:"ref"}` / `{type:"link"}`), and the renderer routes every paragraph through
+`renderProse` (`site/assets/sanitizer.mjs`), which emits a bounded HTML allowlist —
+`<strong>`, `<em>`, and `<a>` whose attributes are constructed (`https:`-only `href`,
+`rel="noopener noreferrer"`, `target="_blank"`), never copied from input
+([ADR-015](../../docs/adr/015-site-content-sanitization-invariants.md) D1/D3a). Anything
+outside the allowlist is **escaped** (rendered as visible `&lt;…&gt;`) with a console
+warning, not silently dropped — so a contributor who bypassed the upstream lint sees
+that their markup did not land. Authors cannot widen the allowlist from YAML; growing it
+is an ADR-015 revisit, not a content change.
+
+Nested list syntax (`- - >`) encodes a logical sub-group within a prose field and
+renders as a visually distinct `<div class="subsection">`. Empty list entries (`- ""`)
+are silently dropped — do not use them as spacing hacks.
 
 ## Accessibility
 
@@ -133,4 +153,5 @@ Known gap: focus is not preserved across full-app re-renders (answering a questi
 - [Developing the framework](./developing.md)
 - [Frontend test conventions](../../site/tests/README.md)
 - [Identification Questions Style Guide](./contributing/identification-questions-style-guide.md)
+- [YAML Prose Authoring Subset](./yaml-authoring-subset.md)
 - [Repository CONTRIBUTING.md](../../CONTRIBUTING.md)
