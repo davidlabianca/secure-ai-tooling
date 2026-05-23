@@ -1,3 +1,11 @@
+# ADR-content alignment manifest
+# This template teaches/solicits conventions from:
+#   - ADR-016: externalReferences field shape; sentinel grammar ({{ref:identifier}}, {{componentXxx}})
+#   - ADR-017 D1: allowed prose authoring tokens
+#   - ADR-018: components schema (category, description, edge fields)
+#   - ADR-018 D3: component edge bidirectionality (downstream/upstream edge convention)
+#   - ADR-018 D6: framework mappings field
+#   - ADR-022 D5b: canonical framework mapping value forms
 name: New Component Proposal
 description: Propose a new AI system component for the CoSAI Risk Map
 title: '[Component]: '
@@ -32,9 +40,11 @@ body:
     attributes:
       label: Component Description*
       description: |
-        Detailed explanation of what this component represents in the AI system
+        Detailed explanation of what this component represents in the AI system.
 
-        Describe its purpose, role, and how it fits into the broader architecture
+        Describe its purpose, role, and how it fits into the broader architecture.
+        Cross-reference related framework entities using sentinels, e.g. {{componentModelServing}}.
+        Outbound citations go in External References below and are cited via {{ref:identifier}}.
       placeholder: "Describe the component's function, purpose, and architectural role..."
     validations:
       required: true
@@ -93,6 +103,50 @@ body:
         componentDataSources
     validations:
       required: true
+
+  - type: textarea
+    id: framework-mappings
+    attributes:
+      label: Framework Mappings (Optional)
+      description: |
+        Map this component to external framework classifications. Each entry maps a framework ID
+        (per `frameworks.schema.json`) to a framework-specific identifier.
+        Format: `framework-id: mapping-value`
+
+        No framework currently declares `applicableTo: components`. Leave this blank unless you are
+        submitting alongside a framework update that activates a component-side mapping.
+
+        📋 See the [Framework Mappings Style Guide](https://github.com/cosai-oasis/secure-ai-tooling/blob/main/risk-map/docs/contributing/framework-mappings-style-guide.md) for per-framework value forms.
+      placeholder: |
+        # Leave blank unless a framework declares applicableTo: components.
+
+  - type: textarea
+    id: external-references
+    attributes:
+      label: External References (Optional)
+      description: |
+        Structured outbound citations and editorial pointers for this component. Each entry populates
+        the `externalReferences` array in the YAML. Prose fields cite an entry via the sentinel
+        {{ref:identifier}}, where `identifier` matches the entry's `id` field.
+
+        Per-entry shape (YAML):
+          type: <enum>   # cwe, cve, atlas, attack, advisory, paper, news, spec, editorial, other
+          id: <string>   # author-chosen sentinel target; canonical-form for cwe/cve/atlas/attack
+          title: <string>
+          url: https://...  # https only
+
+        Canonical id examples: cwe-89, cve-2024-0001, aml-t0040.001, attack-t1059.003.
+
+        Example entry:
+          - type: spec
+            id: example-spec
+            title: Title of the specification or standard
+            url: https://example.com/spec/...
+      placeholder: |
+        - type: editorial
+          id: example-reference
+          title: Title of the reference
+          url: https://example.com/...
 
   - type: textarea
     id: additional-context
