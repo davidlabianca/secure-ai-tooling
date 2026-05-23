@@ -281,7 +281,7 @@ repos:
         name: 'generate: GitHub issue templates'
         language: system
         entry: python3 scripts/hooks/precommit/regenerate_issue_templates.py
-        files: ^(scripts/TEMPLATES/.*\.yml|risk-map/schemas/.*\.schema\.json|risk-map/yaml/frameworks\.yaml)$
+        files: ^(scripts/TEMPLATES/.*\.yml|risk-map/schemas/.*\.schema\.json|risk-map/yaml/(frameworks|components)\.yaml)$
         # pass_filenames: false so the framework calls the wrapper exactly once.
         # With true + many matching files (e.g., all schemas staged or running
         # against --all-files), pre-commit batches calls and runs them in

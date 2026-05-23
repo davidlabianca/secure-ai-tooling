@@ -40,22 +40,17 @@ body:
       required: true
 
   - type: dropdown
-    id: component-category
+    id: component-category-subcategory
     attributes:
-      label: Component Category*
-      description: Primary category this component belongs to
+      label: Component Category and Subcategory*
+      description: |
+        Select the category and subcategory that best describes this component.
+        Each option encodes both values as "<category-id>: <subcategory-id>".
+        Splitting on ": " yields the category and subcategory field values directly (ADR-026 D8).
       options:
-        {{COMPONENT_CATEGORIES}}
+        {{COMPONENT_CATEGORY_SUBCATEGORY}}
     validations:
       required: true
-
-  - type: dropdown
-    id: component-subcategory
-    attributes:
-      label: Component Subcategory (Optional)
-      description: Subcategory if applicable
-      options:
-        {{COMPONENT_SUBCATEGORIES}}
 
   - type: markdown
     attributes:
