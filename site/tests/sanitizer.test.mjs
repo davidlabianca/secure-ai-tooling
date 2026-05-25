@@ -31,7 +31,7 @@
  * ADR-015 D1 and ADR-016 D5. See ADR-016 D5 Addendum (2026-05-14).
  *
  * Ref-rendering shape:
- *   {type: "ref", id, title}  ->  <a href="#${escapeHtml(id)}">${escapeLinkTitle(title)}</a>
+ *   {type: "ref", id, title}  ->  <a href="#${escapeHtml(id)}">${escapeStructuredTitle(title)}</a>
  *
  * id is validated against ^[A-Za-z][A-Za-z0-9_-]*$ before emission. An id
  * that fails validation triggers the escape-with-warn path identically to
@@ -293,6 +293,26 @@ test("negative — structured link with http:// scheme does not produce <a>", ()
   // ADR-015 D3a: href validated against ^https:// before insertion.
   const output = callRenderProse({ type: "link", title: "Insecure", url: "http://example.com" });
   assert.ok(!output.includes('<a href="http://'), `http:// link must not produce <a>: ${output}`);
+});
+
+test("negative — unknown structured item emits inert marker instead of object string", () => {
+  const originalWarn = console.warn;
+  const spy = { calls: [] };
+  console.warn = (...args) => spy.calls.push(args);
+
+  try {
+    const output = callRenderProse({ type: "alien", title: "Unknown Type" });
+
+    assert.equal(output, "<!-- renderProse: unsupported prose-item type: alien -->");
+    assert.ok(!output.includes("[object Object]"), `Unknown structured item must not leak object string: ${output}`);
+    assert.equal(
+      spy.calls.length,
+      1,
+      `Unknown structured item must produce exactly one warning, got ${spy.calls.length}`,
+    );
+  } finally {
+    console.warn = originalWarn;
+  }
 });
 
 test("negative — raw <a href=...> in prose is escaped, not passed through", () => {
