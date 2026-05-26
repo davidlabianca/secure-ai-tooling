@@ -1847,8 +1847,10 @@ class TestClosedEnumClosureContract:
         template = "      options:\n        {{COMPONENT_CATEGORY_SUBCATEGORY}}"
         result = renderer.expand_placeholders(template, "components")
 
-        # All seven subcategory IDs from the closed enum must appear somewhere in the
-        # rendered output (each as part of its correct tuple).
+        # Every subcategory ID from the closed enum must appear somewhere in the
+        # rendered output (each as part of its correct tuple). When the taxonomy
+        # grows, add the new id here — len(subcategory_ids) is the count, not a
+        # hardcoded literal elsewhere.
         subcategory_ids = [
             "componentsModelTraining",
             "componentsData",
@@ -1857,6 +1859,7 @@ class TestClosedEnumClosureContract:
             "componentsModelDeployment",
             "componentsModelCore",
             "componentsApplicationCore",
+            "componentsRegistries",
         ]
         for sub_id in subcategory_ids:
             assert sub_id in result, (
@@ -1965,6 +1968,7 @@ class TestClosedEnumClosureContract:
         expected_tuples = [
             "componentsInfrastructure: componentsData",
             "componentsInfrastructure: componentsModelDeployment",
+            "componentsInfrastructure: componentsRegistries",
             "componentsModel: componentsModelTraining",
             "componentsModel: componentsModelCore",
             "componentsModel: componentsOrchestration",
@@ -1993,7 +1997,9 @@ class TestClosedEnumClosureContract:
             "Current production emits unquoted 'key: value' lines that parse as dicts. "
             'The renderer must emit quoted strings: - "<category>: <subcategory>" (ADR-026 D8).'
         )
-        assert len(options) == 7, f"Expected exactly 7 tuple options, got {len(options)}: {options}"
+        assert len(options) == len(expected_tuples), (
+            f"Expected exactly {len(expected_tuples)} tuple options, got {len(options)}: {options}"
+        )
         assert options == expected_tuples, (
             f"Tuple options do not match expected pairs (ADR-026 D8). Expected: {expected_tuples}. Got: {options}."
         )

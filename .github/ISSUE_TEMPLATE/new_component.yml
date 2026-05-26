@@ -60,6 +60,7 @@ body:
       options:
         - "componentsInfrastructure: componentsData"
         - "componentsInfrastructure: componentsModelDeployment"
+        - "componentsInfrastructure: componentsRegistries"
         - "componentsModel: componentsModelTraining"
         - "componentsModel: componentsModelCore"
         - "componentsModel: componentsOrchestration"

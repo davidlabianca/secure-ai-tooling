@@ -141,7 +141,7 @@
       "allOf": [
         {
           "if": { "properties": { "category": { "const": "componentsInfrastructure" } } },
-          "then": { "properties": { "subcategory": { "enum": ["componentsData", "componentsModelDeployment"] } } }
+          "then": { "properties": { "subcategory": { "enum": ["componentsData", "componentsModelDeployment", "componentsRegistries"] } } }
         },
         {
           "if": { "properties": { "category": { "const": "componentsModel" } } },
