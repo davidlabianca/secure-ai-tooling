@@ -82,7 +82,7 @@
 | controlSecureByDefaultMLTooling            | Secure-by-Default ML Tooling                      | componentModelStorage                | Model Storage                            |
 | controlSecureByDefaultMLTooling            | Secure-by-Default ML Tooling                      | componentModelTrainingTuning         | Training and Tuning                      |
 | controlThreatDetection                     | Threat Detection                                  | all                                  | All Components                           |
-| controlToolRegistryandDiscoveryIntegrity   | Tool Registry and Discovery Integrity             | componentToolRegistry                | Tool Registry and Discovery              |
+| controlToolRegistryAndDiscoveryIntegrity   | Tool Registry and Discovery Integrity             | componentToolRegistry                | Tool Registry and Discovery              |
 | controlTrainingDataManagement              | Training Data Management                          | componentDataSources                 | Data Sources                             |
 | controlTrainingDataManagement              | Training Data Management                          | componentModelEvaluation             | Model Evaluation                         |
 | controlTrainingDataManagement              | Training Data Management                          | componentModelTrainingTuning         | Training and Tuning                      |

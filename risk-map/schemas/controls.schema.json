@@ -79,7 +79,7 @@
             "controlComponentIdentityProvenance",
             "controlInterComponentTransportSecurity",
             "controlModelRegistryIntegrity",
-            "controlToolRegistryandDiscoveryIntegrity"
+            "controlToolRegistryAndDiscoveryIntegrity"
           ]
         },
         "title": { "type": "string", "maxLength": 100 },

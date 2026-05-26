@@ -1135,7 +1135,7 @@ controls:
       - riskModelDeploymentTampering
       - riskInsecureIntegratedComponent
       - riskEvaluationBenchmarkManipulation
-  - id: controlToolRegistryandDiscoveryIntegrity
+  - id: controlToolRegistryAndDiscoveryIntegrity
     title: Tool Registry and Discovery Integrity
     description:
       - >
