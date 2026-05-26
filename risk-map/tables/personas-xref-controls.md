@@ -16,7 +16,7 @@
 | personaAgenticProvider      | Agentic Platform and Framework Providers | controlRedTeaming                          | Red Teaming                                       |
 | personaAgenticProvider      | Agentic Platform and Framework Providers | controlRuntimePrivacyEnhancingTechnologies | Privacy Enhancing Technologies for Inference      |
 | personaAgenticProvider      | Agentic Platform and Framework Providers | controlSecureByDefaultMLTooling            | Secure-by-Default ML Tooling                      |
-| personaAgenticProvider      | Agentic Platform and Framework Providers | controlToolRegistryandDiscoveryIntegrity   | Tool Registry and Discovery Integrity             |
+| personaAgenticProvider      | Agentic Platform and Framework Providers | controlToolRegistryAndDiscoveryIntegrity   | Tool Registry and Discovery Integrity             |
 | personaAgenticProvider      | Agentic Platform and Framework Providers | controlUserTransparencyAndControls         | User Transparency and Controls                    |
 | personaApplicationDeveloper | Application Developer                    | controlAdversarialTrainingAndTesting       | Adversarial Training and Testing                  |
 | personaApplicationDeveloper | Application Developer                    | controlAgentCredentialIsolation            | Agent Credential Isolation                        |
@@ -37,7 +37,7 @@
 | personaApplicationDeveloper | Application Developer                    | controlRetrievalAndVectorSystemIntegrity   | Retrieval and Vector System Integrity Management  |
 | personaApplicationDeveloper | Application Developer                    | controlRuntimePrivacyEnhancingTechnologies | Privacy Enhancing Technologies for Inference      |
 | personaApplicationDeveloper | Application Developer                    | controlSecureByDefaultMLTooling            | Secure-by-Default ML Tooling                      |
-| personaApplicationDeveloper | Application Developer                    | controlToolRegistryandDiscoveryIntegrity   | Tool Registry and Discovery Integrity             |
+| personaApplicationDeveloper | Application Developer                    | controlToolRegistryAndDiscoveryIntegrity   | Tool Registry and Discovery Integrity             |
 | personaApplicationDeveloper | Application Developer                    | controlUserDataManagement                  | User Data Management                              |
 | personaApplicationDeveloper | Application Developer                    | controlUserTransparencyAndControls         | User Transparency and Controls                    |
 | personaDataProvider         | Data Provider                            | controlIncidentResponseManagement          | Incident Response Management                      |
@@ -108,4 +108,4 @@
 | personaPlatformProvider     | AI Platform Provider                     | controlRetrievalAndVectorSystemIntegrity   | Retrieval and Vector System Integrity Management  |
 | personaPlatformProvider     | AI Platform Provider                     | controlRuntimePrivacyEnhancingTechnologies | Privacy Enhancing Technologies for Inference      |
 | personaPlatformProvider     | AI Platform Provider                     | controlSecureByDefaultMLTooling            | Secure-by-Default ML Tooling                      |
-| personaPlatformProvider     | AI Platform Provider                     | controlToolRegistryandDiscoveryIntegrity   | Tool Registry and Discovery Integrity             |
+| personaPlatformProvider     | AI Platform Provider                     | controlToolRegistryAndDiscoveryIntegrity   | Tool Registry and Discovery Integrity             |

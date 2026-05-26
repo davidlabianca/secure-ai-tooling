@@ -33,7 +33,7 @@ graph LR
         controlModelRegistryIntegrity[Model Registry and Discovery Integrity]
         controlOrchestratorAndRouteIntegrity[Orchestrator and Route Integrity]
         controlSecureByDefaultMLTooling[Secure-by-Default ML Tooling]
-        controlToolRegistryandDiscoveryIntegrity[Tool Registry and Discovery Integrity]
+        controlToolRegistryAndDiscoveryIntegrity[Tool Registry and Discovery Integrity]
     end
 
     subgraph controlsModel ["Model Controls"]
@@ -192,7 +192,7 @@ graph LR
     controlAgentExecutionBounds --> componentOrchestrationOutputHandling
     controlAgentExecutionBounds --> componentReasoningCore
     controlModelRegistryIntegrity --> componentModelRegistry
-    controlToolRegistryandDiscoveryIntegrity --> componentToolRegistry
+    controlToolRegistryAndDiscoveryIntegrity --> componentToolRegistry
 
     %% Apply styling to controls mapped to 'all'
     controlIncidentResponseManagement:::allControl

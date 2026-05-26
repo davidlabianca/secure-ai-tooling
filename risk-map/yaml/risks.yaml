@@ -1845,7 +1845,7 @@ risks:
       - controlOrchestratorAndRouteIntegrity
       - controlAgentObservability
       - controlInterComponentTransportSecurity
-      - controlToolRegistryandDiscoveryIntegrity
+      - controlToolRegistryAndDiscoveryIntegrity
     examples:
       - >
         Palo Alto Networks ({{ref:paloalto-2025-mcp-security-overview}}) identified MCP
@@ -2285,7 +2285,7 @@ risks:
       - controlModelAndDataIntegrityManagement
       - controlSecureByDefaultMLTooling
       - controlAgentPluginPermissions
-      - controlToolRegistryandDiscoveryIntegrity
+      - controlToolRegistryAndDiscoveryIntegrity
     examples:
       - >
         The Checkmarx CxZero MCP Risk Taxonomy ({{ref:checkmarx-2025-mcp-emerging-risks}})

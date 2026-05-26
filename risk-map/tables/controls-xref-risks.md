@@ -124,8 +124,8 @@
 | controlSecureByDefaultMLTooling            | Secure-by-Default ML Tooling                      | riskShadowAndUnknownAgents               | Shadow and Unknown Agents                |
 | controlSecureByDefaultMLTooling            | Secure-by-Default ML Tooling                      | riskToolSourceProvenance                 | Tool Source Provenance                   |
 | controlThreatDetection                     | Threat Detection                                  | all                                      | All Risks                                |
-| controlToolRegistryandDiscoveryIntegrity   | Tool Registry and Discovery Integrity             | riskToolRegistryTampering                | Tool Registry Tampering                  |
-| controlToolRegistryandDiscoveryIntegrity   | Tool Registry and Discovery Integrity             | riskToolSourceProvenance                 | Tool Source Provenance                   |
+| controlToolRegistryAndDiscoveryIntegrity   | Tool Registry and Discovery Integrity             | riskToolRegistryTampering                | Tool Registry Tampering                  |
+| controlToolRegistryAndDiscoveryIntegrity   | Tool Registry and Discovery Integrity             | riskToolSourceProvenance                 | Tool Source Provenance                   |
 | controlTrainingDataManagement              | Training Data Management                          | riskExcessiveDataHandling                | Excessive Data Handling                  |
 | controlTrainingDataManagement              | Training Data Management                          | riskInferredSensitiveData                | Inferred Sensitive Data                  |
 | controlTrainingDataManagement              | Training Data Management                          | riskUnauthorizedTrainingData             | Unauthorized Training Data               |

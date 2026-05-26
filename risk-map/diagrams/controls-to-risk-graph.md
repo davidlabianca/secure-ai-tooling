@@ -87,7 +87,7 @@ graph LR
         controlModelRegistryIntegrity[Model Registry and Discovery Integrity]
         controlOrchestratorAndRouteIntegrity[Orchestrator and Route Integrity]
         controlSecureByDefaultMLTooling[Secure-by-Default ML Tooling]
-        controlToolRegistryandDiscoveryIntegrity[Tool Registry and Discovery Integrity]
+        controlToolRegistryAndDiscoveryIntegrity[Tool Registry and Discovery Integrity]
     end
 
     subgraph controlsModel ["Model Controls"]
@@ -245,7 +245,7 @@ graph LR
     riskToolRegistryTampering --> controlAgentObservability
     riskToolRegistryTampering --> controlInterComponentTransportSecurity
     riskToolRegistryTampering --> controlOrchestratorAndRouteIntegrity
-    riskToolRegistryTampering --> controlToolRegistryandDiscoveryIntegrity
+    riskToolRegistryTampering --> controlToolRegistryAndDiscoveryIntegrity
     riskOrchestratorRouteHijacking --> controlInterComponentTransportSecurity
     riskOrchestratorRouteHijacking --> controlIsolatedConfidentialComputing
     riskOrchestratorRouteHijacking --> controlModelAndDataAccessControls
@@ -264,7 +264,7 @@ graph LR
     riskToolSourceProvenance --> controlAgentPluginPermissions
     riskToolSourceProvenance --> controlModelAndDataIntegrityManagement
     riskToolSourceProvenance --> controlSecureByDefaultMLTooling
-    riskToolSourceProvenance --> controlToolRegistryandDiscoveryIntegrity
+    riskToolSourceProvenance --> controlToolRegistryAndDiscoveryIntegrity
     riskPromptResponseCachePoisoning --> controlInputValidationAndSanitization
     riskPromptResponseCachePoisoning --> controlModelAndDataAccessControls
     riskPromptResponseCachePoisoning --> controlModelAndDataIntegrityManagement
@@ -382,7 +382,7 @@ graph LR
     controlAgentExecutionBounds --> componentOrchestrationOutputHandling
     controlAgentExecutionBounds --> componentReasoningCore
     controlModelRegistryIntegrity --> componentModelRegistry
-    controlToolRegistryandDiscoveryIntegrity --> componentToolRegistry
+    controlToolRegistryAndDiscoveryIntegrity --> componentToolRegistry
 
     %% Edge styling
     linkStyle 0,4,8,12,16,20,24,28,32,36,40,44,48,52,56,60,64,68,72,76,80,84,88,92,96,100,104,108,112,116,120,124,128,132 stroke:#e6cbce,stroke-width:2px,stroke-dasharray: 5 3
