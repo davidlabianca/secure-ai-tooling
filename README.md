@@ -44,4 +44,8 @@ The CoSAI Risk Map includes mappings to established security frameworks, enablin
 
 These mappings allow organizations to align CoSAI risks and controls with existing security standards and compliance requirements. Framework references are automatically validated to ensure consistency across the risk map.
 
+#### **Reusing This Content**
+
+This repository's code and the Risk Map content (`risk-map/yaml/**`) are licensed under [Apache-2.0](./LICENSE.md). For what the framework guarantees to downstream consumers (shape, provenance), what it does not (safety in your pipeline), and the sanitization you are responsible for, see [`risk-map/docs/reuse-contract.md`](./risk-map/docs/reuse-contract.md). For what prose fields carry, see [`risk-map/docs/yaml-authoring-subset.md`](./risk-map/docs/yaml-authoring-subset.md).
+
 [Explore the full CoSAI Risk Map project here...](./risk-map/)

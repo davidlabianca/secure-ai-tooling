@@ -67,9 +67,10 @@ Key conventions that anchor field-by-field analysis:
 - `personaGovernance` is **controls-only** — never valid on a risk.
 - Seven controls carry `risks: all` (universal controls). Risks must not list universal controls explicitly.
 - Risks map to MITRE ATLAS **techniques** (`AML.T####`); controls map to MITRE ATLAS **mitigations** (`AML.M####`).
-- STRIDE categories are lowercase. OWASP LLM IDs are `LLM##`. NIST AI RMF mappings on controls use subcategory-level IDs.
+- Framework-mapping IDs use the **canonical** form (ADR-022 D5b): STRIDE PascalCase (`Tampering`), NIST AI RMF full-word prefixes (`GOVERN-1.1`), OWASP versioned (`LLM01:2025`), EU AI Act `Article N`. NIST mappings on controls are subcategory-level.
+- **Prose carries no raw HTML and no inline URLs** (ADR-017). Emphasis is `**bold**`/`*italic*`; intra-framework mentions are `{{<entity-id>}}` sentinels; external citations are `{{ref:identifier}}` sentinels backed by an `externalReferences` entry (ADR-016).
 
-See `risk-map/docs/contributing/submission-readiness-guide.md` for the contributor-facing statement of these rules.
+See `risk-map/docs/contributing/submission-readiness-guide.md` and `risk-map/docs/yaml-authoring-subset.md` for the contributor-facing statement of these rules.
 
 ---
 
@@ -100,8 +101,9 @@ For each field present in the proposal, evaluate the following. Missing fields t
 | `personas`                             | Correct model: risks list **impacted** personas; controls list **implementer** personas. `personaGovernance` is controls-only. `personaEndUser` expected on most risks. |
 | `controls` / `risks`                   | Referenced IDs exist. Universal controls not listed on risks.                                                                                                           |
 | `components`                           | Referenced IDs exist. `all` / `none` sentinels flagged for review.                                                                                                      |
-| `examples`                             | Real incidents/research/vulnerabilities; verifiable URLs; not vendor announcements or hypotheticals.                                                                    |
-| `mappings`                             | Valid framework IDs; correct entity-type alignment (technique vs. mitigation); no parent + sub-technique duplication.                                                   |
+| `examples`                             | Real incidents/research/vulnerabilities; not vendor announcements or hypotheticals. Sources cited via `externalReferences` + `{{ref:identifier}}` sentinel — no inline URLs or HTML in prose.                                            |
+| `externalReferences`                   | Each entry has `type`/`id`/`title`/`url` (`https://`); `id` unique within the entry and matches every `{{ref:…}}` sentinel; `editorial` used for non-citation pointers.                                                                  |
+| `mappings`                             | Valid framework IDs in **canonical** form (PascalCase STRIDE, `GOVERN-` NIST, `LLM##:YYYY` OWASP); correct entity-type alignment (technique vs. mitigation); no parent + sub-technique duplication. Taxonomy IDs only — no rationale/URLs. |
 | `identificationQuestions` (personas)   | Yes/no answerable; second-person framing; activity-based; scoping clauses when overlap with another persona exists.                                                     |
 | `lifecycle` / `impact` / `actorAccess` | Schema enum values.                                                                                                                                                     |
 
@@ -127,15 +129,15 @@ Apply the gates below as **declarative checks**. Each gate yields PASS / FAIL / 
 **Gate 2 — Example Validation**
 
 - Every example cites a real incident, research finding, vulnerability disclosure, or documented bug.
-- Every example includes a verifiable URL.
+- Every cited source is a structured `externalReferences` entry referenced from prose by a `{{ref:identifier}}` sentinel — no inline URLs or HTML anchors in the example prose.
 - No vendor product launches and no hypothetical scenarios.
 
 **Gate 3 — Framework Mapping Validation**
 
-- STRIDE categories are valid lowercase values.
+- STRIDE categories use the canonical PascalCase values (`Tampering`, not `tampering`).
 - MITRE ATLAS IDs match the entity type: techniques (`AML.T####`) on risks, mitigations (`AML.M####`) on controls.
-- OWASP LLM IDs are valid `LLM##` entries from the current edition.
-- NIST AI RMF mappings (controls only) are at subcategory level.
+- OWASP LLM IDs are versioned (`LLM01:2025`, not `LLM01`) from the current edition.
+- NIST AI RMF mappings (controls only) use full-word function prefixes (`GOVERN-1.1`, not `GV-1.1`) at subcategory level.
 - No parent + sub-technique pair listed together.
 - No mapping to the wrong entity type (e.g., a mitigation listed under a risk).
 
@@ -156,6 +158,8 @@ When the proposal is fit to proceed with minor corrections, draft a proposed YAM
 
 - Apply the corrections identified in field-by-field analysis.
 - Preserve the contributor's wording where possible; flag any reviewer rewrites in the proposal.
+- **Draft prose in the authoring subset.** Emphasis is `**bold**`/`*italic*` — never raw HTML. Intra-framework mentions use `{{<entity-id>}}` sentinels. Any source the contributor supplied as an inline URL or `<a>` anchor is converted: add a structured `externalReferences` entry (`type`, `id`, `title`, `url`) and reference it from prose with a `{{ref:identifier}}` sentinel. The drafted YAML must contain no inline URLs and no HTML (ADR-016/017), or it will fail the prose hooks at commit.
+- **Use canonical framework-mapping forms** (ADR-022 D5b): PascalCase STRIDE, `GOVERN-` NIST, `LLM##:YYYY` OWASP, `Article N` EU AI Act.
 - If the proposal introduces a new control, draft a **companion YAML** block showing the control entry with inferred `risks`, `components`, and `personas`.
 - Do not include fields the contributor did not provide unless they are required by schema — in that case, include the field with a clear `TODO:` placeholder and flag it as a GAP.
 

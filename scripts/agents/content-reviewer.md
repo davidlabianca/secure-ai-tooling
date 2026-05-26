@@ -127,6 +127,37 @@ If provided, use them to supplement (not override) the embedded schema awareness
 
 **Category IDs** follow `{typePlural}{Domain}` in camelCase. Examples: `risksRuntimeInputSecurity`, `controlsInfrastructure`, `componentsModel` (personas have no category enum). Authoritative enums live in the per-type `*.schema.json` files; consult those rather than inferring.
 
+### Machine-enforcement boundary (ADRs 014–022)
+
+The conformance sweep moved a set of content rules from prose-only guidance into
+**block-mode pre-commit hooks**. Know the boundary: do not spend review effort
+re-deriving what a hook already blocks, and **cite the boundary** when a finding is
+machine-enforced (so the contributor knows it will fail at commit, not just in review).
+
+Machine-enforced (hooks block at commit — a PR cannot merge while violating these):
+
+| Rule | Hook | ADR |
+|------|------|-----|
+| Prose markdown subset; no raw HTML; no inline URLs (any scheme) | `validate-yaml-prose-subset` | 017 |
+| `{{<entity-id>}}` / `{{ref:identifier}}` sentinels resolve; no bare IDs; no inline URLs | `validate-prose-references` | 016 |
+| Identification-questions structural rules (count 5–7, second-person opener, parenthetical ≤4, `e.g.` not `i.e.`) | `validate-identification-questions` | 021 D7 |
+| Framework `applicableTo` + mapping-ID shape (strict for MITRE ATLAS / EU AI Act / ISO 22989; canonical-but-fall-through for STRIDE / NIST / OWASP) | `validate-framework-references` + schema | 022 D5b |
+| Lifecycle-stage enum | `validate-lifecycle-stage` | 019 |
+| Component edge bidirectionality; control↔risk integrity | `validate-component-edges`, `validate-control-risk-references` | 018/020 |
+| Schema shape, enums, `additionalProperties: false`, `title.maxLength` | `check-jsonschema` | 018–022 |
+
+Editorial (your domain — judgment a regex cannot supply): activities-not-titles and
+scoping-clause appropriateness on identification questions; citation-vs-`editorial` typing
+of `externalReferences`; mapping *selection* quality (is this the right technique?);
+under/over-specification; scope creep; classical-equivalent framing; persona-model
+correctness. The hooks check *shape*; you check *substance*.
+
+**Canonical-but-not-yet-enforced caveat.** STRIDE, NIST AI RMF, and OWASP mapping IDs
+fall through to a loose schema pattern pending content migration, but the **canonical**
+form (PascalCase `Tampering`, `GOVERN-1.1`, `LLM01:2025`) is the one to require in review
+(ADR-022 D5b, ADR-026 D4b). Flag a legacy-form mapping as a WARN even though the schema
+currently accepts it.
+
 ---
 
 ## Review Checks
@@ -140,6 +171,10 @@ If provided, use them to supplement (not override) the embedded schema awareness
 | Dangling reference (points to nonexistent ID) | **FAIL** | Agent asserts |
 | Bidirectional inconsistency (risk↔control)    | **FAIL** | Agent asserts |
 | Unknown/invalid field names                   | **WARN** | Agent asserts |
+| Raw HTML or inline URL in a prose field       | **FAIL** | Hook-enforced (`validate-yaml-prose-subset`) — cite the boundary |
+| Bare entity ID in prose (use a `{{…}}` sentinel) | **FAIL** | Hook-enforced (`validate-prose-references`) |
+| Unresolved `{{…}}` sentinel or missing `externalReferences` entry | **FAIL** | Hook-enforced (`validate-prose-references`) |
+| Retired field (e.g., `relevantQuestions` on a risk) | **FAIL** | Hook-enforced (`additionalProperties: false`, ADR-019 D6) |
 
 ### 2. Duplication Detection
 
@@ -189,6 +224,7 @@ When reviewed content includes fields governed by a style guide, load the guide 
 | ------------------------- | -------------------------------------------------------------------- | --------------------------------------------------- |
 | `identificationQuestions` | `risk-map/docs/contributing/identification-questions-style-guide.md` | Any persona with `identificationQuestions` in scope |
 | `mappings`                | `risk-map/docs/contributing/framework-mappings-style-guide.md`       | Any entity with `mappings` in scope                 |
+| prose / `examples` / `externalReferences` | `risk-map/docs/yaml-authoring-subset.md`                | Any entity with prose, sentinels, or citations in scope |
 
 **Procedure:**
 

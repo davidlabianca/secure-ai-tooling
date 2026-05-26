@@ -74,6 +74,35 @@ Every feature touches most of these:
 
 ---
 
+## Sanitizer and prose-linter test discipline (ADR-015 D3b)
+
+The site sanitizer (`site/assets/sanitizer.mjs`) and the prose-enforcement hooks carry
+structural test requirements that are not optional — the test suite *is* the mechanism
+that keeps the sanitizer's bounded-emission safety property from drifting.
+
+- **Per-tag fixtures are mandatory.** Every entry in the sanitizer's `ALLOWED_TAGS`
+  literal has at least one **positive** fixture (input → expected safe output) and one
+  **negative** fixture (a related disallowed input → escaped output). A tag added to the
+  allowlist without matching fixtures is a *test-suite failure*, not a runtime one.
+- **Allowlist ↔ fixture meta-test.** The suite asserts the allowlist constant matches the
+  fixture set (`ALLOWED_TAGS.every(tag => fixtures.has(tag))`). Adding a tag without a
+  fixture fails CI. Do not weaken or skip this meta-test.
+- **`<a>` attack-corpus.** The corpus covers `javascript:`, `data:`, `vbscript:`,
+  mixed-case schemes, schemeless/relative URLs, IDN homographs, attribute-injection via
+  quote handling, and whitespace tricks — each with an expected escaped/stripped output.
+  Fixtures live under `site/tests/fixtures/sanitizer/` (one file per category); a
+  contributor adds a vector by adding a data file, not a test function.
+- **Prose-hook fixtures share a corpus.** `validate-yaml-prose-subset` and
+  `validate-prose-references` share the tokenizer (`_prose_tokens.py`) and a shared
+  edge-case corpus at `scripts/hooks/tests/fixtures/prose_subset/` so the two hooks
+  cannot disagree on what a token *is* (ADR-017 D5). New token rules add fixtures there.
+
+**Reject sanitizer or prose-hook PRs that lack matching fixture updates.** There is no
+"fix it in a follow-up" path; a change to the emission surface without test coverage is
+incomplete (ADR-015 D3b).
+
+---
+
 ## Boundaries
 
 - **Do:** author tests, fixtures, and test documentation. Calculate and report coverage. Flag untestable requirements back to the caller.
