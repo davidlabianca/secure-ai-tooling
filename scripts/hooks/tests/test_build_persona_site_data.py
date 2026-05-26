@@ -490,8 +490,36 @@ risks:
             ),
             "persona object missing required 'id' field",
         ),
+        (
+            lambda d: d["risks"].append(
+                {
+                    "id": "riskWithExternalReference",
+                    "title": "Risk With External Reference",
+                    "category": "risksTest",
+                    "shortDescription": [],
+                    "longDescription": [],
+                    "examples": [],
+                    "controlIds": [],
+                    "personaIds": [],
+                    "externalReferences": [
+                        {
+                            "type": "other",
+                            "id": "non-https-ref",
+                            "title": "Non-HTTPS reference",
+                            "url": "http://example.com/reference",
+                        }
+                    ],
+                }
+            ),
+            "risk object with externalReferences violating the shared referenced schema",
+        ),
     ],
-    ids=["missing-top-level-key", "wrong-type-top-level", "nested-object-missing-id"],
+    ids=[
+        "missing-top-level-key",
+        "wrong-type-top-level",
+        "nested-object-missing-id",
+        "referenced-external-references-schema",
+    ],
 )
 def test_persona_site_data_schema_rejects_structural_violations(
     risk_map_schemas_dir: Path,
@@ -512,11 +540,15 @@ def test_persona_site_data_schema_rejects_structural_violations(
     with schema_path.open("r", encoding="utf-8") as handle:
         schema = json.load(handle)
 
+    # Keep this rejection test on the same resolver path as live-output
+    # validation, so future mutators can safely traverse cross-file $refs.
+    registry = _make_schema_registry(risk_map_schemas_dir)
+
     bad = copy.deepcopy(_minimal_valid_site_data())
     mutator(bad)
 
     with pytest.raises(jsonschema.ValidationError):
-        jsonschema.validate(instance=bad, schema=schema)
+        jsonschema.validate(instance=bad, schema=schema, registry=registry)
 
 
 # ============================================================================
