@@ -42,6 +42,7 @@ If a decision is about *how the Risk Map content model is shaped*, it belongs in
 | [024](024-github-actions-pinning-posture.md) | GitHub Actions pinning posture | Accepted | 2026-05-01 |
 | [025](025-testing-strategy.md) | Testing strategy and posture across Python, site JS, schemas, and infrastructure | Accepted | 2026-05-05 |
 | [026](026-issue-template-domain.md) | Issue-template domain — generator scope, schema-derived enums, and ADR-content alignment contract | Accepted | 2026-05-20 |
+| [027](027-framework-versioning-and-mapping-convention.md) | Per-mapping framework version pinning | Accepted | 2026-05-22 |
 
 ## Conventions
 
