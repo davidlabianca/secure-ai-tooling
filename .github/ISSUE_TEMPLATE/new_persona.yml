@@ -110,7 +110,7 @@ body:
         Note: iso-22989 values are role descriptors (e.g. "AI Partner (data supplier)"), not
         canonical IDs. Include a framework mapping only when a clear external actor correspondence exists.
       placeholder: |
-        iso-22989: AI Provider (audit and assurance)
+        iso-22989: AI Partner (audit and assurance)
 
   - type: textarea
     id: relationship-to-existing
