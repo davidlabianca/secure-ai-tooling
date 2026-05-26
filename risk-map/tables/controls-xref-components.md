@@ -54,15 +54,18 @@
 | controlModelAndDataExecutionIntegrity      | Model and Data Execution Integrity                | componentModelStorage                | Model Storage                            |
 | controlModelAndDataExecutionIntegrity      | Model and Data Execution Integrity                | componentTheModel                    | The Model                                |
 | controlModelAndDataIntegrityManagement     | Model and Data Integrity Management               | componentModelEvaluation             | Model Evaluation                         |
+| controlModelAndDataIntegrityManagement     | Model and Data Integrity Management               | componentModelRegistry               | Model Registry and Marketplace           |
 | controlModelAndDataIntegrityManagement     | Model and Data Integrity Management               | componentModelServing                | Model Serving Infrastructure             |
 | controlModelAndDataIntegrityManagement     | Model and Data Integrity Management               | componentModelStorage                | Model Storage                            |
 | controlModelAndDataIntegrityManagement     | Model and Data Integrity Management               | componentModelTrainingTuning         | Training and Tuning                      |
 | controlModelAndDataInventoryManagement     | Model and Data Inventory Management               | componentModelEvaluation             | Model Evaluation                         |
+| controlModelAndDataInventoryManagement     | Model and Data Inventory Management               | componentModelRegistry               | Model Registry and Marketplace           |
 | controlModelAndDataInventoryManagement     | Model and Data Inventory Management               | componentModelServing                | Model Serving Infrastructure             |
 | controlModelAndDataInventoryManagement     | Model and Data Inventory Management               | componentModelStorage                | Model Storage                            |
 | controlModelAndDataInventoryManagement     | Model and Data Inventory Management               | componentModelTrainingTuning         | Training and Tuning                      |
 | controlModelPrivacyEnhancingTechnologies   | Privacy Enhancing Technologies for Model Training | componentModelEvaluation             | Model Evaluation                         |
 | controlModelPrivacyEnhancingTechnologies   | Privacy Enhancing Technologies for Model Training | componentModelTrainingTuning         | Training and Tuning                      |
+| controlModelRegistryIntegrity              | Model Registry and Discovery Integrity            | componentModelRegistry               | Model Registry and Marketplace           |
 | controlOrchestratorAndRouteIntegrity       | Orchestrator and Route Integrity                  | componentApplication                 | Application                              |
 | controlOrchestratorAndRouteIntegrity       | Orchestrator and Route Integrity                  | componentModelServing                | Model Serving Infrastructure             |
 | controlOutputValidationAndSanitization     | Output Validation and Sanitization                | componentAgentOutputHandling         | Output Handling                          |
@@ -79,6 +82,7 @@
 | controlSecureByDefaultMLTooling            | Secure-by-Default ML Tooling                      | componentModelStorage                | Model Storage                            |
 | controlSecureByDefaultMLTooling            | Secure-by-Default ML Tooling                      | componentModelTrainingTuning         | Training and Tuning                      |
 | controlThreatDetection                     | Threat Detection                                  | all                                  | All Components                           |
+| controlToolRegistryAndDiscoveryIntegrity   | Tool Registry and Discovery Integrity             | componentToolRegistry                | Tool Registry and Discovery              |
 | controlTrainingDataManagement              | Training Data Management                          | componentDataSources                 | Data Sources                             |
 | controlTrainingDataManagement              | Training Data Management                          | componentModelEvaluation             | Model Evaluation                         |
 | controlTrainingDataManagement              | Training Data Management                          | componentModelTrainingTuning         | Training and Tuning                      |

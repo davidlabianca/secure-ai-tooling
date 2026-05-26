@@ -6,6 +6,7 @@ multiple test modules in the validation system test suite.
 """
 
 # Import test modules for type hints and fixtures
+import json
 import subprocess
 import sys
 import tempfile
@@ -15,6 +16,8 @@ from unittest.mock import patch
 
 import pytest
 import yaml
+from referencing import Registry, Resource
+from referencing.jsonschema import DRAFT7
 from riskmap_validator.models import ComponentNode, ControlNode, RiskNode
 from riskmap_validator.validator import ComponentEdgeValidator
 
@@ -562,6 +565,60 @@ def complex_component_graph():
             from_edges=["componentModelDeployment"],
         ),
     }
+
+
+# ============================================================================
+# Schema registry helpers (shared across C1 tightening tests)
+# ============================================================================
+# Phase A follow-up: _make_registry was duplicated in test_consumer_external_references_refs.py
+# and test_consumer_mappings_per_framework_wiring.py. Lifted here so C1 test modules can
+# import it without re-duplicating. Existing per-file copies still work; only new callers
+# need to use this fixture.
+
+
+def _load_schema(schemas_dir: Path, filename: str) -> dict:
+    """Load and return a parsed JSON schema, failing with a clear message if absent."""
+    path = schemas_dir / filename
+    if not path.is_file():
+        pytest.fail(f"Schema not found: {path}")
+    with open(path) as fh:
+        return json.load(fh)
+
+
+def _make_registry(schemas_dir: Path) -> Registry:
+    """
+    Build a referencing.Registry that resolves bare-filename $refs against schemas
+    in the given directory. Replaces the deprecated jsonschema.RefResolver pattern
+    (deprecated since jsonschema 4.18; scheduled for removal).
+
+    The retrieve callback strips path prefixes so only the basename is used.
+    This works because all consumer-schema $refs in this repo are bare filenames
+    (e.g., 'riskmap.schema.json', 'frameworks.schema.json') — not path-prefixed URIs.
+    """
+
+    def retrieve(uri: str):
+        # URI-stripping breadcrumb: the validator hands us the URI portion of a $ref.
+        # For bare-filename $refs (all cases in this repo), the URI is just the filename.
+        # Path-prefixed refs (e.g., '../foo.json') would silently drop the prefix; acceptable
+        # because no such refs exist in the current schema set.
+        name = uri.rsplit("/", 1)[-1]
+        path = schemas_dir / name
+        with open(path) as fh:
+            return Resource.from_contents(json.load(fh), default_specification=DRAFT7)
+
+    return Registry(retrieve=retrieve)
+
+
+@pytest.fixture(scope="module")
+def schema_registry(risk_map_schemas_dir: Path) -> Registry:
+    """
+    Module-scoped referencing.Registry for cross-file $ref resolution in C1 tests.
+
+    Resolves bare-filename $refs (e.g., 'riskmap.schema.json#/definitions/...') against
+    the risk-map/schemas/ directory. Used by C1 tightening tests that validate
+    synthetic entries against consumer schemas with cross-file $refs.
+    """
+    return _make_registry(risk_map_schemas_dir)
 
 
 # Shared test utilities

@@ -6,7 +6,7 @@
   "type": "object",
   "properties": {
     "title": { "type": "string" },
-    "description": { "$ref": "riskmap.schema.json#/definitions/utils/text" },
+    "description": { "$ref": "riskmap.schema.json#/definitions/utils/prose-strict" },
     "categories": {
       "type": "array",
       "items": { "$ref": "#/definitions/category" }
@@ -34,7 +34,8 @@
         },
         "title": { "type": "string" }
       },
-      "required": ["id", "title"]
+      "required": ["id", "title"],
+      "additionalProperties": false
     },
     "control": {
       "type": "object",
@@ -76,11 +77,13 @@
             "controlAgentIntegrityManagement",
             "controlAgentInventoryManagement",
             "controlComponentIdentityProvenance",
-            "controlInterComponentTransportSecurity"
+            "controlInterComponentTransportSecurity",
+            "controlModelRegistryIntegrity",
+            "controlToolRegistryAndDiscoveryIntegrity"
           ]
         },
-        "title": { "type": "string" },
-        "description": { "$ref": "riskmap.schema.json#/definitions/utils/text" },
+        "title": { "type": "string", "maxLength": 100 },
+        "description": { "$ref": "riskmap.schema.json#/definitions/utils/prose-strict" },
         "category": { "$ref": "#/definitions/category/properties/id" },
         "personas": {
           "type": "array",
@@ -184,7 +187,8 @@
           "$ref": "external-references.schema.json#/definitions/externalReferences"
         }
       },
-      "required": ["title", "description", "category", "personas", "components", "risks"]
+      "required": ["title", "description", "category", "personas", "components", "risks"],
+      "additionalProperties": false
     }
   }
 }

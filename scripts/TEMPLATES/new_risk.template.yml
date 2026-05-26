@@ -1,3 +1,9 @@
+# ADR-content alignment manifest
+# This template teaches/solicits conventions from:
+#   - ADR-016: externalReferences field shape; sentinel grammar ({{ref:identifier}}, {{riskXxx}})
+#   - ADR-017 D1: allowed prose authoring tokens
+#   - ADR-019 D6: relevantQuestions field retired (not solicited)
+#   - ADR-022 D5b: canonical framework mapping value forms
 name: New Risk Proposal
 description: Propose a new AI security risk for the CoSAI Risk Map
 title: '[Risk]: '
@@ -32,7 +38,9 @@ body:
       description: |
         One or two sentence summary of the risk (1-2 sentences)
 
-        This appears in risk summary tables and overviews
+        This appears in risk summary tables and overviews.
+        Prose may reference other risks or controls using the sentinel form, e.g. {{riskPromptInjection}}.
+        Outbound citations go in External References below and are cited via {{ref:identifier}}.
       placeholder: 'Brief description of the risk, its cause, and primary impact...'
     validations:
       required: true
@@ -49,6 +57,9 @@ body:
         - How it occurs and attack vectors
         - Potential impact and consequences
         - Known real-world examples or research
+
+        Cross-reference related framework entities using sentinels, e.g. {{controlInputValidationAndSanitization}}.
+        Cite external sources via {{ref:identifier}} where the identifier matches an entry in External References.
       placeholder: |
         Paragraph 1: Detailed description of what this risk entails...
 
@@ -100,24 +111,14 @@ body:
     attributes:
       label: Examples (Optional)
       description: |
-        Real-world examples, research papers, or case studies demonstrating this risk
+        Real-world examples, research papers, or case studies demonstrating this risk.
 
-        Can include HTML links: <a href="URL">description</a>
+        Do not include raw URLs or HTML links here. Add outbound references to the External References
+        field below, then cite them in prose using the sentinel form {{ref:identifier}}.
       placeholder: |
-        Researchers demonstrated this attack in [paper/case study]...
+        Researchers demonstrated this attack in the study cited as {{ref:example-paper-2024}}...
 
-        <a href="https://arxiv.org/..." target="_blank" rel="noopener">Research paper title</a>
-
-  - type: textarea
-    id: relevant-questions
-    attributes:
-      label: Relevant Questions (Optional)
-      description: |
-        Key questions organizations should ask when assessing this risk (one per line)
-      placeholder: |
-        How is training data sourced and validated?
-        What access controls are in place for model storage?
-        Are there monitoring systems to detect anomalous behavior?
+        A vendor advisory ({{ref:vendor-advisory-2024}}) described a real-world incident...
 
   - type: textarea
     id: external-mapping
@@ -132,8 +133,40 @@ body:
         📋 See the [Framework Mappings Style Guide](https://github.com/cosai-oasis/secure-ai-tooling/blob/main/risk-map/docs/contributing/framework-mappings-style-guide.md) for per-framework rules.
       placeholder: |
         mitre-atlas: AML.T0051
-        stride: information-disclosure
-        owasp-top10-llm: LLM01
+        stride: InformationDisclosure
+        owasp-top10-llm: LLM01:2025
+
+  - type: textarea
+    id: external-references
+    attributes:
+      label: External References (Optional)
+      description: |
+        Structured outbound citations and editorial pointers for this risk. Each entry populates
+        the `externalReferences` array in the YAML. Prose fields cite an entry via the sentinel
+        {{ref:identifier}}, where `identifier` matches the entry's `id` field.
+
+        Per-entry shape (YAML):
+          type: <enum>   # cwe, cve, atlas, attack, advisory, paper, news, spec, editorial, other
+          id: <string>   # author-chosen sentinel target; canonical-form for cwe/cve/atlas/attack
+          title: <string>
+          url: https://...  # https only
+
+        Canonical id examples: cwe-89, cve-2024-0001, aml-t0040.001, attack-t1059.003.
+
+        Example entry:
+          - type: cwe
+            id: cwe-89
+            title: Improper Neutralization of Special Elements used in an SQL Command
+            url: https://cwe.mitre.org/data/definitions/89.html
+      placeholder: |
+        - type: paper
+          id: example-paper-2024
+          title: Title of the research paper
+          url: https://arxiv.org/abs/...
+        - type: advisory
+          id: vendor-advisory-2024
+          title: Vendor advisory title
+          url: https://example.com/advisory/...
 
   - type: checkboxes
     id: lifecycle-stage

@@ -14,17 +14,17 @@ Coverage:
 - Current YAML files remain valid (no regression on existing content).
 """
 
-import json
 import sys
 from pathlib import Path
 
 import pytest
 from jsonschema import Draft7Validator
 from jsonschema.exceptions import SchemaError
-from referencing import Registry, Resource
-from referencing.jsonschema import DRAFT7
 
+sys.path.insert(0, str(Path(__file__).parent))
 sys.path.insert(0, str(Path(__file__).parent.parent))
+
+from conftest import _load_schema, _make_registry  # noqa: E402, I001  conftest needs sys.path manipulation
 
 
 # ============================================================================
@@ -60,36 +60,6 @@ VALID_EXTERNAL_REFERENCES = [
 def schemas_dir(risk_map_schemas_dir: Path) -> Path:
     """Alias to keep test signatures concise."""
     return risk_map_schemas_dir
-
-
-def _load_schema(schemas_dir: Path, filename: str) -> dict:
-    """Load and return a schema file, failing with a clear message if absent."""
-    path = schemas_dir / filename
-    if not path.is_file():
-        pytest.fail(f"Schema not found: {path}")
-    with open(path) as fh:
-        return json.load(fh)
-
-
-def _make_registry(schemas_dir: Path) -> Registry:
-    """
-    Build a referencing.Registry that resolves bare-filename $refs against
-    schemas in the given directory. Replaces the deprecated jsonschema.RefResolver
-    pattern (deprecated since jsonschema 4.18; scheduled for removal).
-    """
-
-    def retrieve(uri: str):
-        # The validator hands us the URI portion of a $ref. For our refs
-        # (e.g., "external-references.schema.json"), the URI is a bare schema
-        # filename relative to schemas_dir. Path-prefixed refs (e.g.,
-        # "../foo.json") would silently drop the prefix here; that's acceptable
-        # because all consumer-schema $refs in this repo are bare filenames.
-        name = uri.rsplit("/", 1)[-1]
-        path = schemas_dir / name
-        with open(path) as fh:
-            return Resource.from_contents(json.load(fh), default_specification=DRAFT7)
-
-    return Registry(retrieve=retrieve)
 
 
 # ============================================================================

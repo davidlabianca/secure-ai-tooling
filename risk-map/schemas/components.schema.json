@@ -6,7 +6,7 @@
   "type": "object",
   "properties": {
     "title": { "type": "string" },
-    "description": { "$ref": "riskmap.schema.json#/definitions/utils/text" },
+    "description": { "$ref": "riskmap.schema.json#/definitions/utils/prose-strict" },
     "categories": {
       "type": "array",
       "items": { "$ref": "#/definitions/category" }
@@ -34,9 +34,10 @@
           "type": "array",
           "items": { "$ref": "#/definitions/subcategory" }
         },
-        "description": { "$ref": "riskmap.schema.json#/definitions/utils/text" }
+        "description": { "$ref": "riskmap.schema.json#/definitions/utils/prose-strict" }
       },
-      "required": ["id", "title"]
+      "required": ["id", "title"],
+      "additionalProperties": false
     },
     "subcategory": {
       "type": "object",
@@ -50,13 +51,15 @@
             "componentsOrchestration",
             "componentsModelDeployment",
             "componentsModelCore",
-            "componentsApplicationCore"
+            "componentsApplicationCore",
+            "componentsRegistries"
           ]
         },
         "title": { "type": "string" },
-        "description": { "$ref": "riskmap.schema.json#/definitions/utils/text" }
+        "description": { "$ref": "riskmap.schema.json#/definitions/utils/prose-strict" }
       },
-      "required": ["id", "title"]
+      "required": ["id", "title"],
+      "additionalProperties": false
     },
     "component": {
       "type": "object",
@@ -90,11 +93,13 @@
             "componentAgentSystemInstruction",
             "componentAgentRendering",
             "componentAgentInputHandling",
-            "componentAgentOutputHandling"
+            "componentAgentOutputHandling",
+            "componentModelRegistry",
+            "componentToolRegistry"
           ]
         },
         "title": { "type": "string" },
-        "description": { "$ref": "riskmap.schema.json#/definitions/utils/text" },
+        "description": { "$ref": "riskmap.schema.json#/definitions/utils/prose-strict" },
         "category": {
           "$ref": "#/definitions/category/properties/id"
         },
@@ -131,7 +136,22 @@
           "$ref": "external-references.schema.json#/definitions/externalReferences"
         }
       },
-      "required": ["id", "title", "category", "edges"]
+      "required": ["id", "title", "category", "edges"],
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": { "properties": { "category": { "const": "componentsInfrastructure" } } },
+          "then": { "properties": { "subcategory": { "enum": ["componentsData", "componentsModelDeployment", "componentsRegistries"] } } }
+        },
+        {
+          "if": { "properties": { "category": { "const": "componentsModel" } } },
+          "then": { "properties": { "subcategory": { "enum": ["componentsModelTraining", "componentsModelCore", "componentsOrchestration"] } } }
+        },
+        {
+          "if": { "properties": { "category": { "const": "componentsApplication" } } },
+          "then": { "properties": { "subcategory": { "enum": ["componentsAgent", "componentsApplicationCore"] } } }
+        }
+      ]
     },
     "edges": {
       "type": "object",
@@ -145,7 +165,8 @@
           "items": { "$ref": "#/definitions/component/properties/id" }
         }
       },
-      "anyOf": [{ "required": ["to"] }, { "required": ["from"] }]
+      "anyOf": [{ "required": ["to"] }, { "required": ["from"] }],
+      "additionalProperties": false
     }
   }
 }

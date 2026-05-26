@@ -16,6 +16,7 @@
 | personaAgenticProvider      | Agentic Platform and Framework Providers | controlRedTeaming                          | Red Teaming                                       |
 | personaAgenticProvider      | Agentic Platform and Framework Providers | controlRuntimePrivacyEnhancingTechnologies | Privacy Enhancing Technologies for Inference      |
 | personaAgenticProvider      | Agentic Platform and Framework Providers | controlSecureByDefaultMLTooling            | Secure-by-Default ML Tooling                      |
+| personaAgenticProvider      | Agentic Platform and Framework Providers | controlToolRegistryAndDiscoveryIntegrity   | Tool Registry and Discovery Integrity             |
 | personaAgenticProvider      | Agentic Platform and Framework Providers | controlUserTransparencyAndControls         | User Transparency and Controls                    |
 | personaApplicationDeveloper | Application Developer                    | controlAdversarialTrainingAndTesting       | Adversarial Training and Testing                  |
 | personaApplicationDeveloper | Application Developer                    | controlAgentCredentialIsolation            | Agent Credential Isolation                        |
@@ -29,12 +30,14 @@
 | personaApplicationDeveloper | Application Developer                    | controlInputValidationAndSanitization      | Input Validation and Sanitization                 |
 | personaApplicationDeveloper | Application Developer                    | controlInterComponentTransportSecurity     | Inter-Component Transport Security                |
 | personaApplicationDeveloper | Application Developer                    | controlIsolatedConfidentialComputing       | Isolated and Confidential Computing               |
+| personaApplicationDeveloper | Application Developer                    | controlModelRegistryIntegrity              | Model Registry and Discovery Integrity            |
 | personaApplicationDeveloper | Application Developer                    | controlOrchestratorAndRouteIntegrity       | Orchestrator and Route Integrity                  |
 | personaApplicationDeveloper | Application Developer                    | controlOutputValidationAndSanitization     | Output Validation and Sanitization                |
 | personaApplicationDeveloper | Application Developer                    | controlRedTeaming                          | Red Teaming                                       |
 | personaApplicationDeveloper | Application Developer                    | controlRetrievalAndVectorSystemIntegrity   | Retrieval and Vector System Integrity Management  |
 | personaApplicationDeveloper | Application Developer                    | controlRuntimePrivacyEnhancingTechnologies | Privacy Enhancing Technologies for Inference      |
 | personaApplicationDeveloper | Application Developer                    | controlSecureByDefaultMLTooling            | Secure-by-Default ML Tooling                      |
+| personaApplicationDeveloper | Application Developer                    | controlToolRegistryAndDiscoveryIntegrity   | Tool Registry and Discovery Integrity             |
 | personaApplicationDeveloper | Application Developer                    | controlUserDataManagement                  | User Data Management                              |
 | personaApplicationDeveloper | Application Developer                    | controlUserTransparencyAndControls         | User Transparency and Controls                    |
 | personaDataProvider         | Data Provider                            | controlIncidentResponseManagement          | Incident Response Management                      |
@@ -57,6 +60,7 @@
 | personaGovernance           | AI System Governance                     | controlComponentIdentityProvenance         | Component Identity Provenance                     |
 | personaGovernance           | AI System Governance                     | controlIncidentResponseManagement          | Incident Response Management                      |
 | personaGovernance           | AI System Governance                     | controlInternalPoliciesAndEducation        | Internal Policies and Education                   |
+| personaGovernance           | AI System Governance                     | controlModelRegistryIntegrity              | Model Registry and Discovery Integrity            |
 | personaGovernance           | AI System Governance                     | controlProductGovernance                   | Product Governance                                |
 | personaGovernance           | AI System Governance                     | controlRiskGovernance                      | Risk Governance                                   |
 | personaGovernance           | AI System Governance                     | controlThreatDetection                     | Threat Detection                                  |
@@ -68,6 +72,7 @@
 | personaModelProvider        | Model Provider                           | controlModelAndDataIntegrityManagement     | Model and Data Integrity Management               |
 | personaModelProvider        | Model Provider                           | controlModelAndDataInventoryManagement     | Model and Data Inventory Management               |
 | personaModelProvider        | Model Provider                           | controlModelPrivacyEnhancingTechnologies   | Privacy Enhancing Technologies for Model Training |
+| personaModelProvider        | Model Provider                           | controlModelRegistryIntegrity              | Model Registry and Discovery Integrity            |
 | personaModelProvider        | Model Provider                           | controlRedTeaming                          | Red Teaming                                       |
 | personaModelProvider        | Model Provider                           | controlTrainingDataManagement              | Training Data Management                          |
 | personaModelProvider        | Model Provider                           | controlTrainingDataSanitization            | Training Data Sanitization                        |
@@ -97,8 +102,10 @@
 | personaPlatformProvider     | AI Platform Provider                     | controlInterComponentTransportSecurity     | Inter-Component Transport Security                |
 | personaPlatformProvider     | AI Platform Provider                     | controlIsolatedConfidentialComputing       | Isolated and Confidential Computing               |
 | personaPlatformProvider     | AI Platform Provider                     | controlModelAndDataExecutionIntegrity      | Model and Data Execution Integrity                |
+| personaPlatformProvider     | AI Platform Provider                     | controlModelRegistryIntegrity              | Model Registry and Discovery Integrity            |
 | personaPlatformProvider     | AI Platform Provider                     | controlOrchestratorAndRouteIntegrity       | Orchestrator and Route Integrity                  |
 | personaPlatformProvider     | AI Platform Provider                     | controlRedTeaming                          | Red Teaming                                       |
 | personaPlatformProvider     | AI Platform Provider                     | controlRetrievalAndVectorSystemIntegrity   | Retrieval and Vector System Integrity Management  |
 | personaPlatformProvider     | AI Platform Provider                     | controlRuntimePrivacyEnhancingTechnologies | Privacy Enhancing Technologies for Inference      |
 | personaPlatformProvider     | AI Platform Provider                     | controlSecureByDefaultMLTooling            | Secure-by-Default ML Tooling                      |
+| personaPlatformProvider     | AI Platform Provider                     | controlToolRegistryAndDiscoveryIntegrity   | Tool Registry and Discovery Integrity             |

@@ -13,6 +13,10 @@ Findings are grouped by severity. Structural issues block submission until fixed
 3. [Bidirectional inconsistency](#3-bidirectional-inconsistency)
 4. [Missing required fields](#4-missing-required-fields)
 5. [Invalid enum value](#5-invalid-enum-value)
+6. [Raw HTML or inline URL in prose](#6-raw-html-or-inline-url-in-prose)
+7. [Bare identifier in prose (use a sentinel)](#7-bare-identifier-in-prose-use-a-sentinel)
+8. [Unresolved or malformed sentinel](#8-unresolved-or-malformed-sentinel)
+9. [Retired field (`relevantQuestions`)](#9-retired-field-relevantquestions)
 
 **Content-quality issues (flagged for human review)**
 
@@ -69,6 +73,31 @@ A field constrained by schema enum (e.g., `category`, `lifecycle`, `impact`, `ac
 
 - Fix: copy the allowed values from the schema; do not invent new categories inline.
 
+### 6. Raw HTML or inline URL in prose
+
+A prose field (`description`, `shortDescription`, `longDescription`, `examples`, `responsibilities`, `tourContent.*`) contains a raw HTML tag (`<a>`, `<strong>`, `<em>`, `<br>`, …) or an inline URL of any scheme (`https://…`, `[text](url)`, `mailto:`, …). The `validate-yaml-prose-subset` and `validate-prose-references` hooks block both ([ADR-017](../../../docs/adr/017-yaml-prose-authoring-subset.md), [ADR-016](../../../docs/adr/016-reference-strategy.md)).
+
+- Fix (emphasis): use `**bold**`, `*italic*`/`_italic_` — never `<strong>`/`<em>`.
+- Fix (links/citations): move the URL into the entry's `externalReferences` array (`type`, `id`, `title`, `url`) and reference it from prose with a `{{ref:identifier}}` sentinel. There is no inline-URL form. See [`yaml-authoring-subset.md`](../yaml-authoring-subset.md).
+
+### 7. Bare identifier in prose (use a sentinel)
+
+Prose mentions another entity by writing its bare camelCase ID (`riskPromptInjection`, `controlInputValidationAndSanitization`) instead of a sentinel. `validate-prose-references` blocks bare IDs that match the known prefixes ([ADR-016](../../../docs/adr/016-reference-strategy.md) D6).
+
+- Fix: wrap the mention in a `{{<entity-id>}}` sentinel — `{{riskPromptInjection}}`. The generator resolves it to the entity's title (tables) or an in-page link (site). Authors never hand-write the display title.
+
+### 8. Unresolved or malformed sentinel
+
+A `{{…}}` sentinel does not resolve: `{{<entity-id>}}` names an ID absent from the schema enum, or `{{ref:identifier}}` names an `id` absent from the entry's `externalReferences`. `validate-prose-references` blocks it, and both generators fail the build on an unresolved sentinel.
+
+- Fix: correct the ID to match the schema enum, or add the missing `externalReferences` entry. Per-entry `id` values must be unique within the entry.
+
+### 9. Retired field (`relevantQuestions`)
+
+The proposal adds a `relevantQuestions` field to a risk. The field was removed from `risks.schema.json` in the conformance sweep ([ADR-019](../../../docs/adr/019-risks-schema.md) D6); `additionalProperties: false` now rejects it at commit.
+
+- Fix: remove the field. It had no consumer. Reader-facing questions belong to personas (`identificationQuestions`), not risks.
+
 ---
 
 ## Content-quality issues (flagged for human review)
@@ -117,13 +146,13 @@ The risk's `controls` field includes one of the 7 universal controls (`controlRe
 
 The `examples` field cites "what if" scenarios or product launch blog posts rather than real incidents or research.
 
-- Fix: replace with published incidents, academic papers, CVEs, or post-mortems. Every example must include a verifiable URL.
+- Fix: replace with published incidents, academic papers, CVEs, or post-mortems. Every example must be backed by a verifiable source — but the URL lives in the entry's `externalReferences` array, not inline. Reference it from the example prose with a `{{ref:identifier}}` sentinel ([ADR-016](../../../docs/adr/016-reference-strategy.md)). See [`yaml-authoring-subset.md`](../yaml-authoring-subset.md) for the structured-citation flow.
 
 ### 8. Framework mapping ID doesn't exist or is the wrong type
 
-The proposal maps to an invalid MITRE ATLAS technique, a non-existent OWASP LLM entry, or applies a mitigation ID to a risk (or vice versa).
+The proposal maps to an invalid MITRE ATLAS technique, a non-existent OWASP LLM entry, applies a mitigation ID to a risk (or vice versa), or uses a non-canonical identifier form (lowercase STRIDE, `GV-/MP-/MS-/MG-` NIST abbreviations, un-versioned `LLM##`).
 
-- Fix: verify each ID against the referenced framework. Risks use techniques (`AML.T####`), controls use mitigations (`AML.M####`). See [`framework-mappings-style-guide.md`](./framework-mappings-style-guide.md).
+- Fix: verify each ID against the referenced framework and use the **canonical** form — `Tampering` (not `tampering`), `GOVERN-1.1` (not `GV-1.1`), `LLM01:2025` (not `LLM01`). Risks use techniques (`AML.T####`), controls use mitigations (`AML.M####`). The schema enforces MITRE ATLAS, EU AI Act, and ISO 22989 strictly; STRIDE/NIST/OWASP fall through pending content migration but should still be authored canonically. See [`framework-mappings-style-guide.md`](./framework-mappings-style-guide.md).
 
 ### 9. Parent technique and sub-technique both listed (MITRE ATLAS)
 

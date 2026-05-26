@@ -1,13 +1,15 @@
 {
-  "$id": "self-assessment.schema.json",
+  "$id": "self-assessment-legacy.schema.json",
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "CoSAI-RM Self-Assessment Schema",
   "description": "Schema for validating YAML-based self-assessment definition",
   "type": "object",
   "properties": {
+    "_legacy": { "const": true },
+    "_supersededBy": { "const": "persona-explorer-ux" },
     "selfAssessment": { "$ref": "#/definitions/selfAssessment" }
   },
-  "required": ["selfAssessment"],
+  "required": ["_legacy", "_supersededBy", "selfAssessment"],
   "definitions": {
     "selfAssessment": {
       "type": "object",

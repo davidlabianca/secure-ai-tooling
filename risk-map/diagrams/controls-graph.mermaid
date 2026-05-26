@@ -29,8 +29,10 @@ graph LR
         controlModelAndDataExecutionIntegrity[Model and Data Execution Integrity]
         controlModelAndDataIntegrityManagement[Model and Data Integrity Management]
         controlModelAndDataInventoryManagement[Model and Data Inventory Management]
+        controlModelRegistryIntegrity[Model Registry and Discovery Integrity]
         controlOrchestratorAndRouteIntegrity[Orchestrator and Route Integrity]
         controlSecureByDefaultMLTooling[Secure-by-Default ML Tooling]
+        controlToolRegistryAndDiscoveryIntegrity[Tool Registry and Discovery Integrity]
     end
 
     subgraph controlsModel ["Model Controls"]
@@ -73,8 +75,10 @@ graph LR
         componentDataFilteringAndProcessing[Data Filtering and Processing]
         componentDataSources[Data Sources]
         componentDataStorage[Data Storage Infrastructure]
+        componentToolRegistry[Tool Registry and Discovery]
         componentTrainingData[Training Data]
-        subgraph componentsModels ["Models"]
+        subgraph componentsModelInfrastructure ["Model Infrastructure"]
+            componentModelRegistry[Model Registry and Marketplace]
             componentModelServing[Model Serving Infrastructure]
             componentModelStorage[Model Storage]
         end
@@ -118,16 +122,19 @@ graph LR
     controlTrainingDataManagement --> componentsModelSubgroup
     controlTrainingDataSanitization --> componentDataFilteringAndProcessing
     controlUserDataManagement --> componentDataStorage
+    controlModelAndDataInventoryManagement --> componentsModelInfrastructure
     controlModelAndDataInventoryManagement --> componentsModelSubgroup
-    controlModelAndDataInventoryManagement --> componentsModels
+    controlModelAndDataAccessControls --> componentModelServing
+    controlModelAndDataAccessControls --> componentModelStorage
     controlModelAndDataAccessControls --> componentsModelSubgroup
-    controlModelAndDataAccessControls --> componentsModels
+    controlModelAndDataIntegrityManagement --> componentsModelInfrastructure
     controlModelAndDataIntegrityManagement --> componentsModelSubgroup
-    controlModelAndDataIntegrityManagement --> componentsModels
+    controlModelAndDataExecutionIntegrity --> componentModelServing
+    controlModelAndDataExecutionIntegrity --> componentModelStorage
     controlModelAndDataExecutionIntegrity --> componentTheModel
-    controlModelAndDataExecutionIntegrity --> componentsModels
+    controlSecureByDefaultMLTooling --> componentModelServing
+    controlSecureByDefaultMLTooling --> componentModelStorage
     controlSecureByDefaultMLTooling --> componentsModelSubgroup
-    controlSecureByDefaultMLTooling --> componentsModels
     controlInputValidationAndSanitization --> componentAgentInputHandling
     controlInputValidationAndSanitization --> componentApplicationInputHandling
     controlInputValidationAndSanitization --> componentOrchestrationInputHandling
@@ -183,6 +190,8 @@ graph LR
     controlAgentExecutionBounds --> componentOrchestrationInputHandling
     controlAgentExecutionBounds --> componentOrchestrationOutputHandling
     controlAgentExecutionBounds --> componentReasoningCore
+    controlModelRegistryIntegrity --> componentModelRegistry
+    controlToolRegistryAndDiscoveryIntegrity --> componentToolRegistry
 
     %% Apply styling to controls mapped to 'all'
     controlIncidentResponseManagement:::allControl
@@ -191,12 +200,12 @@ graph LR
     controlVulnerabilityManagement:::allControl
 
     %% Edge styling
-    linkStyle 32,33,34,35 stroke:#4285f4,stroke-width:3px,stroke-dasharray: 8 4
-    linkStyle 0,5,8,9,10,11,12,13,15,16,17,59 stroke:#34a853,stroke-width:2px
-    linkStyle 3,18,21,28,36,40,41,45,50,54,60,64,65,69,70 stroke:#9c27b0,stroke-width:2px
-    linkStyle 4,19,22,29,37,42,46,51,55,61,66,71 stroke:#ff9800,stroke-width:2px,stroke-dasharray: 5 5
-    linkStyle 20,23,30,38,43,47,52,56,62,67,72 stroke:#e91e63,stroke-width:2px,stroke-dasharray: 10 2
-    linkStyle 31,39,44,53,57,63,68 stroke:#C95792,stroke-width:2px,stroke-dasharray: 10 5
+    linkStyle 35,36,37,38 stroke:#4285f4,stroke-width:3px,stroke-dasharray: 8 4
+    linkStyle 0,5,8,9,12,13,14,20,62 stroke:#34a853,stroke-width:2px
+    linkStyle 3,10,15,18,21,24,31,39,43,44,48,53,57,63,67,68,72,73 stroke:#9c27b0,stroke-width:2px
+    linkStyle 4,11,16,19,22,25,32,40,45,49,54,58,64,69,74 stroke:#ff9800,stroke-width:2px,stroke-dasharray: 5 5
+    linkStyle 17,23,26,33,41,46,50,55,59,65,70,75 stroke:#e91e63,stroke-width:2px,stroke-dasharray: 10 2
+    linkStyle 34,42,47,56,60,66,71 stroke:#C95792,stroke-width:2px,stroke-dasharray: 10 5
 
 %% Node style definitions
     style components fill:#f0f0f0,stroke:#666666,stroke-width:3px,stroke-dasharray: 10 5
@@ -204,6 +213,6 @@ graph LR
     style componentsInfrastructure fill:#e6f3e6,stroke:#333333,stroke-width:2px
     style componentsApplication fill:#e6f0ff,stroke:#333333,stroke-width:2px
     style componentsModel fill:#ffe6e6,stroke:#333333,stroke-width:2px
-    style componentsModels fill:#d4e6d4,stroke:#333,stroke-width:1px
+    style componentsModelInfrastructure fill:#d4e6d4,stroke:#333,stroke-width:1px
     style componentsModelSubgroup fill:#f0e6e6,stroke:#333,stroke-width:1px
     style componentsSubgroup4 fill:#f0e6e6,stroke:#333,stroke-width:1px

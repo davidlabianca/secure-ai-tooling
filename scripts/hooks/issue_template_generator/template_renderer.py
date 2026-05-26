@@ -67,6 +67,15 @@ class TemplateRenderer:
             "schema_paths": [("components.schema.json", "definitions.category.properties.id")],
             "field_type": "dropdown",
         },
+        # COMPONENT_CATEGORY_SUBCATEGORY is a join-resolver (ADR-026 D8).
+        # It derives (category, subcategory) pairs from the categories[].subcategory[]
+        # nesting in components.yaml — NOT from the flat schema enum and NOT from
+        # component instances. A sentinel value marks it for special handling in
+        # expand_placeholders beside the FRAMEWORK_MAPPINGS branch.
+        "COMPONENT_CATEGORY_SUBCATEGORY": {
+            "field_type": "dropdown",
+            "_resolver": "category_subcategory_join",
+        },
         # Checkboxes - label-only object format required
         # PERSONAS: full list for controls (governance is controls-only)
         "PERSONAS": {
@@ -206,6 +215,28 @@ class TemplateRenderer:
             elif placeholder_name == "RISK_FRAMEWORKS_LIST":
                 # Return comma-separated list of frameworks for risks
                 return self.get_frameworks_list("risks")
+
+            elif placeholder_name == "COMPONENT_CATEGORY_SUBCATEGORY":
+                # Join-resolver (ADR-026 D8): derives valid (category, subcategory)
+                # pairs from the categories[].subcategory[] nesting in components.yaml.
+                # Reads the YAML taxonomy via schema_parser.yaml_data_dir so that
+                # test fixtures using a temp yaml_data_dir are honoured correctly.
+                # This must NOT use the flat schema enum (which has no pairing info)
+                # and must NOT count component instances (zero-instance subcategories
+                # must still appear per D9).
+                tuples = self._resolve_category_subcategory_tuples()
+                if not tuples:
+                    return ""
+                yaml_lines = []
+                for i, option in enumerate(tuples):
+                    # Double-quote each option: "category: subcategory" contains a
+                    # colon, which YAML parses as a mapping key without quoting.
+                    # GitHub issue-form dropdown options must be plain strings.
+                    if i == 0:
+                        yaml_lines.append(f'- "{option}"')
+                    else:
+                        yaml_lines.append(f'{indentation}- "{option}"')
+                return "\n".join(yaml_lines)
 
             # Check if we have a mapping for this placeholder
             if placeholder_name not in self.PLACEHOLDER_MAPPINGS:
@@ -409,6 +440,38 @@ class TemplateRenderer:
             sections.append(section)
 
         return sections
+
+    def _resolve_category_subcategory_tuples(self) -> list[str]:
+        """
+        Return valid (category, subcategory) pairs as "<category-id>: <subcategory-id>" strings.
+
+        Reads categories[].subcategory[] nesting from components.yaml via
+        schema_parser.yaml_data_dir. Taxonomy declaration order is preserved so
+        rendered dropdown options are stable. Zero-instance subcategories appear
+        because the source is the taxonomy declaration, not component instances.
+
+        Returns:
+            Ordered list of "<category-id>: <subcategory-id>" strings.
+            Empty list if yaml_data_dir is not configured or components.yaml is missing.
+        """
+        if self.schema_parser.yaml_data_dir is None:
+            return []
+
+        components_path = self.schema_parser.yaml_data_dir / "components.yaml"
+        if not components_path.exists():
+            return []
+
+        with open(components_path, "r", encoding="utf-8") as fh:
+            data = yaml.safe_load(fh)
+
+        tuples: list[str] = []
+        for category in data.get("categories", []):
+            cat_id = category.get("id", "")
+            for sub in category.get("subcategory", []):
+                sub_id = sub.get("id", "")
+                if cat_id and sub_id:
+                    tuples.append(f"{cat_id}: {sub_id}")
+        return tuples
 
     def render_template(self, template_content: str, entity_type: str) -> str:
         """

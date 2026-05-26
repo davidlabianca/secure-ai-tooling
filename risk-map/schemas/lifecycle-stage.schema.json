@@ -46,7 +46,8 @@
           "maximum": 8
         }
       },
-      "required": ["id", "title", "description"]
+      "required": ["id", "title", "description"],
+      "additionalProperties": false
     }
   }
 }

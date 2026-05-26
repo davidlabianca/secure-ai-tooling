@@ -154,6 +154,7 @@ controls:
       - componentModelEvaluation
       - componentModelTrainingTuning
       - componentModelStorage
+      - componentModelRegistry
     risks:
       - riskDataPoisoning
       - riskModelSourceTampering
@@ -203,6 +204,7 @@ controls:
       - componentModelEvaluation
       - componentModelTrainingTuning
       - componentModelStorage
+      - componentModelRegistry
     risks:
       - riskAdapterPEFTInjection
       - riskCovertChannelsInModelOutputs
@@ -1107,3 +1109,61 @@ controls:
       - safety
     actorAccess:
       - agent
+  - id: controlModelRegistryIntegrity
+    title: Model Registry and Discovery Integrity
+    description:
+      - >
+        Ensure that model registries, marketplace listings, and registry-published
+        metadata (model cards, provenance records, evaluation claims, licensing
+        assertions, version histories) are integrity-protected throughout their
+        lifecycle — from initial onboarding through runtime consumer-pull. Implement
+        cryptographic signing of model manifests and metadata, publisher identity
+        verification, namespace governance to prevent typosquatting and takeover of
+        well-known model namespaces, and consumer-side verification at pull time.
+        Apply registry-side integrity gates regardless of whether the registry is
+        public, private, sector-specific, or vendor-managed.
+    category: controlsInfrastructure
+    personas:
+      - personaModelProvider
+      - personaPlatformProvider
+      - personaApplicationDeveloper
+      - personaGovernance
+    components:
+      - componentModelRegistry
+    risks:
+      - riskModelSourceTampering
+      - riskModelDeploymentTampering
+      - riskInsecureIntegratedComponent
+      - riskEvaluationBenchmarkManipulation
+  - id: controlToolRegistryAndDiscoveryIntegrity
+    title: Tool Registry and Discovery Integrity
+    description:
+      - >
+        Ensure that tool registries, MCP server manifests, discovery endpoints, and
+        tool metadata are integrity-protected throughout their lifecycle — from initial
+        onboarding through runtime operation. Implement cryptographic signing of tool
+        manifests and metadata, publisher identity verification, namespace governance to
+        prevent typosquatting and tool shadowing, integrity baselines for registered
+        tool definitions, runtime monitoring for unauthorized changes to tool
+        descriptions or schemas, and re-approval workflows when tool metadata is modified
+        after initial vetting.
+      - >
+        This control addresses a gap in the existing control set: integrity controls
+        already cover model and data integrity ({{controlModelAndDataIntegrityManagement}}),
+        routing infrastructure integrity ({{controlOrchestratorAndRouteIntegrity}}), and
+        agent action observability ({{controlAgentObservability}}), but none explicitly
+        address the integrity of tool discovery and registration infrastructure as its
+        own surface. {{riskToolRegistryTampering}} and {{riskToolSourceProvenance}}
+        describe threat models that depend on tool-metadata integrity; the mitigations
+        they call for (provenance verification, known-good baselines, tamper detection)
+        are not the primary focus of any current control.
+    category: controlsInfrastructure
+    personas:
+      - personaAgenticProvider
+      - personaPlatformProvider
+      - personaApplicationDeveloper
+    components:
+      - componentToolRegistry
+    risks:
+      - riskToolRegistryTampering
+      - riskToolSourceProvenance

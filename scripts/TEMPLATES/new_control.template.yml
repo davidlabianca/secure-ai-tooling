@@ -1,3 +1,8 @@
+# ADR-content alignment manifest
+# This template teaches/solicits conventions from:
+#   - ADR-016: externalReferences field shape; sentinel grammar ({{ref:identifier}}, {{controlXxx}})
+#   - ADR-017 D1: allowed prose authoring tokens
+#   - ADR-022 D5b: canonical framework mapping value forms
 name: New Control Proposal
 description: Propose a new security control for the CoSAI Risk Map
 title: '[Control]: '
@@ -29,7 +34,11 @@ body:
     id: control-description
     attributes:
       label: Control Description*
-      description: Detailed explanation of what the control does and how it mitigates risks
+      description: |
+        Detailed explanation of what the control does and how it mitigates risks.
+
+        Cross-reference related framework entities using sentinels, e.g. {{controlInputValidationAndSanitization}} or {{riskPromptInjection}}.
+        Outbound citations go in External References below and are cited via {{ref:identifier}}.
       placeholder: "Describe the control's purpose, implementation approach, and expected outcomes..."
     validations:
       required: true
@@ -99,7 +108,35 @@ body:
         📋 See the [Framework Mappings Style Guide](https://github.com/cosai-oasis/secure-ai-tooling/blob/main/risk-map/docs/contributing/framework-mappings-style-guide.md) for per-framework rules.
       placeholder: |
         mitre-atlas: AML.M0007
-        nist-ai-rmf: GV-6.2
+        nist-ai-rmf: GOVERN-6.2
+
+  - type: textarea
+    id: external-references
+    attributes:
+      label: External References (Optional)
+      description: |
+        Structured outbound citations and editorial pointers for this control. Each entry populates
+        the `externalReferences` array in the YAML. Prose fields cite an entry via the sentinel
+        {{ref:identifier}}, where `identifier` matches the entry's `id` field.
+
+        Per-entry shape (YAML):
+          type: <enum>   # cwe, cve, atlas, attack, advisory, paper, news, spec, editorial, other
+          id: <string>   # author-chosen sentinel target; canonical-form for cwe/cve/atlas/attack
+          title: <string>
+          url: https://...  # https only
+
+        Canonical id examples: cwe-89, cve-2024-0001, aml-t0040.001, attack-t1059.003.
+
+        Example entry:
+          - type: spec
+            id: nist-sp-800-218
+            title: NIST SP 800-218 Secure Software Development Framework
+            url: https://csrc.nist.gov/publications/detail/sp/800-218/final
+      placeholder: |
+        - type: spec
+          id: example-spec
+          title: Title of the specification
+          url: https://example.com/spec/...
 
   - type: checkboxes
     id: lifecycle-stage

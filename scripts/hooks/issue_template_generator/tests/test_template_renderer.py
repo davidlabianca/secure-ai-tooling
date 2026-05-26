@@ -2812,3 +2812,60 @@ class TestExcludeIdsMechanism:
         # Deprecated legacy personas must still be absent
         assert "personaModelCreator" not in result
         assert "personaModelConsumer" not in result
+
+
+# ============================================================================
+# ADR-026 Amendment 2026-05-21 — note on retired {{COMPONENT_SUBCATEGORIES}}
+#
+# The TestComponentSubcategoriesPlaceholder class that previously lived here
+# was deleted because it tested the interim {{COMPONENT_SUBCATEGORIES}}
+# placeholder (issue #326, D3 flat-dropdown). That placeholder is RETIRED by
+# ADR-026 Amendment D8, which replaces the two-dropdown design with a single
+# {{COMPONENT_CATEGORY_SUBCATEGORY}} tuple-selector dropdown.
+#
+# The equivalent coverage now lives in TestTupleSelectorRendering and
+# TestClosedEnumClosureContract (test_regenerate_issue_templates.py and
+# test_validate_issue_templates.py respectively).
+# ============================================================================
+
+
+class TestD4aManifestHeaders:
+    """
+    Optionally asserts that each of the 3 new source templates begins with a
+    YAML comment block containing "ADR-content alignment manifest" (ADR-026 D4a).
+
+    Only the 3 new sources are checked: new_persona, update_persona,
+    update_component. The 5 existing sources are out of scope for this
+    retroactive requirement.
+
+    Pins that the 3 backfilled source files exist and carry the manifest. Issue: #326
+    """
+
+    @pytest.mark.parametrize("template_name", ["new_persona", "update_persona", "update_component"])
+    def test_new_source_template_begins_with_adr_manifest_comment(
+        self, template_name: str, repo_root: Path
+    ) -> None:
+        """
+        Asserts that each newly authored source template starts with a YAML
+        comment block containing 'ADR-content alignment manifest' (ADR-026 D4a).
+
+        Given: A new source template file in scripts/TEMPLATES/
+        When: The first 20 lines are read
+        Then: A comment line containing 'ADR-content alignment manifest' is present
+
+        Pins existence of the backfilled source file. Issue: #326
+        """
+        source_file = repo_root / "scripts" / "TEMPLATES" / f"{template_name}.template.yml"
+        assert source_file.exists(), (
+            f"Source template {template_name}.template.yml not found — cannot check for D4a manifest header."
+        )
+
+        content = source_file.read_text(encoding="utf-8")
+        # Check the first 20 lines for the manifest comment; the exact ADR list
+        # within the manifest is the SWE's content call.
+        first_lines = "\n".join(content.splitlines()[:20])
+        assert "ADR-content alignment manifest" in first_lines, (
+            f"{template_name}.template.yml is missing the 'ADR-content alignment manifest' "
+            f"comment block in its first 20 lines (ADR-026 D4a). "
+            f"This comment documents which ADR decisions shaped the template content."
+        )

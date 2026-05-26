@@ -860,3 +860,307 @@ class TestInstallDepsIntegration:
         assert "install-precommit-hook.sh" not in content, (
             "install-deps.sh still references the deleted bash installer"
         )
+
+
+# ===========================================================================
+# Sweep-validator block-mode posture lock
+# ===========================================================================
+
+
+class TestSweepValidatorsBlockMode:
+    """
+    Config-posture lock: sweep validators must carry --block in their entry.
+
+    Each of the five sweep validators supports a dual-mode CLI: bare invocation
+    warns and exits 0; --block causes a non-zero exit on violations so the
+    pre-commit framework fails the commit.  The hook entry must include --block
+    so staged violations are not silently swallowed.
+
+    Two hooks that do not have dual-mode logic (validate-lifecycle-stage and
+    validate-control-risk-references) must NOT carry --block; the guard tests
+    below pin that invariant to prevent accidental mirroring.
+    """
+
+    def test_validate_component_edges_entry_has_block_flag(self):
+        """
+        Test that validate-component-edges hook entry contains --block.
+
+        Given: .pre-commit-config.yaml validate-component-edges hook
+        When:  inspecting the entry: field
+        Then:  the entry contains the --block token
+        """
+        hooks = _hooks_by_id("validate-component-edges")
+        assert len(hooks) == 1, "Exactly one validate-component-edges hook expected"
+        entry = hooks[0].get("entry", "")
+        assert "--block" in entry, (
+            "validate-component-edges entry must contain --block so staged violations "
+            "fail the commit rather than warn-and-continue; got: " + repr(entry)
+        )
+
+    def test_validate_framework_references_entry_has_block_flag(self):
+        """
+        Test that validate-framework-references hook entry contains --block.
+
+        Given: .pre-commit-config.yaml validate-framework-references hook
+        When:  inspecting the entry: field
+        Then:  the entry contains the --block token
+        """
+        hooks = _hooks_by_id("validate-framework-references")
+        assert len(hooks) == 1, "Exactly one validate-framework-references hook expected"
+        entry = hooks[0].get("entry", "")
+        assert "--block" in entry, (
+            "validate-framework-references entry must contain --block so staged violations "
+            "fail the commit rather than warn-and-continue; got: " + repr(entry)
+        )
+
+    def test_validate_identification_questions_entry_has_block_flag(self):
+        """
+        Test that validate-identification-questions hook entry contains --block.
+
+        Given: .pre-commit-config.yaml validate-identification-questions hook
+        When:  inspecting the entry: field
+        Then:  the entry contains the --block token
+        """
+        hooks = _hooks_by_id("validate-identification-questions")
+        assert len(hooks) == 1, "Exactly one validate-identification-questions hook expected"
+        entry = hooks[0].get("entry", "")
+        assert "--block" in entry, (
+            "validate-identification-questions entry must contain --block so staged violations "
+            "fail the commit rather than warn-and-continue; got: " + repr(entry)
+        )
+
+    def test_validate_yaml_prose_subset_entry_has_block_flag(self):
+        """
+        Test that validate-yaml-prose-subset hook entry contains --block.
+
+        Given: .pre-commit-config.yaml validate-yaml-prose-subset hook
+        When:  inspecting the entry: field
+        Then:  the entry contains the --block token
+        """
+        hooks = _hooks_by_id("validate-yaml-prose-subset")
+        assert len(hooks) == 1, "Exactly one validate-yaml-prose-subset hook expected"
+        entry = hooks[0].get("entry", "")
+        assert "--block" in entry, (
+            "validate-yaml-prose-subset entry must contain --block so staged violations "
+            "fail the commit rather than warn-and-continue; got: " + repr(entry)
+        )
+
+    def test_validate_prose_references_entry_has_block_flag(self):
+        """
+        Test that validate-prose-references hook entry contains --block.
+
+        Given: .pre-commit-config.yaml validate-prose-references hook
+        When:  inspecting the entry: field
+        Then:  the entry contains the --block token
+        """
+        hooks = _hooks_by_id("validate-prose-references")
+        assert len(hooks) == 1, "Exactly one validate-prose-references hook expected"
+        entry = hooks[0].get("entry", "")
+        assert "--block" in entry, (
+            "validate-prose-references entry must contain --block so staged violations "
+            "fail the commit rather than warn-and-continue; got: " + repr(entry)
+        )
+
+    def test_validate_lifecycle_stage_entry_does_not_have_block_flag(self):
+        """
+        Test that validate-lifecycle-stage hook entry does NOT contain --block.
+
+        Given: .pre-commit-config.yaml validate-lifecycle-stage hook
+        When:  inspecting the entry: field
+        Then:  the entry does NOT contain --block
+
+        validate-lifecycle-stage has no dual-mode logic; it exits non-zero on
+        any violation regardless.  Adding --block would be meaningless noise and
+        risks confusing future maintainers about which hooks are sweep validators.
+        """
+        hooks = _hooks_by_id("validate-lifecycle-stage")
+        assert len(hooks) == 1, "Exactly one validate-lifecycle-stage hook expected"
+        entry = hooks[0].get("entry", "")
+        assert "--block" not in entry, (
+            "validate-lifecycle-stage entry must NOT contain --block "
+            "(not a sweep validator; has no dual-mode logic); got: " + repr(entry)
+        )
+
+    def test_validate_control_risk_references_entry_does_not_have_block_flag(self):
+        """
+        Test that validate-control-risk-references hook entry does NOT contain --block.
+
+        Given: .pre-commit-config.yaml validate-control-risk-references hook
+        When:  inspecting the entry: field
+        Then:  the entry does NOT contain --block
+
+        validate-control-risk-references has no dual-mode logic; it exits non-zero
+        on any violation regardless.  This guard prevents accidental --block
+        mirroring from a sweep-validator bulk edit.
+        """
+        hooks = _hooks_by_id("validate-control-risk-references")
+        assert len(hooks) == 1, "Exactly one validate-control-risk-references hook expected"
+        entry = hooks[0].get("entry", "")
+        assert "--block" not in entry, (
+            "validate-control-risk-references entry must NOT contain --block "
+            "(not a sweep validator; has no dual-mode logic); got: " + repr(entry)
+        )
+
+
+# ADR-026 Amendment 2026-05-21: D9 — regenerate-issue-templates trigger
+# widening to include risk-map/yaml/components.yaml.
+#
+# The authoritative tuple source for {{COMPONENT_CATEGORY_SUBCATEGORY}} is the
+# categories[].subcategory[] nesting in components.yaml, not the schema.
+# A taxonomy edit (new category or subcategory) must regenerate the affected
+# template in the same commit per D5a. That requires components.yaml to be in
+# the regenerate-issue-templates hook's files: trigger.
+#
+# These tests enforce the ADR-026 D9 contract: the regenerate-issue-templates
+# hook's files: trigger must include risk-map/yaml/components.yaml (so a
+# taxonomy edit automatically regenerates affected templates in the same
+# commit per D5a). They will fail until D9 is implemented; that is
+# intentional — they are the specification.
+# ===========================================================================
+
+
+class TestRegenerateIssueTemplatesD9Trigger:
+    """
+    Structural tests for the regenerate-issue-templates trigger widening
+    required by ADR-026 Amendment D9.
+    """
+
+    def test_regenerate_issue_templates_matches_components_yaml(self) -> None:
+        """
+        Test that the regenerate-issue-templates hook's files: regex matches
+        risk-map/yaml/components.yaml after D9 trigger widening.
+
+        Given: .pre-commit-config.yaml after D9 implementation
+        When:  applying the files: regex against risk-map/yaml/components.yaml
+        Then:  the regex matches
+
+        ADR-026 D9 requires components.yaml to trigger regeneration because
+        the tuple-selector {{COMPONENT_CATEGORY_SUBCATEGORY}} derives its
+        options from categories[].subcategory[] nesting in that file, not
+        from the schema. A taxonomy edit without this trigger would produce
+        stale generated templates (silent divergence).
+
+        The current files: regex is
+          ^(scripts/TEMPLATES/.*\\.yml|risk-map/schemas/.*\\.schema\\.json|
+            risk-map/yaml/frameworks\\.yaml)$
+        which does NOT match components.yaml — so this test fails until D9
+        widening lands.
+        """
+        hooks = _hooks_by_id("regenerate-issue-templates")
+        assert len(hooks) == 1, "Exactly one regenerate-issue-templates hook expected"
+        files_regex = hooks[0].get("files", "")
+
+        assert re.search(files_regex, "risk-map/yaml/components.yaml"), (
+            f"regenerate-issue-templates files: regex must match "
+            f"risk-map/yaml/components.yaml (ADR-026 D9: the tuple-selector "
+            f"reads components.yaml taxonomy nesting; a taxonomy edit must "
+            f"regenerate the template in the same commit per D5a). "
+            f"Current regex: {files_regex!r}. "
+            f"Widen to include risk-map/yaml/components.yaml."
+        )
+
+    def test_regenerate_issue_templates_still_matches_templates_dir(self) -> None:
+        """
+        Test that the existing scripts/TEMPLATES/ match is preserved after
+        D9 trigger widening.
+
+        Given: .pre-commit-config.yaml after D9 implementation
+        When:  applying the files: regex against a scripts/TEMPLATES/ path
+        Then:  the regex still matches
+
+        This is a regression guard — D9 widens the trigger but must not drop
+        the existing TEMPLATES directory coverage.
+        """
+        hooks = _hooks_by_id("regenerate-issue-templates")
+        assert len(hooks) == 1, "Exactly one regenerate-issue-templates hook expected"
+        files_regex = hooks[0].get("files", "")
+
+        assert re.search(files_regex, "scripts/TEMPLATES/new_component.template.yml"), (
+            f"regenerate-issue-templates files: regex must still match "
+            f"scripts/TEMPLATES/*.yml paths after D9 widening (regression guard). "
+            f"Got: {files_regex!r}"
+        )
+
+    def test_regenerate_issue_templates_still_matches_schemas_dir(self) -> None:
+        """
+        Test that the existing risk-map/schemas/ match is preserved after
+        D9 trigger widening.
+
+        Given: .pre-commit-config.yaml after D9 implementation
+        When:  applying the files: regex against a risk-map/schemas/ path
+        Then:  the regex still matches
+
+        D9 does not change the schema trigger; only components.yaml is added.
+        """
+        hooks = _hooks_by_id("regenerate-issue-templates")
+        assert len(hooks) == 1, "Exactly one regenerate-issue-templates hook expected"
+        files_regex = hooks[0].get("files", "")
+
+        assert re.search(files_regex, "risk-map/schemas/components.schema.json"), (
+            f"regenerate-issue-templates files: regex must still match "
+            f"risk-map/schemas/*.schema.json paths after D9 widening (regression guard). "
+            f"Got: {files_regex!r}"
+        )
+
+    def test_regenerate_issue_templates_still_matches_frameworks_yaml(self) -> None:
+        """
+        Test that the existing risk-map/yaml/frameworks.yaml match is preserved
+        after D9 trigger widening.
+
+        Given: .pre-commit-config.yaml after D9 implementation
+        When:  applying the files: regex against risk-map/yaml/frameworks.yaml
+        Then:  the regex still matches
+
+        D9 adds components.yaml to the trigger; it does not remove frameworks.yaml.
+        """
+        hooks = _hooks_by_id("regenerate-issue-templates")
+        assert len(hooks) == 1, "Exactly one regenerate-issue-templates hook expected"
+        files_regex = hooks[0].get("files", "")
+
+        assert re.search(files_regex, "risk-map/yaml/frameworks.yaml"), (
+            f"regenerate-issue-templates files: regex must still match "
+            f"risk-map/yaml/frameworks.yaml after D9 widening (regression guard). "
+            f"Got: {files_regex!r}"
+        )
+
+    def test_regenerate_issue_templates_does_not_match_unrelated_yaml(self) -> None:
+        """
+        Test that the D9-widened trigger does NOT match unrelated YAML files
+        such as risk-map/yaml/risks.yaml.
+
+        Given: .pre-commit-config.yaml after D9 implementation
+        When:  applying the files: regex against risk-map/yaml/risks.yaml
+        Then:  the regex does NOT match
+
+        Over-matching would cause unnecessary template regeneration on every
+        risks.yaml edit. D9 is a precise expansion — only components.yaml is
+        added, not all of risk-map/yaml/.
+        """
+        hooks = _hooks_by_id("regenerate-issue-templates")
+        assert len(hooks) == 1, "Exactly one regenerate-issue-templates hook expected"
+        files_regex = hooks[0].get("files", "")
+
+        assert not re.search(files_regex, "risk-map/yaml/risks.yaml"), (
+            f"regenerate-issue-templates files: regex must NOT match "
+            f"risk-map/yaml/risks.yaml after D9 widening (over-match guard: "
+            f"risks.yaml does not contribute to the tuple-selector content). "
+            f"Got: {files_regex!r}"
+        )
+
+        # Additional over-match guards: a broad D9 widening (e.g., matching all of
+        # risk-map/yaml/) would silently catch controls.yaml and personas.yaml too,
+        # triggering unnecessary template regeneration on every controls or personas
+        # edit. D9 is a precise expansion — only components.yaml is added.
+        assert not re.search(files_regex, "risk-map/yaml/controls.yaml"), (
+            f"regenerate-issue-templates files: regex must NOT match "
+            f"risk-map/yaml/controls.yaml after D9 widening (over-match guard: "
+            f"controls.yaml does not contribute to the tuple-selector content). "
+            f"Got: {files_regex!r}"
+        )
+
+        assert not re.search(files_regex, "risk-map/yaml/personas.yaml"), (
+            f"regenerate-issue-templates files: regex must NOT match "
+            f"risk-map/yaml/personas.yaml after D9 widening (over-match guard: "
+            f"personas.yaml does not contribute to the tuple-selector content). "
+            f"Got: {files_regex!r}"
+        )

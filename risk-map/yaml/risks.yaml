@@ -231,6 +231,7 @@ risks:
       - controlModelAndDataIntegrityManagement
       - controlModelAndDataInventoryManagement
       - controlSecureByDefaultMLTooling
+      - controlModelRegistryIntegrity
     examples:
       - >
         The nightly build of PyTorch package was subjected to a supply chain attack ({{ref:pytorch-2022-torchtriton-compromise}})
@@ -534,6 +535,7 @@ risks:
       - controlOrchestratorAndRouteIntegrity
       - controlSecureByDefaultMLTooling
       - controlInterComponentTransportSecurity
+      - controlModelRegistryIntegrity
     examples:
       - >
         Researchers discovered that models on HuggingFace were using a shared infrastructure
@@ -801,6 +803,7 @@ risks:
       - controlUserPoliciesAndEducation
       - controlInputValidationAndSanitization
       - controlInterComponentTransportSecurity
+      - controlModelRegistryIntegrity
     examples:
       - >
         By uploading a malicious Alexa skill / Google action (plugins), attackers were
@@ -1842,6 +1845,7 @@ risks:
       - controlOrchestratorAndRouteIntegrity
       - controlAgentObservability
       - controlInterComponentTransportSecurity
+      - controlToolRegistryAndDiscoveryIntegrity
     examples:
       - >
         Palo Alto Networks ({{ref:paloalto-2025-mcp-security-overview}}) identified MCP
@@ -2026,6 +2030,7 @@ risks:
       - personaEndUser
     controls:
       - controlModelAndDataIntegrityManagement
+      - controlModelRegistryIntegrity
     examples:
       - >
         Research demonstrates benchmark gaming attacks ({{ref:bondarenko-2025-specification-gaming}})
@@ -2280,6 +2285,7 @@ risks:
       - controlModelAndDataIntegrityManagement
       - controlSecureByDefaultMLTooling
       - controlAgentPluginPermissions
+      - controlToolRegistryAndDiscoveryIntegrity
     examples:
       - >
         The Checkmarx CxZero MCP Risk Taxonomy ({{ref:checkmarx-2025-mcp-emerging-risks}})

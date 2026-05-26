@@ -455,6 +455,358 @@ class TestCurrentYamlStillValid:
 
 
 # ============================================================================
+# ADR-026 Amendment 2026-05-21: D10 — schema conditional pairing constraint
+#
+# D10 adds an allOf of if/then clauses to definitions/component in
+# components.schema.json so an invalid (category, subcategory) pair is
+# REJECTED by check-jsonschema on every edit path, not only at the form.
+#
+# Contract (from D10):
+#  (a) Every valid (category, subcategory) pair must be ACCEPTED.
+#  (b) A synthetic invalid pair must be REJECTED.
+#  (c) A component with category but no subcategory must be ACCEPTED
+#      (subcategory is optional per component `required` array).
+#
+# The tests in this class use Draft7Validator against the component sub-schema
+# via the registry fixture, matching the existing behavioral test pattern in
+# this module.
+#
+# These tests enforce the ADR-026 D10 contract: the component schema must
+# contain JSON Schema if/then pairing constraints so that invalid
+# (category, subcategory) pairs are rejected at validation time. They will
+# fail until D10 is implemented; that is intentional — they are the
+# specification.
+# ============================================================================
+
+# Valid tuples per ADR-026 Amendment D8 taxonomy table.
+_D10_VALID_PAIRS: list[tuple[str, str]] = [
+    ("componentsInfrastructure", "componentsData"),
+    ("componentsInfrastructure", "componentsModelDeployment"),
+    ("componentsModel", "componentsModelTraining"),
+    ("componentsModel", "componentsModelCore"),
+    ("componentsModel", "componentsOrchestration"),
+    ("componentsApplication", "componentsAgent"),
+    ("componentsApplication", "componentsApplicationCore"),
+]
+
+# An example of an invalid pair (category from Application, subcategory from
+# Infrastructure — a cross-category crossing the taxonomy nesting forbids).
+# componentsModelDeployment is under componentsInfrastructure, NOT componentsModel.
+_D10_INVALID_PAIR = ("componentsApplication", "componentsData")
+
+# A minimal valid component object with no subcategory (subcategory is optional).
+# description must be a list (prose-strict enforced by riskmap.schema.json).
+_MINIMAL_COMPONENT_NO_SUBCATEGORY: dict = {
+    "id": "componentDataSources",
+    "title": "Data Sources",
+    "description": ["Test."],
+    "category": "componentsInfrastructure",
+    "edges": {"to": ["componentDataSources"]},
+}
+
+
+class TestSchemaContainsPairingConstraint:
+    """
+    Asserts that definitions/component in components.schema.json declares an
+    allOf pairing constraint per ADR-026 D10.
+
+    These are structural schema-inspection tests; they do not invoke
+    check-jsonschema. The behavioral enforcement tests in
+    TestPairingConstraintBehavior use check-jsonschema via subprocess to
+    validate against the full schema with $ref resolution (same path as the
+    pre-commit hook).
+    """
+
+    def test_component_definition_has_allof(self, components_schema: dict) -> None:
+        """
+        Test that definitions/component declares an allOf clause.
+
+        Given: definitions/component in components.schema.json
+        When: Its keys are inspected
+        Then: 'allOf' is present
+
+        ADR-026 D10 adds an allOf of if/then clauses, one per category, to
+        enforce (category, subcategory) pairing at schema-validation time.
+        Absence means no pairing enforcement at all.
+        """
+        component_def = components_schema.get("definitions", {}).get("component", {})
+        assert "allOf" in component_def, (
+            "definitions/component must declare 'allOf' for the pairing constraint "
+            "(ADR-026 D10). The schema has not been updated yet."
+        )
+
+    def test_allof_contains_one_clause_per_category(self, components_schema: dict) -> None:
+        """
+        Test that definitions/component.allOf contains exactly three clauses
+        (one per category: Infrastructure, Model, Application).
+
+        Given: definitions/component.allOf
+        When: Its length is checked
+        Then: It contains exactly 3 if/then clauses
+
+        ADR-026 D10 shape: one if/then per category (3 categories = 3 clauses).
+        """
+        component_def = components_schema.get("definitions", {}).get("component", {})
+        all_of = component_def.get("allOf", [])
+        assert len(all_of) == 3, (
+            f"definitions/component.allOf must contain exactly 3 if/then clauses "
+            f"(one per category per ADR-026 D10); got {len(all_of)}."
+        )
+
+    def test_each_allof_clause_has_if_then(self, components_schema: dict) -> None:
+        """
+        Test that every clause in allOf has both 'if' and 'then' keys.
+
+        Given: definitions/component.allOf
+        When: Each clause is inspected
+        Then: All clauses contain 'if' and 'then'
+
+        ADR-026 D10 uses JSON Schema if/then for conditional pairing constraints.
+        A clause without 'then' would be a no-op; without 'if' it would apply
+        unconditionally.
+        """
+        component_def = components_schema.get("definitions", {}).get("component", {})
+        all_of = component_def.get("allOf", [])
+
+        # Guard: pre-impl allOf is absent/empty, so the loop never runs (vacuous pass).
+        # This forces a failure until the D10 if/then pairing constraint is added to
+        # the schema (ADR-026 D10).
+        assert all_of, (
+            "definitions/component.allOf must be non-empty before checking clause shape "
+            "(ADR-026 D10 requires if/then pairing constraints)."
+        )
+
+        for i, clause in enumerate(all_of):
+            assert "if" in clause, f"allOf[{i}] is missing 'if' key (ADR-026 D10 if/then shape). Clause: {clause}"
+            assert "then" in clause, (
+                f"allOf[{i}] is missing 'then' key (ADR-026 D10 if/then shape). Clause: {clause}"
+            )
+
+
+def _write_minimal_components_yaml(
+    out_dir: Path,
+    extra_components: list[dict],
+    risk_map_yaml_dir: Path,
+) -> Path:
+    """
+    Write a minimal components.yaml for schema validation testing.
+
+    Copies the real taxonomy (categories[]) from the live components.yaml and
+    replaces the components[] list with extra_components. The real taxonomy is
+    required so that the D10 allOf if/then clauses (which reference category
+    and subcategory values from the taxonomy) have something to match against.
+
+    Creates out_dir if it does not exist.
+    Returns the path to the written YAML file.
+    """
+    import yaml as pyyaml
+
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    with open(risk_map_yaml_dir / "components.yaml") as fh:
+        real = pyyaml.safe_load(fh)
+
+    synthetic = {
+        "id": "components",
+        "title": real["title"],
+        "description": real["description"],
+        "categories": real["categories"],
+        "components": extra_components,
+    }
+
+    out_path = out_dir / "components_test.yaml"
+    with open(out_path, "w") as fh:
+        pyyaml.dump(synthetic, fh, allow_unicode=True)
+    return out_path
+
+
+def _run_check_jsonschema_for_components(schema_path: Path, yaml_path: Path) -> subprocess.CompletedProcess:
+    """
+    Invoke check-jsonschema for a (components schema, yaml) pair.
+
+    Uses the same invocation pattern as TestCurrentYamlStillValid and the
+    pre-commit hook (list form, captures output, base-uri for $ref resolution).
+    """
+    base_uri = f"file://{schema_path.parent}/"
+    return subprocess.run(
+        [
+            "check-jsonschema",
+            "--base-uri",
+            base_uri,
+            "--schemafile",
+            str(schema_path),
+            str(yaml_path),
+        ],
+        capture_output=True,
+        text=True,
+    )
+
+
+class TestPairingConstraintBehavior:
+    """
+    Behavioral tests for the D10 pairing constraint using check-jsonschema.
+
+    Uses check-jsonschema via subprocess (the exact tool the pre-commit hook
+    uses) against synthetic YAML files so $ref resolution across schema files
+    works correctly. This mirrors the validation path TestCurrentYamlStillValid
+    uses for the live corpus.
+    """
+
+    @pytest.mark.parametrize("category_id,subcategory_id", _D10_VALID_PAIRS)
+    def test_valid_pair_is_accepted(
+        self,
+        risk_map_schemas_dir: Path,
+        risk_map_yaml_dir: Path,
+        tmp_path: Path,
+        category_id: str,
+        subcategory_id: str,
+    ) -> None:
+        """
+        Test that every valid (category, subcategory) pair is accepted.
+
+        Given: A synthetic components.yaml with one component using a valid
+               (category, subcategory) pair per the ADR-026 D8 taxonomy table
+        When: check-jsonschema validates it against components.schema.json
+        Then: Exit code is 0 (no validation errors)
+
+        ADR-026 D10(a): every valid tuple must ACCEPT.
+        Uses check-jsonschema (same as pre-commit hook) for end-to-end $ref
+        resolution; validates the full document, not just a sub-schema.
+        """
+        component_instance = {
+            "id": "componentDataSources",
+            "title": "Test Component",
+            "description": ["Test."],
+            "category": category_id,
+            "subcategory": subcategory_id,
+            "edges": {"to": ["componentDataSources"]},
+        }
+        yaml_path = _write_minimal_components_yaml(
+            tmp_path / f"valid_{category_id}_{subcategory_id}",
+            [component_instance],
+            risk_map_yaml_dir,
+        )
+
+        schema_path = risk_map_schemas_dir / SCHEMA_FILE
+        result = _run_check_jsonschema_for_components(schema_path, yaml_path)
+
+        assert result.returncode == 0, (
+            f"Valid pair ({category_id!r}, {subcategory_id!r}) must be ACCEPTED "
+            f"by the D10 pairing constraint (ADR-026 D10a). "
+            f"check-jsonschema failed:\nstdout: {result.stdout}\nstderr: {result.stderr}"
+        )
+
+    def test_invalid_pair_is_rejected(
+        self,
+        risk_map_schemas_dir: Path,
+        risk_map_yaml_dir: Path,
+        tmp_path: Path,
+    ) -> None:
+        """
+        Test that an invalid (category, subcategory) pair is rejected.
+
+        Given: A synthetic components.yaml with one component having
+               category=componentsApplication and subcategory=componentsData
+               (a cross-category violation: componentsData belongs to
+               componentsInfrastructure, not componentsApplication)
+        When: check-jsonschema validates it
+        Then: Exit code is non-zero (validation fails)
+
+        ADR-026 D10(b): invalid pairs must be REJECTED.
+        The pairing constraint is the load-bearing enforcement — without it
+        a hand-edit or generated diff could introduce an invalid pair under
+        a green CI even if the form selector prevents it at submission time.
+        """
+        invalid_category, invalid_subcategory = _D10_INVALID_PAIR
+        component_instance = {
+            "id": "componentDataSources",
+            "title": "Test Component",
+            "description": ["Test."],
+            "category": invalid_category,
+            "subcategory": invalid_subcategory,
+            "edges": {"to": ["componentDataSources"]},
+        }
+        yaml_path = _write_minimal_components_yaml(
+            tmp_path / "invalid_pair",
+            [component_instance],
+            risk_map_yaml_dir,
+        )
+
+        schema_path = risk_map_schemas_dir / SCHEMA_FILE
+        result = _run_check_jsonschema_for_components(schema_path, yaml_path)
+
+        assert result.returncode != 0, (
+            f"Invalid pair ({invalid_category!r}, {invalid_subcategory!r}) must be "
+            f"REJECTED by the D10 pairing constraint (ADR-026 D10b). "
+            f"componentsData belongs to componentsInfrastructure, not componentsApplication. "
+            f"check-jsonschema returned exit 0 (no errors), meaning the constraint "
+            f"has not been added to the schema yet."
+        )
+
+    def test_component_without_subcategory_is_accepted(
+        self,
+        risk_map_schemas_dir: Path,
+        risk_map_yaml_dir: Path,
+        tmp_path: Path,
+    ) -> None:
+        """
+        Test that a component with category but no subcategory is accepted.
+
+        Given: A synthetic components.yaml with one component that has a
+               valid category but omits the subcategory field entirely
+        When: check-jsonschema validates it
+        Then: Exit code is 0 (subcategory is optional)
+
+        ADR-026 D10(c): subcategory is not required. The allOf if/then
+        clauses must only restrict the subcategory value WHEN the field is
+        present; omitting subcategory entirely must stay valid per the
+        component required array: ["id", "title", "category", "edges"].
+        """
+        yaml_path = _write_minimal_components_yaml(
+            tmp_path / "no_subcategory",
+            [_MINIMAL_COMPONENT_NO_SUBCATEGORY],
+            risk_map_yaml_dir,
+        )
+
+        schema_path = risk_map_schemas_dir / SCHEMA_FILE
+        result = _run_check_jsonschema_for_components(schema_path, yaml_path)
+
+        assert result.returncode == 0, (
+            f"Component with category but no subcategory must be ACCEPTED "
+            f"(ADR-026 D10c: subcategory is optional). "
+            f"check-jsonschema failed:\nstdout: {result.stdout}\nstderr: {result.stderr}"
+        )
+
+    def test_real_components_yaml_still_passes_after_d10(
+        self,
+        risk_map_schemas_dir: Path,
+        risk_map_yaml_dir: Path,
+    ) -> None:
+        """
+        Test that the live components.yaml still passes check-jsonschema
+        after the D10 pairing constraint is added (regression guard).
+
+        Given: risk-map/yaml/components.yaml (the live corpus)
+        When: check-jsonschema validates it against the D10-amended schema
+        Then: Exit code is 0 (no existing component violates the constraint)
+
+        ADR-026 D10 must be backward-compatible: every component in the live
+        corpus uses a valid (category, subcategory) pair per the taxonomy.
+        If any existing component fails, the constraint is either wrong or
+        the data has a pre-existing error that the constraint correctly surfaces.
+        """
+        schema_path = risk_map_schemas_dir / SCHEMA_FILE
+        yaml_path = risk_map_yaml_dir / "components.yaml"
+        result = _run_check_jsonschema_for_components(schema_path, yaml_path)
+
+        assert result.returncode == 0, (
+            f"Live components.yaml must pass the D10 pairing constraint "
+            f"(backward-compatibility regression guard, ADR-026 D10). "
+            f"check-jsonschema failed:\nstdout: {result.stdout}\nstderr: {result.stderr}"
+        )
+
+
+# ============================================================================
 # Test summary
 # ============================================================================
 """

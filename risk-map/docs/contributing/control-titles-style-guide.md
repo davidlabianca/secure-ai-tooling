@@ -28,6 +28,8 @@ Write titles of 2-6 words. Most controls use 3-4 words.
 | 5 | Model and Data Access Controls | Compound subject + capability |
 | 6 | Privacy Enhancing Technologies for Inference | Upper bound — uses "for" scope qualifier |
 
+The schema also caps control titles at **100 characters** (`controls.schema.json` `title.maxLength`, per [ADR-022](../../../docs/adr/022-supporting-schemas.md) / C1 #322). The 2-6 word guidance keeps you well inside that limit; the character cap is a hard backstop a conformant title never reaches.
+
 ### Form
 
 Titles must be **noun phrases** that name the defensive capability, security measure, or governance practice. They describe what the control provides, not what risk it prevents.
