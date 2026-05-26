@@ -75,6 +75,38 @@ Evaluate every submission across these axes, in this order:
 
 ---
 
+## CoSAI-RM content-enforcement boundaries
+
+The conformance sweep (ADRs 014–022) added a layer of pre-commit hooks that enforce
+content rules mechanically. When a PR touches these hooks, their wrappers, or the prose
+they validate, hold it to these boundaries:
+
+- **Shared tokenizer is the single source of grammar.** `validate-yaml-prose-subset`
+  (ADR-017) and `validate-prose-references` (ADR-016) both import the shared tokenizer
+  at `scripts/hooks/precommit/_prose_tokens.py`, and read the prose-field list from
+  `scripts/hooks/precommit/_prose_fields.py` (derived from the schemas, not hardcoded).
+  **Flag any PR that re-implements prose tokenization, the markdown-subset grammar, or
+  the URL/HTML rejection in a second place** instead of importing the shared module
+  (ADR-017 D5). Two grammars that can disagree is the defect.
+- **The site sanitizer's emission surface is bounded and ADR-gated.** `site/assets/sanitizer.mjs`
+  emits a hard-coded `ALLOWED_TAGS` literal (`strong`, `em`, `a`) with constructed
+  attribute values (ADR-015 D3a). A PR that grows `ALLOWED_TAGS`, lets an attribute
+  value flow from input, or adds a render path that bypasses `renderProse` is **critical**
+  and is an ADR-015 revisit — not a routine change. The D3b meta-test
+  (`ALLOWED_TAGS` ↔ fixtures) and the `<a>` attack-corpus must be updated in the same PR;
+  a sanitizer change without matching fixtures is incomplete.
+- **Content rules are machine-enforced, not editorial.** The relevant hooks (all block):
+  `validate-yaml-prose-subset`, `validate-prose-references`, `validate-identification-questions`
+  (ADR-021 D7), `validate-framework-references`, `validate-lifecycle-stage`,
+  `validate-component-edges`, `validate-control-risk-references`. A PR that disables a
+  hook, narrows its `files:` pattern, or adds a `# noqa`-style bypass to dodge a rule is
+  **major** unless an ADR amendment justifies it.
+- **Trigger ↔ read-set invariant (ADR-005 addendum).** A validator's pre-commit `files:`
+  trigger must cover every file it actually reads. If a hook reads `frameworks.yaml` or a
+  schema but only triggers on one content file, flag the silent-skip risk.
+
+---
+
 ## Boundaries
 
 - **Do:** identify issues, explain rationale, propose fixes, assign severity, decide the next-agent handoff.

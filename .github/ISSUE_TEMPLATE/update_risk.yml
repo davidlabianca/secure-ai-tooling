@@ -1,3 +1,9 @@
+# ADR-content alignment manifest
+# This template teaches/solicits conventions from:
+#   - ADR-016: externalReferences field shape; sentinel grammar ({{ref:identifier}}, {{riskXxx}})
+#   - ADR-017 D1: allowed prose authoring tokens
+#   - ADR-019 D6: relevantQuestions field retired (not solicited)
+#   - ADR-022 D5b: canonical framework mapping value forms
 name: Update Existing Risk
 description: Propose updates to an existing AI security risk in the CoSAI Risk Map
 title: '[Update Risk]: '
@@ -33,7 +39,7 @@ body:
         - Update descriptions (short/long description, clarification)
         - Add mappings (controls, frameworks)
         - Remove mappings (controls, frameworks)
-        - Update examples or relevant questions
+        - Update examples
         - Add metadata (lifecycle, impact type, actor access)
         - Update tourContent
         - Other (describe below)
@@ -53,6 +59,9 @@ body:
         - "Remove controlRedTeaming from controls - not directly applicable to this risk type"
         - "Add MITRE ATLAS mapping AML.T0051 - new technique relevant to this risk"
         - "Update examples section with recent CVE demonstrating this risk"
+
+        Cross-reference related framework entities using sentinels, e.g. {{riskPromptInjection}} or {{controlInputValidationAndSanitization}}.
+        Outbound citations go in External Reference Changes below and are cited via {{ref:identifier}}.
       placeholder: |
         Current state: [what it says now]
         Proposed change: [what it should say]
@@ -97,31 +106,48 @@ body:
         📋 See the [Framework Mappings Style Guide](https://github.com/cosai-oasis/secure-ai-tooling/blob/main/risk-map/docs/contributing/framework-mappings-style-guide.md) for per-framework rules.
       placeholder: |
         + mitre-atlas: AML.T0051
-        + stride: information-disclosure
-        - owasp-top10-llm: LLM01
+        + stride: InformationDisclosure
+        - owasp-top10-llm: LLM01:2025
 
   - type: textarea
     id: examples
     attributes:
       label: Update Examples
       description: |
-        Add new examples or update existing ones
+        Add new examples or update existing ones.
 
-        Can include HTML links: <a href="URL">description</a>
+        Do not include raw URLs or HTML links here. Add outbound references to the External Reference
+        Changes field below, then cite them in prose using the sentinel form {{ref:identifier}}.
       placeholder: |
-        Add example: Recent CVE-2024-XXXXX demonstrated this risk in production...
-
-        <a href="https://nvd.nist.gov/..." target="_blank" rel="noopener">CVE details</a>
+        Add example: A recent incident described in {{ref:vendor-advisory-2024}} demonstrated this risk in production...
 
   - type: textarea
-    id: relevant-questions
+    id: external-references
     attributes:
-      label: Update Relevant Questions
+      label: External Reference Changes
       description: |
-        Add or update assessment questions organizations should ask
+        Add or remove structured outbound citations for this risk. Each entry populates or removes
+        an entry in the `externalReferences` array in the YAML. Prose fields cite an entry via the
+        sentinel {{ref:identifier}}, where `identifier` matches the entry's `id` field.
+
+        Per-entry shape (YAML):
+          type: <enum>   # cwe, cve, atlas, attack, advisory, paper, news, spec, editorial, other
+          id: <string>   # author-chosen sentinel target; canonical-form for cwe/cve/atlas/attack
+          title: <string>
+          url: https://...  # https only
+
+        Canonical id examples: cwe-89, cve-2024-0001, aml-t0040.001, attack-t1059.003.
+
+        Example entry:
+          - type: cve
+            id: cve-2024-0001
+            title: Example vulnerability
+            url: https://nvd.nist.gov/vuln/detail/CVE-2024-0001
       placeholder: |
-        + Are there rate limits on API access to prevent abuse?
-        + Is there monitoring for unusual query patterns?
+        + type: advisory
+          id: vendor-advisory-2024
+          title: Vendor advisory title
+          url: https://example.com/advisory/...
 
   - type: textarea
     id: supporting-evidence

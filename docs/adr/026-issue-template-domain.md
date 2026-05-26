@@ -188,3 +188,91 @@ The split mirrors [ADR-002](002-branching-strategy.md)'s framing of mixed PRs as
 - Implementation phase 3 (content-reviewer): update the linked contributing-guide pages (`submission-readiness-guide.md`, `common-review-findings.md`, the four `*-titles-style-guide.md` pages, `framework-mappings-style-guide.md`, `identification-questions-style-guide.md`, `issue-templates-guide.md`, `template-sync-procedures.md`) to teach the post-Phase-B conventions templates now cite. Target `develop`. Can run parallel to phase 2.
 - Register the CI in-sync check (D5b) as a new workflow or a new step in an existing workflow. The choice of surface is a small follow-up; this ADR does not pin it.
 - If a future ADR adds a fifth content-entity type to the schemas, that ADR amends D2 (the four-entity-type list) and the implementation lands a fifth pair of source files plus the `entity_mappings` table entry. The amendment is mechanical; the contract shape does not change.
+
+---
+
+## Amendment 2026-05-21: Component category/subcategory valid-tuple selector
+
+**Status:** Accepted (2026-05-21). Does not alter the Accepted status of D1–D7 above.
+**Authors:** Architect agent, with maintainer review.
+
+### Context
+
+[D3](#d3-schema-derived-enum-contract--closed-enum-closure-rule) closed the components-subcategory `id` enum with a `{{COMPONENT_SUBCATEGORIES}}` placeholder, turning the template's free-form subcategory `input` into a dropdown of all seven subcategory IDs. That dropdown is **context-free**: it renders independently of the category dropdown, so a contributor can submit a category/subcategory combination that does not exist in the taxonomy (e.g. category `componentsApplication` + subcategory `componentsData`).
+
+The combination matters because the valid pairings are a clean function — each subcategory belongs to exactly one category — but the name prefixes mislead:
+
+| Category | Valid subcategories |
+|---|---|
+| `componentsInfrastructure` | `componentsData`, `componentsModelDeployment` |
+| `componentsModel` | `componentsModelTraining`, `componentsModelCore`, `componentsOrchestration` |
+| `componentsApplication` | `componentsAgent`, `componentsApplicationCore` |
+
+`componentsModelDeployment` is an Infrastructure subcategory (not Model) and `componentsOrchestration` is a Model subcategory (not Application); the prefixes invite wrong guesses.
+
+The deeper finding is that the form is not the only unguarded path. `components.schema.json` declares `component.category` (`#/definitions/category/properties/id`) and `component.subcategory` (`#/definitions/subcategory/properties/id`) as two independent scalar `$ref`s to flat enums, with no `allOf`/`if`/`then`/`dependentSchemas` coupling them. An invalid pair passes `check-jsonschema` and lands as bad content regardless of how it was authored — through the form, a hand-edit, or a generated diff. The form fix alone leaves the schema permissive.
+
+This amendment **supersedes the interim `{{COMPONENT_SUBCATEGORIES}}` realization of D3's Immediate-scope paragraph.** D3's principles — single `PLACEHOLDER_MAPPINGS` registry, render-time closure of closed-enum solicitations — are unchanged and govern below. The amendment changes only the *placeholder model* (flat enum → derived join) and adds the schema-layer enforcement D3 did not reach. The interim placeholder was a coherent step: the closure rule landed first, the pairing constraint follows once the taxonomy join is modeled. History stays coherent — this is `amends`, not `supersedes ADR-026`.
+
+Base branch is `main` per [D7](#d7-lifecycle-and-review) (structural: a field-shape change plus a generator-mechanism change plus a schema change). Downstream of acceptance is the standard test-first implementation chain.
+
+### D8. Tuple-selector placeholder — amends D3's placeholder model
+
+**Decision.** A `PLACEHOLDER_MAPPINGS` entry MAY resolve as a **derived join over the taxonomy** rather than a single flat enum. The subcategory solicitation becomes one such join:
+
+- Retire `{{COMPONENT_SUBCATEGORIES}}` (the flat seven-value dropdown D3 added).
+- Add `{{COMPONENT_CATEGORY_SUBCATEGORY}}`, a dropdown whose options are the valid `category-id: subcategory-id` tuples — seven options, one per existing pairing. GitHub issue forms have no cascading/dependent dropdowns, so a flattened valid-tuple list is the only form-fill-time enforcement available; this is the canonical workaround, not a compromise.
+
+```
+- componentsInfrastructure: componentsData
+- componentsInfrastructure: componentsModelDeployment
+- componentsModel: componentsModelTraining
+- componentsModel: componentsModelCore
+- componentsModel: componentsOrchestration
+- componentsApplication: componentsAgent
+- componentsApplication: componentsApplicationCore
+```
+
+**This is a resolver-kind, not a parallel system.** `PLACEHOLDER_MAPPINGS` remains the single registry D3 requires. The join is a new resolver branch beside the existing `FRAMEWORK_MAPPINGS` special-case in [`template_renderer.py`](../../scripts/hooks/issue_template_generator/template_renderer.py) (`expand_placeholders` already branches on placeholder name before the generic flat-enum path, and `yaml_source`-bearing entries like `PERSONAS` already read YAML data). The closure rule and render-time-failure-on-unregistered-placeholder semantics of D3 carry over unchanged.
+
+**Option format is ID:ID, delimiter `": "`.** Each option is `<category-id>: <subcategory-id>`. The dropdowns already solicit raw entity IDs; friendly titles would introduce a title→ID inconsistency and a reverse-lookup map. Splitting an option on `": "` yields the `category` and `subcategory` field values directly.
+
+**Parse-back is a documented convention, not built tooling.** Issue → YAML transcription is manual or agent-mediated today; no automated pipeline exists. The `": "` split is recorded as the convention a transcriber applies; no parser is built (YAGNI). If an automated issue → YAML pipeline is ever introduced, it inherits this convention as its contract.
+
+### D9. Generator trigger and read-set widening
+
+**Decision.** Add `risk-map/yaml/components.yaml` to the `regenerate-issue-templates` hook `files:` trigger in [`.pre-commit-config.yaml`](../../.pre-commit-config.yaml).
+
+The authoritative tuple source is the category→subcategory **nesting** declared in `components.yaml` (`categories[].subcategory[]`), not the schema. The schema's `definitions.category` carries a `subcategory` array property — the *shape* that a category may nest subcategories — but it does not enumerate which subcategories belong to which category; that assignment is data in `components.yaml`. Tuples are therefore derived from the taxonomy nesting, **not** from component instances (`components[]` — a zero-instance subcategory would silently vanish) and **not** from ID name prefixes (they mislead, per Context).
+
+The current trigger (`^(scripts/TEMPLATES/.*\.yml|risk-map/schemas/.*\.schema\.json|risk-map/yaml/frameworks\.yaml)$`) does not match `components.yaml`, so a taxonomy edit would not regenerate the affected template. Widening the trigger keeps the generated output atomic with its taxonomy source, matching [D5a](#d5a-schema-derived-enums-regenerate-atomically-with-their-source).
+
+This fits the [ADR-005](005-pre-commit-framework.md) Addendum 2026-05-08 generator carve-out, which holds `regenerate-issue-templates` outside the trigger-vs-read-set invariant because generators are side-effectful with read sets spanning multiple source YAMLs. The generator already reads `personas.yaml` (deprecated-ID filtering) without a dedicated trigger entry under that carve-out; reading the `components.yaml` taxonomy is the same precedented capability. No new ADR-005 treatment is required — this amendment records the decision and cites the addendum.
+
+### D10. Schema conditional pairing constraint — the content-integrity fix
+
+**Decision.** Add a conditional pairing constraint to `definitions.component` in [`components.schema.json`](../../risk-map/schemas/components.schema.json) so an invalid `(category, subcategory)` pair is **rejected by `check-jsonschema` on every edit path**, not only at the form. The form selector (D8) is a usability guard; this constraint is the enforcement.
+
+The shape is an `allOf` of one `if`/`then` per category, each `then` restricting `subcategory` to that category's valid subset. Representative clause:
+
+```json
+{
+  "if":   { "properties": { "category": { "const": "componentsInfrastructure" } } },
+  "then": { "properties": { "subcategory": {
+              "enum": ["componentsData", "componentsModelDeployment"] } } }
+}
+```
+
+`subcategory` is not a required component property (component `required` is `["id", "title", "category", "edges"]`); `then.properties.subcategory` only constrains the value when present, so components that omit a subcategory stay valid. The flat `definitions.subcategory.properties.id` enum is retained as the per-value type — the `allOf` narrows it conditionally rather than replacing it.
+
+This is the load-bearing change. With it, the bad-pair class is closed regardless of authoring path; without it, the selector would be the only barrier and a hand-edit or generated diff could still introduce an invalid pair under a green CI.
+
+### References
+
+- [D3](#d3-schema-derived-enum-contract--closed-enum-closure-rule) — closed-enum closure rule and the single `PLACEHOLDER_MAPPINGS` registry this amendment extends with a join-resolver kind
+- [D5a](#d5a-schema-derived-enums-regenerate-atomically-with-their-source) — atomic regeneration of schema-derived enums with their source
+- [D7](#d7-lifecycle-and-review) — structural template changes target `main`
+- [ADR-005](005-pre-commit-framework.md) Addendum 2026-05-08 — generator carve-out from the trigger-vs-read-set invariant
+- [ADR-018](018-components-schema.md) — components schema (category, subcategory, the taxonomy this constraint pairs)
+- `risk-map/yaml/components.yaml` `categories[].subcategory[]` — authoritative tuple source
+- Issue #326 — the interim `{{COMPONENT_SUBCATEGORIES}}` subcategory placeholder this amendment supersedes
