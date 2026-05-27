@@ -21,6 +21,13 @@
 // this pattern exists. Adding a tag here requires a matching fixture update.
 const ALLOWED_TAGS = ["strong", "em", "a"];
 
+// Bounded-dispatch literal for structured-item types — same posture as
+// ALLOWED_TAGS. Adding a type here without extending renderProse's dispatch
+// arms OR without adding a per-type positive test fails the meta-tests in
+// sanitizer.test.mjs. This is the structural fail-loud guarantee for new
+// structured-item types alongside the per-call inert-marker fallback.
+const STRUCTURED_ITEM_TYPES = ["link", "ref"];
+
 // ---------------------------------------------------------------------------
 // HTML character escaping
 // ---------------------------------------------------------------------------
@@ -65,6 +72,29 @@ function escapeHtml(text) {
  */
 function escapeStructuredTitle(text) {
   return escapeHtml(text).replaceAll("=", "&#61;");
+}
+
+/**
+ * Reduce an unknown structured-item `type` value to a short label for the
+ * inert-marker diagnostic. Avoids two regression classes:
+ *   1. Non-string `type` (object/array) producing literal "[object Object]"
+ *      via String() coercion — the bleed-thru gate would trip on that.
+ *   2. Null bytes in a string `type` surviving into the rendered innerHTML
+ *      string; HTML5 parsers replace U+0000 with U+FFFD inside comments at
+ *      parse time, but the raw innerHTML carries the null and confuses
+ *      programmatic grep-based regression scans.
+ *
+ * @param {unknown} value - The `type` field of an unrecognised structured item
+ * @returns {string} Short label safe to feed through escapeHtml
+ */
+function describeUnsupportedType(value) {
+  if (typeof value === "string") {
+    return value.replace(/\x00/g, "\uFFFD");
+  }
+  if (value === null) return "<null>";
+  if (value === undefined) return "<undefined>";
+  if (Array.isArray(value)) return "<array>";
+  return `<non-string:${typeof value}>`;
 }
 
 // ---------------------------------------------------------------------------
@@ -428,9 +458,13 @@ export function renderProse(input) {
       return escaped;
     }
 
-    // Unknown structured type — emit an inert marker instead of leaking
-    // String(object) as "[object Object]" into rendered prose.
-    const escaped = `<!-- renderProse: unsupported prose-item type: ${escapeHtml(String(input.type))} -->`;
+    // Unknown structured type — emit an inert marker. describeUnsupportedType
+    // keeps the marker free of "[object Object]" (which would trip the bleed-
+    // thru gate when input.type is itself an object) and strips null bytes
+    // before escapeHtml so the raw innerHTML stays greppable. The marker is
+    // wrapped in an HTML comment; escapeHtml neutralises `>` so a hostile
+    // input.type cannot close the comment early.
+    const escaped = `<!-- renderProse: unsupported prose-item type: ${escapeHtml(describeUnsupportedType(input.type))} -->`;
     console.warn("renderProse: escaped unexpected markup", { input, escaped });
     return escaped;
   }
