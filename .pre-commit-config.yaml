@@ -300,6 +300,34 @@ repos:
         pass_filenames: false
 
   # ---------------------------------------------------------------------------
+  # Frameworks versionId materialization (ADR-027 D2b). Generator-plus-purity
+  # pair, declared in this order so a fresh edit to frameworks.yaml is
+  # materialized first and then guarded against hand-edit drift in the same
+  # hook run.  The trigger is anchored on risk-map/yaml/frameworks.yaml: the
+  # generator writes only into that file, the purity validator reads only
+  # from it.
+  # ---------------------------------------------------------------------------
+  - repo: local
+    hooks:
+      - id: regenerate-frameworks-versionid
+        name: 'generate: frameworks.yaml versionId (ADR-027 D2b)'
+        language: system
+        entry: python3 scripts/hooks/precommit/versionid_generator.py
+        files: ^risk-map/yaml/frameworks\.yaml$
+        # pass_filenames is irrelevant — the script always rewrites the
+        # canonical path — but we mirror the other generator wrappers and
+        # leave it true so the framework's batching behavior matches.
+        pass_filenames: true
+        require_serial: true
+
+      - id: validate-frameworks-versionid-purity
+        name: 'validate: frameworks.yaml versionId purity (ADR-027 D2b/D2c)'
+        language: system
+        entry: python3 scripts/hooks/precommit/validate_versionid_purity.py
+        files: ^risk-map/yaml/frameworks\.yaml$
+        pass_filenames: false
+
+  # ---------------------------------------------------------------------------
   # Generators (Mode B auto-stage). Each wrapper runs the appropriate
   # generation commands and `git add`s outputs so they land in the same commit
   # as the source change. Wrapper scripts encapsulate per-trigger conditionals.
