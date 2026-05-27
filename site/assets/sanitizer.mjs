@@ -1,8 +1,8 @@
 /**
  * sanitizer.mjs — render-time prose sanitizer for the CoSAI Risk Map site.
  *
- * Exports renderProse(input) which accepts either a plain string or a
- * structured link object ({type: "link", title, url}) and returns an
+ * Exports renderProse(input) which accepts a plain string, a structured link
+ * object ({type: "link", title, url}), or a structured ref object and returns an
  * HTML-safe string suitable for assignment to innerHTML.
  *
  * Design: ADR-015 D3 (hand-rolled, bounded emission), D3a (ALLOWED_TAGS
@@ -20,6 +20,13 @@
 // The meta-test in sanitizer.test.mjs reads this file's source and asserts
 // this pattern exists. Adding a tag here requires a matching fixture update.
 const ALLOWED_TAGS = ["strong", "em", "a"];
+
+// Bounded-dispatch literal for structured-item types — same posture as
+// ALLOWED_TAGS. Adding a type here without extending renderProse's dispatch
+// arms OR without adding a per-type positive test fails the meta-tests in
+// sanitizer.test.mjs. This is the structural fail-loud guarantee for new
+// structured-item types alongside the per-call inert-marker fallback.
+const STRUCTURED_ITEM_TYPES = ["link", "ref"];
 
 // ---------------------------------------------------------------------------
 // HTML character escaping
@@ -50,7 +57,7 @@ function escapeHtml(text) {
 }
 
 /**
- * Escape a string for use as anchor text content.
+ * Escape a string for use as structured-item anchor text content.
  * Extends escapeHtml by also encoding `=` as `&#61;` so that attribute-
  * injection patterns like `onclick=` cannot appear as a raw substring in the
  * rendered HTML output, even inside text content where they are already
@@ -60,11 +67,34 @@ function escapeHtml(text) {
  * the serialised output, which is the requirement the attack-corpus fixture
  * for attribute-injection-quote-in-text asserts.
  *
- * @param {string} text - Raw title text from a structured link item
+ * @param {string} text - Raw title text from a structured prose item
  * @returns {string} HTML-escaped text safe for anchor inner content
  */
-function escapeLinkTitle(text) {
+function escapeStructuredTitle(text) {
   return escapeHtml(text).replaceAll("=", "&#61;");
+}
+
+/**
+ * Reduce an unknown structured-item `type` value to a short label for the
+ * inert-marker diagnostic. Avoids two regression classes:
+ *   1. Non-string `type` (object/array) producing literal "[object Object]"
+ *      via String() coercion — the bleed-thru gate would trip on that.
+ *   2. Null bytes in a string `type` surviving into the rendered innerHTML
+ *      string; HTML5 parsers replace U+0000 with U+FFFD inside comments at
+ *      parse time, but the raw innerHTML carries the null and confuses
+ *      programmatic grep-based regression scans.
+ *
+ * @param {unknown} value - The `type` field of an unrecognised structured item
+ * @returns {string} Short label safe to feed through escapeHtml
+ */
+function describeUnsupportedType(value) {
+  if (typeof value === "string") {
+    return value.replace(/\x00/g, "\uFFFD");
+  }
+  if (value === null) return "<null>";
+  if (value === undefined) return "<undefined>";
+  if (Array.isArray(value)) return "<array>";
+  return `<non-string:${typeof value}>`;
 }
 
 // ---------------------------------------------------------------------------
@@ -375,7 +405,7 @@ function emit(tokens, originalInput) {
  *     fragment anchor (<a href="#id">title</a>) per ADR-015 D1 and
  *     ADR-016 D5. No rel/target — those are link-only.
  *
- * Any other input shape is coerced to string, escaped, and warned about.
+ * Any other structured type emits an HTML-inert diagnostic marker and warns.
  *
  * Per ADR-015 D4, disallowed markup is escaped (not stripped) and exactly one
  * console.warn("renderProse: escaped unexpected markup", {input, escaped}) is
@@ -389,7 +419,7 @@ export function renderProse(input) {
   if (input !== null && typeof input === "object") {
     if (input.type === "link") {
       const { valid, trimmedUrl } = validateUrl(input.url ?? "");
-      const escapedTitle = escapeLinkTitle(String(input.title ?? ""));
+      const escapedTitle = escapeStructuredTitle(String(input.title ?? ""));
 
       if (valid) {
         // Construct the <a> with renderer-owned attributes only.
@@ -417,7 +447,7 @@ export function renderProse(input) {
       // with HTML-breakout characters is rejected and the title is escaped
       // and emitted as plain text, matching the link-item invalid-URL path.
       const id = String(input.id ?? "");
-      const escapedTitle = escapeLinkTitle(String(input.title ?? ""));
+      const escapedTitle = escapeStructuredTitle(String(input.title ?? ""));
 
       if (/^[A-Za-z][A-Za-z0-9_-]*$/.test(id)) {
         return `<a href="#${escapeHtml(id)}">${escapedTitle}</a>`;
@@ -428,8 +458,13 @@ export function renderProse(input) {
       return escaped;
     }
 
-    // Unknown structured type — escape and warn.
-    const escaped = escapeHtml(String(input));
+    // Unknown structured type — emit an inert marker. describeUnsupportedType
+    // keeps the marker free of "[object Object]" (which would trip the bleed-
+    // thru gate when input.type is itself an object) and strips null bytes
+    // before escapeHtml so the raw innerHTML stays greppable. The marker is
+    // wrapped in an HTML comment; escapeHtml neutralises `>` so a hostile
+    // input.type cannot close the comment early.
+    const escaped = `<!-- renderProse: unsupported prose-item type: ${escapeHtml(describeUnsupportedType(input.type))} -->`;
     console.warn("renderProse: escaped unexpected markup", { input, escaped });
     return escaped;
   }

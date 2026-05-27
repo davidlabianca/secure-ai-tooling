@@ -22,6 +22,16 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
+const UNSUPPORTED_PROSE_ITEM_MARKER = "renderProse: unsupported prose-item type";
+
+function assertNoStructuredItemBleedThrough(output) {
+  assert.ok(!output.includes("[object Object]"), `renderRichParagraphs leaked [object Object]: ${output}`);
+  assert.ok(
+    !output.includes(UNSUPPORTED_PROSE_ITEM_MARKER),
+    `renderRichParagraphs emitted unsupported structured-item marker: ${output}`,
+  );
+}
+
 // Minimal DOM/window/fetch shim — app.mjs touches all three during module load
 // (document.querySelector for the app root, event-listener registration on
 // that element, renderApp() writing innerHTML, loadSiteData() calling fetch).
@@ -125,10 +135,7 @@ test("nested array containing an object never produces '[object Object]'", () =>
   const out = renderRichParagraphs([
     ["Prefix (", { type: "link", title: "T", url: "https://example.com/" }, ") suffix."],
   ]);
-  assert.ok(
-    !out.includes("[object Object]"),
-    `renderRichParagraphs leaked [object Object] for a structured-item input: ${out}`,
-  );
+  assertNoStructuredItemBleedThrough(out);
 });
 
 test("regression: riskRetrievalVectorStorePoisoning shape from persona-site-data.json", () => {
@@ -168,8 +175,8 @@ test("regression: riskRetrievalVectorStorePoisoning shape from persona-site-data
       '<a href="https://arxiv.org/abs/2402.13532" rel="noopener noreferrer" target="_blank">Backdoor Attacks on Dense Retrieval via Public and Unintentional Triggers</a>',
     ),
   );
-  // No [object Object] leak.
-  assert.ok(!out.includes("[object Object]"));
+  // No structured-item bleed-through.
+  assertNoStructuredItemBleedThrough(out);
 });
 
 test("nested array with {type:'ref'} item renders as in-page fragment anchor", () => {
@@ -203,7 +210,7 @@ test("ref item with invalid id (breakout chars) escapes title instead of emittin
   ]);
   assert.ok(!out.includes('<a href="#risk"'));
   assert.ok(!out.includes("<script>"));
-  assert.ok(!out.includes("[object Object]"));
+  assertNoStructuredItemBleedThrough(out);
 });
 
 test("regression: bleed-thru — riskAgentDelegationChainOpacity longDescription shape with ref items", () => {
@@ -217,7 +224,7 @@ test("regression: bleed-thru — riskAgentDelegationChainOpacity longDescription
   ];
   const out = renderRichParagraphs([longDescriptionPara]);
   assert.ok(out.includes('<a href="#riskAgenticDelegationConfusedDeputy">Agentic Delegation Confused Deputy</a>'));
-  assert.ok(!out.includes("[object Object]"));
+  assertNoStructuredItemBleedThrough(out);
 });
 
 test("mixed item types: string + nested-with-object + plain nested array", () => {
