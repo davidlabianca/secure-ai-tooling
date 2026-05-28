@@ -1,7 +1,7 @@
 # ADR-028: Prose-linter emphasis enforcement via bracket-matching depth pass over a Token-shape contract
 
-**Status:** Draft
-**Date:** 2026-05-27
+**Status:** Accepted
+**Date:** 2026-05-27 (Draft); 2026-05-28 (Accepted)
 **Authors:** Architect agent, with maintainer review
 
 ---
@@ -203,7 +203,7 @@ The two reason strings — `"nested emphasis"` and `"emphasis-wrapped sentinel"`
 
 **Follow-up**
 
-- **Underscore-italic corpus diff — the lockdown validation gate.** Before maintainer flips Status: Draft → Accepted, a one-off script runs both the current `_RE_ITALIC_UNDERSCORE` and the proposed whitespace-flanked variant against all four content YAMLs (`risks.yaml`, `controls.yaml`, `components.yaml`, `personas.yaml`) and emits a diff listing every prose field whose tokenization changes (e.g., `<file>:<entry-id>:<field>: was ITALIC("_X Y_"), now TEXT`). Two outcomes: diff is empty or only matches expected snake_case false positives → lock confirmed; diff includes authorially-intended italic spans → maintainer reopens the underscore decision before the ADR is Accepted.
+- **Underscore-italic corpus diff — the lockdown validation gate.** Before maintainer flips Status: Draft → Accepted, a one-off script runs both the current `_RE_ITALIC_UNDERSCORE` and the proposed whitespace-flanked variant against all four content YAMLs (`risks.yaml`, `controls.yaml`, `components.yaml`, `personas.yaml`) and emits a diff listing every prose field whose tokenization changes (e.g., `<file>:<entry-id>:<field>: was ITALIC("_X Y_"), now TEXT`). Two outcomes: diff is empty or only matches expected snake_case false positives → lock confirmed; diff includes authorially-intended italic spans → maintainer reopens the underscore decision before the ADR is Accepted. **Resolved 2026-05-28:** probe run over all 569 prose fields in the four content YAMLs reported **zero** tokenization changes (first outcome). The probe was validated as non-blind — `home_bar and foo_baz` flips ITALIC→TEXT as designed while genuine whitespace-flanked italics and `__double__` are preserved. D-Open-21 lock confirmed; Status flipped Draft → Accepted.
 - **Triple-asterisk tokenizer probe.** Captures the tokenizer's output for `***foo***`, `****`, `*****foo*****`, `**foo***`, `***foo**`, and `***`. Feeds the classifier test fixtures. Runs as part of the testing agent's RED phase, parallel to the SWE implementation.
 - **Live-corpus regression baseline.** Captures the current zero-diagnostic state of `validate-yaml-prose-subset` against the four content YAMLs as a `pytest.mark.live_corpus` test. Gates the post-migration regression check; the new linter must produce the same zero-diagnostic result.
 - **Fixture migration — additive only.** Add 6-10 new emphasis-shape fixtures under (likely) `scripts/hooks/tests/fixtures/prose_subset/accepting/emphasis_shapes/` or equivalent, covering `shape="open"`, `shape="close"`, depth-3 nested input asserted multi-token, and italic variants per delimiter. The existing five emphasis-bearing fixtures stay byte-identical; they implicitly assert `shape="complete"` via the tokenizer's emission and the projection's drop-of-`shape`. The `_tokens_to_dicts` projection at [`test_prose_tokens.py:203`](https://github.com/cosai-oasis/secure-ai-tooling/blob/7320136/scripts/hooks/tests/test_prose_tokens.py#L203) stays at `{"kind", "value"}`; tests that need to assert `shape` use per-test attribute checks.
