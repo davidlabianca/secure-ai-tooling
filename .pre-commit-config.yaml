@@ -169,6 +169,7 @@ repos:
         entry: python3 scripts/hooks/precommit/prettier_yaml.py
         files: ^risk-map/yaml/.*\.ya?ml$
         pass_filenames: true
+        require_serial: true
 
       - id: prettier-site-assets
         name: 'prettier: site/ assets'

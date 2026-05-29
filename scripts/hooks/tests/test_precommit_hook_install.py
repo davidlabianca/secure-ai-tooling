@@ -1002,6 +1002,101 @@ class TestSweepValidatorsBlockMode:
         )
 
 
+# ===========================================================================
+# require_serial guard for prettier hooks (issue #357)
+# ===========================================================================
+
+# Hooks that perform a per-file `git add` after formatting must run serially
+# so concurrent invocations under `pre-commit run --all-files` do not race on
+# .git/index.lock. Both prettier wrappers post-stage their output, so both
+# require require_serial: true.
+#
+# Option B (focused set + class) was chosen over extending _WRAPPER_CONTRACTS
+# because adding a 5th tuple element would widen every existing row and change
+# the unpack loop — higher blast radius for a single-property invariant.
+_REQUIRE_SERIAL_HOOKS = {
+    # Both prettier wrappers run a per-file `git add` after formatting; parallel
+    # batches under `pre-commit run --all-files` race on .git/index.lock
+    # (issue #357). require_serial: true on each prevents the race.
+    "prettier-yaml",
+    "prettier-site-assets",
+}
+
+
+class TestRequireSerialPrettierHooks:
+    """
+    Both prettier wrapper hooks must declare require_serial: true.
+
+    prettier_yaml.py and prettier_site_assets.py each run `git add` after
+    formatting a file. Under `pre-commit run --all-files`, pre-commit batches
+    pass_filenames: true hooks into parallel invocations (one per staged file).
+    Concurrent `git add` calls race on .git/index.lock, causing one invocation
+    to exit 128 with 'fatal: Unable to create index.lock: File exists'.
+    require_serial: true forces a single serial invocation, eliminating the race.
+    """
+
+    def test_prettier_yaml_has_require_serial_true(self):
+        """
+        Test that the prettier-yaml hook declares require_serial: true.
+
+        Given: .pre-commit-config.yaml with the prettier-yaml hook
+        When:  inspecting the require_serial field
+        Then:  the value is True
+
+        Without require_serial: true, pre-commit batches --all-files runs into
+        parallel invocations that race on .git/index.lock (issue #357). This
+        guard ensures the property stays on the hook.
+        """
+        hooks = _hooks_by_id("prettier-yaml")
+        assert len(hooks) == 1, "Exactly one prettier-yaml hook expected"
+        hook = hooks[0]
+        assert hook.get("require_serial") is True, (
+            "prettier-yaml must declare require_serial: true to prevent concurrent "
+            "`git add` calls from racing on .git/index.lock under --all-files "
+            "(issue #357); got: " + repr(hook.get("require_serial"))
+        )
+
+    def test_prettier_site_assets_has_require_serial_true(self):
+        """
+        Test that the prettier-site-assets hook declares require_serial: true.
+
+        Given: .pre-commit-config.yaml with the prettier-site-assets hook
+        When:  inspecting the require_serial field
+        Then:  the value is True
+
+        Same race surface as prettier-yaml: a per-file `git add` under
+        `pre-commit run --all-files` parallel batching would race on
+        .git/index.lock. require_serial: true keeps the hook serial.
+        """
+        hooks = _hooks_by_id("prettier-site-assets")
+        assert len(hooks) == 1, "Exactly one prettier-site-assets hook expected"
+        hook = hooks[0]
+        assert hook.get("require_serial") is True, (
+            "prettier-site-assets must declare require_serial: true to prevent "
+            "concurrent `git add` calls from racing on .git/index.lock under "
+            "--all-files (issue #357); got: " + repr(hook.get("require_serial"))
+        )
+
+    def test_all_require_serial_hooks_are_present_in_config(self):
+        """
+        Test that every hook in _REQUIRE_SERIAL_HOOKS is declared in the config.
+
+        Given: _REQUIRE_SERIAL_HOOKS set
+        When:  checking each id against _all_hooks()
+        Then:  all ids resolve to exactly one hook
+
+        Catches a rename or deletion of either hook that would silently make
+        the per-property tests above vacuous.
+        """
+        declared_ids = {h.get("id") for h in _all_hooks()}
+        missing = _REQUIRE_SERIAL_HOOKS - declared_ids
+        assert not missing, (
+            f"Hook(s) {sorted(missing)} listed in _REQUIRE_SERIAL_HOOKS are not "
+            f"declared in .pre-commit-config.yaml — update _REQUIRE_SERIAL_HOOKS "
+            f"to match the new id if a hook was renamed."
+        )
+
+
 # ADR-026 Amendment 2026-05-21: D9 — regenerate-issue-templates trigger
 # widening to include risk-map/yaml/components.yaml.
 #
