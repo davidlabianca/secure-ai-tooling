@@ -43,8 +43,10 @@ Fixture corpus:
     — reference_violations/ : (used by the references linter only)
     — schemas/        : minimal mock schemas for introspection tests
 
-The tokenizer (_prose_tokens.py, locked at 25e3d22) is NOT modified.
-The prose_subset/ fixture directory is NOT modified.
+The tokenizer (_prose_tokens.py) is extended on this branch per ADR-028 D1/D3
+(the Token.shape field, _classify_emphasis_shape, and the tightened
+_RE_ITALIC_UNDERSCORE).  The prose_subset/ fixture directory gains the
+accepting/emphasis_shapes/ pairs (ADR-028 D-Open-18, Path 3b).
 
 Test Coverage
 =============
@@ -93,6 +95,7 @@ try:
     from validate_yaml_prose_subset import (  # noqa: E402
         Diagnostic,
         ProseField,
+        _delim_for_token,
         check_prose_field,
         find_prose_fields,
         main,
@@ -104,6 +107,7 @@ except ImportError as _e:
     # Stub names so module-level references do not raise NameError at load time.
     Diagnostic = None  # type: ignore[assignment,misc]
     ProseField = None  # type: ignore[assignment,misc]
+    _delim_for_token = None  # type: ignore[assignment]
     check_prose_field = None  # type: ignore[assignment]
     find_prose_fields = None  # type: ignore[assignment]
     main = None  # type: ignore[assignment]
@@ -2337,6 +2341,27 @@ class TestNestedEmphasisRejection:
         diags = check_prose_field(field)
         assert len(diags) == 0, f"Bold-with-italic-inside must produce 0 diagnostics. Got: {diags!r}"
 
+    def test_nested_bold_wrapping_sentinel_emits_both_diagnostics(self):
+        """
+        Given: '**x **y**{{ref:x}}**' -> [BOLD(open), TEXT, BOLD(complete '**{{ref:x}}**')]
+        When: check_prose_field is called
+        Then: the trailing BOLD token emits BOTH a 'nested emphasis' AND an
+              'emphasis-wrapped sentinel' diagnostic (two diagnostics total).
+
+        ADR-028 D5 (Addendum 2026-05-29, third erratum): the nested-emphasis and
+        wrapped-sentinel predicates are independent and may both fire on a single
+        emphasis token.  The complete token '**{{ref:x}}**' arrives at depth > 0
+        (nested, via the preceding open '**x **') and its stripped interior is a
+        sentinel (wrapped).  This pins the intended double-emit so a future change
+        cannot silently collapse it to one diagnostic.
+        """
+        field = self._make_field("**x **y**{{ref:x}}**")
+        diags = check_prose_field(field)
+        reasons = [d.reason for d in diags]
+        assert len(diags) == 2, f"Expected exactly 2 diagnostics (nested + wrapped). Got: {diags!r}"
+        assert "nested emphasis at '**{{ref:x}}**'" in reasons, reasons
+        assert "emphasis-wrapped sentinel at '**{{ref:x}}**'" in reasons, reasons
+
 
 # ===========================================================================
 # TestEmphasisDiagnosticFormat — ADR-028 D6 diagnostic format locks
@@ -2468,3 +2493,43 @@ class TestEmphasisDiagnosticFormat:
         assert _DIAG_PATTERN.match(line), (
             f"Emphasis-wrapped-sentinel diagnostic does not match committed pattern: {line!r}"
         )
+
+
+# ===========================================================================
+# TestDelimForTokenGuard — _delim_for_token fail-loud contract
+# ===========================================================================
+# _delim_for_token is called only on BOLD/ITALIC tokens, so its input always
+# starts with '**', '*', or '_'.  It must fail loud on any other value rather
+# than silently returning a wrong delimiter (which would make
+# _is_emphasis_wrapped_sentinel slice the wrong interior).
+# ===========================================================================
+
+
+class TestDelimForTokenGuard:
+    """Tests for the _delim_for_token delimiter-dispatch helper (ADR-028 D5)."""
+
+    def test_bold_delimiter(self):
+        """'**...**' values return the two-character bold delimiter."""
+        assert _delim_for_token("**foo**") == "**"
+
+    def test_italic_asterisk_delimiter(self):
+        """'*...*' values return the single asterisk delimiter."""
+        assert _delim_for_token("*foo*") == "*"
+
+    def test_italic_underscore_delimiter(self):
+        """'_..._' values return the underscore delimiter."""
+        assert _delim_for_token("_foo_") == "_"
+
+    def test_unrecognized_value_raises(self):
+        """
+        A value that is not a BOLD/ITALIC token (no '**', '*', or '_' prefix)
+        must raise rather than silently returning a delimiter. Guards against a
+        future emphasis kind reaching the helper with an unhandled delimiter.
+        """
+        with pytest.raises(ValueError):
+            _delim_for_token("plain text")
+
+    def test_empty_value_raises(self):
+        """An empty string is not a valid emphasis token value and must raise."""
+        with pytest.raises(ValueError):
+            _delim_for_token("")

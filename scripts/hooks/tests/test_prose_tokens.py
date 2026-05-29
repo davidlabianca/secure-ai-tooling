@@ -87,8 +87,9 @@ Representation decisions (locked; the implementation must match):
 
 Test Summary
 ============
-Total fixture-parametrized pairs: 55
+Total fixture-parametrized pairs: 62
 - accepting/: 7 fixture pairs (inc. double_underscore_not_bold)
+- accepting/emphasis_shapes/: 6 fixture pairs (ADR-028 D-Open-18, Path 3b)
 - sentinels/: 7 fixture pairs
 - rejecting/: 16 fixture pairs (existing) + 14 new URL fixture pairs (commit 5)
 - folded_bullets/: 2 fixture pairs
@@ -345,6 +346,23 @@ _ACCEPTING_FIXTURES = [
     "accepting/double_underscore_not_bold",
 ]
 
+# ADR-028 D-Open-18 (Path 3b): additive emphasis-shape fixtures. These lock the
+# tokenizer's token STREAM (kind + value) for the open / close / both-edges /
+# nested emphasis inputs the shape classifier (ADR-028 D3) tags. The fixture
+# projection drops `shape` per D-Open-20, so shape itself is asserted directly
+# in the classifier tests; these fixtures lock the underlying greedy-match
+# stream the classifier and the depth-counter linter depend on (e.g. that
+# `**foo **nested** bar**` splits into [BOLD, TEXT, BOLD], the precondition for
+# the nested-emphasis diagnostic).
+_EMPHASIS_SHAPE_FIXTURES = [
+    "accepting/emphasis_shapes/bold_open",
+    "accepting/emphasis_shapes/bold_close",
+    "accepting/emphasis_shapes/bold_both_edges_whitespace",
+    "accepting/emphasis_shapes/italic_asterisk_open",
+    "accepting/emphasis_shapes/nested_bold_three_token",
+    "accepting/emphasis_shapes/bold_wraps_sentinel_nested",
+]
+
 _SENTINEL_FIXTURES = [
     "sentinels/intra_risk",
     "sentinels/intra_control",
@@ -455,6 +473,31 @@ class TestAcceptingTokens:
         invalid_kinds = {k for k in TokenKind if k.name.startswith("INVALID")}
         for token in tokenize(input_text):
             assert token.kind not in invalid_kinds, f"Fixture {fixture_path!r}: unexpected INVALID token {token!r}"
+
+
+class TestEmphasisShapeFixtures:
+    """
+    Verify the token stream for emphasis-shape inputs (ADR-028 D-Open-18, Path 3b).
+
+    Given: an emphasis input exercising open / close / both-edges / nested shapes
+    When: tokenize() is called
+    Then: the stream matches the fixture's .tokens.json exactly (kind + value).
+
+    These fixtures lock the greedy-match behaviour the shape classifier and the
+    depth-counter linter depend on; `shape` is dropped by the fixture projection
+    (D-Open-20) and asserted directly in the classifier tests.
+    """
+
+    @pytest.mark.parametrize("fixture_path", _EMPHASIS_SHAPE_FIXTURES)
+    def test_emphasis_shape_token_stream(self, fixture_path: str):
+        """
+        Given: input from accepting/emphasis_shapes/<name>.txt
+        When: tokenize() is called
+        Then: output matches the fixture's .tokens.json exactly (kind + value)
+        """
+        input_text, expected = _load_fixture_pair(fixture_path)
+        result = _tokens_to_dicts(tokenize(input_text))
+        assert result == expected, f"Fixture {fixture_path!r}: expected {expected!r}, got {result!r}"
 
 
 class TestSentinels:

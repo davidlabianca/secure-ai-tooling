@@ -138,19 +138,30 @@ def _delim_for_token(token_value: str) -> str:
     """Return the delimiter prefix for an emphasis token value.
 
     Inspects the leading characters to distinguish '**' (BOLD) from '*' (ITALIC
-    asterisk) from '_' (ITALIC underscore).
+    asterisk) from '_' (ITALIC underscore). Called only on BOLD/ITALIC tokens,
+    whose values always start with one of those delimiters.
 
     Args:
-        token_value: The full token value string.
+        token_value: The full token value string (a BOLD or ITALIC token).
 
     Returns:
         The delimiter string: '**', '*', or '_'.
+
+    Raises:
+        ValueError: if token_value does not start with '**', '*', or '_'. The
+            helper fails loud rather than guessing a delimiter, so a future
+            emphasis kind that reaches it with an unhandled delimiter surfaces
+            immediately instead of silently mis-slicing the token interior.
     """
     if token_value.startswith("**"):
         return "**"
     if token_value.startswith("*"):
         return "*"
-    return "_"
+    if token_value.startswith("_"):
+        return "_"
+    raise ValueError(
+        f"_delim_for_token expects a BOLD/ITALIC token value starting with '**', '*', or '_'; got {token_value!r}"
+    )
 
 
 def check_prose_field(field: ProseField) -> list[Diagnostic]:
