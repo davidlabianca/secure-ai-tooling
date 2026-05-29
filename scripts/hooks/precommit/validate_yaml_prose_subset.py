@@ -213,10 +213,11 @@ def check_prose_field(field: ProseField) -> list[Diagnostic]:
             depth += 1
         elif token.shape == "close":
             # Check before decrementing: the close token is the one arriving
-            # at depth > 0 in the canonical [open, text, close] stream.
-            # This is the authoritative spec from TestNestedEmphasisRejection
-            # (the ADR D5 pseudocode omits the emit on close, but the test
-            # requires it — the test is canonical per the handoff note).
+            # at depth > 0 in the canonical [open, text, close] stream
+            # (e.g. **foo **nested** bar**), so it is the attribution point for
+            # the single nested-emphasis diagnostic. ADR-028 D5 (as amended
+            # 2026-05-29) emits in the close branch when depth > 0, before the
+            # decrement.
             if depth > 0:
                 _emit_diag(f"{_REASON_NESTED_EMPHASIS} at {token.value!r}")
             depth = max(0, depth - 1)

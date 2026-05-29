@@ -1935,12 +1935,11 @@ class TestEmptyAndWhitespace:
 
 
 # ===========================================================================
-# TestTripleAsteriskProbe  (Spike S1 — descriptive locks, GREEN now)
+# TestTripleAsteriskProbe  (Spike S1 — descriptive locks)
 # ===========================================================================
 # These tests lock the ground-truth token streams for six triple-asterisk
-# inputs.  They describe what the CURRENT tokenizer emits (before the SWE
-# pass), so they are green now and must remain green after the SWE pass
-# (the tokenizer's emphasis emission sites are being extended, not changed).
+# inputs.  They record the tokenizer's current output (emphasis emission
+# sites are extended, not changed).
 # Feeds into TestEmphasisShapeClassification fixture grounding.
 # ===========================================================================
 
@@ -1952,8 +1951,7 @@ class TestTripleAsteriskProbe:
     ADR-028 §9.3 Spike S1 — run empirically before classifier tests are written
     to ensure the _classify_emphasis_shape helper handles each case consistently.
 
-    All assertions are descriptive: they record the observed stream.  They are
-    GREEN against the current tokenizer and must stay GREEN after the SWE pass.
+    All assertions are descriptive: they record the observed stream.
     """
 
     def test_triple_star_foo_tokenizes_as_bold_plus_trailing_text(self):
@@ -1964,7 +1962,7 @@ class TestTripleAsteriskProbe:
 
         The non-greedy _RE_BOLD closes at the first '**' after open, consuming
         '***foo**' (interior='*foo').  The final lone '*' is TEXT.
-        Shape (post-SWE): the BOLD interior '*foo' has no edge whitespace ->
+        Shape: the BOLD interior '*foo' has no edge whitespace ->
         _classify_emphasis_shape yields 'complete'.
         """
         _require_module()
@@ -1986,7 +1984,7 @@ class TestTripleAsteriskProbe:
         which fails (.+?).  Rule 13 (italic asterisk) then fires on the lone '*'
         and _RE_ITALIC_ASTERISK matches '***' (interior='*').  The remaining '*'
         is TEXT.
-        Shape (post-SWE): ITALIC interior '*' has no edge whitespace -> 'complete'.
+        Shape: ITALIC interior '*' has no edge whitespace -> 'complete'.
         """
         _require_module()
         tokens = tokenize("****")
@@ -2006,7 +2004,7 @@ class TestTripleAsteriskProbe:
         Given '*****foo*****', opening at i=0, the first '**' close is at i=3
         (positions 3-4), consuming '*****' (interior='***').  TEXT('foo').
         Then BOLD('*****') again.
-        Shape (post-SWE): interior '***' has no edge whitespace -> 'complete'.
+        Shape: interior '***' has no edge whitespace -> 'complete'.
         """
         _require_module()
         tokens = tokenize("*****foo*****")
@@ -2025,7 +2023,7 @@ class TestTripleAsteriskProbe:
         Then: BOLD('**foo**') + TEXT('*')
 
         Standard bold match; trailing lone '*' is TEXT.
-        Shape (post-SWE): interior 'foo' has no edge whitespace -> 'complete'.
+        Shape: interior 'foo' has no edge whitespace -> 'complete'.
         """
         _require_module()
         tokens = tokenize("**foo***")
@@ -2044,6 +2042,7 @@ class TestTripleAsteriskProbe:
         _RE_BOLD opens at '**' (positions 0-1), (.+?) matches '*foo' (leading
         '*' is inner content), closes at '**' (positions 5-6).  Full span is
         '***foo**'.  Interior is '*foo'; no edge whitespace -> 'complete'.
+        Shape: 'complete'.
         """
         _require_module()
         tokens = tokenize("***foo**")
@@ -2059,7 +2058,7 @@ class TestTripleAsteriskProbe:
 
         Bold rule fails (no closing '**' after inner content).  Italic-asterisk
         rule succeeds: _RE_ITALIC_ASTERISK matches '*...*' = '***' (interior='*').
-        Shape (post-SWE): interior '*' has no edge whitespace -> 'complete'.
+        Shape: interior '*' has no edge whitespace -> 'complete'.
         """
         _require_module()
         tokens = tokenize("***")
@@ -2069,14 +2068,13 @@ class TestTripleAsteriskProbe:
 
 
 # ===========================================================================
-# TestEmphasisShapeClassification  (RED — _classify_emphasis_shape not yet)
+# TestEmphasisShapeClassification — ADR-028 D3 shape classifier
 # ===========================================================================
 # These tests import _classify_emphasis_shape from precommit._prose_tokens.
-# The helper does not exist until the SWE pass, so the import block below
-# uses the same lazy-guard pattern as the module's top-level _IMPORT_ERROR
-# guard: a collection-time import failure sets _CLASSIFY_IMPORT_ERROR and
-# each test calls _require_classify() to fail with an assertion error rather
-# than a collection crash.
+# The import block below uses the same lazy-guard pattern as the module's
+# top-level _IMPORT_ERROR guard: a collection-time import failure sets
+# _CLASSIFY_IMPORT_ERROR and each test calls _require_classify() to fail
+# with a clear message rather than a collection crash.
 # ===========================================================================
 
 _CLASSIFY_IMPORT_ERROR: ImportError | None = None
@@ -2091,9 +2089,9 @@ def _require_classify() -> None:
     """Fail with assertion if _classify_emphasis_shape could not be imported."""
     if _CLASSIFY_IMPORT_ERROR is not None:
         pytest.fail(
-            f"_classify_emphasis_shape not yet importable from precommit._prose_tokens.\n"
+            f"_classify_emphasis_shape not importable from precommit._prose_tokens.\n"
             f"Original error: {_CLASSIFY_IMPORT_ERROR}\n"
-            "This test is RED until the SWE pass adds the helper."
+            "This indicates _classify_emphasis_shape is missing from precommit._prose_tokens."
         )
 
 
@@ -2104,8 +2102,7 @@ class TestEmphasisShapeClassification:
     ADR-028 D3 shape rules, D-Open-16 (12-14 cases), D-Open-7 (both-edges -> 'open').
 
     Grid: delimiter {'**', '*', '_'} x shape {'complete', 'open', 'close'}
-    plus edge cases from Spike S1 (triple-asterisk inputs).  All tests are RED
-    until the SWE pass adds _classify_emphasis_shape to _prose_tokens.py.
+    plus edge cases from Spike S1 (triple-asterisk inputs).
 
     No `neutral`-return case is tested because the classifier only runs on
     matched emphasis spans; non-emphasis tokens carry shape='neutral' by
@@ -2279,12 +2276,11 @@ class TestEmphasisShapeClassification:
 
 
 # ===========================================================================
-# TestTokenShapeField  (RED — Token.shape field not yet on NamedTuple)
+# TestTokenShapeField — ADR-028 D1 Token.shape wire-up
 # ===========================================================================
 # ADR-028 D1: Token gains shape: Literal['complete','open','close','neutral']
 # as third field with default 'neutral'.  These tests call tokenize() and
 # inspect .shape on the resulting tokens, satisfying ADR-025 D10 wire-up.
-# They fail now (AttributeError: Token has no attribute 'shape').
 # ===========================================================================
 
 
@@ -2293,14 +2289,12 @@ class TestTokenShapeField:
     Wire-up tests: tokenize() emits tokens whose .shape field carries the
     ADR-028 D3 classification.  Satisfies ADR-025 D10 (at least one test
     that calls tokenize() and reads .shape on the result).
-
-    All tests are RED until the SWE pass adds Token.shape.
     """
 
     def _assert_has_shape(self, token: object) -> None:
         """Assert token has a .shape attribute; fail with diagnostic if not."""
         assert hasattr(token, "shape"), (
-            f"Token {token!r} has no .shape attribute. RED: this test passes after the SWE pass adds Token.shape."
+            f"Token {token!r} has no .shape attribute (ADR-028 D1 requires Token.shape)."
         )
 
     def test_simple_bold_has_complete_shape(self):
@@ -2436,12 +2430,11 @@ class TestTokenShapeField:
 
 
 # ===========================================================================
-# TestIntrawordUnderscoreRejection  (RED — D-Open-21, regex not yet tightened)
+# TestIntrawordUnderscoreRejection — ADR-028 D3 invariant 3, D-Open-21
 # ===========================================================================
 # ADR-028 D3 invariant 3: intraword \S_\S does NOT qualify as an italic
-# delimiter.  The current _RE_ITALIC_UNDERSCORE uses only adjacent-underscore
-# negative lookahead (so '__' is excluded) but does NOT exclude non-whitespace
-# flanking.  After the SWE pass tightens the regex, these tests go GREEN.
+# delimiter.  _RE_ITALIC_UNDERSCORE requires whitespace-or-boundary flanking
+# on the opening '_' (left side) and closing '_' (right side).
 # ===========================================================================
 
 
@@ -2449,46 +2442,40 @@ class TestIntrawordUnderscoreRejection:
     r"""
     Tests for D-Open-21: tightened _RE_ITALIC_UNDERSCORE.
 
-    After the SWE pass, the regex requires whitespace-or-boundary flanking on
-    the opening '_' (left side) and closing '_' (right side).  Intraword
+    _RE_ITALIC_UNDERSCORE requires whitespace-or-boundary flanking on the
+    opening '_' (left side) and closing '_' (right side).  Intraword
     underscore pairs like 'home_bar and foo_baz' must NOT tokenize as ITALIC.
-
-    Tests that assert NO ITALIC are RED now (current regex produces ITALIC).
-    Tests that assert ITALIC remains for whitespace-flanked forms are GREEN now.
     """
 
     def test_intraword_underscore_pair_produces_no_italic(self):
         """
         Given: 'home_bar and foo_baz'
-        When: tokenize() is called (after SWE tightens _RE_ITALIC_UNDERSCORE)
+        When: tokenize() is called
         Then: NO ITALIC token in the stream
 
-        Current behavior (RED): tokenizer matches '_bar and foo_' as ITALIC.
-        Expected behavior (GREEN after SWE): all tokens are TEXT.
+        _RE_ITALIC_UNDERSCORE requires whitespace-or-boundary flanking;
+        intraword underscores do not satisfy this — all tokens are TEXT.
         """
         _require_module()
         tokens = tokenize("home_bar and foo_baz")
         italic_tokens = [t for t in tokens if t.kind == TokenKind.ITALIC]
         assert len(italic_tokens) == 0, (
-            f"D-Open-21: intraword '_' must NOT produce ITALIC. "
-            f"Got ITALIC tokens: {italic_tokens!r}. "
-            "RED until SWE tightens _RE_ITALIC_UNDERSCORE."
+            f"D-Open-21: intraword '_' must NOT produce ITALIC. Got ITALIC tokens: {italic_tokens!r}."
         )
 
     def test_adjacent_intraword_underscore_produces_no_italic(self):
         """
         Given: 'a_b_c'  (both underscores intraword)
-        When: tokenize() is called (after SWE tightens _RE_ITALIC_UNDERSCORE)
+        When: tokenize() is called
         Then: NO ITALIC token — entire string is TEXT
 
-        Current behavior (RED): '_b_' is emitted as ITALIC.
+        Both underscores have non-whitespace flanking characters; the
+        tightened regex rejects them as italic delimiters.
         """
         _require_module()
         tokens = tokenize("a_b_c")
         italic_tokens = [t for t in tokens if t.kind == TokenKind.ITALIC]
-        assert len(italic_tokens) == 0, (
-            f"D-Open-21: 'a_b_c' must produce no ITALIC. Got: {italic_tokens!r}. RED until SWE tightens regex."
-        )
+        assert len(italic_tokens) == 0, f"D-Open-21: 'a_b_c' must produce no ITALIC. Got: {italic_tokens!r}."
 
     def test_whitespace_flanked_underscore_italic_still_tokenizes(self):
         """
@@ -2496,8 +2483,8 @@ class TestIntrawordUnderscoreRejection:
         When: tokenize() is called
         Then: ITALIC('_italic_') is still produced
 
-        This case is GREEN now and must remain GREEN after the SWE pass.
-        Whitespace flanking is the canonical permitted form.
+        Whitespace flanking satisfies _RE_ITALIC_UNDERSCORE's flanking
+        requirement — this is the canonical accepted form.
         """
         _require_module()
         tokens = tokenize("prefix _italic_ suffix")
@@ -2512,7 +2499,7 @@ class TestIntrawordUnderscoreRejection:
         Then: ITALIC('_foo_') is produced
 
         Start-of-string counts as whitespace-or-boundary flanking per
-        D-Open-21.2(a) cosai-simpler form.  GREEN now and after SWE.
+        D-Open-21.2(a) cosai-simpler form.
         """
         _require_module()
         tokens = tokenize("_foo_")
@@ -2527,10 +2514,8 @@ class TestIntrawordUnderscoreRejection:
         Then: ITALIC('_foo_') is produced
 
         D-Open-21.2(a): end-of-string after the closing '_' qualifies as a
-        word boundary and therefore satisfies the whitespace-or-boundary
-        flanking requirement on the close side.  This is GREEN now (the current
-        tokenizer produces the ITALIC token) and must stay GREEN after the SWE
-        underscore-tightening pass.
+        word boundary and satisfies the whitespace-or-boundary flanking
+        requirement on the close side.
 
         Empirically verified (2026-05-29):
             tokenize('some text _foo_') ->
@@ -2551,8 +2536,7 @@ class TestIntrawordUnderscoreRejection:
         When: tokenize() is called
         Then: no BOLD and no ITALIC token
 
-        ADR-017 D1: __bold__ is NOT recognized.  This must hold before and
-        after the SWE pass.  GREEN now.
+        ADR-017 D1: __bold__ is NOT recognized.
         """
         _require_module()
         tokens = tokenize("__double__")
