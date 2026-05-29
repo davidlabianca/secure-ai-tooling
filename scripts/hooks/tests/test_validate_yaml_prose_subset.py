@@ -2023,3 +2023,487 @@ class TestNestedIndexDiagnostic:
             assert not re.search(r"shortDescription\[\d+\]\[\d+\]:", line), (
                 f"Flat-array line must not contain double brackets: {line!r}"
             )
+
+
+# ===========================================================================
+# TestLiveCorpusBaseline  (Spike S2 — GREEN now, must stay GREEN after SWE)
+# ===========================================================================
+
+
+@pytest.mark.live_corpus
+class TestLiveCorpusBaseline:
+    r"""
+    Spike S2: live-corpus regression baseline for the prose-subset linter.
+
+    Asserts that the current linter produces ZERO diagnostics across the four
+    content YAMLs in --block mode.  This test is GREEN now and must remain
+    GREEN after the SWE pass (the new emphasis-rejection rules must not flag
+    anything in the corpus — confirmed by the Spike S3 probe before ADR-028
+    was flipped to Accepted).
+
+    ADR-028 §9.3 Spike S2 — gates Phase 5 regression check.
+    """
+
+    _REPO_ROOT = Path(__file__).resolve().parent.parent.parent.parent
+    _YAML_DIR = _REPO_ROOT / "risk-map" / "yaml"
+    _CONTENT_YAMLS = ["risks.yaml", "controls.yaml", "components.yaml", "personas.yaml"]
+
+    def _run_block(self, yaml_file: str) -> "subprocess.CompletedProcess[str]":
+        """Run the linter in --block mode on a single content YAML."""
+        import subprocess as _sp
+
+        script = Path(__file__).parent.parent / "precommit" / "validate_yaml_prose_subset.py"
+        return _sp.run(
+            [sys.executable, str(script), "--block", str(self._YAML_DIR / yaml_file)],
+            capture_output=True,
+            text=True,
+        )
+
+    def test_risks_yaml_produces_zero_diagnostics(self):
+        """
+        Given: risk-map/yaml/risks.yaml (current corpus)
+        When: validate_yaml_prose_subset --block is run
+        Then: exits 0 (zero diagnostics)
+
+        Baseline captured 2026-05-28.  Must hold after SWE pass.
+        """
+        result = self._run_block("risks.yaml")
+        assert result.returncode == 0, f"risks.yaml produced diagnostics:\n{result.stderr}"
+        assert result.stderr.strip() == "", f"risks.yaml produced unexpected stderr:\n{result.stderr}"
+
+    def test_controls_yaml_produces_zero_diagnostics(self):
+        """
+        Given: risk-map/yaml/controls.yaml (current corpus)
+        When: validate_yaml_prose_subset --block is run
+        Then: exits 0 (zero diagnostics)
+        """
+        result = self._run_block("controls.yaml")
+        assert result.returncode == 0, f"controls.yaml produced diagnostics:\n{result.stderr}"
+        assert result.stderr.strip() == "", f"controls.yaml produced unexpected stderr:\n{result.stderr}"
+
+    def test_components_yaml_produces_zero_diagnostics(self):
+        """
+        Given: risk-map/yaml/components.yaml (current corpus)
+        When: validate_yaml_prose_subset --block is run
+        Then: exits 0 (zero diagnostics)
+        """
+        result = self._run_block("components.yaml")
+        assert result.returncode == 0, f"components.yaml produced diagnostics:\n{result.stderr}"
+        assert result.stderr.strip() == "", f"components.yaml produced unexpected stderr:\n{result.stderr}"
+
+    def test_personas_yaml_produces_zero_diagnostics(self):
+        """
+        Given: risk-map/yaml/personas.yaml (current corpus)
+        When: validate_yaml_prose_subset --block is run
+        Then: exits 0 (zero diagnostics)
+        """
+        result = self._run_block("personas.yaml")
+        assert result.returncode == 0, f"personas.yaml produced diagnostics:\n{result.stderr}"
+        assert result.stderr.strip() == "", f"personas.yaml produced unexpected stderr:\n{result.stderr}"
+
+
+# ===========================================================================
+# TestNestedEmphasisRejection  (RED — depth-counter linter not yet)
+# ===========================================================================
+# These tests assert the ADR-028 D5 depth-counter walk.  check_prose_field()
+# currently has no emphasis logic, so all these produce zero diagnostics now.
+# After the SWE pass they go GREEN.
+# ===========================================================================
+
+
+class TestNestedEmphasisRejection:
+    r"""
+    Tests for ADR-028 D5: depth-counter emphasis-rejection walk in check_prose_field.
+
+    Uses the same _make_field() idiom as TestSingleViolationDetection to build
+    synthetic ProseField objects and call check_prose_field() directly.
+
+    All tests that assert a diagnostic are RED until the SWE pass adds the
+    depth-counter walk.  Tests that assert zero diagnostics are GREEN now and
+    must stay GREEN (false-positive guard).
+    """
+
+    def _make_field(
+        self,
+        raw_text: str,
+        entry_id: str = "riskAlpha",
+        field_name: str = "shortDescription",
+        index: int = 0,
+    ) -> "ProseField":
+        """Build a ProseField with tokens populated from the tokenizer."""
+        import sys as _sys
+        from pathlib import Path as _Path
+
+        _sys.path.insert(0, str(_Path(__file__).parent.parent / "precommit"))
+        from precommit._prose_tokens import tokenize as _tok  # noqa: PLC0415
+
+        tokens = _tok(raw_text)
+        return ProseField(
+            file_path=_Path("test.yaml"),
+            entry_id=entry_id,
+            field_name=field_name,
+            index=index,
+            raw_text=raw_text,
+            tokens=tokens,
+        )
+
+    # --- Tests that MUST produce a diagnostic (RED until SWE pass) ---
+
+    def test_nested_bold_produces_one_nested_emphasis_diagnostic(self):
+        """
+        Given: '**foo **nested** bar**' -> [BOLD(open), TEXT, BOLD(close)]
+        When: check_prose_field is called
+        Then: exactly ONE diagnostic with reason containing 'nested emphasis'
+              and snippet "at '** bar**'" (the close token)
+
+        ADR-028 D5: BOLD('**foo **') has shape='open' -> depth 0->1.
+        BOLD('** bar**') has shape='close' and arrives at depth==1 -> nested emphasis.
+
+        Implementation note — close branch emits the diagnostic:
+        The D5 pseudocode's close branch shows only `depth -= 1` with no
+        emit_diagnostic.  However, BOLD('** bar**') is the ONLY token in the
+        stream [open, text, close] that arrives at depth > 0 (depth==1 before
+        the decrement).  The correct implementation MUST emit the diagnostic in
+        the close branch when depth > 0 (checking before decrementing).
+        ADR-017 D1 requires nested bold to be rejected; THIS TEST is the
+        authoritative outcome spec.  The snippet in the reason is the close
+        token's value: "at '** bar**'".
+
+        RED: check_prose_field has no emphasis logic yet.
+        """
+        field = self._make_field("**foo **nested** bar**")
+        diags = check_prose_field(field)
+        assert len(diags) == 1, (
+            f"Expected 1 'nested emphasis' diagnostic, got {len(diags)}: {diags!r}. "
+            "RED until SWE adds depth-counter walk."
+        )
+        assert "nested emphasis" in diags[0].reason, (
+            f"Expected reason containing 'nested emphasis', got {diags[0].reason!r}"
+        )
+        assert "at '** bar**'" in diags[0].reason, (
+            f"Expected close-token snippet \"at '** bar**'\" in reason, got {diags[0].reason!r}"
+        )
+
+    def test_nested_italic_produces_one_nested_emphasis_diagnostic(self):
+        """
+        Given: '*foo *nested* bar*' -> [ITALIC(open), TEXT, ITALIC(close)]
+        When: check_prose_field is called
+        Then: ONE diagnostic with reason containing 'nested emphasis'
+
+        Same depth-counter logic for italic-asterisk delimiter.
+        RED until SWE pass.
+        """
+        field = self._make_field("*foo *nested* bar*")
+        diags = check_prose_field(field)
+        assert len(diags) == 1, (
+            f"Expected 1 diagnostic for nested italic, got {len(diags)}: {diags!r}. "
+            "RED until SWE adds depth-counter walk."
+        )
+        assert "nested emphasis" in diags[0].reason
+
+    def test_italic_after_open_bold_produces_nested_emphasis_diagnostic(self):
+        """
+        Given: '**A ** *B* C**' -> [BOLD(open='**A **'), TEXT(' '), ITALIC(complete='*B*'), TEXT(' C**')]
+        When: check_prose_field is called
+        Then: exactly ONE diagnostic with reason containing 'nested emphasis'
+
+        This test covers the 'complete at depth > 0' branch of ADR-028 D5.
+
+        Empirically verified token stream (2026-05-29):
+            tokenize('**A ** *B* C**') ->
+              BOLD('**A **')   shape='open'     -> depth 0->1
+              TEXT(' ')        shape='neutral'
+              ITALIC('*B*')    shape='complete'  -> depth==1 -> emit_diagnostic
+              TEXT(' C**')     shape='neutral'
+
+        The reviewer's suggested string '**A ** *B* C**' was verified to yield
+        this exact stream.  BOLD('**A **') has trailing interior whitespace
+        ('A ') -> shape='open'; ITALIC('*B*') is a complete-shape token that
+        arrives at depth==1 after the open bold.  The diagnostic fires on the
+        ITALIC token because it is a complete-emphasis token inside an open span.
+
+        RED until the SWE pass adds the depth-counter walk.
+        """
+        field = self._make_field("**A ** *B* C**")
+        diags = check_prose_field(field)
+        assert len(diags) == 1, (
+            f"Expected 1 'nested emphasis' diagnostic for complete italic at depth>0, "
+            f"got {len(diags)}: {diags!r}. RED until SWE adds depth-counter walk."
+        )
+        assert "nested emphasis" in diags[0].reason, (
+            f"Expected reason containing 'nested emphasis', got {diags[0].reason!r}"
+        )
+
+    def test_emphasis_wrapped_sentinel_intra_produces_diagnostic(self):
+        """
+        Given: '**{{riskPromptInjection}}**'
+        When: check_prose_field is called
+        Then: ONE diagnostic with reason containing 'emphasis-wrapped sentinel'
+
+        ADR-028 D5: emphasis-wrapped-sentinel predicate fires when emphasis
+        token interior (stripped) fullmatches the sentinel inner regex.
+        RED until SWE pass.
+        """
+        field = self._make_field("**{{riskPromptInjection}}**")
+        diags = check_prose_field(field)
+        assert len(diags) == 1, (
+            f"Expected 1 'emphasis-wrapped sentinel' diagnostic, got {len(diags)}: {diags!r}. "
+            "RED until SWE adds emphasis-wrapped-sentinel predicate."
+        )
+        assert "emphasis-wrapped sentinel" in diags[0].reason, (
+            f"Expected 'emphasis-wrapped sentinel' in reason, got {diags[0].reason!r}"
+        )
+
+    def test_emphasis_wrapped_ref_sentinel_produces_diagnostic(self):
+        """
+        Given: '**{{ref:x}}**'
+        When: check_prose_field is called
+        Then: ONE diagnostic with reason containing 'emphasis-wrapped sentinel'
+
+        The wrapped-sentinel predicate applies to both SENTINEL_INTRA and
+        SENTINEL_REF inner forms — the test strips the delimiter pair and
+        fullmatches the unified SENTINEL_INNER_RE.
+        RED until SWE pass.
+        """
+        field = self._make_field("**{{ref:x}}**")
+        diags = check_prose_field(field)
+        assert len(diags) == 1, (
+            f"Expected 1 diagnostic for '**{{ref:x}}**', got {len(diags)}: {diags!r}. RED until SWE pass."
+        )
+        assert "emphasis-wrapped sentinel" in diags[0].reason
+
+    def test_emphasis_wrapped_sentinel_with_newlines_produces_diagnostic(self):
+        """
+        Given: '**\\n{{ref:x}}\\n**'
+        When: check_prose_field is called
+        Then: ONE diagnostic with reason containing 'emphasis-wrapped sentinel'
+
+        ADR-028 D3: '**\\n**' has both-edges whitespace -> shape='open'.
+        The emphasis-wrapped-sentinel predicate uses .strip() on the interior,
+        so leading/trailing newlines do not prevent detection.
+        RED until SWE pass.
+        """
+        field = self._make_field("**\n{{ref:x}}\n**")
+        diags = check_prose_field(field)
+        assert len(diags) == 1, (
+            f"Expected 1 diagnostic for newline-wrapped sentinel, got {len(diags)}: {diags!r}. RED until SWE pass."
+        )
+        assert "emphasis-wrapped sentinel" in diags[0].reason
+
+    # --- Tests that MUST produce ZERO diagnostics (GREEN now, faux-depth guard) ---
+
+    def test_sibling_complete_bold_spans_produce_zero_diagnostics(self):
+        """
+        Given: '**hello** world **goodbye**'
+        When: check_prose_field is called
+        Then: ZERO diagnostics
+
+        ADR-028 D5 faux-depth guard: the two BOLD tokens have shape='complete'
+        -> depth stays at 0 throughout -> no nested-emphasis diagnostic.
+        GREEN now and must stay GREEN after SWE pass.
+        """
+        field = self._make_field("**hello** world **goodbye**")
+        diags = check_prose_field(field)
+        assert len(diags) == 0, (
+            f"Sibling complete bold spans must produce 0 diagnostics (faux-depth guard). Got: {diags!r}"
+        )
+
+    def test_sentinel_at_depth_zero_produces_zero_diagnostics(self):
+        """
+        Given: '**hello** world {{ref:x}}'
+        When: check_prose_field is called
+        Then: ZERO diagnostics
+
+        The sentinel is at depth==0 (outside any open emphasis).
+        ADR-028 D5: the emphasis-wrapped-sentinel predicate checks the emphasis
+        token's interior, not any subsequent sentinel at depth 0.
+        GREEN now and must stay GREEN after SWE pass.
+        """
+        field = self._make_field("**hello** world {{ref:x}}")
+        diags = check_prose_field(field)
+        assert len(diags) == 0, f"Sentinel at depth 0 must produce 0 diagnostics. Got: {diags!r}"
+
+    def test_clean_bold_produces_zero_diagnostics(self):
+        """
+        Given: '**bold**'
+        When: check_prose_field is called
+        Then: ZERO diagnostics
+
+        Simple complete-shape bold — no nesting, no sentinel inside.
+        GREEN now and must stay GREEN.
+        """
+        field = self._make_field("**bold**")
+        diags = check_prose_field(field)
+        assert len(diags) == 0, f"Clean bold must produce 0 diagnostics. Got: {diags!r}"
+
+    def test_clean_italic_asterisk_produces_zero_diagnostics(self):
+        """
+        Given: '*italic*'
+        When: check_prose_field is called
+        Then: ZERO diagnostics
+        """
+        field = self._make_field("*italic*")
+        diags = check_prose_field(field)
+        assert len(diags) == 0, f"Clean italic must produce 0 diagnostics. Got: {diags!r}"
+
+    def test_clean_italic_underscore_produces_zero_diagnostics(self):
+        """
+        Given: '_italic_' at string boundary
+        When: check_prose_field is called
+        Then: ZERO diagnostics
+        """
+        field = self._make_field("_italic_")
+        diags = check_prose_field(field)
+        assert len(diags) == 0, f"Clean underscore italic must produce 0 diagnostics. Got: {diags!r}"
+
+    def test_bold_containing_italic_produces_zero_diagnostics(self):
+        """
+        Given: '**bold *italic* inside**'
+        When: check_prose_field is called
+        Then: ZERO diagnostics
+
+        ADR-017 D1: italic inside bold is one permitted nesting level.
+        The tokenizer emits a single BOLD token for this span (italic-in-bold
+        is absorbed atomically).  No depth-counter violation.
+        GREEN now and must stay GREEN.
+        """
+        field = self._make_field("**bold *italic* inside**")
+        diags = check_prose_field(field)
+        assert len(diags) == 0, f"Bold-with-italic-inside must produce 0 diagnostics. Got: {diags!r}"
+
+
+# ===========================================================================
+# TestEmphasisDiagnosticFormat  (RED — diagnostic format for new reasons)
+# ===========================================================================
+# Locks the exact diagnostic format strings for the two new reason constants
+# ADR-028 D6: 'nested emphasis' and 'emphasis-wrapped sentinel', plus the
+# token-snippet convention ('at <token.value!r>').
+# ===========================================================================
+
+
+class TestEmphasisDiagnosticFormat:
+    r"""
+    Tests for ADR-028 D6: diagnostic format for emphasis violations.
+
+    The ADR-017 D4 format is preserved byte-for-byte:
+        validate-yaml-prose-subset: <file>:<entry-id>:<field>[<index>]: <reason>
+
+    The <reason> for emphasis violations follows the existing 'at '<snippet>''
+    pattern: the reason string ends with "at '<token.value>'" where token.value
+    is the offending emphasis token's full value (including delimiters).
+
+    All tests are RED until the SWE pass adds the depth-counter walk.
+    """
+
+    def _make_field(
+        self,
+        raw_text: str,
+        entry_id: str = "riskAlpha",
+        field_name: str = "shortDescription",
+        index: int = 0,
+    ) -> "ProseField":
+        """Build a ProseField with tokens from the tokenizer."""
+        import sys as _sys
+        from pathlib import Path as _Path
+
+        _sys.path.insert(0, str(_Path(__file__).parent.parent / "precommit"))
+        from precommit._prose_tokens import tokenize as _tok  # noqa: PLC0415
+
+        tokens = _tok(raw_text)
+        return ProseField(
+            file_path=_Path("test.yaml"),
+            entry_id=entry_id,
+            field_name=field_name,
+            index=index,
+            raw_text=raw_text,
+            tokens=tokens,
+        )
+
+    def test_nested_emphasis_diagnostic_reason_string(self):
+        """
+        Given: '**foo **nested** bar**' triggers nested emphasis
+        When: check_prose_field produces a Diagnostic
+        Then: reason starts with 'nested emphasis' and ends with "at '** bar**'"
+
+        ADR-028 D6: reason string is 'nested emphasis' (unchanged); the snippet
+        convention follows the existing INVALID_* pattern: "at '<token.value>'".
+        The offending token is the BOLD('** bar**') (the 'close'-shape token at
+        depth > 0).
+        RED until SWE pass.
+        """
+        field = self._make_field("**foo **nested** bar**")
+        diags = check_prose_field(field)
+        assert len(diags) == 1, f"Expected 1 diagnostic, got {diags!r}. RED until SWE pass."
+        reason = diags[0].reason
+        assert reason.startswith("nested emphasis"), f"Reason must start with 'nested emphasis', got {reason!r}"
+        assert "at '** bar**'" in reason, f"Reason must contain \"at '** bar**'\", got {reason!r}"
+
+    def test_nested_emphasis_format_diagnostic_line(self):
+        """
+        Given: a Diagnostic for nested emphasis
+        When: format_diagnostic_line is called
+        Then: output matches ADR-017 D4 format with 'nested emphasis' reason
+
+        Asserts the full committed format string including hook_id prefix.
+        RED until SWE pass.
+        """
+        from precommit._linter_types import format_diagnostic_line  # noqa: PLC0415
+
+        field = self._make_field(
+            "**foo **nested** bar**",
+            entry_id="riskAlpha",
+            field_name="shortDescription",
+            index=0,
+        )
+        diags = check_prose_field(field)
+        assert len(diags) == 1, f"Expected 1 diagnostic. RED until SWE pass. Got: {diags!r}"
+        line = format_diagnostic_line(diags[0])
+        # Format: validate-yaml-prose-subset: test.yaml:riskAlpha:shortDescription[0]: nested emphasis at '...'
+        assert line.startswith("validate-yaml-prose-subset: "), f"Expected hook_id prefix, got {line!r}"
+        assert "riskAlpha" in line
+        assert "shortDescription[0]" in line
+        assert "nested emphasis" in line
+        assert _DIAG_PATTERN.match(line), f"Diagnostic line does not match committed pattern: {line!r}"
+
+    def test_emphasis_wrapped_sentinel_diagnostic_reason_string(self):
+        """
+        Given: '**{{riskPromptInjection}}**' triggers emphasis-wrapped sentinel
+        When: check_prose_field produces a Diagnostic
+        Then: reason starts with 'emphasis-wrapped sentinel' and contains the token value
+
+        ADR-028 D6: reason string is 'emphasis-wrapped sentinel'; snippet is
+        the full BOLD token value '**{{riskPromptInjection}}**'.
+        RED until SWE pass.
+        """
+        field = self._make_field("**{{riskPromptInjection}}**")
+        diags = check_prose_field(field)
+        assert len(diags) == 1, f"Expected 1 diagnostic. RED until SWE pass. Got: {diags!r}"
+        reason = diags[0].reason
+        assert reason.startswith("emphasis-wrapped sentinel"), (
+            f"Reason must start with 'emphasis-wrapped sentinel', got {reason!r}"
+        )
+        assert "at '**{{riskPromptInjection}}**'" in reason, f"Reason must contain token snippet, got {reason!r}"
+
+    def test_emphasis_wrapped_sentinel_format_diagnostic_line_matches_pattern(self):
+        """
+        Given: a Diagnostic for emphasis-wrapped sentinel
+        When: format_diagnostic_line is called
+        Then: output matches the committed _DIAG_PATTERN regex
+
+        Verifies the emphasis violation slots into the existing format contract
+        without modifying the pattern.  RED until SWE pass.
+        """
+        from precommit._linter_types import format_diagnostic_line  # noqa: PLC0415
+
+        field = self._make_field(
+            "**{{riskPromptInjection}}**",
+            entry_id="riskBeta",
+            field_name="shortDescription",
+            index=1,
+        )
+        diags = check_prose_field(field)
+        assert len(diags) == 1, f"Expected 1 diagnostic. RED until SWE pass. Got: {diags!r}"
+        line = format_diagnostic_line(diags[0])
+        assert _DIAG_PATTERN.match(line), (
+            f"Emphasis-wrapped-sentinel diagnostic does not match committed pattern: {line!r}"
+        )
