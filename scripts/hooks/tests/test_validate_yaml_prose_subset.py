@@ -2259,7 +2259,8 @@ class TestNestedEmphasisRejection:
 
         The wrapped-sentinel predicate applies to both SENTINEL_INTRA and
         SENTINEL_REF inner forms — the test strips the delimiter pair and
-        fullmatches the unified SENTINEL_INNER_RE.
+        fullmatches the tokenizer's two internal regexes,
+        _RE_SENTINEL_INTRA_INNER and _RE_SENTINEL_REF_INNER.
         RED until SWE pass.
         """
         field = self._make_field("**{{ref:x}}**")
