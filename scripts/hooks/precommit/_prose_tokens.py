@@ -38,7 +38,7 @@ Test fixtures live at scripts/hooks/tests/fixtures/prose_subset/.
 
 import re
 from enum import Enum
-from typing import NamedTuple
+from typing import Literal, NamedTuple
 
 
 class TokenKind(Enum):
@@ -89,10 +89,15 @@ class Token(NamedTuple):
     Attributes:
         kind:  The token's classification (accepting or rejecting).
         value: The exact substring from the input that this token covers.
+        shape: Emphasis classification per ADR-028 D3. 'neutral' for every
+               non-emphasis token. One of 'complete', 'open', 'close', 'neutral'.
+               Default 'neutral' so two-positional construction Token(kind, value)
+               still compiles and yields a token with shape='neutral'.
     """
 
     kind: TokenKind
     value: str
+    shape: Literal["complete", "open", "close", "neutral"] = "neutral"
 
 
 # ---------------------------------------------------------------------------
@@ -177,13 +182,65 @@ _RE_BOLD = re.compile(r"\*\*(.+?)\*\*", re.DOTALL)
 _RE_ITALIC_ASTERISK = re.compile(r"\*(.+?)\*", re.DOTALL)
 
 # Italic underscore: _..._ — single underscore only; __ is NOT italic (ADR-017 D1).
-# Lookahead/lookbehind prevent matching when adjacent to another underscore.
-_RE_ITALIC_UNDERSCORE = re.compile(r"(?<![_])_(?![_])(.+?)(?<![_])_(?![_])")
+# ADR-028 D3 invariant 3: intraword \S_\S does NOT qualify as an italic delimiter.
+# Requirements (combined):
+#   - Opening _: preceded by whitespace or start-of-string (left-flank)
+#   - Opening _: NOT adjacent to another _ (no __)
+#   - Opening _: followed by non-whitespace (interior must start immediately)
+#   - Closing _: preceded by non-whitespace
+#   - Closing _: NOT adjacent to another _ (no __)
+#   - Closing _: followed by whitespace or end-of-string (right-flank)
+# The (?=\S) after the open and (?<=\S) before the close structurally guarantee
+# non-whitespace at both interior edges, so _classify_emphasis_shape(span, "_")
+# always returns "complete" — there is no open/close-shape underscore-italic token.
+_RE_ITALIC_UNDERSCORE = re.compile(r"(?:^|(?<=\s))(?<![_])_(?![_])(?=\S)(.+?)(?<=\S)(?<![_])_(?![_])(?=\s|$)")
 
 # Bare camelCase entity-prefix identifier: (risk|control|component|persona) immediately
 # followed by a capital letter, then the rest of the identifier word.
 # This fires only on plain prose; the sentinel branch consumes it first when inside {{}}.
 _RE_BARE_CAMELCASE = re.compile(r"(risk|control|component|persona)([A-Z]\w*)")
+
+
+# ---------------------------------------------------------------------------
+# Emphasis-shape classifier (ADR-028 D3)
+# ---------------------------------------------------------------------------
+
+
+def _classify_emphasis_shape(span: str, delim: str) -> Literal["complete", "open", "close", "neutral"]:
+    """Classify the emphasis shape of a matched span by examining interior edge whitespace.
+
+    The tokenizer calls this at emission time for BOLD, ITALIC-asterisk, and
+    ITALIC-underscore tokens.  The shape drives the depth-counter walk in the
+    prose-subset linter (ADR-028 D5).
+
+    Rules (ADR-028 D3 table):
+      - Both edges whitespace  -> 'open'  (convention: leading test fires first)
+      - Trailing whitespace only -> 'open'  (greedy close on intended inner open)
+      - Leading whitespace only  -> 'close' (trailing half of an early-closed match)
+      - Neither edge whitespace  -> 'complete' (well-formed span)
+      - Empty interior           -> 'neutral' (defensive; not emitted in practice)
+
+    Uses str.isspace() — no regex (ADR-028 D-Open-6).
+
+    Args:
+        span:  The full matched span including delimiters (e.g. '**foo **').
+        delim: The delimiter string ('**', '*', or '_').
+
+    Returns:
+        One of 'complete', 'open', 'close', 'neutral'.
+    """
+    interior = span[len(delim) : -len(delim)]
+    if not interior:
+        return "neutral"
+    leading_ws = interior[0].isspace()
+    trailing_ws = interior[-1].isspace()
+    if leading_ws and trailing_ws:
+        return "open"
+    if leading_ws:
+        return "close"
+    if trailing_ws:
+        return "open"
+    return "complete"
 
 
 # ---------------------------------------------------------------------------
@@ -263,7 +320,7 @@ def tokenize(text: str) -> list[Token]:
     The `text` argument is expected to be a single prose field value as
     decoded by PyYAML — not raw YAML, not a file path.
 
-    Test fixtures for all 42 grammar cases live at:
+    Test fixtures live at:
         scripts/hooks/tests/fixtures/prose_subset/
 
     Args:
@@ -286,11 +343,11 @@ def tokenize(text: str) -> list[Token]:
             tokens.append(Token(TokenKind.TEXT, text[pending_text_start:end]))
         pending_text_start = -1
 
-    def emit(kind: TokenKind, value: str) -> None:
-        """Flush any pending TEXT, then emit the given token."""
+    def emit(kind: TokenKind, value: str, *, shape: str = "neutral") -> None:
+        """Flush any pending TEXT, then emit the given token with the given shape."""
         nonlocal i
         flush_text(i)
-        tokens.append(Token(kind, value))
+        tokens.append(Token(kind, value, shape))
         i += len(value)
 
     def at_line_start() -> bool:
@@ -422,21 +479,21 @@ def tokenize(text: str) -> list[Token]:
         if ch == "*" and i + 1 < len(text) and text[i + 1] == "*":
             m = _RE_BOLD.match(text, i)
             if m:
-                emit(TokenKind.BOLD, m.group())
+                emit(TokenKind.BOLD, m.group(), shape=_classify_emphasis_shape(m.group(), "**"))
                 continue
 
         # --- Rule 13: Italic asterisk *...* ---
         if ch == "*":
             m = _RE_ITALIC_ASTERISK.match(text, i)
             if m:
-                emit(TokenKind.ITALIC, m.group())
+                emit(TokenKind.ITALIC, m.group(), shape=_classify_emphasis_shape(m.group(), "*"))
                 continue
 
         # --- Rule 14: Italic underscore _..._ (single underscore only) ---
         if ch == "_":
             m = _RE_ITALIC_UNDERSCORE.match(text, i)
             if m:
-                emit(TokenKind.ITALIC, m.group())
+                emit(TokenKind.ITALIC, m.group(), shape=_classify_emphasis_shape(m.group(), "_"))
                 continue
 
         # --- Rule 15: Bare camelCase entity-prefix identifier ---

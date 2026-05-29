@@ -2159,15 +2159,12 @@ class TestNestedEmphasisRejection:
         ADR-028 D5: BOLD('**foo **') has shape='open' -> depth 0->1.
         BOLD('** bar**') has shape='close' and arrives at depth==1 -> nested emphasis.
 
-        Implementation note — close branch emits the diagnostic:
-        The D5 pseudocode's close branch shows only `depth -= 1` with no
-        emit_diagnostic.  However, BOLD('** bar**') is the ONLY token in the
-        stream [open, text, close] that arrives at depth > 0 (depth==1 before
-        the decrement).  The correct implementation MUST emit the diagnostic in
-        the close branch when depth > 0 (checking before decrementing).
-        ADR-017 D1 requires nested bold to be rejected; THIS TEST is the
-        authoritative outcome spec.  The snippet in the reason is the close
-        token's value: "at '** bar**'".
+        Close-branch emit: ADR-028 D5 (as amended 2026-05-29) requires the
+        close-branch emit when depth > 0, checked before the decrement; this
+        test verifies it.  BOLD('** bar**') is the only token in the stream
+        [open, text, close] that arrives at depth > 0 (depth==1 before the
+        decrement), so the single diagnostic's snippet is the close token's
+        value: "at '** bar**'".
 
         RED: check_prose_field has no emphasis logic yet.
         """
