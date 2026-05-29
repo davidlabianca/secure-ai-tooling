@@ -119,7 +119,9 @@ for token in field.tokens:
                 emit_diagnostic(...)
             depth += 1
         elif token.shape == "close":
-            depth -= 1                    # depth-floor enforced by tokenizer invariants
+            if depth > 0:                 # close of an unmatched open -> nested emphasis
+                emit_diagnostic(...)
+            depth = max(0, depth - 1)     # floor: a standalone close-shape (e.g. " ** bar**") would underflow
         elif token.shape == "complete":
             if depth > 0:                 # nested complete-emphasis inside open emphasis
                 emit_diagnostic(...)
@@ -131,7 +133,7 @@ for token in field.tokens:
 
 The two predicates:
 
-- **Nested-emphasis predicate.** Fires when an emphasis token is encountered with `depth > 0` and a same-family emphasis open is unmatched. Implemented as the `depth > 0` check inline in the walk above. The kind comparison is via `token.kind` directly (a bare counter suffices; a kind-stack is not needed for the current ADR-017 D1 rule, which detects any nesting regardless of delimiter family).
+- **Nested-emphasis predicate.** Fires when an emphasis token is encountered with `depth > 0` and a same-family emphasis open is unmatched. Implemented as the `depth > 0` check inline in the walk above, applied on the `open`, `complete`, **and** `close` branches; the `close` branch checks `depth > 0` *before* decrementing, and is the attribution point for the canonical split-token nested case (`**foo **nested** bar**` tokenizes as `[open, text, close]`, and the `close` token at `depth == 1` is where the single diagnostic lands). The kind comparison is via `token.kind` directly (a bare counter suffices; a kind-stack is not needed for the current ADR-017 D1 rule, which detects any nesting regardless of delimiter family).
 - **Emphasis-wrapped-sentinel predicate.** Fires when an emphasis token's interior (its `value` minus the delimiter pair) `.strip()`s to a string that matches `SENTINEL_INNER_RE` (the unified intra-or-ref regex defined once in `_prose_tokens.py` and shared with the references linter). Independent of the depth state.
 
 Both predicates are one-line expressions over `token.shape` (or `token.kind` and `token.value`) and the depth state. There are no regex constants in the linter for shape detection. The whitespace-adjacency heuristic that previously lived in `_RE_*_EARLY_CLOSE` has been moved into the tokenizer's `_classify_emphasis_shape` per D3; the linter cannot see it and cannot drift from it.
@@ -139,6 +141,8 @@ Both predicates are one-line expressions over `token.shape` (or `token.kind` and
 The walk handles the false-positive patterns a naive stack would faux-depth on. `**hello** world **goodbye**` tokenizes as `[BOLD shape="complete", TEXT shape="neutral", BOLD shape="complete"]` and walks depth `0 → 0 → 0 → 0`; no diagnostic. `**hello** world {{ref:x}}` tokenizes as `[BOLD shape="complete", TEXT, SENTINEL_REF]` and the sentinel is at `depth == 0`; no diagnostic. The prospective D6-of-ADR-017 rules ("no sentinel inside any emphasis", "no link text containing emphasis") would express as `depth > 0 and token is sentinel/link` — predicates with a real depth value, not a faux one.
 
 Reason strings (`_REASON_NESTED_EMPHASIS`, `_REASON_EMPHASIS_WRAPPED_SENTINEL`) and the diagnostic format are preserved per D6.
+
+**Addendum (2026-05-29) — erratum.** The original D5 draft omitted the `close`-branch emit and the depth floor from the pseudocode, leaving the pseudocode inconsistent with the Nested-emphasis predicate prose (which has always covered every emphasis token, including `close`-shape) and with planning-inventory §5.2's load-bearing-case analysis of `**foo **nested** bar**` (tokens `[open, text, close]`, where the `close` token at `depth == 1` is the only attribution point). The pseudocode now (1) emits the nested-emphasis diagnostic in the `close` branch when `depth > 0`, checked before the decrement, and (2) floors the decrement with `max(0, depth - 1)` because a standalone leading-space bold classifies as `shape="close"` and would otherwise drive `depth` to `-1` (the prior `# depth-floor enforced by tokenizer invariants` comment was false). This is an erratum reconciling the pseudocode with D5's own governing predicate prose; it is **not** a new decision — §5.2 flagged "clarify the predicate" but §8 never created a corresponding locked D-Open decision, so no §8 lock changes. Status remains **Accepted**.
 
 ### D6. Diagnostic conformance
 
