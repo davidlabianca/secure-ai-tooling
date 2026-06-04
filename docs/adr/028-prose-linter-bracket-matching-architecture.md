@@ -45,7 +45,7 @@ The tokenizer emits exactly the following sixteen kinds. The accept/reject colum
 | TokenKind | Defining regex / character class | Accept / Reject | Semantic meaning | Defining ADR |
 |---|---|---|---|---|
 | `BOLD` | `\*\*(.+?)\*\*` (`re.DOTALL`) | Accept | One nesting level bold; non-greedy close. Italic inside permitted; nested `**bold**` rejected by D5. | [ADR-017](017-yaml-prose-authoring-subset.md) D1 |
-| `ITALIC` | `\*(.+?)\*` or whitespace-flanked `_(.+?)_` | Accept | One nesting level italic. Two delimiters so authors can italicize text containing the other delimiter. | [ADR-017](017-yaml-prose-authoring-subset.md) D1 |
+| `ITALIC` | `\*(.+?)\*` or not-intraword `_(.+?)_` | Accept | One nesting level italic. Two delimiters so authors can italicize text containing the other delimiter. | [ADR-017](017-yaml-prose-authoring-subset.md) D1 |
 | `SENTINEL_INTRA` | inner: `(risk\|control\|component\|persona)[A-Z]\w*` | Accept | Intra-document reference sentinel. | [ADR-016](016-reference-strategy.md) D2 |
 | `SENTINEL_REF` | inner: `ref:[A-Za-z0-9_.\-]+` | Accept | External-reference sentinel. | [ADR-016](016-reference-strategy.md) D2 |
 | `TEXT` | catch-all run accumulator | Accept | Plain prose. | [ADR-017](017-yaml-prose-authoring-subset.md) D1 |
