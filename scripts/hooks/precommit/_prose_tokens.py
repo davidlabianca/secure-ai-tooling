@@ -181,19 +181,19 @@ _RE_BOLD = re.compile(r"\*\*(.+?)\*\*", re.DOTALL)
 # Italic asterisk: *...* — matched AFTER bold so ** is consumed first
 _RE_ITALIC_ASTERISK = re.compile(r"\*(.+?)\*", re.DOTALL)
 
-# Italic underscore: _..._ — single underscore only; __ is NOT italic (ADR-017 D1).
-# ADR-028 D3 invariant 3: intraword \S_\S does NOT qualify as an italic delimiter.
-# Requirements (combined):
-#   - Opening _: preceded by whitespace or start-of-string (left-flank)
-#   - Opening _: NOT adjacent to another _ (no __)
-#   - Opening _: followed by non-whitespace (interior must start immediately)
-#   - Closing _: preceded by non-whitespace
-#   - Closing _: NOT adjacent to another _ (no __)
-#   - Closing _: followed by whitespace or end-of-string (right-flank)
-# The (?=\S) after the open and (?<=\S) before the close structurally guarantee
-# non-whitespace at both interior edges, so _classify_emphasis_shape(span, "_")
-# always returns "complete" — there is no open/close-shape underscore-italic token.
-_RE_ITALIC_UNDERSCORE = re.compile(r"(?:^|(?<=\s))(?<![_])_(?![_])(?=\S)(.+?)(?<=\S)(?<![_])_(?![_])(?=\s|$)")
+# A single `_` qualifies as an emphasis delimiter per ADR-028 D3 / D-Open-21.2
+# (flipped to fuller CommonMark-style flanking 2026-06-04) iff it is NOT
+# intraword: at least one immediate neighbor is whitespace, punctuation, or a
+# string boundary. The negative lookahead `(?!(?<=[^\W_])_[^\W_])` rejects a `_`
+# only when BOTH neighbors are word characters (letters/digits, excluding `_`) —
+# the snake_case case `home_bar`/`foo_baz`, which stays TEXT. `[^\W_]` is a word
+# char minus underscore so the no-`__` stance (ADR-017 D1) is preserved by the
+# `(?<![_])` / `(?![_])` guards. Once a `_` qualifies, _classify_emphasis_shape
+# derives complete/open/close from interior edge whitespace exactly as for
+# `*`/`**`, so underscore italic now carries open/close shapes and a nested
+# underscore span (`_foo _nested_ bar_`) splits for the D5 depth walk.
+_UNDERSCORE_DELIM = r"(?<![_])(?!(?<=[^\W_])_[^\W_])_(?![_])"
+_RE_ITALIC_UNDERSCORE = re.compile(_UNDERSCORE_DELIM + r"(.+?)" + _UNDERSCORE_DELIM)
 
 # Bare camelCase entity-prefix identifier: (risk|control|component|persona) immediately
 # followed by a capital letter, then the rest of the identifier word.
