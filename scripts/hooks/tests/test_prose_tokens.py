@@ -361,6 +361,9 @@ _EMPHASIS_SHAPE_FIXTURES = [
     "accepting/emphasis_shapes/italic_asterisk_open",
     "accepting/emphasis_shapes/nested_bold_three_token",
     "accepting/emphasis_shapes/bold_wraps_sentinel_nested",
+    # ADR-028 D-Open-21.2(b): underscore italic now emits open/close shapes;
+    # nested underscore splits into three tokens like nested bold does.
+    "accepting/emphasis_shapes/nested_italic_underscore_three_token",
 ]
 
 _SENTINEL_FIXTURES = [
@@ -2585,4 +2588,173 @@ class TestIntrawordUnderscoreRejection:
         tokens = tokenize("__double__")
         assert all(t.kind not in (TokenKind.BOLD, TokenKind.ITALIC) for t in tokens), (
             f"'__double__' must produce neither BOLD nor ITALIC. Got: {tokens!r}"
+        )
+
+
+# ===========================================================================
+# TestUnderscoreFlanking — ADR-028 D-Open-21.2(b) CommonMark-style flanking
+# ===========================================================================
+# ADR-028 D-Open-21.2 was flipped (a)->(b): the underscore-italic delimiter
+# rule moves from cosai-simpler whitespace-flanked-only to fuller CommonMark-
+# style not-intraword flanking.  A '_' qualifies as an emphasis delimiter iff
+# it is NOT intraword (at least one immediate side is whitespace, punctuation,
+# or a string boundary).  Once it qualifies, the EXISTING
+# _classify_emphasis_shape(span, "_") derives complete/open/close from interior
+# edge whitespace — the same as for '*'/'**'.
+#
+# Consequence: underscore italic can now emit 'open'/'close' shapes (previously
+# always 'complete'), so a nested underscore span splits and the D5 depth walk
+# catches it.
+#
+# RED note: test_punctuation_flanked_close_underscore_italic_tokenizes and
+# test_nested_underscore_produces_three_token_stream (plus the fixture-backed
+# test_emphasis_shape_token_stream for nested_italic_underscore_three_token) are
+# RED until the SWE replaces _RE_ITALIC_UNDERSCORE.  The preservation-guard tests
+# (snake_case stays TEXT, plain _italic_ stays ITALIC, sentence-end period stays
+# ITALIC) pass already.
+# ===========================================================================
+
+
+class TestUnderscoreFlanking:
+    r"""
+    Tests for ADR-028 D-Open-21.2(b): CommonMark-style not-intraword flanking
+    for the underscore-italic delimiter.
+
+    A '_' qualifies as an emphasis delimiter iff at least one immediate side is
+    whitespace, punctuation, or a string boundary (i.e., NOT intraword).  Once
+    it qualifies, _classify_emphasis_shape(span, "_") determines shape from
+    interior edge whitespace, exactly as for '*'/'**'.
+
+    Preservation guards (already pass pre-fix — do not break):
+      - snake_case stays one TEXT token (intraword underscores)
+      - _italic_ at string boundary -> ITALIC(complete)
+      - _See important, then act._ (period before close) -> ITALIC(complete)
+
+    RED assertions (fail pre-fix, pass post-fix):
+      - _foo_, (comma after close) -> ITALIC(complete) + TEXT(",")
+        Currently: the comma is absorbed into TEXT because the current regex
+        requires whitespace-or-EOL after the closing '_'.
+      - _foo _nested_ bar_ -> [ITALIC(open), TEXT, ITALIC(close)]
+        Currently: the current regex matches '_foo _nested_' as a single
+        complete ITALIC (non-greedy closes at the first valid close), leaving
+        ' bar_' as TEXT.
+    """
+
+    # --- Preservation guards (must pass both before and after the fix) ---
+
+    def test_snake_case_stays_one_text_token(self):
+        """
+        Given: 'home_bar and foo_baz'
+        When: tokenize() is called
+        Then: ONE TEXT token with value 'home_bar and foo_baz'; no ITALIC
+
+        Intraword underscores (non-whitespace_non-whitespace on both sides) are not emphasis delimiters
+        under either the old or the new flanking rule (ADR-028 D3 invariant 3).
+        This is a preservation guard: it must pass before and after the fix.
+        """
+        _require_module()
+        tokens = tokenize("home_bar and foo_baz")
+        assert len(tokens) == 1, f"Expected 1 TEXT token, got {tokens!r}"
+        assert tokens[0].kind == TokenKind.TEXT
+        assert tokens[0].value == "home_bar and foo_baz"
+
+    def test_string_boundary_italic_underscore_still_tokenizes(self):
+        """
+        Given: '_italic_'
+        When: tokenize() is called
+        Then: ITALIC('_italic_') with shape == 'complete'
+
+        String-boundary flanking satisfies D-Open-21.2(b); interior 'italic'
+        has no edge whitespace -> shape 'complete'.  Preservation guard.
+        """
+        _require_module()
+        tokens = tokenize("_italic_")
+        assert len(tokens) == 1, f"Expected 1 ITALIC, got {tokens!r}"
+        assert tokens[0].kind == TokenKind.ITALIC
+        assert tokens[0].value == "_italic_"
+        assert tokens[0].shape == "complete"
+
+    def test_sentence_period_before_close_underscore_still_italic(self):
+        """
+        Given: '_See important, then act._'
+        When: tokenize() is called
+        Then: ITALIC('_See important, then act._') with shape == 'complete'
+
+        The period before the closing '_' is punctuation on the interior side;
+        the close '_' itself is at end-of-string (boundary flanking on the
+        right).  Interior 'See important, then act.' has no edge whitespace ->
+        shape 'complete'.  Preservation guard.
+        """
+        _require_module()
+        tokens = tokenize("_See important, then act._")
+        assert len(tokens) == 1, f"Expected 1 ITALIC, got {tokens!r}"
+        assert tokens[0].kind == TokenKind.ITALIC
+        assert tokens[0].value == "_See important, then act._"
+        assert tokens[0].shape == "complete"
+
+    # --- RED assertions (fail pre-fix; pass after SWE lands the new regex) ---
+
+    def test_punctuation_flanked_close_underscore_italic_tokenizes(self):
+        """
+        Given: '_foo_,'
+        When: tokenize() is called
+        Then: [ITALIC('_foo_', complete), TEXT(',', neutral)]
+
+        ADR-028 D-Open-21.2(b): the comma after the closing '_' is punctuation;
+        punctuation on the right side of a '_' satisfies the not-intraword
+        condition, so '_foo_' qualifies as a complete italic span.
+
+        RED: the current regex requires whitespace-or-EOL after the closing '_',
+        so '_foo_,' tokenizes as a single TEXT token.  After the SWE replaces
+        _RE_ITALIC_UNDERSCORE this test turns GREEN.
+        """
+        _require_module()
+        tokens = tokenize("_foo_,")
+        assert len(tokens) == 2, (
+            f"Expected [ITALIC('_foo_'), TEXT(',')], got {tokens!r}.\n"
+            "RED: current _RE_ITALIC_UNDERSCORE requires whitespace after close; "
+            "will pass after D-Open-21.2(b) fix."
+        )
+        assert tokens[0].kind == TokenKind.ITALIC, f"Token 0: expected ITALIC, got {tokens[0].kind!r}"
+        assert tokens[0].value == "_foo_", f"Token 0: expected '_foo_', got {tokens[0].value!r}"
+        assert tokens[0].shape == "complete", f"Token 0: expected shape='complete', got {tokens[0].shape!r}"
+        assert tokens[1].kind == TokenKind.TEXT, f"Token 1: expected TEXT, got {tokens[1].kind!r}"
+        assert tokens[1].value == ",", f"Token 1: expected ',', got {tokens[1].value!r}"
+
+    def test_nested_underscore_produces_three_token_stream(self):
+        """
+        Given: '_foo _nested_ bar_'
+        When: tokenize() is called
+        Then: [ITALIC('_foo _', open), TEXT('nested', neutral), ITALIC('_ bar_', close)]
+
+        ADR-028 D-Open-21.2(b) + D3: the opening '_foo _' closes early at the
+        inner '_' (trailing interior whitespace -> shape 'open').  'nested' is
+        TEXT.  '_ bar_' is the second ITALIC whose interior ' bar' has leading
+        whitespace -> shape 'close'.  This three-token stream is the precondition
+        for the D5 depth-counter to detect nested underscore emphasis.
+
+        Shape assertions use direct attribute access (the fixture-projection
+        helper drops shape per D-Open-20; shape is asserted here via .shape).
+
+        RED: the current regex matches '_foo _nested_' as one complete ITALIC and
+        leaves ' bar_' as TEXT.  After the SWE fix this test turns GREEN.
+        """
+        _require_module()
+        tokens = tokenize("_foo _nested_ bar_")
+        assert len(tokens) == 3, (
+            f"Expected exactly 3 tokens for nested underscore italic, got {len(tokens)}: {tokens!r}.\n"
+            "RED: current _RE_ITALIC_UNDERSCORE closes at first valid '_', "
+            "will split correctly after D-Open-21.2(b) fix."
+        )
+        assert tokens[0].kind == TokenKind.ITALIC, f"Token 0: expected ITALIC, got {tokens[0].kind!r}"
+        assert tokens[0].value == "_foo _", f"Token 0: expected '_foo _', got {tokens[0].value!r}"
+        assert tokens[0].shape == "open", (
+            f"Token 0: expected shape='open' (trailing interior space), got {tokens[0].shape!r}"
+        )
+        assert tokens[1].kind == TokenKind.TEXT, f"Token 1: expected TEXT, got {tokens[1].kind!r}"
+        assert tokens[1].value == "nested", f"Token 1: expected 'nested', got {tokens[1].value!r}"
+        assert tokens[2].kind == TokenKind.ITALIC, f"Token 2: expected ITALIC, got {tokens[2].kind!r}"
+        assert tokens[2].value == "_ bar_", f"Token 2: expected '_ bar_', got {tokens[2].value!r}"
+        assert tokens[2].shape == "close", (
+            f"Token 2: expected shape='close' (leading interior space), got {tokens[2].shape!r}"
         )

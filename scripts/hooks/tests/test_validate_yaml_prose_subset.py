@@ -2187,6 +2187,49 @@ class TestNestedEmphasisRejection:
         assert len(diags) == 1, f"Expected 1 diagnostic for nested italic, got {len(diags)}: {diags!r}."
         assert "nested emphasis" in diags[0].reason
 
+    def test_nested_underscore_produces_one_nested_emphasis_diagnostic(self):
+        """
+        Given: '_foo _nested_ bar_' -> [ITALIC(open), TEXT, ITALIC(close)]
+        When: check_prose_field is called
+        Then: exactly ONE diagnostic with reason containing 'nested emphasis'
+
+        ADR-028 D-Open-21.2(b) + D5: after the underscore-italic regex is
+        tightened to CommonMark-style not-intraword flanking, '_foo _nested_ bar_'
+        splits into [ITALIC('_foo _', open), TEXT('nested'), ITALIC('_ bar_', close)].
+        The close token arrives at depth==1 -> depth-counter emits 'nested emphasis'.
+
+        RED: the current _RE_ITALIC_UNDERSCORE matches '_foo _nested_' as one
+        complete ITALIC and leaves ' bar_' as TEXT, so check_prose_field produces
+        zero diagnostics.  After the SWE replaces _RE_ITALIC_UNDERSCORE this test
+        turns GREEN.
+        """
+        field = self._make_field("_foo _nested_ bar_")
+        diags = check_prose_field(field)
+        assert len(diags) == 1, (
+            f"Expected 1 'nested emphasis' diagnostic for underscore italic, "
+            f"got {len(diags)}: {diags!r}.\n"
+            "RED: will pass after D-Open-21.2(b) fix lands."
+        )
+        assert "nested emphasis" in diags[0].reason, (
+            f"Expected reason containing 'nested emphasis', got {diags[0].reason!r}"
+        )
+
+    def test_snake_case_underscore_produces_zero_diagnostics(self):
+        """
+        Given: 'home_bar and foo_baz'
+        When: check_prose_field is called
+        Then: ZERO diagnostics
+
+        Intraword underscores must NOT be treated as emphasis delimiters under
+        either the old or the new flanking rule (ADR-028 D3 invariant 3).
+        Guard against false positives from the D-Open-21.2(b) fix.
+        """
+        field = self._make_field("home_bar and foo_baz")
+        diags = check_prose_field(field)
+        assert len(diags) == 0, (
+            f"snake_case prose must produce 0 diagnostics (false-positive guard). Got: {diags!r}"
+        )
+
     def test_italic_after_open_bold_produces_nested_emphasis_diagnostic(self):
         """
         Given: '**A ** *B* C**' -> [BOLD(open='**A **'), TEXT(' '), ITALIC(complete='*B*'), TEXT(' C**')]
