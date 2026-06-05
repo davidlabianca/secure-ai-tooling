@@ -2,6 +2,7 @@
 pythonpath = ["scripts/hooks"]
 markers = [
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "live_corpus: marks tests that read the live risk-map YAML corpus (deselect with '-m \"not live_corpus\"')",
 ]
 
 [tool.coverage.run]

@@ -1,0 +1,1 @@
+[{"kind": "BOLD", "value": "**x **"}, {"kind": "TEXT", "value": "y"}, {"kind": "BOLD", "value": "**{{ref:x}}**"}]

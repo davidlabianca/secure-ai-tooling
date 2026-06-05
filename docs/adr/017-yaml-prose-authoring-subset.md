@@ -38,6 +38,8 @@ Authors may use exactly these forms in any prose field. Everything else is rejec
 
 Bold and italic may compose (`**emphatically *not* this**` is valid). Sentinels are atomic identifier tokens; they do not nest into bold or italic. An author who wants the rendered title to appear bold relies on the renderer's stylesheet, not on wrapping `**` around `{{<entity-id>}}`.
 
+The canonical mechanism the lint uses to enforce the "no nested same-family emphasis" rule and the "no emphasis-wrapped sentinel" rule is the depth-counter bracket-matching pass specified in [ADR-028](028-prose-linter-bracket-matching-architecture.md) D5.
+
 The subset operates on the string contents of each prose paragraph. Paragraph and hard-break shape is carried by the YAML *array* structure ([ADR-011](011-persona-site-data-schema-contract.md) `definitions/prose`); prose strings are not list-bearing.
 
 ### D2. Disallowed by construction
@@ -105,6 +107,8 @@ The two hooks have overlapping rejection sets (raw `<a>` blocked by both, bare c
 - **Test fixtures live with each hook,** but a shared corpus of prose-subset edge cases (nested bold, mixed delimiters, inline-URL attempts) is maintained at `scripts/hooks/tests/fixtures/prose_subset/` so the two hooks cannot disagree on what a token *is*, only on what it *means*.
 
 If ADR-016 lands its hook before this one, the bare-camelCase and raw-`<a>` checks live in `validate_prose_references.py` until ADR-017's hook ships and the shared tokenizer is extracted. The end state is the two-hook-shared-tokenizer split above.
+
+The shared tokenizer's Token contract — the `Token` NamedTuple structure (including the emphasis-shape field), the `TokenKind` enumeration, the tokenizer's emission invariants, and the consumer surface — is formally specified in [ADR-028](028-prose-linter-bracket-matching-architecture.md) D1-D4. ADR-017 owns the grammar's authoring rules; ADR-028 owns the contract every consumer of the shared tokenizer reads.
 
 ### D6. Redistribution contract surface
 
