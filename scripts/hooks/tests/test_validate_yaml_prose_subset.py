@@ -2193,22 +2193,16 @@ class TestNestedEmphasisRejection:
         When: check_prose_field is called
         Then: exactly ONE diagnostic with reason containing 'nested emphasis'
 
-        ADR-028 D-Open-21.2(b) + D5: after the underscore-italic regex is
-        tightened to CommonMark-style not-intraword flanking, '_foo _nested_ bar_'
-        splits into [ITALIC('_foo _', open), TEXT('nested'), ITALIC('_ bar_', close)].
-        The close token arrives at depth==1 -> depth-counter emits 'nested emphasis'.
-
-        RED: the current _RE_ITALIC_UNDERSCORE matches '_foo _nested_' as one
-        complete ITALIC and leaves ' bar_' as TEXT, so check_prose_field produces
-        zero diagnostics.  After the SWE replaces _RE_ITALIC_UNDERSCORE this test
-        turns GREEN.
+        ADR-028 D-Open-21.2(b) + D5: under CommonMark-style not-intraword
+        underscore flanking, '_foo _nested_ bar_' splits into
+        [ITALIC('_foo _', open), TEXT('nested'), ITALIC('_ bar_', close)].
+        The close token arrives at depth==1 -> depth-counter emits 'nested emphasis',
+        parallel to the asterisk case (test_nested_italic_... above).
         """
         field = self._make_field("_foo _nested_ bar_")
         diags = check_prose_field(field)
         assert len(diags) == 1, (
-            f"Expected 1 'nested emphasis' diagnostic for underscore italic, "
-            f"got {len(diags)}: {diags!r}.\n"
-            "RED: will pass after D-Open-21.2(b) fix lands."
+            f"Expected 1 'nested emphasis' diagnostic for underscore italic, got {len(diags)}: {diags!r}."
         )
         assert "nested emphasis" in diags[0].reason, (
             f"Expected reason containing 'nested emphasis', got {diags[0].reason!r}"

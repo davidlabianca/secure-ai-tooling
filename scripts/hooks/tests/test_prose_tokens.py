@@ -2604,14 +2604,8 @@ class TestIntrawordUnderscoreRejection:
 #
 # Consequence: underscore italic can now emit 'open'/'close' shapes (previously
 # always 'complete'), so a nested underscore span splits and the D5 depth walk
-# catches it.
-#
-# RED note: test_punctuation_flanked_close_underscore_italic_tokenizes and
-# test_nested_underscore_produces_three_token_stream (plus the fixture-backed
-# test_emphasis_shape_token_stream for nested_italic_underscore_three_token) are
-# RED until the SWE replaces _RE_ITALIC_UNDERSCORE.  The preservation-guard tests
-# (snake_case stays TEXT, plain _italic_ stays ITALIC, sentence-end period stays
-# ITALIC) pass already.
+# catches it.  The nested split is also locked by the fixture-backed
+# test_emphasis_shape_token_stream for nested_italic_underscore_three_token.
 # ===========================================================================
 
 
@@ -2625,22 +2619,18 @@ class TestUnderscoreFlanking:
     it qualifies, _classify_emphasis_shape(span, "_") determines shape from
     interior edge whitespace, exactly as for '*'/'**'.
 
-    Preservation guards (already pass pre-fix — do not break):
+    Intraword preservation (snake_case is not italic):
       - snake_case stays one TEXT token (intraword underscores)
       - _italic_ at string boundary -> ITALIC(complete)
       - _See important, then act._ (period before close) -> ITALIC(complete)
 
-    RED assertions (fail pre-fix, pass post-fix):
+    Not-intraword delimiting (the punctuation-boundary and nested cases):
       - _foo_, (comma after close) -> ITALIC(complete) + TEXT(",")
-        Currently: the comma is absorbed into TEXT because the current regex
-        requires whitespace-or-EOL after the closing '_'.
-      - _foo _nested_ bar_ -> [ITALIC(open), TEXT, ITALIC(close)]
-        Currently: the current regex matches '_foo _nested_' as a single
-        complete ITALIC (non-greedy closes at the first valid close), leaving
-        ' bar_' as TEXT.
+      - _foo _nested_ bar_ -> [ITALIC(open), TEXT, ITALIC(close)], the
+        precondition for the D5 depth-counter to detect nested underscore.
     """
 
-    # --- Preservation guards (must pass both before and after the fix) ---
+    # --- Intraword preservation: snake_case and boundary/period spans ---
 
     def test_snake_case_stays_one_text_token(self):
         """
@@ -2648,9 +2638,9 @@ class TestUnderscoreFlanking:
         When: tokenize() is called
         Then: ONE TEXT token with value 'home_bar and foo_baz'; no ITALIC
 
-        Intraword underscores (non-whitespace_non-whitespace on both sides) are not emphasis delimiters
-        under either the old or the new flanking rule (ADR-028 D3 invariant 3).
-        This is a preservation guard: it must pass before and after the fix.
+        Intraword underscores (word-char on both sides) are not emphasis
+        delimiters under the not-intraword flanking rule (ADR-028 D3 invariant 3):
+        a snake_case identifier pair stays plain TEXT.
         """
         _require_module()
         tokens = tokenize("home_bar and foo_baz")
@@ -2692,7 +2682,7 @@ class TestUnderscoreFlanking:
         assert tokens[0].value == "_See important, then act._"
         assert tokens[0].shape == "complete"
 
-    # --- RED assertions (fail pre-fix; pass after SWE lands the new regex) ---
+    # --- Not-intraword flanking: punctuation-boundary and nested underscore ---
 
     def test_punctuation_flanked_close_underscore_italic_tokenizes(self):
         """
@@ -2703,17 +2693,12 @@ class TestUnderscoreFlanking:
         ADR-028 D-Open-21.2(b): the comma after the closing '_' is punctuation;
         punctuation on the right side of a '_' satisfies the not-intraword
         condition, so '_foo_' qualifies as a complete italic span.
-
-        RED: the current regex requires whitespace-or-EOL after the closing '_',
-        so '_foo_,' tokenizes as a single TEXT token.  After the SWE replaces
-        _RE_ITALIC_UNDERSCORE this test turns GREEN.
         """
         _require_module()
         tokens = tokenize("_foo_,")
         assert len(tokens) == 2, (
-            f"Expected [ITALIC('_foo_'), TEXT(',')], got {tokens!r}.\n"
-            "RED: current _RE_ITALIC_UNDERSCORE requires whitespace after close; "
-            "will pass after D-Open-21.2(b) fix."
+            f"Expected [ITALIC('_foo_'), TEXT(',')], got {tokens!r}. "
+            "A punctuation-flanked close '_' qualifies as a delimiter (D-Open-21.2(b))."
         )
         assert tokens[0].kind == TokenKind.ITALIC, f"Token 0: expected ITALIC, got {tokens[0].kind!r}"
         assert tokens[0].value == "_foo_", f"Token 0: expected '_foo_', got {tokens[0].value!r}"
@@ -2735,16 +2720,13 @@ class TestUnderscoreFlanking:
 
         Shape assertions use direct attribute access (the fixture-projection
         helper drops shape per D-Open-20; shape is asserted here via .shape).
-
-        RED: the current regex matches '_foo _nested_' as one complete ITALIC and
-        leaves ' bar_' as TEXT.  After the SWE fix this test turns GREEN.
         """
         _require_module()
         tokens = tokenize("_foo _nested_ bar_")
         assert len(tokens) == 3, (
-            f"Expected exactly 3 tokens for nested underscore italic, got {len(tokens)}: {tokens!r}.\n"
-            "RED: current _RE_ITALIC_UNDERSCORE closes at first valid '_', "
-            "will split correctly after D-Open-21.2(b) fix."
+            f"Expected exactly 3 tokens for nested underscore italic, got {len(tokens)}: {tokens!r}. "
+            "Whitespace-flanked inner '_'s qualify as delimiters, so the span splits "
+            "[open, text, close] (D-Open-21.2(b))."
         )
         assert tokens[0].kind == TokenKind.ITALIC, f"Token 0: expected ITALIC, got {tokens[0].kind!r}"
         assert tokens[0].value == "_foo _", f"Token 0: expected '_foo _', got {tokens[0].value!r}"
