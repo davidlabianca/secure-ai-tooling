@@ -896,7 +896,178 @@ class TestMainWithTmpYaml:
 
 
 # ===========================================================================
-# 6. LIVE CORPUS GREEN — all four content files must produce zero failures
+# 6. REAL-SHAPE SILENT-SKIP REGRESSION — multi-list-key top-level structure
+# ===========================================================================
+
+
+class TestMainRealShapeSilentSkip:
+    """
+    Regression guard for the silent-skip bug in _scan_file (#347 / D4c).
+
+    Bug: _scan_file iterates data.values() and takes the FIRST list-valued key
+    as the entity list. In all four real content files, `description:` is a
+    list and appears BEFORE the entity key (risks:/controls:/personas:).
+    controls.yaml additionally has `categories:` (also a list) before `controls:`.
+    So _scan_file scans the prose items in `description` / `categories`, finds
+    no `mappings` dicts in them, and returns an empty failure list — exit 0 —
+    no matter what the entity mappings contain.
+
+    The existing tmp-fixture tests in TestMainWithTmpYaml miss this because
+    _write_content_yaml emits only ONE list key (e.g. {risks: [...]}), so
+    description is absent and _scan_file picks the entity list correctly.
+
+    The live-corpus tests pass for the wrong reason: the real corpus is all-
+    legacy values (no @ or :), so the validator exits 0 whether or not it
+    actually reaches the entity mappings.
+
+    These tests reproduce the real top-level shape — multiple list-valued top-
+    level keys with description BEFORE the entity key — and assert the validator
+    still reaches and correctly classifies the entity mappings.
+
+    Files are written with yaml.dump(..., sort_keys=False) to preserve key
+    insertion order so description precedes the entity key, matching real files.
+    """
+
+    def test_real_shape_risks_tamper_caught(self, tmp_path, capsys):
+        """
+        Given: a YAML file with description (list) BEFORE risks (list), where a
+               risks entity carries a tampered pinned value `GOVERN-6.2@9.9`
+        When: main([path]) is called
+        Then: returns 1 and the tampered value appears on stderr
+
+        This is the direct regression guard for the silent-skip bug. If _scan_file
+        still takes the first list-valued key (description), it will never visit
+        the risks entities and will exit 0 — the wrong answer. The fix must scan
+        the entity key by name, not by position.
+
+        Reference: #347 D4c; silent-skip risk described in class docstring.
+        """
+        risks_file = tmp_path / "risks.yaml"
+        # Build with description FIRST so it is the first list-valued key.
+        # sort_keys=False preserves insertion order (Python 3.7+, PyYAML 5+).
+        content = {
+            "title": "Risks",
+            "description": [
+                "Prose paragraph one.",
+                "Prose paragraph two.",
+            ],
+            "risks": [
+                {
+                    "id": "riskX",
+                    "title": "Risk X",
+                    "mappings": {
+                        "nist-ai-rmf": ["GOVERN-6.2@9.9"],  # tampered: version 9.9 unknown
+                    },
+                }
+            ],
+        }
+        risks_file.write_text(yaml.dump(content, default_flow_style=False, sort_keys=False), encoding="utf-8")
+
+        rc = main([str(risks_file)])
+
+        assert rc == 1, (
+            "Expected exit 1 for tampered value GOVERN-6.2@9.9. "
+            "Exit 0 indicates _scan_file picked description instead of risks "
+            "and silently skipped all entity mappings (silent-skip bug)."
+        )
+        captured = capsys.readouterr()
+        assert "GOVERN-6.2@9.9" in captured.err
+
+    def test_real_shape_controls_tamper_caught_categories_before_controls(self, tmp_path, capsys):
+        """
+        Given: a YAML file with description (list) and categories (list) BEFORE
+               controls (list), where a controls entity has tampered value
+               `LLM02:2099` (unknown year)
+        When: main([path]) is called
+        Then: returns 1 and the tampered value appears on stderr
+
+        controls.yaml has both description and categories as lists preceding the
+        controls list. This is the most adversarial ordering for the first-list-
+        key bug. If _scan_file takes description (first), it exits 0. If it
+        takes categories (second), it also exits 0. Only by reaching controls
+        (third) will it surface the tamper.
+
+        Reference: #347 D4c; silent-skip risk described in class docstring.
+        """
+        controls_file = tmp_path / "controls.yaml"
+        content = {
+            "title": "Controls",
+            "description": [
+                "Prose paragraph one.",
+                "Prose paragraph two.",
+            ],
+            "categories": [
+                {"id": "controlsData", "title": "Data Controls"},
+                {"id": "controlsModel", "title": "Model Controls"},
+            ],
+            "controls": [
+                {
+                    "id": "controlY",
+                    "title": "Control Y",
+                    "mappings": {
+                        "owasp-top10-llm": ["LLM02:2099"],  # tampered: year 2099 unknown
+                    },
+                }
+            ],
+        }
+        controls_file.write_text(yaml.dump(content, default_flow_style=False, sort_keys=False), encoding="utf-8")
+
+        rc = main([str(controls_file)])
+
+        assert rc == 1, (
+            "Expected exit 1 for tampered value LLM02:2099. "
+            "Exit 0 indicates _scan_file picked description or categories "
+            "instead of controls and silently skipped all entity mappings."
+        )
+        captured = capsys.readouterr()
+        assert "LLM02:2099" in captured.err
+
+    def test_real_shape_legacy_values_stay_green(self, tmp_path):
+        """
+        Given: a YAML file with description (list) BEFORE risks (list), where
+               risks entities carry only legacy (no-delimiter) mapping values
+        When: main([path]) is called
+        Then: returns 0
+
+        Confirms that the fix for the silent-skip bug does not over-scan
+        description or categories prose items into false failures, and that
+        legitimate legacy values in the entity list still skip cleanly.
+
+        Reference: #347 D4c; silent-skip risk described in class docstring.
+        """
+        risks_file = tmp_path / "risks.yaml"
+        content = {
+            "title": "Risks",
+            "description": [
+                "Prose paragraph one.",
+                "Prose paragraph two.",
+            ],
+            "risks": [
+                {
+                    "id": "riskLegacy",
+                    "title": "Legacy Risk",
+                    "mappings": {
+                        "nist-ai-rmf": ["GV-6.2"],  # legacy: no @ → skip
+                        "mitre-atlas": ["AML.T0020"],  # legacy: no @ → skip
+                        "owasp-top10-llm": ["LLM06"],  # legacy: no : → skip
+                        "stride": ["tampering"],  # legacy: unversioned → skip
+                    },
+                }
+            ],
+        }
+        risks_file.write_text(yaml.dump(content, default_flow_style=False, sort_keys=False), encoding="utf-8")
+
+        rc = main([str(risks_file)])
+
+        assert rc == 0, (
+            "Expected exit 0 for all-legacy values in real-shape YAML. "
+            "A non-zero exit indicates false positives from prose in "
+            "description or categories being scanned as entity mappings."
+        )
+
+
+# ===========================================================================
+# 7. LIVE CORPUS GREEN — all four content files must produce zero failures
 # ===========================================================================
 
 

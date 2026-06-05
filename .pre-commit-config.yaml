@@ -327,6 +327,13 @@ repos:
         files: ^risk-map/yaml/frameworks\.yaml$
         pass_filenames: false
 
+      - id: validate-mapping-purity
+        name: 'validate: framework mapping value purity (ADR-027 D4c)'
+        language: system
+        entry: python3 scripts/hooks/precommit/validate_mapping_purity.py
+        files: ^risk-map/yaml/(risks|controls|components|personas)\.yaml$
+        pass_filenames: true
+
   # ---------------------------------------------------------------------------
   # Generators (Mode B auto-stage). Each wrapper runs the appropriate
   # generation commands and `git add`s outputs so they land in the same commit
