@@ -178,6 +178,43 @@ else
     FAILURES=$((FAILURES + 1))
 fi
 
+# ADR-027 framework-mapping validators (D2b/D4c/D5). The pre-commit hooks run
+# these on staged files; the full-tree sweep invokes them with explicit paths
+# so the same conformance is checked regardless of git staging. versionId
+# purity reads frameworks.yaml; mapping purity and drift read the four
+# consumer YAMLs.
+banner "Framework versionId purity validation"
+if python3 scripts/hooks/precommit/validate_versionid_purity.py risk-map/yaml/frameworks.yaml; then
+    pass_msg "Framework versionId purity"
+else
+    fail_msg "Framework versionId purity validation reported errors"
+    FAILURES=$((FAILURES + 1))
+fi
+
+banner "Framework mapping-value purity validation"
+if python3 scripts/hooks/precommit/validate_mapping_purity.py \
+    risk-map/yaml/risks.yaml \
+    risk-map/yaml/controls.yaml \
+    risk-map/yaml/components.yaml \
+    risk-map/yaml/personas.yaml; then
+    pass_msg "Framework mapping-value purity"
+else
+    fail_msg "Framework mapping-value purity validation reported errors"
+    FAILURES=$((FAILURES + 1))
+fi
+
+banner "Framework mapping-value drift validation"
+if python3 scripts/hooks/precommit/validate_mapping_drift.py \
+    risk-map/yaml/risks.yaml \
+    risk-map/yaml/controls.yaml \
+    risk-map/yaml/components.yaml \
+    risk-map/yaml/personas.yaml; then
+    pass_msg "Framework mapping-value drift"
+else
+    fail_msg "Framework mapping-value drift validation reported errors"
+    FAILURES=$((FAILURES + 1))
+fi
+
 if [[ "$CHECK_GENERATION" == "true" ]]; then
     banner "Generated table parity"
     if ! check_generated_tables; then

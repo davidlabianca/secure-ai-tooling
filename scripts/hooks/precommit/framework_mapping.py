@@ -15,8 +15,9 @@ vocabularies is the `framework-mapping-patterns-pinned` block in
 frameworks.schema.json (D3a / D7).  No parallel delimiter dict is
 maintained here; the schema is consulted directly.
 
-Phase 4 (validate_mapping_purity.py) and Phase 5 (validate_mapping_drift.py)
-import this module — keep the public API stable.
+The mapping-value purity validator (D4c, validate_mapping_purity.py) and the
+Tier-1 drift validator (D5, validate_mapping_drift.py) import this module —
+keep the public API stable.
 """
 
 from __future__ import annotations
