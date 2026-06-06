@@ -1068,3 +1068,259 @@ class TestPreCommitConfigWiring:
         assert order == [GENERATOR_HOOK_ID, PURITY_HOOK_ID], (
             f"generator must be declared before purity validator; got order={order}"
         )
+
+
+# ===========================================================================
+# Item 2 — generator regex tolerance: comment and bare-version forms
+# ===========================================================================
+# These tests import the compiled regex objects directly and assert tolerance
+# for inline trailing comments (_ID_LINE_RE) and bare/null version lines
+# (_VERSION_LINE_RE). The cases that fail until the regexes are widened are
+# noted in their docstrings.
+
+
+from precommit.versionid_generator import _ID_LINE_RE, _VERSION_LINE_RE  # noqa: E402
+
+
+class TestIdLineReCommentTolerance:
+    """
+    _ID_LINE_RE must tolerate an inline trailing `#`-comment after the value.
+
+    The real frameworks.yaml entries may carry inline comments on any line.
+    Without comment tolerance the generator's _partition_entries() silently
+    fails to recognise the `- id:` boundary and the entry is never rewritten.
+
+    D2b: the surgical text-level update relies on _ID_LINE_RE to locate entry
+    boundaries; a comment-bearing `- id:` line must be treated as a boundary.
+    """
+
+    def test_id_line_re_matches_id_with_trailing_comment(self):
+        """
+        Given: a `- id:` line with a trailing inline comment
+        When:  _ID_LINE_RE.match() is called
+        Then:  match is not None AND group('value') is the id without the comment
+
+        D2b: a comment after the value must not be captured into the 'value'
+        group; the boundary detection must see `mitre-atlas` not
+        `mitre-atlas  # note`.
+
+        This test fails until _ID_LINE_RE is widened to allow a trailing
+        inline comment after the value.
+        """
+        line = "    - id: mitre-atlas  # note\n"
+        m = _ID_LINE_RE.match(line)
+        assert m is not None, (
+            "_ID_LINE_RE must match a `- id:` line with a trailing inline comment "
+            "without capturing the comment into the 'value' group."
+        )
+        assert m.group("value") == "mitre-atlas", (
+            f"group('value') must capture only the id token, not the trailing comment; got {m.group('value')!r}"
+        )
+
+    def test_id_line_re_still_matches_plain_id_line(self):
+        """
+        Given: a plain `- id:` line with no comment
+        When:  _ID_LINE_RE.match() is called
+        Then:  match is not None AND group('value') == 'mitre-atlas'
+
+        Regression guard: the existing plain form must keep matching after the
+        regex is widened.
+        """
+        line = "    - id: mitre-atlas\n"
+        m = _ID_LINE_RE.match(line)
+        assert m is not None, "_ID_LINE_RE must still match a plain `- id:` line"
+        assert m.group("value") == "mitre-atlas"
+
+    def test_id_line_re_does_not_match_unrelated_keys(self):
+        """
+        Given: lines that are NOT `- id:` entry boundaries
+        When:  _ID_LINE_RE.match() is called on each
+        Then:  all matches return None (no false positives)
+
+        Non-matching guard: the widened regex must not over-match YAML keys
+        that happen to start with `-` or contain `id:` in another context.
+        """
+        non_matching = [
+            "    title: Frameworks\n",
+            "    version: '5.0.1'\n",
+            "    # this is a comment line\n",
+            "    - AML.T0020@5.0.1\n",  # list item, not an `id:` mapping
+        ]
+        for line in non_matching:
+            assert _ID_LINE_RE.match(line) is None, (
+                f"_ID_LINE_RE must NOT match {line!r} — only `- id: <value>` lines are boundaries"
+            )
+
+
+class TestVersionLineReBareTolerance:
+    """
+    _VERSION_LINE_RE must match a bare `version:` line (no value after the colon).
+
+    A bare `version:` — equivalent to `version: null` in block-scalar YAML —
+    is a legal way to represent an unversioned framework. The generator must
+    still locate the `version:` line in an entry so it can insert `versionId:`
+    immediately after it.
+
+    D2b: _rewrite_entry inserts the versionId line after the version line; if
+    _VERSION_LINE_RE does not match a bare form, the insert is skipped and the
+    purity validator later fails on a missing versionId.
+    """
+
+    def test_version_line_re_matches_bare_version(self):
+        """
+        Given: a bare `version:` line (no value, representing null/empty)
+        When:  _VERSION_LINE_RE.match() is called
+        Then:  match is not None AND group('indent') == '    '
+
+        D2b: the generator must locate a bare `version:` line to determine where
+        to insert `versionId:`. This test fails until _VERSION_LINE_RE is widened
+        to accept a `version:` line with no value after the colon.
+        """
+        line = "    version:\n"
+        m = _VERSION_LINE_RE.match(line)
+        assert m is not None, (
+            "_VERSION_LINE_RE must match a bare `version:` line (no value after colon) "
+            "so the generator can still locate the insertion point for versionId."
+        )
+        assert m.group("indent") == "    ", (
+            f"group('indent') must be the leading whitespace; got {m.group('indent')!r}"
+        )
+
+    def test_version_line_re_matches_quoted_value(self):
+        """
+        Given: a normal `version: '5.0.1'` line
+        When:  _VERSION_LINE_RE.match() is called
+        Then:  match is not None AND group('indent') == '    '
+
+        Regression guard: the existing form with a quoted string value must
+        keep matching after the regex is widened.
+        """
+        line = "    version: '5.0.1'\n"
+        m = _VERSION_LINE_RE.match(line)
+        assert m is not None, "_VERSION_LINE_RE must still match a normal version line"
+        assert m.group("indent") == "    "
+
+    def test_version_line_re_matches_version_with_comment(self):
+        """
+        Given: a `version:` line with a trailing inline comment
+        When:  _VERSION_LINE_RE.match() is called
+        Then:  match is not None
+
+        This already passes because the `.*` tail swallows the comment text after
+        the value. It is included as a regression guard so future narrowing of
+        the regex does not accidentally break comment-bearing version lines.
+        D2b: no captured group for value, only 'indent'; comments are irrelevant.
+        """
+        line = "    version: '1.0'  # note\n"
+        m = _VERSION_LINE_RE.match(line)
+        assert m is not None, (
+            "_VERSION_LINE_RE must match a version line with a trailing comment "
+            "(the `.*` tail swallows the comment — this test serves as a regression guard)"
+        )
+
+    def test_version_line_re_does_not_match_versionid_lines(self):
+        """
+        Given: a `versionId:` line (a generated field, not the source `version:` field)
+        When:  _VERSION_LINE_RE.match() is called
+        Then:  match is None
+
+        Non-matching guard: _VERSION_LINE_RE must NOT match `versionId:` lines;
+        _VERSIONID_LINE_RE handles those. Over-matching `versionId:` would cause
+        the generator to insert a duplicate versionId line below itself.
+        """
+        non_matching = [
+            "    versionId: mitre-atlas@5.0.1\n",
+            "    title: x\n",
+            "    description: some text\n",
+        ]
+        for line in non_matching:
+            assert _VERSION_LINE_RE.match(line) is None, f"_VERSION_LINE_RE must NOT match {line!r}"
+
+
+# ===========================================================================
+# Item 3 — _validate_registry_uniqueness contract lock (D2b)
+# ===========================================================================
+# This test does NOT test that the dead guard exists — it locks the contract
+# that the function enforces after the guard is removed. It exercises the
+# real input shape: list[tuple[str, str]].
+
+
+from precommit.validate_versionid_purity import _validate_registry_uniqueness  # noqa: E402
+
+
+class TestValidateRegistryUniquenessContractLock:
+    """
+    _validate_registry_uniqueness contract lock: duplicates are flagged,
+    unique sets pass cleanly — exercised with the real input type
+    list[tuple[str, str]].
+
+    D2b: the set of materialized versionIds across the registry must be distinct.
+
+    This class is a NO-BEHAVIOR-CHANGE lock. The production fix removes the dead
+    guard `if vid is None: continue` (the input tuples always carry a materialized
+    non-None string vid — the caller only appends tuples when on_disk is not None).
+    The contract — duplicates flagged, uniques pass — must hold before AND after
+    the dead-guard removal.
+    """
+
+    def test_duplicate_versionid_adds_error(self):
+        """
+        Given: two tuples sharing the same versionId string
+        When:  _validate_registry_uniqueness is called with errors=[]
+        Then:  errors gains exactly one 'duplicate versionId' message
+
+        D2b: duplicate versionIds across entries are a registry error.
+        This contract must continue to hold after the dead-guard removal.
+        """
+        errors: list[str] = []
+        _validate_registry_uniqueness(
+            [("fw-a", "fw-a@1.0"), ("fw-b", "fw-a@1.0")],
+            errors,
+        )
+        assert len(errors) == 1, f"Expected exactly one duplicate error; got {errors!r}"
+        assert "duplicate" in errors[0].lower() or "fw-a@1.0" in errors[0], (
+            f"Error message must reference the duplicate versionId; got {errors[0]!r}"
+        )
+
+    def test_all_unique_versionids_no_error(self):
+        """
+        Given: three tuples each with a distinct versionId string
+        When:  _validate_registry_uniqueness is called with errors=[]
+        Then:  errors stays empty
+
+        D2b: unique versionIds must not produce any error.
+        This contract must continue to hold after the dead-guard removal.
+        """
+        errors: list[str] = []
+        _validate_registry_uniqueness(
+            [
+                ("mitre-atlas", "mitre-atlas@5.0.1"),
+                ("nist-ai-rmf", "nist-ai-rmf@1.0"),
+                ("stride", "stride"),
+            ],
+            errors,
+        )
+        assert errors == [], f"No errors expected for all-unique versionIds; got {errors!r}"
+
+    def test_multiple_duplicates_each_flagged(self):
+        """
+        Given: two separate duplicate pairs
+        When:  _validate_registry_uniqueness is called
+        Then:  two duplicate-error messages appear (one per duplicate versionId)
+
+        D2b: each distinct duplicate versionId must produce a separate error message
+        so the contributor knows all the affected entries, not just the first.
+        """
+        errors: list[str] = []
+        _validate_registry_uniqueness(
+            [
+                ("fw-a", "dup-one@1.0"),
+                ("fw-b", "dup-one@1.0"),
+                ("fw-c", "dup-two@2.0"),
+                ("fw-d", "dup-two@2.0"),
+            ],
+            errors,
+        )
+        assert len(errors) == 2, (
+            f"Expected two duplicate errors (one per distinct duplicate versionId); got {errors!r}"
+        )

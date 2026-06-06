@@ -1946,10 +1946,110 @@ class TestFormatPreservation:
 
 
 # ===========================================================================
+# 13. compose_pinned_value — unversioned-version WARNING observability (D6)
+# ===========================================================================
+
+
+class TestComposePinnedValueUnversionedWarning:
+    """
+    compose_pinned_value must emit a `warning:`-prefixed message to stderr when
+    a non-None version argument is supplied for an unversioned framework.
+
+    ADR-027 D6: STRIDE carries no version token; the return value is the bare ref
+    (contract unchanged). The warning is observability-only — it does NOT alter
+    the return value. It surfaces a likely caller mistake: supplying a version
+    string for a framework that has none.
+
+    The warning format mirrors the CLI's error style:
+      `warning: framework '<id>' is unversioned; supplied version '<v>' ignored (D6).`
+    """
+
+    def test_unversioned_framework_with_version_emits_warning_to_stderr(self, capsys):
+        """
+        Given: an unversioned framework (stride, version: null in registry) and a
+               non-None version argument ('2.0')
+        When:  compose_pinned_value is called
+        Then:  stderr contains 'warning:', 'stride', and '2.0'
+               stdout is empty (warning goes to stderr only)
+
+        D6: the version token is dropped (return is the bare ref); the warning
+        makes the silent drop explicit so callers notice the mismatch.
+        """
+        result = compose_pinned_value(
+            "stride",
+            "2.0",
+            "Tampering",
+            registry=_get_registry(),
+            pinned_patterns=_get_pinned_patterns(),
+        )
+        # Return contract unchanged: bare ref (D6).
+        assert result == "Tampering"
+
+        captured = capsys.readouterr()
+        assert "warning:" in captured.err, (
+            "compose_pinned_value must emit a 'warning:'-prefixed message to stderr "
+            "when a version is supplied for an unversioned framework (D6 observability)"
+        )
+        assert "stride" in captured.err, "the warning must name the unversioned framework id"
+        assert "2.0" in captured.err, "the warning must include the ignored version string"
+        assert captured.out == "", "warning must go to stderr only, not stdout"
+
+    def test_unversioned_framework_with_none_version_no_warning(self, capsys):
+        """
+        Given: an unversioned framework (stride) and version=None
+        When:  compose_pinned_value is called
+        Then:  stderr is empty (no warning — None is the correct caller behaviour)
+               return is the bare ref
+
+        D6: None is the correct version argument for an unversioned framework.
+        Validators calling compose via split→compose always pass version=None for
+        STRIDE legacy values, so the warning must never fire on that path.
+        """
+        result = compose_pinned_value(
+            "stride",
+            None,
+            "Tampering",
+            registry=_get_registry(),
+            pinned_patterns=_get_pinned_patterns(),
+        )
+        assert result == "Tampering"
+        captured = capsys.readouterr()
+        assert captured.err == "", (
+            "No warning must be emitted when version=None for an unversioned "
+            "framework (D6: None is the correct call-site argument)"
+        )
+
+    def test_versioned_framework_with_valid_version_no_warning(self, capsys):
+        """
+        Given: a versioned framework (mitre-atlas, version: '5.0.1' in registry) and
+               a recognized version argument ('5.0.1')
+        When:  compose_pinned_value is called
+        Then:  return is 'AML.T0020@5.0.1', stderr is empty
+
+        Regression guard: the warning mechanism must not fire for versioned
+        frameworks with valid versions — only the unversioned-but-version-supplied
+        case triggers the D6 observability warning.
+        """
+        result = compose_pinned_value(
+            "mitre-atlas",
+            "5.0.1",
+            "AML.T0020",
+            registry=_get_registry(),
+            pinned_patterns=_get_pinned_patterns(),
+        )
+        assert result == "AML.T0020@5.0.1"
+        captured = capsys.readouterr()
+        assert captured.err == "", (
+            "No warning must be emitted for a versioned framework with a valid "
+            "version argument (D6 warning is only for unversioned-with-version calls)"
+        )
+
+
+# ===========================================================================
 # Test Summary
 # ===========================================================================
 #
-# Total Tests: 73
+# Total Tests: 73 + 3 (item 1 warning tests) = 76
 # - Artifacts exist:                    3
 # - compose_pinned_value happy path:    8
 # - compose delimiter correctness:      3

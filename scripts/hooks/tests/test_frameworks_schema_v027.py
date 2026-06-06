@@ -1604,11 +1604,91 @@ class TestSchemaMetaValidity:
 # ============================================================================
 # Test summary
 # ============================================================================
+# ============================================================================
+# TestIso22989OneOfSeamTripwire
+# ============================================================================
+
+
+class TestIso22989OneOfSeamTripwire:
+    """
+    Tripwire: the iso-22989 pinned subschema must retain its `oneOf` key.
+
+    ADR-027 D7: "the entry becomes a oneOf/anyOf over enums, each enum carrying
+    its version-suffixed members, and a new edition gets its own enumerated set
+    keyed to its version token." The single-member `oneOf` is the deliberate
+    multi-edition extension seam — NOT a redundancy to clean up.
+
+    This class adds a lightweight tripwire so a future refactor that flattens
+    the `oneOf` into a bare enum trips this test, prompting a conscious ADR
+    review before the extension seam is removed.
+
+    The fix for item 4 ADDS a `description` field to the iso-22989 subschema.
+    No behavior change. These tests assert structural invariants only (not the
+    exact description text, which would be brittle).
+    """
+
+    def test_iso22989_pinned_subschema_has_oneof(self, pinned_mapping_patterns: dict):
+        """
+        Given: definitions/framework-mapping-patterns-pinned/properties/iso-22989
+        When:  the subschema is examined
+        Then:  it contains a 'oneOf' key
+
+        D7: the `oneOf` is the multi-edition extension seam. Removing it would
+        collapse the architecture to a flat enum and close the extension point
+        for future ISO 22989 editions.
+
+        If this test fails after a cleanup, check ADR-027 D7 before proceeding.
+        """
+        entry = pinned_mapping_patterns.get("properties", {}).get("iso-22989")
+        assert entry is not None, "iso-22989 must be present in the pinned block"
+        assert "oneOf" in entry, (
+            "iso-22989 pinned subschema must retain the 'oneOf' key (D7 multi-edition "
+            "extension seam). Do not flatten to a bare enum without an ADR-027 amendment."
+        )
+
+    def test_iso22989_oneof_single_member_enum_accepts_ai_producer_at_2022(self, pinned_mapping_patterns: dict):
+        """
+        Given: the single oneOf arm in the iso-22989 pinned subschema
+        When:  its enum is examined
+        Then:  'AI Producer@2022' is in the enum
+               'AI Part (Data supplier)@2022' (typo) is NOT in the enum
+
+        D8: the closed controlled-vocabulary enum admits the six canonical
+        ISO 22989:2022 roles and rejects spelling variants. This is the
+        behavioral contract for the seam's single current arm.
+
+        Note: 'AI Part (Data supplier)@2022' uses 'Part' not 'Partner' and
+        uppercase 'D' — both outside the closed set. This test is NOT brittle
+        to the exact description text added by the fix (item 4).
+        """
+        from jsonschema import Draft7Validator
+
+        entry = pinned_mapping_patterns.get("properties", {}).get("iso-22989")
+        assert entry is not None
+        arms = entry.get("oneOf", [])
+        assert len(arms) >= 1, "iso-22989 oneOf must have at least one arm"
+
+        # Validate accepted value against the whole subschema.
+        validator = Draft7Validator(entry)
+        accepted_errors = list(validator.iter_errors("AI Producer@2022"))
+        assert not accepted_errors, (
+            f"iso-22989 pinned subschema must accept 'AI Producer@2022'; "
+            f"errors: {[e.message for e in accepted_errors]}"
+        )
+
+        # Validate rejected value (spelling variant) against the whole subschema.
+        rejected_errors = list(validator.iter_errors("AI Part (Data supplier)@2022"))
+        assert rejected_errors, (
+            "iso-22989 pinned subschema must reject 'AI Part (Data supplier)@2022' "
+            "(typo: 'Part' not 'Partner', uppercase 'D') — D8 closed enum."
+        )
+
+
 """
 Test Summary
 ============
-Test classes: 11
-Total tests (approximate): ~90
+Test classes: 11 + 1 (TestIso22989OneOfSeamTripwire) = 12
+Total tests (approximate): ~90 + 2 = ~92
 
 Test classes and their key assertion:
 

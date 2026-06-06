@@ -1165,6 +1165,37 @@ class TestLiveCorpusGreen:
         rc = main([])
         assert rc == 0
 
+    def test_live_corpus_produces_no_warnings_on_stderr(self, capsys):
+        """
+        Given: all four live content files passed together
+        When: main([risks, controls, components, personas]) is called
+        Then: stderr contains no 'warning:' lines
+
+        D6 observability contract: compose_pinned_value emits a 'warning:'-prefixed
+        message to stderr when a non-None version is supplied for an unversioned
+        framework. The purity validator round-trips values via split→compose and
+        always passes version=None for STRIDE legacy values (which all lack a
+        delimiter, so split returns version=None). Therefore the warning path is
+        never reached during a live corpus scan and 'warning:' must be absent from
+        stderr entirely.
+
+        This is the corpus-silence assertion for the D6 observability feature.
+        If it fails, the validator is incorrectly passing a non-None version for
+        some unversioned STRIDE value — a caller contract violation.
+        """
+        for path in (RISKS_YAML, CONTROLS_YAML, COMPONENTS_YAML, PERSONAS_YAML):
+            assert path.is_file(), f"content file not found: {path}"
+
+        rc = main([str(RISKS_YAML), str(CONTROLS_YAML), str(COMPONENTS_YAML), str(PERSONAS_YAML)])
+        assert rc == 0
+        captured = capsys.readouterr()
+        assert "warning:" not in captured.err, (
+            "The purity validator must not emit any 'warning:' on the live corpus. "
+            "A warning indicates compose_pinned_value was called with a non-None version "
+            "for an unversioned framework (D6: validators always pass version=None for "
+            "STRIDE legacy values, so no D6 warning should fire during corpus scan)."
+        )
+
 
 """
 Test Summary
