@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -255,7 +256,14 @@ def compose_pinned_value(
 
     # Step 4: compose candidate.
     if not is_versioned:
-        # STRIDE and other unversioned: bare ref, no token (D6).
+        # D6: warn when a caller supplies a version for an unversioned framework.
+        # The return is still the bare ref — observability only; the framework
+        # is version: null so no version token exists to include.
+        if version is not None:
+            print(
+                f"warning: framework {framework_id!r} is unversioned; supplied version {version!r} ignored (D6).",
+                file=sys.stderr,
+            )
         candidate = ref
     else:
         # Try delimiters in order: @ first, then :.

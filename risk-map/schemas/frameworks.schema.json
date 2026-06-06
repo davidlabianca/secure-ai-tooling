@@ -149,6 +149,7 @@
         },
         "iso-22989": {
           "type": "string",
+          "description": "Single-member oneOf is the per-edition controlled-vocabulary seam (ADR-027 D7/D8): each future ISO 22989 edition appends a oneOf member carrying that edition's @<version> enum, so existing @2022 pins keep validating. Do not collapse to an inline enum.",
           "oneOf": [
             {
               "type": "string",

@@ -132,11 +132,18 @@ def _check_uniqueness(derived_by_index: dict[int, tuple[str, str]]) -> None:
 _VERSIONID_LINE_RE = re.compile(r"^(?P<indent>[ \t]+)versionId:\s*\S.*$")
 
 # Matches an `id:` line — the entry boundary marker we anchor inserts against.
-_ID_LINE_RE = re.compile(r"^(?P<indent>[ \t]+)-\s+id:\s*(?P<value>\S+)\s*$")
+# D2b: `(?:[ \t]+#.*)?` allows a trailing inline comment preceded by horizontal
+# whitespace; `(?P<value>\S+)` still captures only the id token because `#` with
+# no preceding space stays part of the token (e.g. `foo#bar`), which is fine since
+# concept ids are lowercase kebab (no `#`).
+_ID_LINE_RE = re.compile(r"^(?P<indent>[ \t]+)-\s+id:\s*(?P<value>\S+)(?:[ \t]+#.*)?\s*$")
 
 # Matches the `version:` line within an entry; the new versionId is inserted
 # immediately after this line so the field order reads `version: ... / versionId: ...`.
-_VERSION_LINE_RE = re.compile(r"^(?P<indent>[ \t]+)version:\s*\S.*$")
+# D2b: `(?:\S.*)?` makes the value optional so a bare `version:` (null) line is
+# still located for the versionId insert; the literal `version:` prevents matching
+# `versionId:` lines (handled by _VERSIONID_LINE_RE).
+_VERSION_LINE_RE = re.compile(r"^(?P<indent>[ \t]+)version:\s*(?:\S.*)?$")
 
 
 def _partition_entries(lines: list[str]) -> list[tuple[int, int, str | None]]:

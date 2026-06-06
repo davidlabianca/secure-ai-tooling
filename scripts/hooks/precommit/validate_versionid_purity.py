@@ -167,8 +167,8 @@ def _validate_registry_uniqueness(version_ids: list[tuple[str, str]], errors: li
     """D2b uniqueness: the set of materialized versionIds across the registry is distinct."""
     seen: dict[str, list[str]] = {}
     for fw_id, vid in version_ids:
-        if vid is None:
-            continue
+        # vid is always a non-None string: the caller only appends (fw_id, on_disk)
+        # when on_disk is not None (see main() line ~226).
         seen.setdefault(vid, []).append(fw_id)
     for vid, ids in seen.items():
         if len(ids) > 1:
