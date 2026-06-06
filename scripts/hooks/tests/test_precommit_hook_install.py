@@ -132,6 +132,9 @@ _REQUIRED_HOOK_IDS = {
     # ADR-027 D2b: frameworks.yaml versionId materialization + purity check.
     "regenerate-frameworks-versionid",
     "validate-frameworks-versionid-purity",
+    # ADR-027 D4c/D5: framework mapping-value purity + Tier-1 drift checks.
+    "validate-mapping-purity",
+    "validate-mapping-drift",
 }
 
 

@@ -322,8 +322,8 @@ def test_sweep_includes_adr027_validators():
         are not silently invoked with no file arguments.
       - validate_versionid_purity.py must reference frameworks.yaml (its input).
 
-    This test will FAIL until SWE edits validate-all.sh to add the ADR-027
-    validator invocations — the correct RED state for Gap A (#347 / D5).
+    This is the conformance contract for Gap A (#347 / D5): validate-all.sh must
+    invoke the ADR-027 validators in the full-tree sweep.
     """
     source = SCRIPT_SOURCE.read_text(encoding="utf-8")
     assert "validate_versionid_purity.py" in source, (

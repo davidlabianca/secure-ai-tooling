@@ -184,7 +184,7 @@ fi
 # purity reads frameworks.yaml; mapping purity and drift read the four
 # consumer YAMLs.
 banner "Framework versionId purity validation"
-if python3 scripts/hooks/precommit/validate_versionid_purity.py risk-map/yaml/frameworks.yaml; then
+if python3 scripts/hooks/precommit/validate_versionid_purity.py --path risk-map/yaml/frameworks.yaml; then
     pass_msg "Framework versionId purity"
 else
     fail_msg "Framework versionId purity validation reported errors"

@@ -23,12 +23,12 @@ Authoritative spec:
 
 D-section citations in every test trace the test's "why" to the ADR.
 
-RED state: the production code (framework_mapping.py, framework_mapping_maintainer.py)
-does not exist yet. Every test in this file should fail / error until the SWE lands
-those two files.
+Test-first: these tests were authored before the production code
+(framework_mapping.py, framework_mapping_maintainer.py) existed, so each fails or
+errors until those two files land.
 
 Import strategy: import the shared module at the top level — if it raises ImportError
-the whole module errors RED, which is the correct RED signal for a missing module.
+the whole module fails to collect, which is the correct signal for a missing module.
 Subprocess CLI tests do not depend on the import succeeding, but they do assert
 the script path exists (so a missing-script error is not mistaken for a validator
 rejection in negative-case tests).
@@ -49,11 +49,11 @@ import pytest
 import yaml
 
 # ---------------------------------------------------------------------------
-# Module-level import — errors RED if the shared module is absent
+# Module-level import — fails to collect if the shared module is absent
 # ---------------------------------------------------------------------------
-# Per the task spec: do NOT use importorskip (that would skip instead of RED).
-# An ImportError here makes the whole file fail to collect, which is the right
-# RED signal until the SWE creates the module.
+# Do NOT use importorskip (that would skip instead of failing). An ImportError
+# here makes the whole file fail to collect, which is the right signal when the
+# shared module is absent.
 from precommit.framework_mapping import (
     DEFAULT_FRAMEWORKS_PATH,
     DEFAULT_SCHEMA_PATH,
@@ -94,7 +94,7 @@ def _get_registry() -> dict[str, dict]:
 
 
 def _get_pinned_patterns() -> dict[str, dict]:
-    """Lazy-load the real pinned patterns from the Phase-1 schema (read-only)."""
+    """Lazy-load the real pinned patterns from the schema (read-only)."""
     global _REAL_PINNED_PATTERNS
     if not _REAL_PINNED_PATTERNS:
         _REAL_PINNED_PATTERNS = load_pinned_patterns(FRAMEWORKS_SCHEMA)
@@ -263,7 +263,7 @@ def _validate_against_pinned_subschema(framework_id: str, value: str) -> None:
 
 
 # ===========================================================================
-# 1. Artifacts exist — RED until SWE lands them
+# 1. Artifacts exist
 # ===========================================================================
 
 
@@ -290,7 +290,7 @@ class TestArtifactsExist:
         """
         The shared module must exist at scripts/hooks/precommit/framework_mapping.py.
 
-        ADR-027 D4: reusable compose logic is needed by Phase 4/5 validators.
+        ADR-027 D4: reusable compose logic is needed by the D4c/D5 validators.
         """
         module_path = REPO_ROOT / "scripts" / "hooks" / "precommit" / "framework_mapping.py"
         assert module_path.is_file(), (
@@ -602,6 +602,35 @@ class TestComposePinnedValueErrors:
                 registry=_get_registry(),
                 pinned_patterns=_get_pinned_patterns(),
             )
+
+    def test_versioned_framework_absent_from_pinned_patterns_does_not_crash(self):
+        """
+        A versioned framework present in the registry but absent from the
+        pinned-patterns block must not raise TypeError.
+
+        Scenario: a new framework id is added to frameworks.yaml (and the id
+        enum) but the framework-mapping-patterns-pinned block is not yet
+        extended, so pinned_patterns.get(id) is None. _try_delimiters must
+        guard the None sub_schema (as split_pinned_value already does) rather
+        than passing schema=None to jsonschema.validate (TypeError). compose
+        then returns its unvalidated default candidate, matching its own
+        step-5 None-sub_schema handling.
+        """
+        synthetic_registry = {
+            "ghost-framework": {
+                "id": "ghost-framework",
+                "version": "1.0",
+                "priorVersions": [],
+            }
+        }
+        result = compose_pinned_value(
+            "ghost-framework",
+            "1.0",
+            "SOME-REF",
+            registry=synthetic_registry,
+            pinned_patterns={},  # no entry for ghost-framework -> sub_schema is None
+        )
+        assert result == "SOME-REF@1.0"
 
     def test_error_hierarchy_unknown_framework_is_mapping_error(self):
         """
@@ -927,7 +956,7 @@ class TestKnownVersions:
 
 
 # ===========================================================================
-# 6. Schema cross-check: expected pinned values validate against Phase-1 schema
+# 6. Schema cross-check: expected pinned values validate against the schema
 # ===========================================================================
 
 
@@ -1811,7 +1840,7 @@ class TestFormatPreservation:
     """
     After an `add`, comments and sibling content outside the touched block survive.
 
-    ADR-027 D4: "writes must preserve YAML formatting/comments (SWE will use
+    ADR-027 D4: "writes must preserve YAML formatting/comments (e.g. via
     ruamel.yaml)." A full yaml.dump round-trip would destroy comments; the
     implementation must do surgical insertion.
     """
@@ -1957,6 +1986,6 @@ class TestFormatPreservation:
 # base-ref match" interpretation (find existing entry by split_pinned_value
 # base-ref == --framework-specific-ref; replace its version token). Error
 # paths (nothing-to-update, ambiguous) are tested as sentinel contracts.
-# The SWE may implement a slightly different update semantic but must satisfy
+# The implementation may use a slightly different update semantic but must satisfy
 # at minimum the round-trip (old token replaced by new token) and the two
 # error paths.

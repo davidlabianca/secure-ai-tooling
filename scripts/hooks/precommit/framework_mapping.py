@@ -260,7 +260,7 @@ def compose_pinned_value(
     else:
         # Try delimiters in order: @ first, then :.
         # The schema is the authority — the first candidate that validates wins.
-        candidate = _try_delimiters(ref, version, sub_schema)  # type: ignore[arg-type]
+        candidate = _try_delimiters(ref, version, sub_schema)
         if candidate is None:
             # Neither delimiter validated; will be caught in step 5.
             candidate = f"{ref}@{version}"
@@ -280,13 +280,19 @@ def compose_pinned_value(
     return candidate
 
 
-def _try_delimiters(ref: str, version: str, sub_schema: dict[str, Any]) -> str | None:
+def _try_delimiters(ref: str, version: str, sub_schema: dict[str, Any] | None) -> str | None:
     """
     Try `@` then `:` delimiter; return the first candidate that validates.
 
-    Returns None if neither candidate validates.
+    Returns None if neither candidate validates, or if sub_schema is None
+    (no pinned subschema to validate against — same guard split_pinned_value
+    applies; compose then returns the unvalidated default candidate, matching
+    its step-5 None-sub_schema handling rather than raising TypeError on a
+    framework declared in the registry but absent from the pinned block).
     This is the schema-anchored delimiter resolution (D3a / D6 / M1).
     """
+    if sub_schema is None:
+        return None
     for delim in ("@", ":"):
         candidate = f"{ref}{delim}{version}"
         try:

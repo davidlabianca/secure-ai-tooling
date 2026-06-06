@@ -54,7 +54,7 @@ import yaml
 # ---------------------------------------------------------------------------
 # Module-level imports — the validate_mapping_purity import raises
 # ModuleNotFoundError at collection time, failing the entire file,
-# until SWE creates that module.
+# until that module is created.
 # ---------------------------------------------------------------------------
 from precommit.framework_mapping import load_pinned_patterns, load_registry
 from precommit.validate_mapping_purity import classify_value, main
@@ -1067,7 +1067,7 @@ class TestMainRealShapeSilentSkip:
 
 
 # ===========================================================================
-# 7. LIVE CORPUS GREEN — all four content files must produce zero failures
+# 7. LIVE CORPUS CLEAN — all four content files must produce zero failures
 # ===========================================================================
 
 
@@ -1143,7 +1143,7 @@ class TestLiveCorpusGreen:
         Then: returns 0
 
         This is the crux regression guard: the entire current corpus stays
-        GREEN with the purity validator in place. The validator must skip every
+        clean (zero failures) with the purity validator in place. The validator must skip every
         legacy value and report no failures. Migration to pinned forms is #343.
         """
         for path in (RISKS_YAML, CONTROLS_YAML, COMPONENTS_YAML, PERSONAS_YAML):
@@ -1197,7 +1197,7 @@ Coverage areas:
   - main() default no-args mode
   - Live corpus: all four files individually + combined + default no-args
 
-Recommended public API (for SWE):
+Recommended public API:
   classify_value(
       fw_id: str,
       value: str,

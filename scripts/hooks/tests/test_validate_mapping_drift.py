@@ -42,7 +42,7 @@ Classification algorithm (D5/D5a):
        split succeeds, token in priorVersions set → ("valid-but-superseded", detail).
 
 Import strategy: module-level import so a ModuleNotFoundError at collection time
-signals that the production module does not yet exist (correct RED signal for TDD).
+signals that the production module is absent.
 
 Note on live corpus: all current mapping values are legacy pre-ADR-027 forms —
 no `@` or `:` in versioned framework values; bare PascalCase/lowercase for STRIDE.
@@ -61,7 +61,7 @@ import yaml
 # ---------------------------------------------------------------------------
 # Module-level imports — the validate_mapping_drift import raises
 # ModuleNotFoundError at collection time, failing the entire file,
-# until SWE creates that module.
+# until that module is created.
 # ---------------------------------------------------------------------------
 from precommit.framework_mapping import (
     known_versions,
@@ -958,16 +958,16 @@ class TestMainSupersededIsNotFailure:
     All tests use synthetic fixtures so the superseded path is reachable.
     The live YAML files are never modified.
 
-    IMPLEMENTATION CONSTRAINT (binding on SWE): the monkey-patch helper below
+    IMPLEMENTATION CONSTRAINT (binding on the implementation): the monkey-patch helper below
     replaces `load_registry` / `load_pinned_patterns` as module-level names on
     `precommit.validate_mapping_drift`. This is only effective if `main()` calls
     those loaders through their module-level names at RUNTIME (i.e. imported with
     `from precommit.framework_mapping import load_registry, load_pinned_patterns`
     and called as bare names inside main(), exactly as validate_mapping_purity.py
-    does). If SWE caches the registry at import time, or aliases/renames the
+    does). If the implementation caches the registry at import time, or aliases/renames the
     imports so the patch cannot reach them, this test would still exit 0 — but for
     the WRONG reason (the live registry has no priorVersions, so every value would
-    classify "skip"), giving false confidence. SWE must mirror the purity
+    classify "skip"), giving false confidence. The implementation must mirror the purity
     validator's import-and-call pattern so the override actually takes effect.
     """
 
@@ -1265,7 +1265,7 @@ class TestLiveCorpusGreen:
         When: main([risks, controls, components, personas]) is called
         Then: returns 0
 
-        Crux regression guard: the entire current corpus stays GREEN.  Every
+        Crux regression guard: the entire current corpus stays clean (zero findings).  Every
         legacy value classifies "skip"; migration to pinned forms is #343.
         """
         for path in (RISKS_YAML, CONTROLS_YAML, COMPONENTS_YAML, PERSONAS_YAML):
@@ -1316,7 +1316,7 @@ Coverage areas:
     real-shape controls (description+categories-before-controls), legacy-stays-green
   - Live corpus: all four files individually + combined + default no-args
 
-API contract locked for SWE:
+API contract:
   classify_value(
       fw_id: str,
       value: str,

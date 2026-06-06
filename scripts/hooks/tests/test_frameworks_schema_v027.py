@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-Tests for ADR-027 Phase 1 schema additions to risk-map/schemas/frameworks.schema.json.
+Tests for the ADR-027 schema additions to risk-map/schemas/frameworks.schema.json.
 
-Phase 1 scope (additive, non-breaking):
+Scope (additive, non-breaking):
   - New optional registry fields on definitions/framework: versionId, supersedes,
     priorVersions (D2a, D2c).
   - New parallel definitions block definitions/framework-mapping-patterns-pinned
@@ -16,10 +16,9 @@ is a sibling, not a replacement; consumer-schema $ref swaps happen in #343.
 Authoritative spec: docs/adr/027-framework-versioning-and-mapping-convention.md
 D-section citations in each docstring trace the test's "why" to the ADR.
 
-These tests are written RED-first (TDD Phase 1): they will FAIL until the SWE
-agent adds the new schema fields. TestExistingEntriesStillValidate and
-TestExistingFrameworkMappingPatternsBlockUnchanged should remain GREEN (they
-assert the current, unmodified schema state).
+TestExistingEntriesStillValidate and TestExistingFrameworkMappingPatternsBlockUnchanged
+assert backward compatibility — the additions must not disturb the entries or the
+legacy pattern block that validated before them.
 """
 
 import json
@@ -36,7 +35,7 @@ from referencing import Registry
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 # Pull in the legacy-block constants for the regression guard (TestExistingFrameworkMappingPatternsBlockUnchanged).
-# These are the exact ADR-022 D5b pattern strings the SWE must not touch.
+# These are the exact ADR-022 D5b pattern strings the implementation must not touch.
 from test_framework_mapping_patterns import EXPECTED_FRAMEWORK_KEYS, FRAMEWORK_PATTERN_TABLE  # noqa: E402
 
 # ============================================================================
@@ -243,16 +242,16 @@ def legacy_mapping_patterns(frameworks_schema: dict) -> dict:
 @pytest.fixture(scope="module")
 def pinned_mapping_patterns(frameworks_schema: dict) -> dict:
     """
-    The new definitions/framework-mapping-patterns-pinned block (ADR-027 Phase 1).
+    The new definitions/framework-mapping-patterns-pinned block (ADR-027).
 
-    Fails with a clear message if the block is absent — the SWE agent must add
-    this block without touching the existing framework-mapping-patterns block.
+    Fails with a clear message if the block is absent — the block must be added
+    without touching the existing framework-mapping-patterns block.
     """
     defs = frameworks_schema.get("definitions", {})
     if "framework-mapping-patterns-pinned" not in defs:
         pytest.fail(
             "definitions/framework-mapping-patterns-pinned missing from frameworks.schema.json; "
-            "this block must be added per ADR-027 Phase 1 (additive, does not modify "
+            "this block must be added per ADR-027 (additive, does not modify "
             "the existing framework-mapping-patterns block)."
         )
     return defs["framework-mapping-patterns-pinned"]
@@ -281,26 +280,26 @@ class TestNewBlockPresence:
     that the ADR-022 D5b consumer-schema $refs and the existing test file
     continue to work unchanged.
 
-    D-sections: ADR-027 Phase 1 scope, D3a, D7 ("additive, non-breaking").
+    D-sections: ADR-027 additive scope, D3a, D7 ("additive, non-breaking").
     """
 
     def test_pinned_block_is_present(self, frameworks_schema: dict):
         """
         Test that the new pinned block has been added to definitions.
 
-        Given: frameworks.schema.json after Phase 1 SWE work
+        Given: frameworks.schema.json after the schema additions
         When: definitions/framework-mapping-patterns-pinned is looked up
-        Then: The key exists (ADR-027 Phase 1 additive requirement)
+        Then: The key exists (ADR-027 additive requirement)
         """
         assert "framework-mapping-patterns-pinned" in frameworks_schema.get("definitions", {}), (
-            "definitions/framework-mapping-patterns-pinned must be added per ADR-027 Phase 1"
+            "definitions/framework-mapping-patterns-pinned must be added per ADR-027"
         )
 
     def test_legacy_block_still_present(self, frameworks_schema: dict):
         """
         Test that the existing ADR-022 D5b block has NOT been removed or renamed.
 
-        Given: frameworks.schema.json after Phase 1 SWE work
+        Given: frameworks.schema.json after the schema additions
         When: definitions/framework-mapping-patterns is looked up
         Then: The key still exists (consumer $refs point at it; must not be disturbed)
         """
@@ -738,12 +737,12 @@ class TestIso22989PinnedEntry:
 
     The binding encoding per D7: a oneOf/anyOf over enum-bearing sub-schemas
     (one arm per edition), each arm carrying its version-suffixed members.
-    For Phase 1 (single 2022 edition), a flat closed enum is equivalent, but
+    For a single 2022 edition, a flat closed enum is equivalent, but
     the SHAPE must be oneOf-over-enums to leave a clean extension point for
     future editions.
 
     A structural test asserts "type:string with an enum, or oneOf over
-    enum-bearing sub-schemas" so the SWE does not ship a tightened pattern.
+    enum-bearing sub-schemas" so the implementation does not ship a tightened pattern.
 
     D-sections: D7 (binding encoding for non-ID frameworks), D8 (ISO 22989
     controlled-vocabulary carve-out), D3 (@2022 version token).
@@ -791,12 +790,12 @@ class TestIso22989PinnedEntry:
         Given: The iso-22989 pinned entry
         When: Its sub-schema is examined
         Then: It is either:
-              (a) type:string with an 'enum' field (flat closed enum for Phase 1), or
+              (a) type:string with an 'enum' field (flat closed enum for a single edition), or
               (b) a 'oneOf' over sub-schemas each of which has type:string + enum
 
         The binding encoding per D7 is (b) — oneOf/anyOf over per-edition enums —
         so that a second ISO edition can be added as a new arm without restructuring.
-        Phase 1 with a single 2022 edition may use (a) or (b); the test accepts both
+        A single 2022 edition may use (a) or (b); the test accepts both
         but a structural comment documents the preferred (b) shape.
 
         D-sections: D7 ("binding encoding: oneOf/anyOf over enum-bearing sub-schemas"),
@@ -893,7 +892,7 @@ class TestIso22989PinnedEntry:
         When: All valid @2022 values are validated
         Then: None are rejected
 
-        This is a completeness guard: if the SWE omits one of the 6 roles,
+        This is a completeness guard: if the implementation omits one of the 6 roles,
         a legitimate mapping value would be rejected at schema-validation time.
 
         D-sections: D8 (the closed set is sourced from the standard's own role taxonomy).
@@ -918,9 +917,9 @@ class TestVersionIdField:
     The versionId field must be added to definitions/framework/properties as an
     optional string with the D2a charset pattern ^[a-z0-9.@-]+$.
 
-    It is optional (Phase 1): the generator materializes it at pre-commit (D2b);
-    Phase 1 only declares the field shape. The 'required' list must NOT include
-    'versionId' after Phase 1.
+    It is optional: the generator materializes it at pre-commit (D2b);
+    the schema only declares the field shape. The 'required' list must NOT include
+    'versionId'.
 
     D-sections: D2a (shape and charset), D2b (generated, not authored — optional
     in schema so legacy entries without it still validate).
@@ -978,15 +977,15 @@ class TestVersionIdField:
 
         Given: definitions/framework
         When: Its 'required' list is examined
-        Then: 'versionId' is absent (Phase 1 leaves it optional;
-              Phase 2 materialization via the generator makes it present)
+        Then: 'versionId' is absent (the schema leaves it optional;
+              generator materialization (D2b) makes it present)
 
-        D-sections: D2b ("materializing it at pre-commit ... Phase 2").
+        D-sections: D2b ("materializing it at pre-commit").
         """
         required = framework_definition.get("required", [])
         assert "versionId" not in required, (
-            "versionId must NOT be in required[] for Phase 1; the generator "
-            "materializes it and Phase 1 only declares the field shape (D2b)"
+            "versionId must NOT be in required[]; the generator "
+            "materializes it and the schema only declares the field shape (D2b)"
         )
 
     @pytest.mark.parametrize("valid_value", VERSION_ID_VALID)
@@ -1036,7 +1035,7 @@ class TestSupersedesField:
     Note on what JSON Schema CAN and CANNOT enforce here:
     - Schema-level family-consistency (that 'nist-ai-rmf@1.0' belongs to the
       'nist-ai-rmf' family, not 'mitre-atlas') is NOT enforceable in pure JSON
-      Schema without per-instance logic. That invariant lives in the Phase-2
+      Schema without per-instance logic. That invariant lives in the
       purity validator (D2b/D4c) and the drift-detection validator (D5), not
       in the schema. Tests here assert only what the schema can enforce:
       charset, type, and optionality.
@@ -1129,7 +1128,7 @@ class TestPriorVersionsField:
 
     Note: family-consistency (each member must belong to the same concept-id
     family as the carrier entry) is NOT enforceable in pure JSON Schema; it
-    lives in the Phase-2 purity validator. Tests here assert charset, uniqueness,
+    lives in the versionId purity validator. Tests here assert charset, uniqueness,
     type, and optionality — what the schema CAN enforce.
 
     D-sections: D2c (priorVersions semantics), D2a (charset), D5a (three-state
@@ -1276,11 +1275,11 @@ class TestExistingEntriesStillValidate:
     All 6 existing frameworks.yaml entries must still pass validation against
     the updated definitions/framework schema (additive, non-breaking guard).
 
-    This test class must remain GREEN after the SWE adds the new optional
-    fields — if any existing entry fails validation, the Phase 1 additions
+    This test class must keep passing after the new optional fields are added —
+    fields — if any existing entry fails validation, the additions
     broke backward compatibility.
 
-    D-sections: D7 ("additive, NON-breaking"), Phase 1 scope ("additive, optional").
+    D-sections: D7 ("additive, NON-breaking"), additive scope ("additive, optional").
     """
 
     @pytest.fixture(scope="class")
@@ -1300,8 +1299,8 @@ class TestExistingEntriesStillValidate:
         Then: It has 6 entries (the current registry)
         """
         assert len(framework_entries) == 6, (
-            "Expected 6 framework entries (Phase 1 scope guard); "
-            "etsi-en-304-223 and nist-ai-rmf-actor-tasks are #329/#319 execution, not #347 Phase 1"
+            "Expected 6 framework entries (scope guard); "
+            "etsi-en-304-223 and nist-ai-rmf-actor-tasks are #329/#319 execution, not #347"
         )
 
     @pytest.mark.parametrize(
@@ -1334,7 +1333,7 @@ class TestExistingEntriesStillValidate:
         The new optional fields must not break existing entries that omit them.
         The schema_registry fixture resolves cross-file $refs.
 
-        D-sections: D7 ("additive, non-breaking"), Phase 1 scope.
+        D-sections: D7 ("additive, non-breaking"), additive scope.
         """
         # Find the entry for this framework_id.
         entry = next((e for e in framework_entries if e.get("id") == framework_id), None)
@@ -1345,7 +1344,7 @@ class TestExistingEntriesStillValidate:
         errors = list(validator.iter_errors(entry))
         assert not errors, (
             f"Existing frameworks.yaml entry for {framework_id!r} must still validate "
-            f"after Phase 1 schema additions; errors: {[e.message for e in errors]}"
+            f"after the schema additions; errors: {[e.message for e in errors]}"
         )
 
 
@@ -1370,7 +1369,7 @@ class TestNewOptionalFieldsTogether:
         self, frameworks_schema: dict, schema_registry: Registry
     ):
         """
-        Test that a synthetic framework entry carrying all three Phase 1 optional
+        Test that a synthetic framework entry carrying all three new optional
         fields validates against definitions/framework with no errors.
 
         Given: A synthetic entry with required fields plus versionId, supersedes,
@@ -1392,7 +1391,7 @@ class TestNewOptionalFieldsTogether:
             "description": "Synthetic entry with all three new optional fields",
             "baseUri": "https://atlas.mitre.org",
             "applicableTo": ["controls"],
-            # All three Phase 1 new optional fields together.
+            # All three new optional fields together.
             "versionId": "mitre-atlas@5.0.1",
             "supersedes": "mitre-atlas@5.0.0",
             "priorVersions": ["mitre-atlas@5.0.0", "mitre-atlas@4.5.0"],
@@ -1417,7 +1416,7 @@ class TestExistingFrameworkMappingPatternsBlockUnchanged:
     Explicit regression guard for the ADR-022 D5b legacy block.
 
     The existing definitions/framework-mapping-patterns block must remain
-    byte-stable across the Phase 1 SWE work. Consumer-schema $refs (in
+    byte-stable across the schema additions. Consumer-schema $refs (in
     risks.schema.json, controls.schema.json, personas.schema.json) still
     point at this block; tightening it in place would reject existing legacy
     content values and break those tests.
@@ -1588,7 +1587,7 @@ class TestSchemaMetaValidity:
         """
         Test that the entire frameworks.schema.json passes the Draft-07 meta-schema.
 
-        Given: The full frameworks.schema.json after Phase 1 additions
+        Given: The full frameworks.schema.json after the schema additions
         When: Draft7Validator.check_schema() is called on the entire document
         Then: No SchemaError is raised
 
@@ -1598,7 +1597,7 @@ class TestSchemaMetaValidity:
             Draft7Validator.check_schema(frameworks_schema)
         except SchemaError as exc:
             pytest.fail(
-                f"Full frameworks.schema.json is not valid Draft-07 after Phase 1 additions: {exc.message}"
+                f"Full frameworks.schema.json is not valid Draft-07 after the schema additions: {exc.message}"
             )
 
 
@@ -1611,23 +1610,21 @@ Test Summary
 Test classes: 11
 Total tests (approximate): ~90
 
-Classes and their expected RED/GREEN state BEFORE SWE work:
+Test classes and their key assertion:
 
-| Class                                          | RED/GREEN (pre-SWE) | Key assertion                          |
-|------------------------------------------------|---------------------|----------------------------------------|
-| TestNewBlockPresence                           | MIXED               | legacy-block tests GREEN; pinned-block |
-|                                                |                     | tests RED (block doesn't exist yet)    |
-| TestNewBlockStructure                          | RED                 | pinned block missing -> fixture fails  |
-| TestPerFrameworkPinnedPatternCommitments       | RED                 | pinned block missing -> fixture fails  |
-| TestStridePinnedEntry                          | RED                 | pinned block missing -> fixture fails  |
-| TestIso22989PinnedEntry                        | RED                 | pinned block missing -> fixture fails  |
-| TestVersionIdField                             | RED                 | versionId field missing in schema      |
-| TestSupersedesField                            | RED                 | supersedes field missing in schema     |
-| TestPriorVersionsField                         | RED                 | priorVersions field missing in schema  |
-| TestExistingEntriesStillValidate               | GREEN               | existing entries validate as-is        |
-| TestExistingFrameworkMappingPatternsBlockUnch. | GREEN               | legacy block is currently untouched    |
-| TestSchemaMetaValidity                         | RED (pinned tests)  | pinned block missing -> fixture fails  |
-|                                                | GREEN (legacy test) | full schema is valid today             |
+| Class                                          | Key assertion                          |
+|------------------------------------------------|----------------------------------------|
+| TestNewBlockPresence                           | pinned block present alongside legacy   |
+| TestNewBlockStructure                          | pinned block outer shape               |
+| TestPerFrameworkPinnedPatternCommitments       | per-framework pinned patterns          |
+| TestStridePinnedEntry                          | STRIDE frozen enum, no token           |
+| TestIso22989PinnedEntry                        | ISO 22989 closed controlled-vocab enum |
+| TestVersionIdField                             | versionId field shape + charset        |
+| TestSupersedesField                            | supersedes field shape + charset       |
+| TestPriorVersionsField                         | priorVersions field shape + charset    |
+| TestExistingEntriesStillValidate               | existing entries validate as-is        |
+| TestExistingFrameworkMappingPatternsBlockUnch. | legacy block byte-stable               |
+| TestSchemaMetaValidity                         | full schema is valid Draft-07          |
 
 Coverage areas:
 - New block presence (additive sibling, not a replacement)

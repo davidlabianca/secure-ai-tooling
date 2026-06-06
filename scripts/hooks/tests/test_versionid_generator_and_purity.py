@@ -24,7 +24,7 @@ YAML-coerced scalar — `version: 1.0` would parse as float 1.0 and silently
 truncate to `@1` (D2b note). The generator asserts string-type before composing
 and the purity validator additionally guards the same invariant.
 
-These tests are written RED-first: until the generator + validator land they
+These tests are written test-first: until the generator + validator land they
 fail. The fixture-driven tests use a tmp_path-cloned frameworks.yaml so the
 real registry is never mutated.
 """
@@ -46,7 +46,7 @@ FRAMEWORKS_YAML = REPO_ROOT / "risk-map" / "yaml" / "frameworks.yaml"
 GENERATOR = REPO_ROOT / "scripts" / "hooks" / "precommit" / "versionid_generator.py"
 PURITY_VALIDATOR = REPO_ROOT / "scripts" / "hooks" / "precommit" / "validate_versionid_purity.py"
 
-# D2a invariant. Mirrored from frameworks.schema.json Phase-1 charset constraint.
+# D2a invariant. Mirrored from the frameworks.schema.json charset constraint.
 VERSION_ID_CHARSET_RE = re.compile(r"^[a-z0-9.@-]+$")
 
 # Expected materialized versionId values for the 6 current registry entries (D2b).
@@ -115,7 +115,7 @@ def _entry_by_id(data: dict, fw_id: str) -> dict:
 
 
 class TestToolingArtifactsExist:
-    """Both Phase-2 scripts must be present at the documented paths."""
+    """Both the generator and purity validator scripts must be present at the documented paths."""
 
     def test_generator_script_exists(self):
         assert GENERATOR.is_file(), (
@@ -921,10 +921,10 @@ class TestPurityPriorVersionsList:
 class TestMaterializedRegistry:
     """
     The on-disk frameworks.yaml must carry the materialized versionIds for all
-    6 current entries after this phase lands.
+    6 current entries once materialization lands.
 
-    This is the post-phase invariant — the real frameworks.yaml is updated as
-    part of Phase 2 so downstream consumers can read a stable on-disk field
+    The real frameworks.yaml is updated by the versionId generator (D2b) so
+    downstream consumers can read a stable on-disk field
     (D2b: "Materializing it at pre-commit (not build-only)...").
     """
 
@@ -940,8 +940,8 @@ class TestMaterializedRegistry:
     def test_real_frameworks_yaml_passes_purity(self):
         result = _run(PURITY_VALIDATOR, "--path", str(FRAMEWORKS_YAML))
         assert result.returncode == 0, (
-            f"the live frameworks.yaml must pass the purity validator (post-phase "
-            f"invariant for Phase 2); stderr=\n{result.stderr}"
+            f"the live frameworks.yaml must pass the purity validator (D2b "
+            f"materialization invariant); stderr=\n{result.stderr}"
         )
 
     def test_every_materialized_versionid_matches_charset(self):
@@ -956,9 +956,9 @@ class TestMaterializedRegistry:
 
     def test_real_frameworks_yaml_passes_schema_validation(self):
         """
-        The materialized frameworks.yaml must validate against the Phase-1
-        schema. Phase-1 added `versionId` as an optional string with the
-        D2a charset constraint; Phase-2 fills it. A schema break here would
+        The materialized frameworks.yaml must validate against the
+        schema. The schema added `versionId` as an optional string with the
+        D2a charset constraint; the generator fills it. A schema break here would
         mean the optional field's pattern and the materialization disagree.
 
         Uses `check-jsonschema` via subprocess (same surface the pre-commit
