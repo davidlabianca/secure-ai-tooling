@@ -129,6 +129,12 @@ _REQUIRED_HOOK_IDS = {
     "regenerate-graphs",
     "regenerate-tables",
     "regenerate-svgs",
+    # ADR-027 D2b: frameworks.yaml versionId materialization + purity check.
+    "regenerate-frameworks-versionid",
+    "validate-frameworks-versionid-purity",
+    # ADR-027 D4c/D5: framework mapping-value purity + Tier-1 drift checks.
+    "validate-mapping-purity",
+    "validate-mapping-drift",
 }
 
 
@@ -713,6 +719,11 @@ _LOCAL_VALIDATOR_TRIGGER_COVERAGE: dict[str, set[str] | None] = {
     # Discovers (schema, yaml) pairs from the filesystem at runtime; the read
     # set is not a fixed list of paths.
     "validate-all-yaml-on-master-schema-change": None,
+    # validate-frameworks-versionid-purity: reads only frameworks.yaml at the
+    # canonical path. Trigger is anchored on the same path.
+    "validate-frameworks-versionid-purity": {
+        "risk-map/yaml/frameworks.yaml",
+    },
 }
 
 

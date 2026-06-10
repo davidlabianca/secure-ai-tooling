@@ -100,8 +100,13 @@ Development tools and utilities for this project.
 - `hooks/validate_control_risk_references.py` - Control-risk cross-reference validation
 - `hooks/validate_framework_references.py` - Framework reference validation
 - `hooks/precommit/validate_workflow_uses_pinning.py` - GitHub Actions `uses:` pinning validation for ADR-024
+- `hooks/precommit/versionid_generator.py` - frameworks.yaml versionId generator (ADR-027 D2b)
+- `hooks/precommit/validate_versionid_purity.py` - versionId purity validator (ADR-027 D2b/D2c)
+- `hooks/precommit/validate_mapping_purity.py` - framework mapping-value purity validator (ADR-027 D4c)
+- `hooks/precommit/validate_mapping_drift.py` - framework mapping-value drift validator (ADR-027 D5/D5a)
 - `hooks/validate_issue_templates.py` - Issue template schema validation
 - `generate_issue_templates.py` - Issue template generator from sources
+- `framework_mapping_maintainer.py` - maintainer CLI to add/update/remove pinned framework mapping values (ADR-027 D4)
 - `hooks/yaml_to_markdown.py` - Markdown table generation from YAML
 - `tools/install-deps.sh` - Idempotent dependency installer; Step 8 invokes `pre-commit install` for the framework hook
 - `tools/verify-deps.sh` - Verifies all required tools are installed and correct versions

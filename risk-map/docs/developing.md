@@ -25,6 +25,7 @@ This guide outlines how you can contribute to the Coalition for Secure AI (CoSAI
 - Manual edge validation and graph generation
 - Markdown table documentation
 - Control-to-risk reference validation
+- Framework mapping validators (versionId purity, mapping-value purity, drift)
 - Prettier formatting and Ruff linting
 - Command reference for all validation tools
 
@@ -99,6 +100,42 @@ This guide outlines how you can contribute to the Coalition for Secure AI (CoSAI
 - Skip markers for documentation-only code
 - Working directory and file path guidelines
 - Testing examples locally
+
+---
+
+## Maintaining framework mappings
+
+Framework mapping values are **generated, not authored** (ADR-027 D4). Use
+`scripts/framework_mapping_maintainer.py` to add, update, or remove pinned
+mapping values rather than hand-editing `mappings.<framework>` lists in the
+content YAML files. The `validate_mapping_purity.py` and
+`validate_mapping_drift.py` validators guard the result.
+
+Add a mapping (composes `AML.T0043@5.0.1` and appends it to the entity's
+`mappings.mitre-atlas` list):
+
+```bash
+python3 scripts/framework_mapping_maintainer.py add \
+    --cosai-id controlInputValidation \
+    --framework mitre-atlas \
+    --version 5.0.1 \
+    --framework-specific-ref AML.T0043
+```
+
+Re-pin an existing mapping to a newer version (locates the entry by base-ref
+and replaces the version token in place; `--version` is the new version to
+pin to):
+
+```bash
+python3 scripts/framework_mapping_maintainer.py update \
+    --cosai-id controlInputValidation \
+    --framework mitre-atlas \
+    --version 6.0.0 \
+    --framework-specific-ref AML.T0043
+```
+
+Run `python3 scripts/framework_mapping_maintainer.py <add|update|remove> --help`
+for the full flag list.
 
 ---
 

@@ -304,3 +304,49 @@ def test_default_mode_does_not_run_generation_check(tmp_path: Path):
     python_log = (tmp_path / "python-invocations.log").read_text(encoding="utf-8")
     assert "yaml_to_markdown.py" not in python_log
     assert not (tmp_path / "git-invocations.log").exists()
+
+
+def test_sweep_includes_adr027_validators():
+    """
+    Assert that the full-tree sweep script invokes all three ADR-027 validators.
+
+    Given: the source of scripts/tools/validate-all.sh
+    When: the source text is inspected for ADR-027 validator invocations
+    Then: all three validator script names are present:
+          validate_versionid_purity.py, validate_mapping_purity.py,
+          validate_mapping_drift.py
+
+    Also asserts that the invocations use explicit full-tree consumer paths:
+      - validate_mapping_purity.py and validate_mapping_drift.py must reference
+        at least one consumer YAML (risks.yaml, controls.yaml, etc.) so they
+        are not silently invoked with no file arguments.
+      - validate_versionid_purity.py must reference frameworks.yaml (its input).
+
+    This is the conformance contract for Gap A (#347 / D5): validate-all.sh must
+    invoke the ADR-027 validators in the full-tree sweep.
+    """
+    source = SCRIPT_SOURCE.read_text(encoding="utf-8")
+    assert "validate_versionid_purity.py" in source, (
+        "validate-all.sh does not invoke validate_versionid_purity.py. "
+        "ADR-027 D2b requires the versionId purity validator in the full-tree sweep."
+    )
+    assert "validate_mapping_purity.py" in source, (
+        "validate-all.sh does not invoke validate_mapping_purity.py. "
+        "ADR-027 D4c requires the mapping-value purity validator in the full-tree sweep."
+    )
+    assert "validate_mapping_drift.py" in source, (
+        "validate-all.sh does not invoke validate_mapping_drift.py. "
+        "ADR-027 D5 requires the mapping-drift validator in the full-tree sweep."
+    )
+    # Confirm the invocations reference explicit full-tree paths (not silent
+    # no-op defaults). Per the Gap A spec, mapping-purity and mapping-drift take
+    # all four consumer YAMLs and versionId-purity takes frameworks.yaml — require
+    # every consumer file by name so a partial wiring cannot pass this gate.
+    for consumer in ("risks.yaml", "controls.yaml", "components.yaml", "personas.yaml"):
+        assert consumer in source, (
+            f"validate-all.sh does not pass {consumer} to the ADR-027 mapping validators. "
+            "Mapping-purity and mapping-drift must reference all four consumer YAMLs explicitly."
+        )
+    assert "frameworks.yaml" in source, (
+        "validate-all.sh does not reference frameworks.yaml for the versionId purity check."
+    )
