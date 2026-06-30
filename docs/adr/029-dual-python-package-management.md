@@ -1,6 +1,6 @@
 # ADR-029: Dual Python package-management path with `uv` devcontainers
 
-**Status:** Draft
+**Status:** Accepted
 **Date:** 2026-06-06
 **Authors:** Architect agent, with maintainer review
 
