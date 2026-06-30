@@ -1,7 +1,7 @@
 # ADR-030: Agentic component model — external tools tier and identity grouping
 
-**Status:** Draft
-**Date:** 2026-06-27
+**Status:** Accepted
+**Date:** 2026-06-30
 **Authors:** Architect agent, with maintainer review
 
 ---
