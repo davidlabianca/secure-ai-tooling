@@ -3,6 +3,7 @@
 **Status:** Draft
 **Date:** 2026-07-01
 **Authors:** Architect agent, with maintainer review
+**Conforms to:** [ADR-033](033-vendor-neutral-agent-skill-shipping.md) — the authoring corpus this ADR defines ships under ADR-033's vendor-neutral shipping standard and lifecycle.
 
 ---
 
