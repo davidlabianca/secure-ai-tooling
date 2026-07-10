@@ -90,6 +90,12 @@ class ComponentEdgeValidator:
         """
         Find components with no edges.
 
+        "Isolated" means no component-to-component edges only — this never checks
+        whether a component is referenced by any control or risk. That coverage
+        axis is intentionally left unchecked per ADR-034 §D3a: a new component may
+        land with edges but zero control/risk coverage. Do not add per-PR coverage
+        enforcement here without revisiting that ADR.
+
         Returns:
             Set of isolated component IDs
         """
