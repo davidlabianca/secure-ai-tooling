@@ -13,10 +13,17 @@ legitimate content and are allowlisted by span, so a denylist hit is only
 suppressed where it actually overlaps an allowlist match on the same line —
 not for the whole line.
 
-A separate structural rule governs YAML frontmatter: a `SKILL.md` file may
-declare only `name`/`description`; an agent `.md` file must not declare a
-runtime-binding key (`tools`, `model`, `color`, `allowed-tools`/
-`allowed_tools`) if it happens to carry a frontmatter block at all.
+A separate structural rule governs YAML frontmatter: the canonical skill-root
+`SKILL.md` (`scripts/skills/<name>/SKILL.md`) may declare only
+`name`/`description`; a top-level agent `.md` (directly under
+`scripts/agents/`) must not declare a runtime-binding key (`tools`, `model`,
+`color`, `allowed-tools`/`allowed_tools`) if it happens to carry a frontmatter
+block at all. Frontmatter that cannot be verified (malformed YAML, an
+unterminated fence) is a violation on those two structural targets, fail
+closed rather than silently skipped; a same-named or bundled file that is not
+one of those two structural targets (e.g. `references/SKILL.md`,
+`references/*.md`) is exempt from this structural rule and only gets the
+denylist scan.
 
 `scripts/hooks/precommit/_neutrality_data.py` holds the denylist/allowlist
 patterns; this module only implements the scan and CLI.
@@ -138,14 +145,91 @@ def _find_key_line(lines: list[str], start: int, end: int, key: str) -> int:
     return start + 1
 
 
+def _normalize_frontmatter_key(key: object) -> str:
+    """
+    Normalize a frontmatter key for the allowlist/forbidden-key comparisons.
+
+    Lowercases and maps underscores to hyphens so `Model`, `Allowed_Tools`, and
+    `allowed-tools` all collapse to their canonical denylist form. Non-string
+    keys (YAML permits them) are stringified first so the comparison never
+    raises. LB3: without the lowercasing, capitalized keys evaded both checks.
+    """
+    return str(key).lower().replace("_", "-")
+
+
+def _frontmatter_is_structurally_expected(path: Path) -> bool:
+    """
+    True when a file is one where a YAML frontmatter block is structurally expected.
+
+    LB2 scoping: the malformed-frontmatter fail-closed rule applies ONLY to
+    files that are supposed to carry frontmatter —
+
+      * the canonical skill-root ``SKILL.md``: ``scripts/skills/<name>/SKILL.md``
+        (parent dir is the skill's own directory, grandparent dir is ``skills``), and
+      * a top-level agent definition: a ``.md`` file directly under
+        ``scripts/agents/`` (parent dir ``agents``, grandparent ``scripts``).
+
+    Bundled reference material (``references/*.md``, or any non-root ``.md`` —
+    including a file that happens to also be named ``SKILL.md`` but sits deeper
+    than the skill root, e.g. ``references/SKILL.md``) is deliberately excluded:
+    it may legitimately open with a ``---`` markdown thematic break, so flagging
+    it for "malformed frontmatter" would be a false positive. Reference files
+    still get the denylist scan; they are only exempt from this structural rule.
+    """
+    parent = path.parent
+    if path.name == "SKILL.md":
+        return parent.parent.name == "skills"
+    # Top-level agent definition: <...>/scripts/agents/<file>.md, nothing between
+    # `agents` and the file. A deeper file (e.g. scripts/agents/foo/refs.md) is
+    # bundled material, not a top-level agent def, and is excluded.
+    return path.suffix == ".md" and parent.name == "agents" and parent.parent.name == "scripts"
+
+
+def _find_reopened_forbidden_key(lines: list[str], body_start: int) -> tuple[str, int] | None:
+    """
+    Find a forbidden runtime-binding key smuggled into a re-opened `---` block.
+
+    After the first frontmatter block closes, an author (or an adversary) can
+    re-open a second `---`-delimited block deeper in the file and place a
+    forbidden key inside it — content the first-block parser never sees. Scan
+    the body for a `---` fence that opens such a block and return the first
+    forbidden key found, as (key, 1-based line number). Returns None if none.
+
+    This is a targeted structural check, not a full re-parse: it only looks for
+    the specific evasion of a forbidden key inside a re-opened fence.
+    """
+    in_block = False
+    for index in range(body_start, len(lines)):
+        if lines[index].strip() == "---":
+            in_block = not in_block
+            continue
+        if not in_block:
+            continue
+        # `key: value` shape inside a re-opened block. Split on the first colon
+        # and normalize; a match on the forbidden set is the evasion we flag.
+        stripped = lines[index].strip()
+        if ":" in stripped:
+            candidate = _normalize_frontmatter_key(stripped.split(":", 1)[0])
+            if candidate in _AGENT_FRONTMATTER_FORBIDDEN_KEYS_NORMALIZED:
+                return candidate, index + 1
+    return None
+
+
 def _frontmatter_violations(path: Path, lines: list[str]) -> list[Violation]:
     """
     Check a YAML frontmatter block (if present) against structural rules.
 
-    SKILL.md files may declare only `name`/`description`. Agent `.md` files
-    must not declare a runtime-binding key. A file with no frontmatter block,
-    or an unterminated/malformed one, is out of scope for this check — the
-    former is trivially compliant, the latter is another validator's job.
+    SKILL.md files may declare only `name`/`description`. Top-level agent `.md`
+    files must not declare a runtime-binding key. A file with no frontmatter
+    block is trivially compliant.
+
+    LB2 (fail closed): on files where frontmatter is structurally expected
+    (`_frontmatter_is_structurally_expected`), frontmatter that will not parse,
+    is not a mapping, or opens a `---` fence it never closes is *unverifiable*
+    and is flagged — not silently skipped. A forbidden key hidden in a
+    re-opened second `---` block is likewise flagged. Files where frontmatter is
+    NOT structurally expected (bundled reference material) are exempt from this
+    rule so a leading `---` thematic break does not false-positive.
 
     Note: a UTF-8-BOM-prefixed file has a non-"-" first character on
     `lines[0]`, so it is treated as having no frontmatter block. BOM
@@ -154,40 +238,110 @@ def _frontmatter_violations(path: Path, lines: list[str]) -> list[Violation]:
     if not lines or lines[0].strip() != "---":
         return []
 
+    structurally_expected = _frontmatter_is_structurally_expected(path)
+
     closing_index = None
     for index in range(1, len(lines)):
         if lines[index].strip() == "---":
             closing_index = index
             break
+
     if closing_index is None:
+        # An opened-but-never-closed fence. Fail closed only where frontmatter
+        # is structurally expected; reference material may legitimately open
+        # with a `---` thematic break and never "close" it.
+        if structurally_expected:
+            return [
+                Violation(
+                    path=path,
+                    line=1,
+                    token="---",
+                    message="unverifiable frontmatter: opening '---' fence has no closing '---'",
+                )
+            ]
         return []
 
     block_lines = lines[1:closing_index]
     try:
         frontmatter = yaml.safe_load("\n".join(block_lines)) or {}
-    except yaml.YAMLError:
+    except yaml.YAMLError as error:
+        if structurally_expected:
+            reason = str(error).splitlines()[0] if str(error) else "block is not valid YAML"
+            return [
+                Violation(
+                    path=path,
+                    line=1,
+                    token="---",
+                    message=f"unverifiable frontmatter: {reason}",
+                )
+            ]
         return []
 
     if not isinstance(frontmatter, dict):
+        if structurally_expected:
+            kind = type(frontmatter).__name__
+            return [
+                Violation(
+                    path=path,
+                    line=1,
+                    token="---",
+                    message=f"unverifiable frontmatter: block is not a key/value mapping (got {kind})",
+                )
+            ]
         return []
 
-    # Exact-case match on the fixed "SKILL.md" convention. A misnamed
-    # "skill.md"/"Skill.md" falls through to the more permissive agent rule
-    # rather than the skill rule — not a bug, just the boundary of this check.
+    # A file with well-formed frontmatter but no structural expectation (e.g.
+    # references/SKILL.md, a bundled reference file that happens to share the
+    # "SKILL.md" name but isn't the canonical skill root) is exempt from the
+    # allowlist/forbidden-key ceiling entirely, same as it is from the
+    # malformed-frontmatter checks above — it still gets the denylist scan
+    # (_scan_line), just not this structural rule.
+    if not structurally_expected:
+        return []
+
+    # Exact-case match on the fixed "SKILL.md" convention, gated on
+    # `structurally_expected` above so only the canonical skill-root SKILL.md
+    # (not a same-named file bundled deeper) is checked against the skill rule.
     is_skill = path.name == "SKILL.md"
     if is_skill:
-        offending_keys = [key for key in frontmatter if key not in SKILL_FRONTMATTER_ALLOWED_KEYS]
+        # LB3: normalize keys before the allowlist comparison so a capitalized
+        # binding key (e.g. `Tools:`) does not evade the name/description ceiling.
+        offending_keys = [
+            key for key in frontmatter if _normalize_frontmatter_key(key) not in SKILL_FRONTMATTER_ALLOWED_KEYS
+        ]
         rule = "SKILL.md frontmatter may declare only 'name' and 'description'"
     else:
+        # LB3: lowercase-normalize so `Model:`/`Tools:`/`Allowed-Tools:` are caught.
         offending_keys = [
-            key for key in frontmatter if key.replace("_", "-") in _AGENT_FRONTMATTER_FORBIDDEN_KEYS_NORMALIZED
+            key
+            for key in frontmatter
+            if _normalize_frontmatter_key(key) in _AGENT_FRONTMATTER_FORBIDDEN_KEYS_NORMALIZED
         ]
         rule = "agent frontmatter must not declare a runtime-binding key"
 
     violations = []
     for key in offending_keys:
-        line_number = _find_key_line(lines, 1, closing_index, key)
-        violations.append(Violation(path=path, line=line_number, token=key, message=f"{rule}: found {key!r}"))
+        line_number = _find_key_line(lines, 1, closing_index, str(key))
+        violations.append(
+            Violation(path=path, line=line_number, token=str(key), message=f"{rule}: found {str(key)!r}")
+        )
+
+    # LB2: a forbidden key smuggled into a re-opened second `---` block after the
+    # first block closes. Not checked for skill files: SKILL.md's own allowlist
+    # check above already covers any key, reopened block or not.
+    if not is_skill:
+        reopened = _find_reopened_forbidden_key(lines, closing_index + 1)
+        if reopened is not None:
+            key, line_number = reopened
+            violations.append(
+                Violation(
+                    path=path,
+                    line=line_number,
+                    token=key,
+                    message=f"unverifiable frontmatter: runtime-binding key {key!r} in a re-opened '---' block",
+                )
+            )
+
     return violations
 
 
@@ -195,13 +349,41 @@ def validate_file(path: Path) -> list[Violation]:
     """
     Validate one file against the ADR-033 denylist/allowlist and frontmatter rules.
 
+    Fails closed on unreadable input: a text-extension file carrying invalid
+    UTF-8, or a broken (dangling) symlink, cannot be checked for neutrality, so
+    it is flagged rather than silently passed or allowed to crash the gate.
+
     Args:
         path: File to validate.
 
     Returns:
         List of violations, empty if the file is clean.
     """
-    text = path.read_text(encoding="utf-8")
+    try:
+        text = path.read_text(encoding="utf-8")
+    except UnicodeDecodeError:
+        # LB1: invalid UTF-8 in a text-extension file. Fail closed — an
+        # undecodable file's neutrality cannot be verified, and an unguarded
+        # decode would crash the whole hook (including main([]) self-discovery).
+        return [
+            Violation(
+                path=path,
+                line=1,
+                token=path.name,
+                message="file is not valid UTF-8; cannot verify neutrality",
+            )
+        ]
+    except OSError:
+        # Broken symlink or other unreadable path. Fail closed rather than raise.
+        return [
+            Violation(
+                path=path,
+                line=1,
+                token=path.name,
+                message="file could not be read; cannot verify neutrality",
+            )
+        ]
+
     lines = text.splitlines()
 
     violations: list[Violation] = []
@@ -228,6 +410,15 @@ def discover_neutral_surface_files(root: Path) -> list[Path]:
     are returned; a non-text file (e.g. a bundled icon or sample data asset)
     is silently excluded rather than crashing `validate_file` on decode.
 
+    A dangling symlink (broken target) is included rather than filtered out.
+    `path.is_file()` follows symlinks and returns False for one whose target is
+    missing, so an `is_file()`-only filter would silently drop a broken link
+    before `validate_file`'s `except OSError` guard ever runs — fail-open by
+    omission. `path.is_symlink()` is checked independently of `is_file()` so a
+    dangling link is discovered too; a symlink that resolves to a directory is
+    still excluded (`is_dir()` on it is True, so it fails both checks), since
+    feeding a directory to `validate_file` would not make sense.
+
     Returns:
         Discovered files, agents subtree first, skills subtree second, each
         subtree sorted. Either subtree may be empty (or absent) without error.
@@ -239,7 +430,11 @@ def discover_neutral_surface_files(root: Path) -> list[Path]:
             continue
         discovered.extend(
             sorted(
-                path for path in base.rglob("*") if path.is_file() and path.suffix in _DISCOVERABLE_TEXT_EXTENSIONS
+                path
+                for path in base.rglob("*")
+                if not path.is_dir()
+                and (path.is_file() or path.is_symlink())
+                and path.suffix in _DISCOVERABLE_TEXT_EXTENSIONS
             )
         )
     return discovered
@@ -271,7 +466,12 @@ def main(argv: list[str]) -> int:
 
     all_violations: list[Violation] = []
     for path in files:
-        if not path.exists():
+        # path.exists() follows symlinks and is False for a dangling one, so a
+        # bare `if not path.exists(): continue` would silently drop a broken
+        # symlink before validate_file's OSError guard ever runs. Only skip a
+        # path that neither exists nor is a symlink at all (i.e. genuinely
+        # absent, not staged); let a dangling symlink through so it gets flagged.
+        if not path.exists() and not path.is_symlink():
             continue
         all_violations.extend(validate_file(path))
 
