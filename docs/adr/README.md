@@ -48,6 +48,7 @@ If a decision is about *how the Risk Map content model is shaped*, it belongs in
 | [030](030-agentic-component-model.md) | Agentic component model — external tools tier and identity grouping | Accepted | 2026-06-30 |
 | [031](031-authoring-time-agents-and-skills.md) | Authoring-time agents and skills for Risk Map content — creator + critic agents, classical-lexicon / mapping-selection / altitude-check / audit-framework-mappings skills | Draft | 2026-07-01 |
 | [032](032-consumer-exploration-skills.md) | Read-only consumer exploration skill surface (explore-* skills) | Draft | 2026-07-06 |
+| [034](034-corpus-change-landing-sequence.md) | Dependency-ordered landing sequence for risk-map corpus changes | Draft | 2026-07-09 |
 
 ## Conventions
 
