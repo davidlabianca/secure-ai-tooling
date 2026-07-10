@@ -43,12 +43,33 @@ VENDOR_PRODUCT_TERMS: tuple[str, ...] = (
     "Replit",
 )
 
+# Lowercase vendor/product tokens that leak through the case-sensitive scan
+# above (e.g. `import openai`, `from anthropic import`, "the copilot
+# suggestion"). Matched case-sensitively as whole words so they catch the
+# lowercase forms without re-flagging capitalized prose already covered above.
+# Kept out of VENDOR_PRODUCT_TERMS (and out of a blanket IGNORECASE) on purpose:
+# making the vendor regex case-insensitive would re-flag "CLAUDE.md", the repo's
+# own instructions filename, which is not a harness-product reference.
+VENDOR_PRODUCT_LOWERCASE_TERMS: tuple[str, ...] = (
+    "openai",
+    "anthropic",
+    "copilot",
+    "codeium",
+    "chatgpt",
+)
+
 # Longest-first so a multi-word phrase (e.g. "GitHub Copilot") wins over a
 # shorter term it contains (e.g. "Copilot") at the same starting position.
 _VENDOR_PRODUCT_ALTERNATION = "|".join(
     re.escape(term) for term in sorted(VENDOR_PRODUCT_TERMS, key=len, reverse=True)
 )
-VENDOR_PRODUCT_RE = re.compile(rf"\b(?:{_VENDOR_PRODUCT_ALTERNATION})\b")
+_VENDOR_PRODUCT_LOWERCASE_ALTERNATION = "|".join(
+    re.escape(term) for term in sorted(VENDOR_PRODUCT_LOWERCASE_TERMS, key=len, reverse=True)
+)
+# Two branches share one case-sensitive pattern: the mixed-case product/company
+# phrases and the lowercase-only leakage tokens. A single regex keeps
+# _DENYLIST_CATEGORIES emitting one "vendor" description for either shape.
+VENDOR_PRODUCT_RE = re.compile(rf"\b(?:{_VENDOR_PRODUCT_ALTERNATION}|{_VENDOR_PRODUCT_LOWERCASE_ALTERNATION})\b")
 
 # ---------------------------------------------------------------------------
 # Category 1: model-identifier-shaped strings (e.g. claude-sonnet-4-5,
@@ -78,11 +99,14 @@ MODEL_IDENTIFIER_RE = re.compile(
 )
 
 # ---------------------------------------------------------------------------
-# Category 1: lowercase CLI entry point, e.g. `claude --resume`.
+# Category 1: harness CLI entry points in backticks, e.g. `claude --resume`,
+# `cursor --resume`, `aider ...`.
 #
 # Case-insensitive and scoped to a backtick-delimited span so it never
 # collides with prose mentions of "CLAUDE.md" (which is never backtick-
-# wrapped as a shell command in this corpus).
+# wrapped as a shell command in this corpus). The entry-point word is anchored
+# to the start of the backtick span so an incidental backticked path containing
+# one of these words mid-string is not matched.
 #
 # Known v1 limitation: this only catches the inline-backtick form. A fenced
 # code block (``` ... claude --resume ... ```) or a bare shell-prompt form
@@ -90,7 +114,16 @@ MODEL_IDENTIFIER_RE = re.compile(
 # this is deliberately left as follow-up work rather than expanding the
 # regex here untested.
 # ---------------------------------------------------------------------------
-CLI_ENTRYPOINT_RE = re.compile(r"`claude\b[^`\n]*`", re.IGNORECASE)
+CLI_ENTRYPOINT_NAMES: tuple[str, ...] = (
+    "claude",
+    "cursor",
+    "aider",
+    "windsurf",
+    "codex",
+    "cline",
+)
+_CLI_ENTRYPOINT_ALTERNATION = "|".join(re.escape(name) for name in CLI_ENTRYPOINT_NAMES)
+CLI_ENTRYPOINT_RE = re.compile(rf"`(?:{_CLI_ENTRYPOINT_ALTERNATION})\b[^`\n]*`", re.IGNORECASE)
 
 # ---------------------------------------------------------------------------
 # Category 1: harness-invocation stage directions, e.g. `<invoke the Bash
@@ -110,8 +143,11 @@ INVOKE_TOOL_RE = re.compile(
 # subagent_type / subagent-type key or token.
 SUBAGENT_TYPE_RE = re.compile(r"subagent[_-]type", re.IGNORECASE)
 
-# "auto-loads"/"auto-triggers" phrasing (singular and plural/tense variants).
-AUTO_LOAD_TRIGGER_RE = re.compile(r"auto-(?:loads|loaded|triggers|triggered)", re.IGNORECASE)
+# "auto-loads"/"auto-triggers" phrasing and its paraphrases (tense/aspect
+# variants plus -activates/-invokes and the bare "auto-load" stem). The
+# optional trailing group lets the bare stem ("auto-load") match while still
+# catching "auto-loading"/"auto-activates"/"auto-invokes".
+AUTO_LOAD_TRIGGER_RE = re.compile(r"auto-(?:load|trigger|activate|invoke)(?:s|d|ed|ing)?", re.IGNORECASE)
 
 # ---------------------------------------------------------------------------
 # Category 1: harness-specific config-path fragments.
@@ -132,7 +168,11 @@ HARNESS_CONFIG_PATH_TERMS: tuple[str, ...] = (
 _HARNESS_CONFIG_PATH_ALTERNATION = "|".join(
     re.escape(term) for term in sorted(HARNESS_CONFIG_PATH_TERMS, key=len, reverse=True)
 )
-HARNESS_CONFIG_PATH_RE = re.compile(_HARNESS_CONFIG_PATH_ALTERNATION)
+# IGNORECASE so case variants of the same harness config path (`.Claude/`,
+# `.github/Copilot`) are caught. Safe here because these fragments are
+# product-named directories, not ordinary words: `.vscode/` and other neutral
+# config dirs are not in the list, so widening case does not start matching them.
+HARNESS_CONFIG_PATH_RE = re.compile(_HARNESS_CONFIG_PATH_ALTERNATION, re.IGNORECASE)
 
 # ---------------------------------------------------------------------------
 # Category 2: framework-authority allowlist.

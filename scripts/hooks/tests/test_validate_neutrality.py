@@ -38,12 +38,18 @@ tokens legitimately appear as detection data. Its exact export names are not
 locked by this test file (see the single regression-guard test in
 `TestFrameworkAllowlist`); behavioral coverage goes through `validate_neutrality`.
 
+CRLF line-ending handling IS covered and locked (see `TestDocumentedGapsAndLockins`
+E12): `splitlines()` plus `strip()`/YAML tolerate the trailing CR, so both the
+frontmatter forbidden-key check and the body denylist scan fire correctly on
+CRLF files. (An earlier revision of this suite declared CRLF out of scope; the
+neutrality-hardening pass verified it is handled and locked it instead.)
+
 Out of scope for this suite (documented so it doesn't read as an oversight):
-CRLF line-ending handling (not in the ADR-033 brief this suite targets) and
 frontmatter *required*-field validation (name/description presence). The
-frontmatter tests here only enforce the ceiling — no extra/binding keys — not
-the floor — required keys present — which is deferred to a later phase that
-reconciles against the Agent Skills reference validator.
+frontmatter tests here only enforce the ceiling — no extra/binding keys, and
+fail-closed on unverifiable frontmatter — not the floor — required keys
+present — which is deferred to a later phase that reconciles against the Agent
+Skills reference validator.
 """
 
 import re
@@ -85,6 +91,38 @@ def _write_plain_file(tmp_path: Path, relative: str, content: str) -> Path:
     """Write content at an arbitrary repo-relative path under tmp_path; used for scope-boundary tests."""
     path = tmp_path / relative
     path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(content, encoding="utf-8")
+    return path
+
+
+def _write_skill_reference_file(tmp_path: Path, content: str, name: str = "lexicon.md") -> Path:
+    """
+    Write a bundled reference file under scripts/skills/<skill>/references/ and return its path.
+
+    Reference material (non-SKILL.md, nested below a skill's top level) is
+    denylist-scanned but exempt from the malformed-frontmatter structural rule:
+    it may legitimately open with a `---` markdown thematic break rather than a
+    YAML frontmatter fence.
+    """
+    ref_dir = tmp_path / "scripts" / "skills" / "example-skill" / "references"
+    ref_dir.mkdir(parents=True, exist_ok=True)
+    path = ref_dir / name
+    path.write_text(content, encoding="utf-8")
+    return path
+
+
+def _write_nested_skill_md_reference(tmp_path: Path, content: str) -> Path:
+    """
+    Write a file literally named SKILL.md under a skill's references/ subdirectory.
+
+    Distinguishes the canonical skill-root SKILL.md (scripts/skills/<name>/SKILL.md,
+    structurally expected to carry frontmatter) from a same-named file nested
+    deeper (scripts/skills/<name>/references/SKILL.md, bundled material that is
+    NOT structurally expected to carry frontmatter).
+    """
+    ref_dir = tmp_path / "scripts" / "skills" / "example-skill" / "references"
+    ref_dir.mkdir(parents=True, exist_ok=True)
+    path = ref_dir / "SKILL.md"
     path.write_text(content, encoding="utf-8")
     return path
 
@@ -478,6 +516,32 @@ class TestScopeBoundaries:
         assert discovered == [agent]
         assert all("hooks" not in path.parts for path in discovered)
 
+    def test_absent_skills_subtree_contributes_nothing_without_erroring(self, tmp_path):
+        """
+        Given: A synthetic root with scripts/agents/ present (one file) and
+               scripts/skills/ entirely absent
+        When: discover_neutral_surface_files scans the root
+        Then: The agent file is discovered, nothing is returned under
+              scripts/skills/, and discovery does not error
+
+        This is a synthetic-tree robustness test, not a real-repo assertion:
+        it does not depend on whether scripts/skills/ exists in the real
+        repository. The prior version of this test (formerly in
+        TestLiveCorpus) asserted the REAL repo's scripts/skills/ was absent —
+        a landmine that passes only until a real skill lands (e.g. ADR-031's
+        classical-lexicon), at which point it would fail on any branch past
+        that merge. discover_neutral_surface_files must tolerate either
+        subtree being present or absent; this test locks that tolerance
+        directly rather than via a fact about the live repo's current state.
+        """
+        agent = _write_agent_file(tmp_path, "clean agent content\n")
+        assert not (tmp_path / "scripts" / "skills").exists()
+
+        discovered = discover_neutral_surface_files(tmp_path)
+
+        assert agent in discovered
+        assert not any("skills" in path.parts for path in discovered)
+
 
 class TestFrontmatterRulesSkill:
     """SKILL.md frontmatter may declare only `name` and `description` (ADR-033 category 3)."""
@@ -680,82 +744,81 @@ class TestCli:
 @pytest.mark.live_corpus
 class TestLiveCorpus:
     """
-    Runs the checker against the real repository's scripts/agents/ directory.
+    Runs the checker against the real repository's scripts/agents/ (and, when
+    present, scripts/skills/) directories.
 
-    scripts/skills/ does not exist yet in this repo (build-ahead case); it
-    must contribute zero discovered files without erroring. The known,
-    documented finding in architect.md (the vendor-neutrality style rule that
-    itself names "Claude Code" and "Cursor" and their config paths as literal
-    text, to warn against them) must be present. No other file in
-    scripts/agents/ is expected to produce a violation — confirmed by reading
-    all six agent files and grepping the corpus for every denylist category.
+    The live corpus is expected to be CLEAN, full stop — not clean because
+    scripts/skills/ happens to be absent. architect.md's former self-referential
+    vendor mentions ("Claude Code"/"Cursor" and their config paths, cited as
+    literal text in its style rule) were scrubbed on this branch (commit
+    c774caf, "removes vendor-name leakage from the canonical architect agent"),
+    so it now passes the checker with zero violations. Whatever lands under
+    scripts/skills/ in the future (e.g. ADR-031's authoring-corpus skills) must
+    also be clean; these tests do not assert anything about scripts/skills/'s
+    presence or absence, only that the whole discovered set is clean when
+    validated.
+
+    (Discovery's tolerance of an absent scripts/skills/ subtree is a
+    synthetic-tree robustness property, not a live-corpus fact, and is covered
+    in TestScopeBoundaries instead — asserting it here against the real repo
+    would break the moment a real skill merges.)
     """
 
-    def test_skills_directory_does_not_exist_yet_and_contributes_nothing(self, repo_root):
+    def test_architect_md_is_now_clean(self, repo_root):
         """
-        Given: The real repository, where scripts/skills/ has not been created yet
-        When: discover_neutral_surface_files scans the repo root
-        Then: No discovered path lives under scripts/skills/, and discovery does not error
-        """
-        discovered = discover_neutral_surface_files(repo_root)
-
-        assert not any(path.parts[-3:-1] == ("scripts", "skills") for path in discovered)
-        assert not any("skills" in path.parts for path in discovered)
-
-    def test_architect_md_known_finding_is_present(self, repo_root):
-        """
-        Given: The real scripts/agents/architect.md, which contains a style-rule
-               sentence instructing the architect agent not to name specific
-               harnesses — and which, ironically, itself names two harness
-               products and two harness config paths as literal text
+        Given: The real scripts/agents/architect.md after its vendor-name leakage
+               was scrubbed on this branch (commit c774caf)
         When: discover_neutral_surface_files + validate_file scan the corpus
-        Then: architect.md is among the flagged files, and at least one flagged
-              token is "Claude Code", "Cursor", ".claude/", or ".cursor/"
+        Then: architect.md is discovered and produces zero violations
 
-        Loose match only (no exact line number asserted): the file may be
-        edited later and the offending sentence may shift lines.
+        Updated from the prior `test_architect_md_known_finding_is_present`: that
+        test asserted architect.md still named "Claude Code"/"Cursor"/".claude/"/
+        ".cursor/" as literal text. Those references were removed on this branch,
+        so architect.md is now clean — which is exactly what the ADR-033 gate
+        requires of a canonical artifact. Locking the clean state instead.
         """
         discovered = discover_neutral_surface_files(repo_root)
         architect = next((p for p in discovered if p.name == "architect.md"), None)
         assert architect is not None, "architect.md was not discovered under scripts/agents/"
 
         violations = validate_file(architect)
-        assert violations != [], "architect.md is expected to have the documented vendor-neutrality finding"
-
-        expected_tokens = {"Claude Code", "Cursor", ".claude/", ".cursor/"}
-        found_tokens = {v.token for v in violations} | {
-            token for v in violations for token in expected_tokens if token in v.message
-        }
-        assert found_tokens & expected_tokens, (
-            f"expected one of {expected_tokens} among architect.md violation tokens, got: "
-            f"{[v.token for v in violations]}"
+        assert violations == [], (
+            f"architect.md is expected to be clean after the c774caf scrub, got: {[v.message for v in violations]}"
         )
 
-    def test_no_other_unexpected_leakage_in_scripts_agents(self, repo_root):
+    def test_no_leakage_anywhere_in_discovered_corpus(self, repo_root):
         """
-        Given: The real scripts/agents/ directory (architect.md, code-reviewer.md,
-               content-reviewer.md, issue-response-reviewer.md, swe.md, testing.md)
-        When: every discovered file is validated
-        Then: architect.md is the only file with violations
+        Given: The real discovered corpus under scripts/agents/ (architect.md,
+               code-reviewer.md, content-reviewer.md, issue-response-reviewer.md,
+               swe.md, testing.md) and scripts/skills/ (whatever, if anything,
+               is present there)
+        When: every discovered .md file is validated
+        Then: No file produces a violation — the whole canonical corpus is clean
 
-        Verified by direct inspection of the corpus (2026-07-10): the only
-        cross-agent `<invoke ... agent>` stage directions in these six files
-        name an agent, never a "tool" (e.g. `\\<invoke architect agent\\>`),
-        so the harness-invocation-token shape correctly does not fire on them.
-        No other file mentions a vendor/product/company/CLI name, a
-        subagent_type token, auto-loads/auto-triggers phrasing, or a harness
-        config path. All MITRE/NIST/OWASP/ISO/EU AI Act/STRIDE mentions across
-        the corpus are legitimate framework-mapping content.
+        Deliberately validates every discovered .md file, not just
+        scripts/agents/ ones, so this stays correct once scripts/skills/
+        contains real skills: it does not assume or require scripts/skills/ to
+        be absent. Updated from the prior
+        `test_no_other_unexpected_leakage_in_scripts_agents` (which expected
+        architect.md as the sole flagged file). After the c774caf scrub the
+        corpus is fully clean; this also guards that none of the Tier 3
+        denylist broadenings (lowercase vendors, extra CLI names, auto-load
+        paraphrases, IGNORECASE config paths) false-fire on the real corpus. The
+        only cross-agent `<invoke ... agent>` stage directions name an agent,
+        never a "tool", so the harness-invocation shape correctly does not fire;
+        all MITRE/NIST/OWASP/ISO/EU AI Act/STRIDE mentions are legitimate
+        framework-mapping content.
         """
         discovered = discover_neutral_surface_files(repo_root)
-        agents_md = [p for p in discovered if p.suffix == ".md"]
-        assert agents_md, "expected at least one .md file under scripts/agents/"
+        discovered_md = [p for p in discovered if p.suffix == ".md"]
+        assert discovered_md, "expected at least one .md file under scripts/agents/ (and/or scripts/skills/)"
 
-        flagged = {p.name: validate_file(p) for p in agents_md}
+        flagged = {p.name: validate_file(p) for p in discovered_md}
         flagged_names = {name for name, violations in flagged.items() if violations}
 
-        assert flagged_names == {"architect.md"}, (
-            f"expected only architect.md to be flagged in the live corpus, got: {sorted(flagged_names)}"
+        assert flagged_names == set(), (
+            f"expected a fully clean live corpus, but these files were flagged: "
+            f"{ {name: [v.message for v in flagged[name]] for name in flagged_names} }"
         )
 
 
@@ -864,48 +927,802 @@ class TestAdversarialEdgeCases:
         assert isinstance(violations, list)
 
 
+class TestFailClosedNonUtf8:
+    """
+    LB1: non-UTF-8 input must fail closed, not crash the gate.
+
+    `validate_file` previously did an unguarded `read_text(encoding="utf-8")`,
+    so a text-extension file carrying invalid bytes raised `UnicodeDecodeError`
+    and aborted the whole hook (including `main([])` self-discovery) with a
+    traceback. A file whose neutrality cannot be verified must be flagged, never
+    allowed to crash the gate open.
+    """
+
+    def test_invalid_utf8_file_is_flagged_not_raised(self, tmp_path):
+        """
+        Given: A .md file under scripts/agents/ containing invalid UTF-8 bytes
+        When: validate_file scans it
+        Then: A violation is returned (no exception), stating the file is not valid UTF-8
+        """
+        agent = _write_agent_file(tmp_path, "placeholder\n")
+        agent.write_bytes(b"# Title\n\xff\xfe not valid utf-8\n")
+
+        violations = validate_file(agent)
+
+        assert violations != []
+        assert any("UTF-8" in v.message or "utf-8" in v.message for v in violations)
+
+    def test_main_self_discovery_does_not_raise_on_invalid_utf8(self, tmp_path, monkeypatch, capsys):
+        """
+        Given: A scripts/agents/ tree containing a file with invalid UTF-8 bytes
+        When: main([]) self-discovers and validates from that root as cwd
+        Then: It returns 1 (violation) without raising, and reports the file
+        """
+        agent = _write_agent_file(tmp_path, "placeholder\n")
+        agent.write_bytes(b"\xff\xfe\x00 invalid\n")
+        monkeypatch.chdir(tmp_path)
+
+        exit_code = main([])
+        captured = capsys.readouterr()
+
+        assert exit_code == 1
+        assert str(agent) in captured.err
+
+
+class TestFailClosedMalformedFrontmatter:
+    """
+    LB2: malformed / unverifiable frontmatter must fail closed on files where
+    frontmatter is structurally expected.
+
+    Frontmatter is structurally expected on `SKILL.md` files and on top-level
+    agent definitions (a `.md` directly under `scripts/agents/`). For those,
+    YAML that will not parse, is not a mapping, or opens a `---` fence it never
+    closes is unverifiable and is flagged. Bundled reference material
+    (`references/*.md`, or any non-SKILL.md nested below the top level) is NOT
+    subject to this rule — it may legitimately open with a `---` markdown
+    thematic break — and is exempt from the malformed-frontmatter flag (it still
+    gets the denylist scan).
+    """
+
+    def test_skill_unquoted_colon_description_is_flagged(self, tmp_path):
+        """
+        Given: A SKILL.md whose description value contains an unquoted colon,
+               making the frontmatter block invalid YAML
+        When: validate_file scans it
+        Then: An unverifiable-frontmatter violation is returned (fail closed)
+        """
+        skill = _write_skill_file(
+            tmp_path,
+            "---\nname: example-skill\ndescription: Does: this and that\n---\nBody.\n",
+        )
+
+        violations = validate_file(skill)
+
+        assert violations != []
+        assert any("unverifiable frontmatter" in v.message for v in violations)
+
+    def test_skill_tab_indented_block_is_flagged(self, tmp_path):
+        """
+        Given: A SKILL.md frontmatter block using a tab character for indentation
+               (YAML forbids tabs for indentation), making it unparseable
+        When: validate_file scans it
+        Then: An unverifiable-frontmatter violation is returned
+        """
+        skill = _write_skill_file(
+            tmp_path,
+            "---\nname: example-skill\ndescription:\n\tnested: value\n---\nBody.\n",
+        )
+
+        violations = validate_file(skill)
+
+        assert violations != []
+        assert any("unverifiable frontmatter" in v.message for v in violations)
+
+    @pytest.mark.parametrize(
+        ("label", "block"),
+        [
+            ("list", "---\n- name\n- description\n---\nBody.\n"),
+            ("scalar", "---\njust a bare scalar line\n---\nBody.\n"),
+        ],
+    )
+    def test_skill_non_mapping_frontmatter_is_flagged(self, tmp_path, label, block):
+        """
+        Given: A SKILL.md whose frontmatter parses to a non-dict (a list or a
+               bare scalar) rather than a key/value mapping
+        When: validate_file scans it
+        Then: An unverifiable-frontmatter violation is returned (fail closed)
+        """
+        skill = _write_skill_file(tmp_path, block)
+
+        violations = validate_file(skill)
+
+        assert violations != []
+        assert any("unverifiable frontmatter" in v.message for v in violations)
+
+    def test_skill_missing_closing_fence_is_flagged(self, tmp_path):
+        """
+        Given: A SKILL.md that opens a `---` frontmatter fence but never closes it
+        When: validate_file scans it
+        Then: An unverifiable-frontmatter violation is returned (fail closed)
+        """
+        skill = _write_skill_file(
+            tmp_path,
+            "---\nname: example-skill\ndescription: Never closes the fence.\n\nBody with no closing fence.\n",
+        )
+
+        violations = validate_file(skill)
+
+        assert violations != []
+        assert any("unverifiable frontmatter" in v.message for v in violations)
+
+    def test_agent_missing_closing_fence_is_flagged(self, tmp_path):
+        """
+        Given: A top-level agent .md that opens a `---` fence but never closes it
+        When: validate_file scans it
+        Then: An unverifiable-frontmatter violation is returned (fail closed)
+        """
+        agent = _write_agent_file(
+            tmp_path,
+            "---\ndescription: Opens a fence.\n\n# Agent\n\nNo closing fence anywhere.\n",
+        )
+
+        violations = validate_file(agent)
+
+        assert violations != []
+        assert any("unverifiable frontmatter" in v.message for v in violations)
+
+    def test_forbidden_key_after_reopened_second_fence_is_flagged(self, tmp_path):
+        """
+        Given: An agent .md with a well-formed first frontmatter block, then a
+               second `---`-delimited block that re-opens frontmatter and hides a
+               runtime-binding key (`tools:`) after it
+        When: validate_file scans it
+        Then: A violation is returned — the forbidden key is not missed just
+              because it sits after a re-opened fence
+
+        The pre-fix parser stopped at the first closing `---` and never saw a key
+        smuggled into a re-opened second block. This is treated as unverifiable
+        frontmatter (fail closed) rather than silently accepted.
+        """
+        agent = _write_agent_file(
+            tmp_path,
+            "---\ndescription: Benign first block.\n---\n\n# Agent\n\n---\ntools: Bash\n---\nBody.\n",
+        )
+
+        violations = validate_file(agent)
+
+        assert violations != []
+
+    def test_reference_file_opening_with_thematic_break_is_not_flagged_for_frontmatter(self, tmp_path):
+        """
+        Given: A bundled references/*.md that opens with a `---` markdown thematic
+               break (not YAML frontmatter) and carries no vendor terms
+        When: validate_file scans it
+        Then: No malformed-frontmatter violation is produced (false-positive guard)
+
+        Reference material is denylist-scanned but exempt from the
+        malformed-frontmatter structural rule: frontmatter is not structurally
+        expected there, so a leading `---` is legitimate prose, not an unclosed
+        or malformed frontmatter fence.
+        """
+        reference = _write_skill_reference_file(
+            tmp_path,
+            "---\n\n# Classical Security Lexicon\n\nCanonical security terms of art.\n\n- Spoofing\n- Tampering\n",
+        )
+
+        violations = validate_file(reference)
+
+        assert violations == []
+
+    def test_nested_skill_md_under_references_is_not_flagged_for_frontmatter(self, tmp_path):
+        """
+        Given: A file literally named SKILL.md nested under references/ (NOT the
+               canonical skill root scripts/skills/<name>/SKILL.md), opening with
+               a `---` markdown thematic break
+        When: validate_file scans it
+        Then: No malformed-frontmatter violation is produced (false-positive guard)
+
+        `_frontmatter_is_structurally_expected` treats "SKILL.md" as structural
+        only at the canonical skill root (parent's parent directory is
+        `skills`), not at any depth. A same-named file bundled deeper as
+        reference material is exempt, same as any other reference file — it may
+        legitimately open with a `---` thematic break.
+        """
+        nested = _write_nested_skill_md_reference(
+            tmp_path,
+            "---\n\n# Reference copy of a skill card\n\nNot the canonical skill root.\n",
+        )
+
+        violations = validate_file(nested)
+
+        assert violations == []
+
+    def test_canonical_skill_root_skill_md_is_still_structural(self, tmp_path):
+        """
+        Given: The canonical skill root SKILL.md (scripts/skills/<name>/SKILL.md)
+               with malformed frontmatter (a tab-indented block, distinct from
+               the unterminated-fence fixture used elsewhere in this class)
+        When: validate_file scans it
+        Then: An unverifiable-frontmatter violation IS still produced
+
+        Confirms the SKILL.md-root scoping fix does not weaken the original
+        LB2 rule for the file it is actually meant to govern.
+        """
+        skill = _write_skill_file(
+            tmp_path,
+            "---\nname: example-skill\ndescription:\n\tnested: value\n---\nBody.\n",
+        )
+
+        violations = validate_file(skill)
+
+        assert violations != []
+        assert any("unverifiable frontmatter" in v.message for v in violations)
+
+    def test_well_formed_nested_skill_md_is_exempt_from_the_skill_allowlist_too(self, tmp_path):
+        """
+        Given: A well-formed (parseable) frontmatter block on a nested
+               references/SKILL.md carrying a key outside the name/description
+               allowlist (e.g. `license:`)
+        When: validate_file scans it
+        Then: No frontmatter-structural violation is produced
+
+        Not just the malformed-frontmatter checks but the SKILL.md
+        name/description allowlist itself is scoped to the canonical skill
+        root. A same-named bundled reference file is fully exempt from the
+        frontmatter *structural* rule — it still gets the denylist scan, just
+        not held to the skill-root's allowlist ceiling.
+        """
+        nested = _write_nested_skill_md_reference(
+            tmp_path,
+            "---\nname: x\ndescription: y\nlicense: MIT\n---\nBody.\n",
+        )
+
+        violations = validate_file(nested)
+
+        assert violations == []
+
+
+class TestFailClosedFrontmatterKeyCase:
+    """
+    LB3: forbidden/allowlist frontmatter-key checks must be case-insensitive.
+
+    `key.replace("_", "-")` never lowercased, so a capitalized runtime-binding
+    key (`Model:`, `Tools:`, `Color:`, `Allowed-Tools:`) evaded both the SKILL
+    allowlist check and the agent forbidden-key check. Keys are now
+    lowercase-normalized before both checks.
+    """
+
+    @pytest.mark.parametrize("binding_key", ["Model", "Tools", "Color", "Allowed-Tools", "Allowed_Tools"])
+    def test_agent_capitalized_binding_key_with_neutral_value_is_flagged(self, tmp_path, binding_key):
+        """
+        Given: A top-level agent .md whose frontmatter carries a capitalized
+               runtime-binding key with a deliberately neutral value (so only the
+               key, not the value, could trigger a flag)
+        When: validate_file scans it
+        Then: One violation names the offending key
+
+        The neutral value isolates the key-case fix: without lowercase
+        normalization the capitalized key slips past the forbidden-key set.
+        """
+        agent = _write_agent_file(
+            tmp_path,
+            f"---\ndescription: Example agent.\n{binding_key}: something-neutral\n---\n\n# Agent\n\nBody.\n",
+        )
+
+        violations = validate_file(agent)
+
+        assert violations != []
+        assert any(binding_key.lower() in v.token.lower() or binding_key in v.message for v in violations)
+
+    def test_skill_capitalized_tools_key_is_flagged(self, tmp_path):
+        """
+        Given: A SKILL.md frontmatter block with a capitalized `Tools:` key
+               (outside the name/description allowlist) carrying a neutral value
+        When: validate_file scans it
+        Then: One violation names the offending key
+        """
+        skill = _write_skill_file(
+            tmp_path,
+            "---\nname: example-skill\ndescription: Does one thing.\nTools: something-neutral\n---\nBody.\n",
+        )
+
+        violations = validate_file(skill)
+
+        assert violations != []
+        assert any("Tools" in v.token or "tools" in v.token.lower() or "Tools" in v.message for v in violations)
+
+
+class TestDenylistBroadenings:
+    """
+    Tier 3 safe denylist broadenings (E1, E3, E6, E8) — low false-positive risk.
+
+    Each broadening is paired with a negative lock that pins an intentionally
+    unflagged case, so a later over-broadening is caught.
+    """
+
+    @pytest.mark.parametrize(
+        "line",
+        ["import openai", "from anthropic import something", "the copilot suggestion was accepted"],
+        ids=["openai", "anthropic", "copilot"],
+    )
+    def test_lowercase_vendor_names_are_flagged(self, tmp_path, line):
+        """
+        Given: An agent file with a lowercase vendor name (openai/anthropic/copilot)
+               as a whole word, the shape that leaks through case-sensitive matching
+        When: validate_file scans it
+        Then: A vendor violation is returned (E1)
+        """
+        agent = _write_agent_file(tmp_path, f"{line}\n")
+
+        violations = validate_file(agent)
+
+        assert violations != []
+
+    @pytest.mark.parametrize("token", ["chatgpt", "codeium"])
+    def test_additional_lowercase_vendor_names_are_flagged(self, tmp_path, token):
+        """
+        Given: An agent file mentioning lowercase `chatgpt` / `codeium` as a whole word
+        When: validate_file scans it
+        Then: A vendor violation is returned (E1)
+        """
+        agent = _write_agent_file(tmp_path, f"Ran the pipeline through {token} for comparison.\n")
+
+        violations = validate_file(agent)
+
+        assert violations != []
+
+    def test_claude_md_still_not_flagged_after_lowercase_vendor_broadening(self, tmp_path):
+        """
+        Given: An agent file referencing CLAUDE.md and "Claude Code" behavior
+        When: validate_file scans it after the E1 lowercase-vendor broadening
+        Then: CLAUDE.md is still not flagged (no regression)
+
+        The E1 broadening adds whole-word lowercase vendor entries; it must NOT
+        make the vendor regex case-insensitive, which would re-flag CLAUDE.md.
+        This locks that the lowercase additions do not touch the "claude"/case
+        behavior that the CLAUDE.md carve-out depends on.
+        """
+        agent = _write_agent_file(tmp_path, "Includes ADRs and CLAUDE.md edits in the same change.\n")
+
+        violations = validate_file(agent)
+
+        assert violations == []
+
+    @pytest.mark.parametrize(
+        "cli",
+        ["`cursor --resume`", "`aider --message x`", "`windsurf run`", "`codex exec`", "`cline start`"],
+        ids=["cursor", "aider", "windsurf", "codex", "cline"],
+    )
+    def test_additional_cli_entrypoints_are_flagged(self, tmp_path, cli):
+        """
+        Given: An agent file with a backtick-wrapped harness CLI entry point other
+               than claude (cursor/aider/windsurf/codex/cline)
+        When: validate_file scans it
+        Then: A CLI-entrypoint violation is returned (E3)
+        """
+        agent = _write_agent_file(tmp_path, f"Run {cli} to continue.\n")
+
+        violations = validate_file(agent)
+
+        assert violations != []
+
+    def test_claude_cli_entrypoint_still_flagged_after_broadening(self, tmp_path):
+        """
+        Given: The existing backtick `claude --resume` CLI form
+        When: validate_file scans it after the E3 broadening
+        Then: It is still flagged (no regression on the original CLI shape)
+        """
+        agent = _write_agent_file(tmp_path, "Run `claude --resume` to continue the session.\n")
+
+        violations = validate_file(agent)
+
+        assert violations != []
+
+    @pytest.mark.parametrize(
+        "phrase",
+        ["auto-loading", "auto-activates", "auto-invokes", "auto-load"],
+        ids=["auto-loading", "auto-activates", "auto-invokes", "bare-auto-load"],
+    )
+    def test_additional_auto_load_paraphrases_are_flagged(self, tmp_path, phrase):
+        """
+        Given: An agent file using an auto-load/auto-trigger paraphrase
+               (-loading/-activates/-invokes, or bare auto-load) describing
+               runtime dispatch
+        When: validate_file scans it
+        Then: An auto-load/auto-trigger violation is returned (E6)
+        """
+        agent = _write_agent_file(tmp_path, f"This skill {phrase} when the description matches.\n")
+
+        violations = validate_file(agent)
+
+        assert violations != []
+
+    @pytest.mark.parametrize("config_path", [".Claude/", ".github/Copilot"])
+    def test_mixed_case_config_paths_are_flagged(self, tmp_path, config_path):
+        """
+        Given: An agent file with a mixed-case harness config path (.Claude/,
+               .github/Copilot)
+        When: validate_file scans it
+        Then: A config-path violation is returned (E8, IGNORECASE)
+        """
+        agent = _write_agent_file(tmp_path, f"Config lives under `{config_path}` there.\n")
+
+        violations = validate_file(agent)
+
+        assert violations != []
+
+    def test_vscode_config_path_still_not_flagged_after_ignorecase(self, tmp_path):
+        """
+        Given: An agent file mentioning `.vscode/` (an ordinary editor config dir,
+               not a harness config path)
+        When: validate_file scans it after the E8 IGNORECASE broadening
+        Then: No config-path violation is produced (negative lock)
+
+        `.vscode/` is not in the harness-config denylist; adding IGNORECASE must
+        not accidentally start matching it.
+        """
+        agent = _write_agent_file(tmp_path, "Editor settings live under `.vscode/` in this repo.\n")
+
+        violations = validate_file(agent)
+
+        assert violations == []
+
+
+class TestDocumentedGapsAndLockins:
+    """
+    Tier 2: lock current behavior and document deliberate gaps.
+
+    Per ADR-033, the D2a denylist is a maintained list, not an exhaustive
+    classifier: some vendor/model tokens are deliberately out of scope until a
+    maintainer adds them. These tests pin that current behavior so a future
+    change is a conscious decision, and lock the true-positive edge cases the
+    checker must keep catching.
+    """
+
+    @pytest.mark.parametrize(
+        "model_token",
+        ["o1-preview", "o3-mini", "phi-3", "command-r-plus", "gpt4o"],
+    )
+    def test_e2_unlisted_model_families_are_not_flagged_documented_gap(self, tmp_path, model_token):
+        """
+        Given: A model identifier from a family NOT in the maintained prefix list
+               (o1/o3/phi/command-r/gpt4o-without-hyphen)
+        When: validate_file scans it
+        Then: No violation is produced — DOCUMENTED GAP
+
+        The model-identifier regex keys on a maintained family-prefix list. These
+        tokens are deliberately not expanded (maintainer's choice); this lock
+        makes any future coverage an explicit decision, not an accident.
+        """
+        agent = _write_agent_file(tmp_path, f"Pin the model to {model_token} for this run.\n")
+
+        violations = validate_file(agent)
+
+        assert violations == []
+
+    @pytest.mark.parametrize("vendor", ["Bard", "Grok", "Llama"])
+    def test_e9_unknown_vendors_are_not_flagged_documented_gap(self, tmp_path, vendor):
+        """
+        Given: A vendor/product name NOT on the maintained vendor list, used as a
+               bare word with no model-identifier shape
+        When: validate_file scans it
+        Then: No violation is produced — DOCUMENTED GAP
+
+        `Bard`/`Grok`/`Llama` as bare product words are not on the vendor
+        denylist. (`Grok`/`Llama` only match as model-identifier *shapes* like
+        `grok-2`/`llama-3`, not as bare capitalized words.) Documented gap of a
+        maintained denylist.
+        """
+        agent = _write_agent_file(tmp_path, f"The {vendor} assistant was evaluated separately.\n")
+
+        violations = validate_file(agent)
+
+        assert violations == []
+
+    def test_e4_vendor_phrase_split_across_wrapped_lines_not_flagged_documented_gap(self, tmp_path):
+        """
+        Given: A two-word vendor phrase ("Claude Code") split by a hard line wrap
+               so "Claude" ends one line and "Code" begins the next
+        When: validate_file scans it (line-by-line)
+        Then: No violation is produced — DOCUMENTED GAP
+
+        The scanner matches per line, so a phrase straddling a newline is not
+        reassembled. Documented limitation, not a fix target in this scope.
+        """
+        agent = _write_agent_file(tmp_path, "The assistant was built with Claude\nCode during development.\n")
+
+        violations = validate_file(agent)
+
+        assert violations == []
+
+    def test_e5_vendor_in_code_fence_and_html_comment_is_flagged_lock(self, tmp_path):
+        """
+        Given: A capitalized vendor name inside a fenced code block AND, separately,
+               inside an HTML comment
+        When: validate_file scans it
+        Then: Both are flagged — LOCK (no code-fence or comment exemption)
+
+        The scanner has no markdown-structure awareness by design: a denylisted
+        term is a leak wherever it appears, including inside code fences and HTML
+        comments. This locks that there is no such exemption.
+        """
+        agent = _write_agent_file(
+            tmp_path,
+            "```\nRun with Cursor here.\n```\n\n<!-- note: drafted with OpenAI -->\n",
+        )
+
+        violations = validate_file(agent)
+
+        tokens_and_messages = " ".join(f"{v.token} {v.message}" for v in violations)
+        assert "Cursor" in tokens_and_messages
+        assert "OpenAI" in tokens_and_messages
+
+    @pytest.mark.parametrize(
+        "phrase",
+        ["subagent type", "sub-agent", "sub agent"],
+        ids=["spaced", "sub-agent", "sub-agent-spaced"],
+    )
+    def test_e7_subagent_spacing_variants_not_flagged_documented_gap(self, tmp_path, phrase):
+        """
+        Given: A spaced ("subagent type") or `sub-agent`/"sub agent" variant, none
+               of which match the `subagent[_-]type` token shape
+        When: validate_file scans it
+        Then: No subagent_type violation is produced — DOCUMENTED GAP
+
+        Only the joined `subagent_type`/`subagent-type` token is denylisted. The
+        spaced/`sub-agent` variants are a documented gap of the maintained token.
+        """
+        agent = _write_agent_file(tmp_path, f"Dispatch the {phrase} to the next role.\n")
+
+        violations = validate_file(agent)
+
+        assert violations == []
+
+    def test_e10_symlink_under_tree_is_followed(self, tmp_path):
+        """
+        Given: A real agent file plus a symlink under scripts/agents/ pointing at it
+        When: discover_neutral_surface_files scans the root
+        Then: The symlink is discovered (followed) — LOCK
+        """
+        target = _write_agent_file(tmp_path, "Built with Cursor.\n", name="real-agent.md")
+        link = tmp_path / "scripts" / "agents" / "linked-agent.md"
+        link.symlink_to(target)
+
+        discovered = discover_neutral_surface_files(tmp_path)
+
+        assert link in discovered
+
+    def test_e10_dangling_symlink_is_discovered_and_flagged(self, tmp_path):
+        """
+        Given: A dangling symlink under scripts/agents/ (target does not exist)
+        When: discover_neutral_surface_files scans the root, then each discovered
+              path is validated
+        Then: The dangling symlink IS discovered, and validating it raises no
+              exception but produces a violation (fail closed, not silently dropped)
+
+        `path.is_file()` FOLLOWS symlinks and returns False for a broken link, so
+        a naive `is_file()`-only filter silently drops a dangling symlink before
+        `validate_file`'s `except OSError` handler ever runs — the exact
+        fail-open class this hardening pass exists to close. Discovery must also
+        accept `path.is_symlink()` so a broken link is not filtered out upstream
+        of the OSError guard.
+        """
+        link = tmp_path / "scripts" / "agents" / "dangling.md"
+        link.parent.mkdir(parents=True, exist_ok=True)
+        link.symlink_to(tmp_path / "scripts" / "agents" / "nonexistent-target.md")
+
+        discovered = discover_neutral_surface_files(tmp_path)
+
+        assert link in discovered, "a dangling symlink must be discovered, not silently filtered out"
+
+        violations = validate_file(link)  # must not raise
+
+        assert violations != [], "a dangling symlink must be flagged, not silently pass"
+        assert any("could not be read" in v.message or "utf-8" in v.message.lower() for v in violations)
+
+    def test_e10_main_with_explicit_dangling_symlink_path_returns_one(self, tmp_path, capsys):
+        """
+        Given: A dangling symlink path passed explicitly to main() (the shape
+               pre-commit uses: `git add` a broken symlink, pre-commit passes its
+               matched filename to the hook)
+        When: main([<dangling-path>]) runs
+        Then: It returns 1 and reports the file, rather than silently `continue`-ing
+              past it because `path.exists()` follows the symlink and returns False
+
+        This is the exact regression the review flagged: `main()`'s
+        `if not path.exists(): continue` also follows symlinks, so a broken link
+        was filtered out before validate_file ever saw it.
+        """
+        agents_dir = tmp_path / "scripts" / "agents"
+        agents_dir.mkdir(parents=True, exist_ok=True)
+        link = agents_dir / "dangling.md"
+        link.symlink_to(agents_dir / "nonexistent-target.md")
+
+        exit_code = main([str(link)])
+        captured = capsys.readouterr()
+
+        assert exit_code == 1
+        assert str(link) in captured.err
+
+    def test_e10_hook_shape_staged_dangling_symlink_is_flagged(self, tmp_path, monkeypatch, capsys):
+        """
+        Given: A repo-shaped tmp_path root where a dangling symlink has been
+               created under scripts/agents/ (simulating `git add` of a broken
+               symlink) and no other violation is present
+        When: main([]) self-discovers from that root as cwd (the no-explicit-args
+              shape pre-commit uses when it hands off to discovery)
+        Then: It returns 1 and reports the dangling link — the hook does not
+              exit 0 silently on a broken symlink
+        """
+        agents_dir = tmp_path / "scripts" / "agents"
+        agents_dir.mkdir(parents=True, exist_ok=True)
+        link = agents_dir / "dangling.md"
+        link.symlink_to(agents_dir / "nonexistent-target.md")
+        monkeypatch.chdir(tmp_path)
+
+        exit_code = main([])
+        captured = capsys.readouterr()
+
+        assert exit_code == 1
+        assert str(link) in captured.err
+
+    def test_e10_directory_named_with_md_suffix_is_excluded(self, tmp_path):
+        """
+        Given: A directory literally named `notes.md` under scripts/agents/
+        When: discover_neutral_surface_files scans the root
+        Then: The directory is not returned (only files) — LOCK
+        """
+        agents_dir = tmp_path / "scripts" / "agents"
+        (agents_dir / "notes.md").mkdir(parents=True, exist_ok=True)
+        real = _write_agent_file(tmp_path, "clean\n", name="real.md")
+
+        discovered = discover_neutral_surface_files(tmp_path)
+
+        assert (agents_dir / "notes.md") not in discovered
+        assert real in discovered
+
+    def test_e11_empty_file_produces_no_violations_lock(self, tmp_path):
+        """
+        Given: An empty agent .md file (zero bytes)
+        When: validate_file scans it
+        Then: Zero violations — LOCK
+
+        An empty file has no frontmatter fence and no denylist content; even under
+        the LB2 fail-closed rule it must stay clean (no fence opened means nothing
+        unverifiable).
+        """
+        agent = _write_agent_file(tmp_path, "")
+
+        violations = validate_file(agent)
+
+        assert violations == []
+
+    def test_e11_no_extension_file_is_excluded_by_discovery_lock(self, tmp_path):
+        """
+        Given: A file with no extension under scripts/agents/ containing vendor terms
+        When: discover_neutral_surface_files scans the root
+        Then: The extensionless file is not discovered — LOCK
+
+        Discovery restricts to known text extensions; an extensionless file is
+        excluded, so vendor content in it is invisible via the discovery path.
+        """
+        agents_dir = tmp_path / "scripts" / "agents"
+        agents_dir.mkdir(parents=True, exist_ok=True)
+        (agents_dir / "NOTES").write_text("Built with Cursor and OpenAI.\n", encoding="utf-8")
+        real = _write_agent_file(tmp_path, "clean\n", name="real.md")
+
+        discovered = discover_neutral_surface_files(tmp_path)
+
+        assert (agents_dir / "NOTES") not in discovered
+        assert real in discovered
+
+    def test_e12_crlf_frontmatter_key_and_body_vendor_term_are_handled(self, tmp_path):
+        """
+        Given: A top-level agent .md written with CRLF line endings, carrying a
+               forbidden frontmatter key AND a body line naming a vendor product
+        When: validate_file scans it
+        Then: BOTH are flagged — LOCK
+
+        `splitlines()` handles CRLF, and `line.strip()`/YAML tolerate the trailing
+        CR, so the frontmatter fence is recognized and the body denylist scan
+        fires. This corrects the suite's earlier "CRLF out of scope" note: CRLF
+        is handled correctly and is locked here.
+        """
+        agents_dir = tmp_path / "scripts" / "agents"
+        agents_dir.mkdir(parents=True, exist_ok=True)
+        path = agents_dir / "crlf-agent.md"
+        content = "---\r\ndescription: Example.\r\ntools: Bash\r\n---\r\n\r\nBuilt with Cursor.\r\n"
+        path.write_bytes(content.encode("utf-8"))
+
+        violations = validate_file(path)
+
+        joined = " ".join(f"{v.token} {v.message}" for v in violations)
+        assert "tools" in joined, "CRLF frontmatter forbidden key must be flagged"
+        assert "Cursor" in joined, "CRLF body vendor term must be flagged"
+
+
 """
 Test Summary
 ============
-Total Tests: 74 (counting parametrize expansion)
-- TestDenylistVendorProductNames: 19 (14 vendor/product/company/CLI names + 3 model-identifier
-  patterns + 1 bare-word "model" negative case + 1 lowercase/backtick CLI-entrypoint case,
-  isolated from any embedded model identifier)
-- TestDenylistHarnessInvocationTokens: 10 (2 invoke/uses-tool unescaped shapes + 1 backslash-
-  escaped shape + 2 subagent_type spellings + 4 auto-loads/auto-triggers phrasings +
-  1 invoke-agent-without-tool-word negative case)
-- TestDenylistHarnessConfigPaths: 8 (7 parametrized harness config-path fragments + 1 bare
-  `.github/` negative case)
-- TestFrameworkAllowlist: 8 (6 individual framework-authority terms + 1 combined realistic
-  paragraph + 1 data-module regression guard)
-- TestScopeBoundaries: 3 (discovery scope, out-of-scope invisibility, own-home exclusion)
-- TestFrontmatterRulesSkill: 6 (1 passing + 5 parametrized extra-key failures)
-- TestFrontmatterRulesAgent: 7 (1 no-frontmatter pass + 5 parametrized binding-key failures +
-  1 neutral-frontmatter pass)
-- TestCli: 6 (clean/violating explicit args, explicit-arg scope override, self-discovery
-  clean/violating, format_violation contract)
-- TestLiveCorpus: 3 (skills-absent, architect.md known finding, no other corpus leakage) —
-  marked @pytest.mark.live_corpus
-- TestAdversarialEdgeCases: 4 (CLAUDE.md collision, per-match allowlist suppression on the
-  real disjoint vocabularies, monkeypatched genuine span-overlap suppression proof,
-  empty-list-not-None typing)
+Total Tests: 133 (counting parametrize expansion)
+
+Original suite (74), unchanged except the TestScopeBoundaries/TestLiveCorpus
+moves noted below:
+- TestDenylistVendorProductNames: 19
+- TestDenylistHarnessInvocationTokens: 10
+- TestDenylistHarnessConfigPaths: 8
+- TestFrameworkAllowlist: 8
+- TestScopeBoundaries: 4 — gained `test_absent_skills_subtree_contributes_
+  nothing_without_erroring`, moved in from TestLiveCorpus (see below).
+- TestFrontmatterRulesSkill: 6
+- TestFrontmatterRulesAgent: 7
+- TestCli: 6
+- TestLiveCorpus: 2 — UPDATED twice. First: the corpus is now fully clean.
+  architect.md's self-referential vendor mentions were scrubbed on this branch
+  (commit c774caf), so `test_architect_md_is_now_clean` and
+  `test_no_leakage_anywhere_in_discovered_corpus` lock a clean corpus rather
+  than the former "architect.md is the one flagged file" assumption, which is
+  stale and would fight the ADR-033 gate requirement that every canonical
+  artifact exit 0. Second: `test_skills_directory_does_not_exist_yet_and_
+  contributes_nothing` was a landmine — it asserted the REAL repo's
+  scripts/skills/ was absent, which passes only until a real skill lands (it
+  is confirmed failing on the phase1/phase2 branches once
+  scripts/skills/classical-lexicon/ exists). Moved to TestScopeBoundaries as a
+  tmp_path-based synthetic-tree test that does not depend on live repo state,
+  and the class docstring corrected to stop claiming scripts/skills/ "must
+  contribute zero discovered files" as a live-corpus fact.
+- TestAdversarialEdgeCases: 4
+
+Neutrality-hardening additions (59), from the ADR-033 D2a fail-open audit plus
+a code-review follow-up round that closed two residual fail-open/false-positive
+gaps in the first hardening pass:
+- TestFailClosedNonUtf8: 2 (LB1) — invalid-UTF-8 file flagged not raised;
+  main([]) self-discovery does not crash on it.
+- TestFailClosedMalformedFrontmatter: 10 (LB2) — unquoted-colon, tab-indent,
+  list/scalar non-mapping, missing-closing-fence (SKILL + agent),
+  forbidden-key-after-second-fence all fail closed on structurally-expected
+  files; a references/*.md opening with a `---` thematic break is NOT flagged
+  (false-positive guard). Review follow-up: a nested references/SKILL.md
+  (same filename, NOT the canonical skill root) is exempt from BOTH the
+  malformed-frontmatter fail-closed checks AND the skill name/description
+  allowlist itself, while the canonical skill-root SKILL.md remains fully
+  structural.
+- TestFailClosedFrontmatterKeyCase: 6 (LB3) — capitalized binding keys
+  (Model/Tools/Color/Allowed-Tools/Allowed_Tools) with neutral values are
+  flagged on agent defs; capitalized Tools on SKILL.md is flagged.
+- TestDenylistBroadenings: 19 (Tier 3) — E1 lowercase vendors
+  (openai/anthropic/copilot/chatgpt/codeium) + CLAUDE.md non-regression;
+  E3 extra CLI entrypoints (cursor/aider/windsurf/codex/cline) + claude
+  non-regression; E6 auto-load paraphrases (-loading/-activates/-invokes/bare
+  auto-load); E8 IGNORECASE config paths (.Claude/, .github/Copilot) + .vscode/
+  negative lock.
+- TestDocumentedGapsAndLockins: 22 (Tier 2 + review follow-up) — E2 unlisted
+  model families, E9 unknown vendors, E4 wrapped-line split, E7 subagent
+  spacing variants are DOCUMENTED GAPS of the maintained denylist; E5
+  code-fence/HTML-comment vendor IS flagged (no exemption), E10
+  symlink-followed / dir-named-*.md-excluded, E11 empty-file-clean /
+  no-extension-excluded, E12 CRLF frontmatter-key + body-vendor handled are
+  LOCKS. Review follow-up (E10): a dangling symlink is now DISCOVERED and
+  FLAGGED, not merely non-crashing — `discover_neutral_surface_files` checks
+  `is_symlink()` independently of `is_file()` (which follows a symlink and
+  returns False for a broken one), and `main()` no longer `continue`s past a
+  path that fails `exists()` but is a symlink, so a broken link reaches
+  `validate_file`'s OSError guard instead of being filtered out upstream of it.
 
 Coverage Areas:
-- ADR-033 denylist categories: vendor/product/company/CLI names, model-identifier
-  patterns, harness-invocation tokens, subagent_type, auto-loads/auto-triggers,
-  harness config paths
+- ADR-033 denylist categories: vendor/product/company/CLI names (incl. lowercase
+  leakage), model-identifier patterns, harness-invocation tokens, subagent_type,
+  auto-loads/auto-triggers (+ paraphrases), harness config paths (case-insensitive)
 - ADR-033 framework-authority allowlist: MITRE/ATLAS, NIST/AI RMF, OWASP/Top 10,
-  ISO, EU AI Act, STRIDE — individually and combined, with per-match (not per-line)
-  suppression
+  ISO, EU AI Act, STRIDE — per-match (not per-line) suppression
 - ADR-033 scope boundaries: scripts/agents/**, scripts/skills/** only;
-  scripts/hooks/** (the checker's own home) never scanned
-- ADR-033 frontmatter structural rules: SKILL.md name/description-only;
-  agent .md binding-key exclusion (tools/model/color/allowed-tools/allowed_tools)
+  scripts/hooks/** never scanned
+- ADR-033 frontmatter structural rules, fail-closed on unverifiable input,
+  scoped to the canonical skill-root SKILL.md + top-level agent defs
+  (reference material — including a same-named nested SKILL.md — exempt)
+- Fail-closed robustness: non-UTF-8, malformed/unterminated/non-mapping
+  frontmatter, and dangling symlinks are all discovered and flagged, never
+  silently dropped and never crashing the gate
 - CLI contract: explicit args, self-discovery, exit codes, stderr format
-- Live-corpus regression: documents the one known real finding in architect.md
-  without asserting a fully clean corpus
-- Adversarial cases: CLAUDE.md substring collision, bare-word "model" negative
-  case, bare `.github/` vs `.github/copilot` collision, backslash-escaped
-  tool-invocation shape, case-insensitive CLI entrypoint matching (isolated
-  from model-identifier matching), empty-list return typing
+- Live-corpus regression: the whole scripts/agents/ corpus is clean
 """
