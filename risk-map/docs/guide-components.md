@@ -138,6 +138,8 @@ All files are automatically staged for your commit.
 
 After successful validation, follow the [General Content Contribution Workflow](workflow.md) to create your pull request.
 
+**Note:** A new component does not need any control or risk referencing it yet to merge — that's the normal case, not a gap to fill in this PR. If your change also adds controls or risks that reference this component, see [Landing Sequence for Corpus Changes](contributing/landing-sequence.md) — they land in a later, separate PR.
+
 ---
 
 **Related:**
