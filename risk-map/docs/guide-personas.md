@@ -308,9 +308,11 @@ Add the definition to `yaml/personas.yaml`:
 - `identificationQuestions` - Questions to help identify if this persona applies
 - `deprecated` - Set to `true` for legacy personas
 
-### Step 3: Update existing risks and controls
+### Step 3 (separate, later PR): Wire the persona into existing risks and controls
 
-Add the new persona ID to relevant entries in `risks.yaml` and `controls.yaml`:
+Steps 1-2 above are their own PR: a new persona is a referenced-only leaf and lands on its own, with nothing referencing it yet — that's expected, not a gap to fill before merging. See [Landing Sequence for Corpus Changes](contributing/landing-sequence.md).
+
+Once that PR has merged, add the new persona ID to relevant entries in `risks.yaml` and `controls.yaml` in a separate PR:
 
 ```yaml
 # In yaml/controls.yaml
@@ -324,7 +326,7 @@ Add the new persona ID to relevant entries in `risks.yaml` and `controls.yaml`:
 
 ### Step 4: Validate and submit
 
-Run validation to ensure your changes are correct:
+Run validation to ensure your changes are correct (once per PR — Steps 1-2, and again for Step 3 if you do it):
 
 ```bash
 # Schema validation

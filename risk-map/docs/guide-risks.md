@@ -186,6 +186,8 @@ All files are automatically staged for your commit.
 
 Once validated, follow the [General Content Contribution Workflow](workflow.md) to create your pull request.
 
+**Note:** Step 3 above assumes the controls your new risk references already exist. If your risk also requires a **new** control, see [Landing Sequence for Corpus Changes](contributing/landing-sequence.md) — the two land together in one PR, ordered with the control, not with this risk.
+
 ---
 
 **Related:**

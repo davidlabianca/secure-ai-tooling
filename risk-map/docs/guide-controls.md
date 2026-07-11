@@ -188,6 +188,8 @@ risks:
 
 Once validated, follow the [General Content Contribution Workflow](workflow.md) to create your pull request.
 
+**Note:** Step 3 above assumes the risks your new control references already exist. If your control also requires a **new** risk, see [Landing Sequence for Corpus Changes](contributing/landing-sequence.md) — the two land together in one PR, not as separate steps.
+
 ---
 
 **Related:**
