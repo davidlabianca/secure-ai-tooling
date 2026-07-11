@@ -265,6 +265,11 @@ The framework ID must be defined in `frameworks.yaml` with `applicableTo` includ
 
 ## Adding a Persona
 
+This spans two PRs, in order — see [Landing Sequence for Corpus Changes](contributing/landing-sequence.md):
+
+- **PR 1:** Steps 1-2 below, then validate and submit (Step 4).
+- **PR 2 (later, after PR 1 merges):** Step 3, then validate and submit (Step 4) again.
+
 ### Step 1: Add the persona ID to the schema
 
 Declare the new persona's unique ID in `schemas/personas.schema.json`. The ID should follow the `persona[Name]` convention.
@@ -308,11 +313,11 @@ Add the definition to `yaml/personas.yaml`:
 - `identificationQuestions` - Questions to help identify if this persona applies
 - `deprecated` - Set to `true` for legacy personas
 
-### Step 3 (separate, later PR): Wire the persona into existing risks and controls
+### Step 3 (PR 2): Wire the persona into existing risks and controls
 
-Steps 1-2 above are their own PR: a new persona is a referenced-only leaf and lands on its own, with nothing referencing it yet — that's expected, not a gap to fill before merging. See [Landing Sequence for Corpus Changes](contributing/landing-sequence.md).
+A new persona is a referenced-only leaf and lands on its own in PR 1, with nothing referencing it yet — that's expected, not a gap to fill before merging.
 
-Once that PR has merged, add the new persona ID to relevant entries in `risks.yaml` and `controls.yaml` in a separate PR:
+Once PR 1 has merged, add the new persona ID to relevant entries in `risks.yaml` and `controls.yaml`:
 
 ```yaml
 # In yaml/controls.yaml
@@ -326,7 +331,7 @@ Once that PR has merged, add the new persona ID to relevant entries in `risks.ya
 
 ### Step 4: Validate and submit
 
-Run validation to ensure your changes are correct (once per PR — Steps 1-2, and again for Step 3 if you do it):
+Run validation to ensure your changes are correct — once for PR 1 (Steps 1-2) and again for PR 2 (Step 3):
 
 ```bash
 # Schema validation
