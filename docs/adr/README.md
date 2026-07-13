@@ -23,7 +23,7 @@ If a decision is about *how the Risk Map content model is shaped*, it belongs in
 | [005](005-pre-commit-framework.md) | Pre-commit framework adoption | Accepted | 2026-04-21 |
 | [006](006-agent-architecture-pattern.md) | Vendor-neutral agent architecture under `scripts/agents/` | Accepted | 2026-04-21 |
 | [007](007-content-reviewer-modes.md) | `content-reviewer` three-mode architecture | Accepted | 2026-04-21 |
-| [008](008-sub-agent-orchestration.md) | Sub-agent orchestration: composition contracts and routing boundaries | Accepted | 2026-04-21 |
+| [008](008-sub-agent-orchestration.md) | Sub-agent orchestration: composition contracts and routing boundaries | Accepted (§2 superseded in part — [amendment](008-sub-agent-orchestration.md#amendment-2026-07-12-draft-issue-comments-review-discipline-is-a-canonical-skill) Draft) | 2026-04-21 |
 | [009](009-persona-pages-workflow-topology.md) | GitHub Pages deploy surface and persona-pages workflow topology | Accepted | 2026-04-21 |
 | [010](010-site-repo-root-module-boundary.md) | `site/` as a repo-root peer of `risk-map/` | Accepted | 2026-04-21 |
 | [011](011-persona-site-data-schema-contract.md) | `persona-site-data.schema.json` as a versioned producer/consumer contract | Accepted | 2026-04-21 |
@@ -46,8 +46,9 @@ If a decision is about *how the Risk Map content model is shaped*, it belongs in
 | [028](028-prose-linter-bracket-matching-architecture.md) | Prose-linter emphasis enforcement via bracket-matching depth pass over a Token-shape contract | Accepted | 2026-05-28 |
 | [029](029-dual-python-package-management.md) | Dual Python package-management path with `uv` devcontainers | Accepted | 2026-06-06 |
 | [030](030-agentic-component-model.md) | Agentic component model — external tools tier and identity grouping | Accepted | 2026-06-30 |
-| [031](031-authoring-time-agents-and-skills.md) | Authoring-time agents and skills for Risk Map content — creator + critic agents, classical-lexicon / mapping-selection / altitude-check / audit-framework-mappings skills | Draft | 2026-07-01 |
-| [032](032-consumer-exploration-skills.md) | Read-only consumer exploration skill surface (explore-* skills) | Draft | 2026-07-06 |
+| [031](031-authoring-time-agents-and-skills.md) | Authoring-time agents and skills for Risk Map content — creator + critic agents, classical-lexicon / mapping-selection / altitude-check / audit-framework-mappings skills | Accepted | 2026-07-01 |
+| [032](032-consumer-exploration-skills.md) | Read-only consumer exploration skill surface (explore-* skills) | Accepted | 2026-07-06 |
+| [033](033-vendor-neutral-agent-skill-shipping.md) | Vendor-neutral shipping and lifecycle for CoSAI agents and skills — canonical-only neutral cloneable artifacts, the neutrality contract (machine-checkable denylist + framework-authority allowlist), consumer adaptation, required neutrality check, develop/eval/expand lifecycle | Draft | 2026-07-08 |
 
 ## Conventions
 
