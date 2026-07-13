@@ -42,6 +42,12 @@ If a decision is about *how the Risk Map content model is shaped*, it belongs in
 | [024](024-github-actions-pinning-posture.md) | GitHub Actions pinning posture | Accepted | 2026-05-01 |
 | [025](025-testing-strategy.md) | Testing strategy and posture across Python, site JS, schemas, and infrastructure | Accepted | 2026-05-05 |
 | [026](026-issue-template-domain.md) | Issue-template domain — generator scope, schema-derived enums, and ADR-content alignment contract | Accepted | 2026-05-20 |
+| [027](027-framework-versioning-and-mapping-convention.md) | Per-mapping framework version pinning | Accepted | 2026-05-22 |
+| [028](028-prose-linter-bracket-matching-architecture.md) | Prose-linter emphasis enforcement via bracket-matching depth pass over a Token-shape contract | Accepted | 2026-05-28 |
+| [029](029-dual-python-package-management.md) | Dual Python package-management path with `uv` devcontainers | Accepted | 2026-06-06 |
+| [030](030-agentic-component-model.md) | Agentic component model — external tools tier and identity grouping | Accepted | 2026-06-30 |
+| [031](031-authoring-time-agents-and-skills.md) | Authoring-time agents and skills for Risk Map content — creator + critic agents, classical-lexicon / mapping-selection / altitude-check / audit-framework-mappings skills | Draft | 2026-07-01 |
+| [032](032-consumer-exploration-skills.md) | Read-only consumer exploration skill surface (explore-* skills) | Draft | 2026-07-06 |
 
 ## Conventions
 

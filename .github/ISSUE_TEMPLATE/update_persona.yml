@@ -57,7 +57,7 @@ body:
         - "Update description to clarify that Model Provider includes both those who train from scratch and those who distribute foundation models"
         - "Expand scope to explicitly include MLOps engineers who manage model deployment pipelines"
         - "Clarify distinction between Model Provider and Application Developer for organizations that do both"
-        - "Update title from 'Model Serving' to 'Model Hosting' for better industry alignment"
+        - "Update title from 'AI Model Serving' to 'Model Hosting' for better industry alignment"
 
         Cross-reference framework entities using sentinels, e.g. {{personaModelProvider}}.
         Outbound citations go in External Reference Changes below and are cited via {{ref:identifier}}.
@@ -134,7 +134,7 @@ body:
         Note: iso-22989 values are role descriptors (e.g. "AI Partner (data supplier)"), not
         canonical IDs.
       placeholder: |
-        + iso-22989: AI Provider (audit and assurance)
+        + iso-22989: AI Partner (audit and assurance)
 
   - type: textarea
     id: framework-impact

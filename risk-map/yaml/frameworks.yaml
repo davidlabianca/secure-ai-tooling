@@ -20,6 +20,7 @@ frameworks:
     description: Knowledge base of adversary tactics and techniques based on real-world attack observations on machine learning systems
     baseUri: https://atlas.mitre.org
     version: '5.0.1'
+    versionId: mitre-atlas@5.0.1
     lastUpdated: '2025-10-15'
     techniqueUriPattern: https://atlas.mitre.org/techniques/{id}
     applicableTo:
@@ -32,6 +33,7 @@ frameworks:
     description: Framework for managing risks to individuals, organizations, and society associated with artificial intelligence
     baseUri: https://www.nist.gov/itl/ai-risk-management-framework
     version: '1.0'
+    versionId: nist-ai-rmf@1.0
     lastUpdated: '2023-01-26'
     documentUri: https://nvlpubs.nist.gov/nistpubs/ai/NIST.AI.100-1.pdf
     applicableTo:
@@ -43,6 +45,7 @@ frameworks:
     description: Microsoft threat modeling framework categorizing security threats
     baseUri: https://learn.microsoft.com/en-us/azure/security/develop/threat-modeling-tool-threats
     version: null
+    versionId: stride
     lastUpdated: null
     applicableTo:
       - risks
@@ -53,6 +56,7 @@ frameworks:
     description: Top 10 critical security risks for applications using Large Language Models
     baseUri: https://owasp.org/www-project-top-10-for-large-language-model-applications
     version: '2025'
+    versionId: owasp-top10-llm@2025
     lastUpdated: '2024-11-18'
     applicableTo:
       - controls
@@ -64,6 +68,7 @@ frameworks:
     description: International standard defining AI concepts and terminology including roles and responsibilities
     baseUri: https://www.iso.org/standard/74296.html
     version: '2022'
+    versionId: iso-22989@2022
     lastUpdated: '2022-07-01'
     documentUri: https://www.iso.org/standard/74296.html
     applicableTo:
@@ -75,6 +80,7 @@ frameworks:
     description: Legal framework establishing risk-tier requirements for AI systems across the EU, including prohibitions on certain uses, obligations for high-risk systems, and requirements for general-purpose AI models
     baseUri: https://digital-strategy.ec.europa.eu/en/policies/regulatory-framework-ai
     version: '2024'
+    versionId: eu-ai-act@2024
     lastUpdated: '2024-06-13'
     documentUri: https://eur-lex.europa.eu/eli/reg/2024/1689
     applicableTo:

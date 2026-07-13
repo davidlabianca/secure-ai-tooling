@@ -390,10 +390,10 @@ components:
     title: Output Handling
     description:
       - >
-        Input handling components filter, sanitize, and protect against potentially
-        malicious inputs, whether from a user or more generally from anything outside
-        the trusted system. Input handling acts as a control against numerous risks
-        and is an area ripe for more research and development.
+        Similar to input handling, output handling components filter, sanitize, and
+        protect against unwanted, unexpected or dangerous outputs from a model. Output
+        handling is a major line of defense against various risks and an area primed
+        for more development.
     category: componentsApplication
     subcategory: componentsApplicationCore
     edges:
@@ -405,10 +405,10 @@ components:
     title: Input Handling
     description:
       - >
-        Similar to input handling, output handling components filter, sanitize, and
-        protect against unwanted, unexpected or dangerous outputs from a model. Output
-        handling is a major line of defense against various risks and an area primed
-        for more development.
+        Input handling components filter, sanitize, and protect against potentially
+        malicious inputs, whether from a user or more generally from anything outside
+        the trusted system. Input handling acts as a control against numerous risks
+        and is an area ripe for more research and development.
     category: componentsApplication
     subcategory: componentsApplicationCore
     edges:

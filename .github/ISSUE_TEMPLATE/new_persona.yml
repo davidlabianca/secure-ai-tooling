@@ -20,7 +20,7 @@ body:
 
         **Required fields** are marked with an asterisk (*).
 
-        **Current personas**: see [`personas.yaml`](https://github.com/cosai-oasis/secure-ai-tooling/blob/main/risk-map/yaml/personas.yaml) for the full list (10 personas as of writing, including Model Provider, Data Provider, Platform Provider, Model Serving, Agentic Provider, Application Developer, AI System Governance, and End User).
+        **Current personas**: see [`personas.yaml`](https://github.com/cosai-oasis/secure-ai-tooling/blob/main/risk-map/yaml/personas.yaml) for the full list. The active personas per ADR-021 are Model Provider, Data Provider, AI Platform Provider, AI Model Serving, Agentic Platform and Framework Providers, Application Developer, AI System Governance, and AI System Users. (Two legacy personas — Model Creator and Model Consumer — are retained as `deprecated`.)
 
         **Note**: Personas represent key roles in the AI ecosystem responsible for implementing controls and managing risks. Consider carefully whether a new persona is needed or if the proposed role fits within existing personas.
 
@@ -110,14 +110,14 @@ body:
         Note: iso-22989 values are role descriptors (e.g. "AI Partner (data supplier)"), not
         canonical IDs. Include a framework mapping only when a clear external actor correspondence exists.
       placeholder: |
-        iso-22989: AI Provider (audit and assurance)
+        iso-22989: AI Partner (audit and assurance)
 
   - type: textarea
     id: relationship-to-existing
     attributes:
       label: Relationship to Existing Personas*
       description: |
-        Explain how this persona relates to and differs from the closest existing personas (e.g., Model Provider, Application Developer, End User)
+        Explain how this persona relates to and differs from the closest existing personas (e.g., Model Provider, Application Developer, AI System Users)
 
         Why can't existing personas cover this role?
       placeholder: |

@@ -2,7 +2,7 @@
 
 This repository is for the work of the **Coalition for Secure AI (CoSAI)**. CoSAI is an [OASIS Open Project](https://www.oasis-open.org/open-projects/) and an open ecosystem of AI and security experts from industry-leading organizations. We are dedicated to sharing best practices for secure AI deployment and collaborating on AI security research and tool development.
 
-For more information on CoSAI, please visit the [CoSAI website](https://www.oasis-open.org/projects/cosai/) and the [Open Project repository](https://github.com/cosai-oasis/oasis-open-project), which contains our governance information and project charter.
+For more information on CoSAI, please visit the [CoSAI website](https://www.coalitionforsecureai.org/) and the [Open Project repository](https://github.com/cosai-oasis/oasis-open-project), which contains our governance information and project charter.
 
 ---
 
@@ -27,7 +27,7 @@ The Risk Map organizes the AI development lifecycle into four primary groups: **
 * **Components**: The fundamental building blocks of an AI system.  
 * **Risks**: A catalog of potential security threats, such as Data Poisoning or Model Evasion.  
 * **Controls**: The security measures that can mitigate these risks.  
-* **Personas**: The key roles involved, namely the Model Creator and the Model Consumer.
+* **Personas**: Key roles across the AI lifecycle — Model Provider, Data Provider, AI Platform Provider, AI Model Serving, Agentic Platform and Framework Providers, Application Developer, AI System Governance, and AI System Users. See [`risk-map/yaml/personas.yaml`](./risk-map/yaml/personas.yaml).
 
 The framework is provided as a set of human-readable .yaml files and machine-readable .schema.json files that you can use to learn, assess your own projects, and build upon for your organization's needs.
 

@@ -72,6 +72,25 @@
             "enum": ["controls", "risks", "components", "personas"]
           },
           "minItems": 1
+        },
+        "versionId": {
+          "type": "string",
+          "pattern": "^[a-z0-9.@-]+$",
+          "description": "Generated identifier per ADR-027 D2a/D2b. Concept-id family + '@' + normalized version; bare concept-id when version is null. Materialized by the versionId pre-commit generator (ADR-027 D2b); declared here for the schema-layer charset constraint."
+        },
+        "supersedes": {
+          "type": "string",
+          "pattern": "^[a-z0-9.@-]+$",
+          "description": "Prior versionId this version replaces (ADR-027 D2c). Family consistency enforced by the versionId purity validator (ADR-027 D2b)."
+        },
+        "priorVersions": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z0-9.@-]+$"
+          },
+          "uniqueItems": true,
+          "description": "Retired versionIds CoSAI still recognizes as valid pin targets (ADR-027 D2c). Family consistency enforced by the versionId purity validator (ADR-027 D2b)."
         }
       },
       "required": ["id", "name", "fullName", "description", "baseUri", "applicableTo"],
@@ -104,6 +123,50 @@
         "eu-ai-act": {
           "type": "string",
           "pattern": "^Article\\s\\d+(\\(\\d+\\))?$"
+        }
+      }
+    },
+    "framework-mapping-patterns-pinned": {
+      "type": "object",
+      "description": "Per-framework pinned-value mapping patterns per ADR-027 D3a/D6/D7/D8. Pinned form: spec-native canonical ref + framework-determined version token (@ for most, : for OWASP, no token for STRIDE). Non-ID frameworks (iso-22989) use a closed inline enum per D7/D8. This block is the strict target for #343's consumer-schema $ref flip; the legacy framework-mapping-patterns block stays in place during the migration window.",
+      "additionalProperties": false,
+      "properties": {
+        "mitre-atlas": {
+          "type": "string",
+          "pattern": "^AML\\.(T|M)\\d{4}(\\.\\d{3})?@(5\\.0\\.1)$"
+        },
+        "nist-ai-rmf": {
+          "type": "string",
+          "pattern": "^(GOVERN|MAP|MEASURE|MANAGE)-\\d+(\\.\\d+)*@(1\\.0)$"
+        },
+        "stride": {
+          "type": "string",
+          "pattern": "^(Spoofing|Tampering|Repudiation|InformationDisclosure|DenialOfService|ElevationOfPrivilege)$"
+        },
+        "owasp-top10-llm": {
+          "type": "string",
+          "pattern": "^LLM\\d{2}:2025$"
+        },
+        "iso-22989": {
+          "type": "string",
+          "description": "Single-member oneOf is the per-edition controlled-vocabulary seam (ADR-027 D7/D8): each future ISO 22989 edition appends a oneOf member carrying that edition's @<version> enum, so existing @2022 pins keep validating. Do not collapse to an inline enum.",
+          "oneOf": [
+            {
+              "type": "string",
+              "enum": [
+                "AI Producer@2022",
+                "AI Customer (application builder)@2022",
+                "AI Customer (end user)@2022",
+                "AI Partner (data supplier)@2022",
+                "AI Partner (infrastructure provider)@2022",
+                "AI Partner (tooling provider)@2022"
+              ]
+            }
+          ]
+        },
+        "eu-ai-act": {
+          "type": "string",
+          "pattern": "^Article\\s\\d+(\\(\\d+\\))?@(2024)$"
         }
       }
     }

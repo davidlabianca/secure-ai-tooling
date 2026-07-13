@@ -30,7 +30,20 @@ if str(_HOOKS_DIR) not in sys.path:
 
 from precommit._linter_types import Diagnostic, ProseField, format_diagnostic_line  # noqa: E402
 from precommit._prose_fields import find_prose_fields  # noqa: E402
-from precommit._prose_tokens import TokenKind  # noqa: E402
+from precommit._prose_tokens import (  # noqa: E402
+    _RE_SENTINEL_INTRA_INNER,
+    _RE_SENTINEL_REF_INNER,
+    TokenKind,
+)
+
+# Deliberate cross-module coupling: _RE_SENTINEL_INTRA_INNER and
+# _RE_SENTINEL_REF_INNER are internal to _prose_tokens (leading-underscore per
+# ADR-028 D4).  The wrapped-sentinel predicate (ADR-028 D5) reuses them directly
+# so the linter's notion of a "sentinel" cannot drift from the tokenizer's own
+# classification.  They are NOT promoted to public constants — ADR-028 D4 fixes
+# the public surface of _prose_tokens at exactly Token, TokenKind, and tokenize();
+# a consumer importing these _RE_* names accepts the reorganization-coupling risk
+# that D4 describes.
 
 # Re-export so callers can import ProseField and Diagnostic from this module
 # (the test suite imports both from here, not from _linter_types).
@@ -87,6 +100,69 @@ assert _REJECTED_KINDS == set(_REASONS.keys()), (
     "If you added a new INVALID_* kind to _REJECTED_KINDS, add its reason to _REASONS too."
 )
 
+# Reason strings for emphasis violations (ADR-028 D6). These are stable
+# constants; any change requires a D6 amendment.
+_REASON_NESTED_EMPHASIS = "nested emphasis"
+_REASON_EMPHASIS_WRAPPED_SENTINEL = "emphasis-wrapped sentinel"
+
+# The two emphasis token kinds; used in the depth-counter walk (ADR-028 D5).
+_EMPHASIS_KINDS: frozenset[TokenKind] = frozenset({TokenKind.BOLD, TokenKind.ITALIC})
+
+
+def _is_emphasis_wrapped_sentinel(token_value: str, delim: str) -> bool:
+    """Return True if the emphasis token wraps exactly one sentinel.
+
+    Strips the emphasis delimiter pair from token_value, .strip()s whitespace,
+    then checks whether the result is a `{{ }}` span whose inner content
+    fullmatches either the intra-doc or ref sentinel inner regex.
+
+    This mirrors how _match_sentinel classifies sentinels: outer {{ }} are
+    stripped first, then the inner content is matched against the patterns.
+
+    Args:
+        token_value: The full emphasis token value including delimiters.
+        delim:       The delimiter string ('**', '*', or '_').
+
+    Returns:
+        True if the stripped interior is a well-formed sentinel.
+    """
+    interior = token_value[len(delim) : -len(delim)].strip()
+    # Interior must be wrapped in {{ }} to be a sentinel form.
+    if not (interior.startswith("{{") and interior.endswith("}}")):
+        return False
+    inner = interior[2:-2]
+    return bool(_RE_SENTINEL_INTRA_INNER.fullmatch(inner) or _RE_SENTINEL_REF_INNER.fullmatch(inner))
+
+
+def _delim_for_token(token_value: str) -> str:
+    """Return the delimiter prefix for an emphasis token value.
+
+    Inspects the leading characters to distinguish '**' (BOLD) from '*' (ITALIC
+    asterisk) from '_' (ITALIC underscore). Called only on BOLD/ITALIC tokens,
+    whose values always start with one of those delimiters.
+
+    Args:
+        token_value: The full token value string (a BOLD or ITALIC token).
+
+    Returns:
+        The delimiter string: '**', '*', or '_'.
+
+    Raises:
+        ValueError: if token_value does not start with '**', '*', or '_'. The
+            helper fails loud rather than guessing a delimiter, so a future
+            emphasis kind that reaches it with an unhandled delimiter surfaces
+            immediately instead of silently mis-slicing the token interior.
+    """
+    if token_value.startswith("**"):
+        return "**"
+    if token_value.startswith("*"):
+        return "*"
+    if token_value.startswith("_"):
+        return "_"
+    raise ValueError(
+        f"_delim_for_token expects a BOLD/ITALIC token value starting with '**', '*', or '_'; got {token_value!r}"
+    )
+
 
 def check_prose_field(field: ProseField) -> list[Diagnostic]:
     """Check one ProseField against the ADR-017 D4 grammar rejection rules.
@@ -96,6 +172,9 @@ def check_prose_field(field: ProseField) -> list[Diagnostic]:
     — ADR-017 D4 rule 5 delegates bare-camelCase rejection to
     validate_prose_references.
 
+    Also runs the ADR-028 D5 depth-counter emphasis-rejection walk, emitting
+    diagnostics for nested emphasis and emphasis-wrapped sentinels.
+
     Args:
         field: A ProseField with tokens already populated by tokenize().
 
@@ -103,14 +182,8 @@ def check_prose_field(field: ProseField) -> list[Diagnostic]:
         List of Diagnostic objects (empty if the field is clean).
     """
     diagnostics: list[Diagnostic] = []
-    for token in field.tokens:
-        if token.kind not in _REJECTED_KINDS:
-            continue
-        base_reason = _REASONS[token.kind]
-        # ADR-017 D4: append the offending token value as a snippet for context.
-        # Only append when token.value is non-empty (tokenizer guarantees this,
-        # but guard defensively to avoid "at ''" in edge cases).
-        reason = f"{base_reason} at {token.value!r}" if token.value else base_reason
+
+    def _emit_diag(reason: str) -> None:
         diagnostics.append(
             Diagnostic(
                 hook_id=_HOOK_ID,
@@ -122,6 +195,53 @@ def check_prose_field(field: ProseField) -> list[Diagnostic]:
                 nested_index=field.nested_index,
             )
         )
+
+    # --- INVALID_* token rejection (ADR-017 D4) ---
+    for token in field.tokens:
+        if token.kind not in _REJECTED_KINDS:
+            continue
+        base_reason = _REASONS[token.kind]
+        # ADR-017 D4: append the offending token value as a snippet for context.
+        # Only append when token.value is non-empty (tokenizer guarantees this,
+        # but guard defensively to avoid "at ''" in edge cases).
+        reason = f"{base_reason} at {token.value!r}" if token.value else base_reason
+        _emit_diag(reason)
+
+    # --- ADR-028 D5 depth-counter emphasis walk ---
+    # Single pass over the token stream with a bare integer depth counter.
+    # Emphasis tokens with shape='open' increment depth; 'close' decrements.
+    # Any emphasis token arriving at depth > 0 is a nested-emphasis violation.
+    # The wrapped-sentinel predicate is independent of depth state.
+    depth = 0
+    for token in field.tokens:
+        if token.kind not in _EMPHASIS_KINDS:
+            continue
+
+        # Nested-emphasis predicate (ADR-028 D5).
+        if token.shape == "open":
+            if depth > 0:
+                _emit_diag(f"{_REASON_NESTED_EMPHASIS} at {token.value!r}")
+            depth += 1
+        elif token.shape == "close":
+            # Check before decrementing: the close token is the one arriving
+            # at depth > 0 in the canonical [open, text, close] stream
+            # (e.g. **foo **nested** bar**), so it is the attribution point for
+            # the single nested-emphasis diagnostic. ADR-028 D5 (as amended
+            # 2026-05-29) emits in the close branch when depth > 0, before the
+            # decrement.
+            if depth > 0:
+                _emit_diag(f"{_REASON_NESTED_EMPHASIS} at {token.value!r}")
+            depth = max(0, depth - 1)
+        elif token.shape == "complete":
+            if depth > 0:
+                _emit_diag(f"{_REASON_NESTED_EMPHASIS} at {token.value!r}")
+            # complete = open + close, net depth change 0
+
+        # Emphasis-wrapped-sentinel predicate (independent of depth state).
+        delim = _delim_for_token(token.value)
+        if _is_emphasis_wrapped_sentinel(token.value, delim):
+            _emit_diag(f"{_REASON_EMPHASIS_WRAPPED_SENTINEL} at {token.value!r}")
+
     return diagnostics
 
 

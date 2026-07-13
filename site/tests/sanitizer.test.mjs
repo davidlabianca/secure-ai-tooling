@@ -31,7 +31,7 @@
  * ADR-015 D1 and ADR-016 D5. See ADR-016 D5 Addendum (2026-05-14).
  *
  * Ref-rendering shape:
- *   {type: "ref", id, title}  ->  <a href="#${escapeHtml(id)}">${escapeLinkTitle(title)}</a>
+ *   {type: "ref", id, title}  ->  <a href="#${escapeHtml(id)}">${escapeStructuredTitle(title)}</a>
  *
  * id is validated against ^[A-Za-z][A-Za-z0-9_-]*$ before emission. An id
  * that fails validation triggers the escape-with-warn path identically to
@@ -61,6 +61,40 @@ import { renderProse } from "../assets/sanitizer.mjs";
 // sanitizer.mjs; this copy is a contract-check, not a shared dependency.
 // ---------------------------------------------------------------------------
 const ALLOWED_TAGS = ["strong", "em", "a"];
+
+// Local reference copy of STRUCTURED_ITEM_TYPES. Same contract-check posture:
+// source of truth is the literal const in sanitizer.mjs; this copy is checked
+// against the source in the bounded-dispatch meta-test below.
+const STRUCTURED_ITEM_TYPES = ["link", "ref"];
+
+// Marker substring emitted by renderProse on unrecognised structured-item
+// types. Duplicated from app-render-rich-paragraphs.test.mjs so the bleed-thru
+// gate exists at this layer too — a regression that causes a known-type path
+// (link or ref) to emit the marker must fail the sanitizer unit tests as well
+// as the integration-layer tests, not only one of them.
+const UNSUPPORTED_PROSE_ITEM_MARKER = "renderProse: unsupported prose-item type";
+
+function countOccurrences(text, needle) {
+  let count = 0;
+  let position = 0;
+  while ((position = text.indexOf(needle, position)) !== -1) {
+    count += 1;
+    position += needle.length;
+  }
+  return count;
+}
+
+function countHtmlCommentEndTags(html) {
+  return countOccurrences(html, "-->") + countOccurrences(html, "--!>");
+}
+
+function assertNoStructuredItemBleedThrough(output) {
+  assert.ok(!output.includes("[object Object]"), `Output leaked [object Object]: ${output}`);
+  assert.ok(
+    !output.includes(UNSUPPORTED_PROSE_ITEM_MARKER),
+    `Output emitted unsupported structured-item marker on a known-type path: ${output}`,
+  );
+}
 
 // ---------------------------------------------------------------------------
 // Fixture loading helpers
@@ -213,6 +247,18 @@ test("positive — structured link item renders <a> with href, rel, target const
   // rel and target are constructed by the renderer (ADR-015 D3a)
   assert.ok(output.includes('rel="noopener noreferrer"'), `Expected rel=noopener noreferrer: ${output}`);
   assert.ok(output.includes('target="_blank"'), `Expected target=_blank: ${output}`);
+
+  // Bleed-thru gate at the unit layer: a known-type path must never emit the
+  // unsupported-type marker nor leak String(object).
+  assertNoStructuredItemBleedThrough(output);
+});
+
+test("positive — structured ref item renders in-page <a href='#id'> with no rel/target", () => {
+  // Known-type path for the second STRUCTURED_ITEM_TYPES entry. Bleed-thru
+  // gate at the unit layer mirrors the link-item assertion above.
+  const output = callRenderProse({ type: "ref", id: "riskPromptInjection", title: "Prompt Injection" });
+  assert.equal(output, '<a href="#riskPromptInjection">Prompt Injection</a>');
+  assertNoStructuredItemBleedThrough(output);
 });
 
 test("positive — _italic_ underscore delimiter also renders <em>", () => {
@@ -293,6 +339,117 @@ test("negative — structured link with http:// scheme does not produce <a>", ()
   // ADR-015 D3a: href validated against ^https:// before insertion.
   const output = callRenderProse({ type: "link", title: "Insecure", url: "http://example.com" });
   assert.ok(!output.includes('<a href="http://'), `http:// link must not produce <a>: ${output}`);
+});
+
+test("negative — unknown structured item emits inert marker instead of object string", () => {
+  const originalWarn = console.warn;
+  const spy = { calls: [] };
+  console.warn = (...args) => spy.calls.push(args);
+
+  try {
+    const output = callRenderProse({ type: "alien", title: "Unknown Type" });
+
+    assert.equal(output, "<!-- renderProse: unsupported prose-item type: alien -->");
+    assert.ok(!output.includes("[object Object]"), `Unknown structured item must not leak object string: ${output}`);
+    assert.equal(
+      spy.calls.length,
+      1,
+      `Unknown structured item must produce exactly one warning, got ${spy.calls.length}`,
+    );
+  } finally {
+    console.warn = originalWarn;
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Adversarial unknown-`type` sweep (PR #350 review items 1+6, 7-9).
+//
+// The inert-marker fallback is the load-bearing defence against future builder
+// changes that introduce a structured-item type without simultaneously extending
+// renderProse. The marker is wrapped in an HTML comment, so its containment
+// depends on:
+//   1. escapeHtml neutralising `>` so a hostile `type` cannot close the
+//      comment early (HTML5 § 8.2.4.44 — comments end on `-->` or `--!>`).
+//   2. describeUnsupportedType reducing non-string `type` to a label that
+//      does not re-introduce "[object Object]".
+//   3. describeUnsupportedType stripping null bytes so the raw innerHTML
+//      stays greppable for the bleed-thru gate.
+//
+// Each fixture below pins one of those invariants. Failure means a future
+// change to escapeHtml or describeUnsupportedType silently regressed the
+// containment guarantee.
+// ---------------------------------------------------------------------------
+
+const ADVERSARIAL_TYPE_FIXTURES = [
+  { label: "raw script tag in type", input: { type: "<script>alert(1)</script>" } },
+  { label: "HTML comment terminator in type", input: { type: "-->" } },
+  { label: "HTML comment opener in type", input: { type: "<!--" } },
+  { label: "alternate comment terminator --!> in type", input: { type: "--!>" } },
+  { label: "bare double-dash in type", input: { type: "--" } },
+  { label: "quote-injection in type", input: { type: '"; alert(1); //' } },
+  { label: "null byte in type", input: { type: "alien\x00js" } },
+  { label: "object-valued type", input: { type: { nested: "ref" } } },
+  { label: "array-valued type", input: { type: ["alien"] } },
+  { label: "numeric type", input: { type: 42 } },
+  { label: "boolean type", input: { type: true } },
+  { label: "null type", input: { type: null } },
+  { label: "missing type key", input: { foo: "bar" } },
+  // Array as the whole input: enters the structured-item branch (typeof []
+  // === "object", arr !== null) with input.type === undefined, so hits the
+  // unknown-type path.
+  { label: "array as input", input: ["a", "b"] },
+];
+
+test("adversarial — every unknown-type fixture stays HTML-inert and free of regression strings", () => {
+  const originalWarn = console.warn;
+  console.warn = () => {}; // silence per-fixture warns — assertion is on output, not stdout
+
+  try {
+    for (const { label, input } of ADVERSARIAL_TYPE_FIXTURES) {
+      const output = callRenderProse(input);
+
+      // Comment containment: one canonical close marker and no injected alternate terminator.
+      assert.ok(output.startsWith("<!--"), `[${label}] marker must open as HTML comment: ${output}`);
+      assert.ok(output.endsWith("-->"), `[${label}] marker must close as HTML comment: ${output}`);
+      assert.equal(
+        countHtmlCommentEndTags(output),
+        1,
+        `[${label}] marker must contain exactly one comment terminator: ${output}`,
+      );
+      assert.equal(
+        countOccurrences(output, "<!--"),
+        1,
+        `[${label}] marker must contain exactly one comment opener: ${output}`,
+      );
+
+      // No raw script, no live HTML, no embedded null byte.
+      assert.ok(!output.includes("<script>"), `[${label}] marker must not contain raw <script>: ${output}`);
+      assert.ok(!output.includes("<script "), `[${label}] marker must not contain raw <script attr: ${output}`);
+      assert.ok(
+        !output.includes("\x00"),
+        `[${label}] marker must not contain raw null byte: ${JSON.stringify(output)}`,
+      );
+
+      // Bleed-thru gate: the marker itself must not carry the regression
+      // string the marker was introduced to prevent.
+      assert.ok(!output.includes("[object Object]"), `[${label}] marker must not contain [object Object]: ${output}`);
+    }
+  } finally {
+    console.warn = originalWarn;
+  }
+});
+
+test("adversarial — null / primitive top-level inputs are not structured items (no marker)", () => {
+  // These fall through the structured-item guard (input === null or typeof
+  // input !== "object") and reach the plain-string path. They must not emit
+  // the unsupported-type marker; they pass through as escaped plain text.
+  for (const input of [null, undefined, 42, true, false, ""]) {
+    const output = callRenderProse(input);
+    assert.ok(
+      !output.includes(UNSUPPORTED_PROSE_ITEM_MARKER),
+      `Primitive input ${JSON.stringify(input)} must not emit the unsupported-type marker: ${output}`,
+    );
+  }
 });
 
 test("negative — raw <a href=...> in prose is escaped, not passed through", () => {
@@ -452,6 +609,80 @@ test("bounded-emission — ALLOWED_TAGS is declared as a literal const array in 
   // Also assert ALLOWED_TAGS includes all three required tags.
   assert.ok(source.includes("'em'") || source.includes('"em"'), "ALLOWED_TAGS must include 'em'");
   assert.ok(source.includes("'a'") || source.includes('"a"'), "ALLOWED_TAGS must include 'a'");
+});
+
+// ---------------------------------------------------------------------------
+// Bounded-dispatch contract test (PR #350 review item 5).
+// Mirrors the ALLOWED_TAGS bounded-emission test for structured-item types.
+// Reads sanitizer.mjs source text and asserts:
+//   1. STRUCTURED_ITEM_TYPES is declared as a literal const array
+//   2. For each entry, a corresponding `input.type === "<type>"` dispatch arm
+//      exists in source
+// Adding a type to the const without extending the dispatch arms fails here.
+// ---------------------------------------------------------------------------
+
+test("bounded-dispatch — STRUCTURED_ITEM_TYPES is a literal const array in sanitizer.mjs source", () => {
+  const sanitizerPath = path.join(__dirname, "../assets/sanitizer.mjs");
+  const source = fs.readFileSync(sanitizerPath, "utf8");
+
+  const literalConstPattern = /const\s+STRUCTURED_ITEM_TYPES\s*=\s*\[\s*['"]link['"]/;
+  assert.ok(
+    literalConstPattern.test(source),
+    "sanitizer.mjs must declare STRUCTURED_ITEM_TYPES as a literal const array starting with 'link'. " +
+      "It must not be a parameter, derived from input, or mutable.",
+  );
+
+  // Confirm the local copy in this test file matches the source-of-truth shape.
+  for (const type of STRUCTURED_ITEM_TYPES) {
+    assert.ok(
+      source.includes(`'${type}'`) || source.includes(`"${type}"`),
+      `STRUCTURED_ITEM_TYPES literal in source must include '${type}'`,
+    );
+  }
+});
+
+test("bounded-dispatch — every STRUCTURED_ITEM_TYPES entry has a matching dispatch arm in source", () => {
+  // Structural enforcement of the fail-loud guarantee: adding a type to the
+  // registry without extending renderProse's dispatch leaves the type
+  // catch-all marker as the only handler — this meta-test catches that.
+  const sanitizerPath = path.join(__dirname, "../assets/sanitizer.mjs");
+  const source = fs.readFileSync(sanitizerPath, "utf8");
+
+  for (const type of STRUCTURED_ITEM_TYPES) {
+    const dispatchPattern = new RegExp(`input\\.type\\s*===\\s*['"]${type}['"]`);
+    assert.ok(
+      dispatchPattern.test(source),
+      `sanitizer.mjs must contain a dispatch arm 'input.type === "${type}"' for STRUCTURED_ITEM_TYPES entry '${type}'.`,
+    );
+  }
+});
+
+// Per-type positive-coverage map. Each STRUCTURED_ITEM_TYPES entry must have
+// at least one positive test case here. Adding a type without an entry fails
+// the meta-test below — the test-coverage analogue of ADR-015 D3b.
+const structuredTypePositiveCases = new Map([
+  ["link", () => callRenderProse({ type: "link", title: "Sample", url: "https://example.com/" })],
+  ["ref", () => callRenderProse({ type: "ref", id: "riskPromptInjection", title: "Prompt Injection" })],
+]);
+
+test("bounded-dispatch — every STRUCTURED_ITEM_TYPES entry has a positive test case", () => {
+  for (const type of STRUCTURED_ITEM_TYPES) {
+    const positiveCase = structuredTypePositiveCases.get(type);
+    assert.ok(
+      typeof positiveCase === "function",
+      `STRUCTURED_ITEM_TYPES entry '${type}' must have a positive test case in structuredTypePositiveCases.`,
+    );
+
+    // Run the positive case and confirm it does NOT emit the unsupported-
+    // type marker — i.e., the dispatch arm actually handles the type.
+    const output = positiveCase();
+    assert.ok(
+      !output.includes(UNSUPPORTED_PROSE_ITEM_MARKER),
+      `Positive case for '${type}' must not emit the unsupported-type marker; ` +
+        `dispatch arm is missing or broken. Output: ${output}`,
+    );
+    assertNoStructuredItemBleedThrough(output);
+  }
 });
 
 // ---------------------------------------------------------------------------

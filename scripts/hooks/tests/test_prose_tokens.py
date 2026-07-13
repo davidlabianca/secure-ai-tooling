@@ -87,8 +87,9 @@ Representation decisions (locked; the implementation must match):
 
 Test Summary
 ============
-Total fixture-parametrized pairs: 55
+Total fixture-parametrized pairs: 62
 - accepting/: 7 fixture pairs (inc. double_underscore_not_bold)
+- accepting/emphasis_shapes/: 6 fixture pairs (ADR-028 D-Open-18, Path 3b)
 - sentinels/: 7 fixture pairs
 - rejecting/: 16 fixture pairs (existing) + 14 new URL fixture pairs (commit 5)
 - folded_bullets/: 2 fixture pairs
@@ -345,6 +346,26 @@ _ACCEPTING_FIXTURES = [
     "accepting/double_underscore_not_bold",
 ]
 
+# ADR-028 D-Open-18 (Path 3b): additive emphasis-shape fixtures. These lock the
+# tokenizer's token STREAM (kind + value) for the open / close / both-edges /
+# nested emphasis inputs the shape classifier (ADR-028 D3) tags. The fixture
+# projection drops `shape` per D-Open-20, so shape itself is asserted directly
+# in the classifier tests; these fixtures lock the underlying greedy-match
+# stream the classifier and the depth-counter linter depend on (e.g. that
+# `**foo **nested** bar**` splits into [BOLD, TEXT, BOLD], the precondition for
+# the nested-emphasis diagnostic).
+_EMPHASIS_SHAPE_FIXTURES = [
+    "accepting/emphasis_shapes/bold_open",
+    "accepting/emphasis_shapes/bold_close",
+    "accepting/emphasis_shapes/bold_both_edges_whitespace",
+    "accepting/emphasis_shapes/italic_asterisk_open",
+    "accepting/emphasis_shapes/nested_bold_three_token",
+    "accepting/emphasis_shapes/bold_wraps_sentinel_nested",
+    # ADR-028 D-Open-21.2(b): underscore italic now emits open/close shapes;
+    # nested underscore splits into three tokens like nested bold does.
+    "accepting/emphasis_shapes/nested_italic_underscore_three_token",
+]
+
 _SENTINEL_FIXTURES = [
     "sentinels/intra_risk",
     "sentinels/intra_control",
@@ -455,6 +476,31 @@ class TestAcceptingTokens:
         invalid_kinds = {k for k in TokenKind if k.name.startswith("INVALID")}
         for token in tokenize(input_text):
             assert token.kind not in invalid_kinds, f"Fixture {fixture_path!r}: unexpected INVALID token {token!r}"
+
+
+class TestEmphasisShapeFixtures:
+    """
+    Verify the token stream for emphasis-shape inputs (ADR-028 D-Open-18, Path 3b).
+
+    Given: an emphasis input exercising open / close / both-edges / nested shapes
+    When: tokenize() is called
+    Then: the stream matches the fixture's .tokens.json exactly (kind + value).
+
+    These fixtures lock the greedy-match behaviour the shape classifier and the
+    depth-counter linter depend on; `shape` is dropped by the fixture projection
+    (D-Open-20) and asserted directly in the classifier tests.
+    """
+
+    @pytest.mark.parametrize("fixture_path", _EMPHASIS_SHAPE_FIXTURES)
+    def test_emphasis_shape_token_stream(self, fixture_path: str):
+        """
+        Given: input from accepting/emphasis_shapes/<name>.txt
+        When: tokenize() is called
+        Then: output matches the fixture's .tokens.json exactly (kind + value)
+        """
+        input_text, expected = _load_fixture_pair(fixture_path)
+        result = _tokens_to_dicts(tokenize(input_text))
+        assert result == expected, f"Fixture {fixture_path!r}: expected {expected!r}, got {result!r}"
 
 
 class TestSentinels:
@@ -1932,3 +1978,765 @@ class TestEmptyAndWhitespace:
                 assert not token.kind.name.startswith("INVALID"), (
                     f"Bare newline should not produce INVALID token, got {token!r}"
                 )
+
+
+# ===========================================================================
+# TestTripleAsteriskProbe  (Spike S1 — descriptive locks)
+# ===========================================================================
+# These tests lock the ground-truth token streams for six triple-asterisk
+# inputs.  They record the tokenizer's current output (emphasis emission
+# sites are extended, not changed).
+# Feeds into TestEmphasisShapeClassification fixture grounding.
+# ===========================================================================
+
+
+class TestTripleAsteriskProbe:
+    r"""
+    Lock current tokenizer output for triple-/multi-asterisk edge-case inputs.
+
+    ADR-028 §9.3 Spike S1 — run empirically before classifier tests are written
+    to ensure the _classify_emphasis_shape helper handles each case consistently.
+
+    All assertions are descriptive: they record the observed stream.
+    """
+
+    def test_triple_star_foo_tokenizes_as_bold_plus_trailing_text(self):
+        """
+        Given: '***foo***'
+        When: tokenize() is called
+        Then: BOLD('***foo**') + TEXT('*')
+
+        The non-greedy _RE_BOLD closes at the first '**' after open, consuming
+        '***foo**' (interior='*foo').  The final lone '*' is TEXT.
+        Shape: the BOLD interior '*foo' has no edge whitespace ->
+        _classify_emphasis_shape yields 'complete'.
+        """
+        _require_module()
+        tokens = tokenize("***foo***")
+        assert len(tokens) == 2, f"Expected 2 tokens, got {tokens!r}"
+        assert tokens[0].kind == TokenKind.BOLD
+        assert tokens[0].value == "***foo**"
+        assert tokens[1].kind == TokenKind.TEXT
+        assert tokens[1].value == "*"
+
+    def test_four_stars_tokenizes_as_italic_plus_trailing_text(self):
+        """
+        Given: '****'
+        When: tokenize() is called
+        Then: ITALIC('***') + TEXT('*')
+
+        Rule 12 (bold) checks ch=='*' and text[i+1]=='*', tries _RE_BOLD which
+        needs at least one inner char between '**...**'.  '****' has interior=''
+        which fails (.+?).  Rule 13 (italic asterisk) then fires on the lone '*'
+        and _RE_ITALIC_ASTERISK matches '***' (interior='*').  The remaining '*'
+        is TEXT.
+        Shape: ITALIC interior '*' has no edge whitespace -> 'complete'.
+        """
+        _require_module()
+        tokens = tokenize("****")
+        assert len(tokens) == 2, f"Expected 2 tokens, got {tokens!r}"
+        assert tokens[0].kind == TokenKind.ITALIC
+        assert tokens[0].value == "***"
+        assert tokens[1].kind == TokenKind.TEXT
+        assert tokens[1].value == "*"
+
+    def test_five_star_foo_tokenizes_as_bold_text_bold(self):
+        """
+        Given: '*****foo*****'
+        When: tokenize() is called
+        Then: BOLD('*****') + TEXT('foo') + BOLD('*****')
+
+        _RE_BOLD non-greedy: matches '**' open, then (.+?) closes at first '**'.
+        Given '*****foo*****', opening at i=0, the first '**' close is at i=3
+        (positions 3-4), consuming '*****' (interior='***').  TEXT('foo').
+        Then BOLD('*****') again.
+        Shape: interior '***' has no edge whitespace -> 'complete'.
+        """
+        _require_module()
+        tokens = tokenize("*****foo*****")
+        assert len(tokens) == 3, f"Expected 3 tokens, got {tokens!r}"
+        assert tokens[0].kind == TokenKind.BOLD
+        assert tokens[0].value == "*****"
+        assert tokens[1].kind == TokenKind.TEXT
+        assert tokens[1].value == "foo"
+        assert tokens[2].kind == TokenKind.BOLD
+        assert tokens[2].value == "*****"
+
+    def test_bold_then_one_star_tokenizes_as_bold_plus_text(self):
+        """
+        Given: '**foo***'
+        When: tokenize() is called
+        Then: BOLD('**foo**') + TEXT('*')
+
+        Standard bold match; trailing lone '*' is TEXT.
+        Shape: interior 'foo' has no edge whitespace -> 'complete'.
+        """
+        _require_module()
+        tokens = tokenize("**foo***")
+        assert len(tokens) == 2, f"Expected 2 tokens, got {tokens!r}"
+        assert tokens[0].kind == TokenKind.BOLD
+        assert tokens[0].value == "**foo**"
+        assert tokens[1].kind == TokenKind.TEXT
+        assert tokens[1].value == "*"
+
+    def test_one_star_then_bold_tokenizes_as_single_bold(self):
+        """
+        Given: '***foo**'
+        When: tokenize() is called
+        Then: BOLD('***foo**') — single token
+
+        _RE_BOLD opens at '**' (positions 0-1), (.+?) matches '*foo' (leading
+        '*' is inner content), closes at '**' (positions 5-6).  Full span is
+        '***foo**'.  Interior is '*foo'; no edge whitespace -> 'complete'.
+        Shape: 'complete'.
+        """
+        _require_module()
+        tokens = tokenize("***foo**")
+        assert len(tokens) == 1, f"Expected 1 token, got {tokens!r}"
+        assert tokens[0].kind == TokenKind.BOLD
+        assert tokens[0].value == "***foo**"
+
+    def test_three_stars_alone_tokenizes_as_italic(self):
+        """
+        Given: '***'
+        When: tokenize() is called
+        Then: ITALIC('***') — single token
+
+        Bold rule fails (no closing '**' after inner content).  Italic-asterisk
+        rule succeeds: _RE_ITALIC_ASTERISK matches '*...*' = '***' (interior='*').
+        Shape: interior '*' has no edge whitespace -> 'complete'.
+        """
+        _require_module()
+        tokens = tokenize("***")
+        assert len(tokens) == 1, f"Expected 1 token, got {tokens!r}"
+        assert tokens[0].kind == TokenKind.ITALIC
+        assert tokens[0].value == "***"
+
+
+# ===========================================================================
+# TestEmphasisShapeClassification — ADR-028 D3 shape classifier
+# ===========================================================================
+# These tests import _classify_emphasis_shape from precommit._prose_tokens.
+# The import block below uses the same lazy-guard pattern as the module's
+# top-level _IMPORT_ERROR guard: a collection-time import failure sets
+# _CLASSIFY_IMPORT_ERROR and each test calls _require_classify() to fail
+# with a clear message rather than a collection crash.
+# ===========================================================================
+
+_CLASSIFY_IMPORT_ERROR: ImportError | None = None
+try:
+    from precommit._prose_tokens import _classify_emphasis_shape  # noqa: E402
+except ImportError as _ce:
+    _CLASSIFY_IMPORT_ERROR = _ce
+    _classify_emphasis_shape = None  # type: ignore[assignment]
+
+
+def _require_classify() -> None:
+    """Fail with assertion if _classify_emphasis_shape could not be imported."""
+    if _CLASSIFY_IMPORT_ERROR is not None:
+        pytest.fail(
+            f"_classify_emphasis_shape not importable from precommit._prose_tokens.\n"
+            f"Original error: {_CLASSIFY_IMPORT_ERROR}\n"
+            "This indicates _classify_emphasis_shape is missing from precommit._prose_tokens."
+        )
+
+
+class TestEmphasisShapeClassification:
+    r"""
+    Cell-grid tests for _classify_emphasis_shape(span, delim) -> str.
+
+    ADR-028 D3 shape rules, D-Open-16 (12-14 cases), D-Open-7 (both-edges -> 'open').
+
+    Grid: delimiter {'**', '*', '_'} x shape {'complete', 'open', 'close'}
+    plus edge cases from Spike S1 (triple-asterisk inputs).
+
+    No `neutral`-return case is tested because the classifier only runs on
+    matched emphasis spans; non-emphasis tokens carry shape='neutral' by
+    construction in the tokenizer (not via the classifier).
+
+    Shape rules (from ADR-028 D3 table):
+      - Neither edge has whitespace in interior -> 'complete'
+      - Only trailing whitespace in interior    -> 'open'
+      - Only leading whitespace in interior     -> 'close'
+      - Both edges whitespace                   -> 'open' (convention, D-Open-7)
+      - Single whitespace-only interior (\n)    -> 'open'
+    """
+
+    # --- BOLD '**' delimiter ---
+
+    def test_bold_complete_no_edge_whitespace(self):
+        """
+        Given: span='**foo**', delim='**'
+        When: _classify_emphasis_shape is called
+        Then: returns 'complete'
+
+        Interior is 'foo'; neither first nor last char is whitespace.
+        """
+        _require_classify()
+        assert _classify_emphasis_shape("**foo**", "**") == "complete"
+
+    def test_bold_complete_with_internal_space_not_at_edge(self):
+        """
+        Given: span='**foo bar**', delim='**'
+        When: _classify_emphasis_shape is called
+        Then: returns 'complete'
+
+        Interior is 'foo bar'; edge chars are 'f' and 'r' — neither is whitespace.
+        Only edge whitespace is the signal (ADR-028 D3).
+        """
+        _require_classify()
+        assert _classify_emphasis_shape("**foo bar**", "**") == "complete"
+
+    def test_bold_open_trailing_whitespace(self):
+        """
+        Given: span='**foo **', delim='**'
+        When: _classify_emphasis_shape is called
+        Then: returns 'open'
+
+        Interior is 'foo '; last char is space -> trailing edge whitespace ->
+        the non-greedy regex closed on what the author intended as an inner open.
+        """
+        _require_classify()
+        assert _classify_emphasis_shape("**foo **", "**") == "open"
+
+    def test_bold_close_leading_whitespace(self):
+        """
+        Given: span='** bar**', delim='**'
+        When: _classify_emphasis_shape is called
+        Then: returns 'close'
+
+        Interior is ' bar'; first char is space -> leading edge whitespace ->
+        this is the trailing half of an early-closed greedy match.
+        """
+        _require_classify()
+        assert _classify_emphasis_shape("** bar**", "**") == "close"
+
+    def test_bold_both_edges_whitespace_is_open(self):
+        """
+        Given: span='** foo **', delim='**'
+        When: _classify_emphasis_shape is called
+        Then: returns 'open'
+
+        Interior is ' foo '; both edges whitespace.  D-Open-7 convention:
+        leading-whitespace test fires first -> 'open'.  Consistent with the
+        wrapped-sentinel case '**\\n{{ref:x}}\\n**' rendering as 'open'.
+        """
+        _require_classify()
+        assert _classify_emphasis_shape("** foo **", "**") == "open"
+
+    def test_bold_newline_interior_is_open(self):
+        """
+        Given: span='**\\n**', delim='**'
+        When: _classify_emphasis_shape is called
+        Then: returns 'open'
+
+        Interior is '\\n'; \\n.isspace() is True -> both-edges convention
+        fires (both leading and trailing are the same whitespace char) -> 'open'.
+        ADR-028 D3 table: '**\\n**' -> 'open'.
+        """
+        _require_classify()
+        assert _classify_emphasis_shape("**\n**", "**") == "open"
+
+    # --- ITALIC asterisk '*' delimiter ---
+
+    def test_italic_asterisk_complete(self):
+        """
+        Given: span='*foo*', delim='*'
+        When: _classify_emphasis_shape is called
+        Then: returns 'complete'
+        """
+        _require_classify()
+        assert _classify_emphasis_shape("*foo*", "*") == "complete"
+
+    def test_italic_asterisk_open_trailing_space(self):
+        """
+        Given: span='*foo *', delim='*'
+        When: _classify_emphasis_shape is called
+        Then: returns 'open'
+        """
+        _require_classify()
+        assert _classify_emphasis_shape("*foo *", "*") == "open"
+
+    def test_italic_asterisk_close_leading_space(self):
+        """
+        Given: span='* bar*', delim='*'
+        When: _classify_emphasis_shape is called
+        Then: returns 'close'
+        """
+        _require_classify()
+        assert _classify_emphasis_shape("* bar*", "*") == "close"
+
+    # --- ITALIC underscore '_' delimiter ---
+
+    def test_italic_underscore_complete(self):
+        """
+        Given: span='_foo_', delim='_'
+        When: _classify_emphasis_shape is called
+        Then: returns 'complete'
+        """
+        _require_classify()
+        assert _classify_emphasis_shape("_foo_", "_") == "complete"
+
+    def test_italic_underscore_open_trailing_space(self):
+        """
+        Given: span='_foo _', delim='_'
+        When: _classify_emphasis_shape is called
+        Then: returns 'open'
+        """
+        _require_classify()
+        assert _classify_emphasis_shape("_foo _", "_") == "open"
+
+    def test_italic_underscore_close_leading_space(self):
+        """
+        Given: span='_ bar_', delim='_'
+        When: _classify_emphasis_shape is called
+        Then: returns 'close'
+        """
+        _require_classify()
+        assert _classify_emphasis_shape("_ bar_", "_") == "close"
+
+    # --- Triple-asterisk edge cases (grounded by Spike S1) ---
+
+    def test_triple_star_bold_interior_no_edge_ws_is_complete(self):
+        """
+        Given: span='***foo**', delim='**'  (from '***foo***' S1 probe)
+        When: _classify_emphasis_shape is called
+        Then: returns 'complete'
+
+        Interior is '*foo'; first char '*' is not whitespace, last char 'o'
+        is not whitespace -> 'complete'.
+        """
+        _require_classify()
+        assert _classify_emphasis_shape("***foo**", "**") == "complete"
+
+    def test_five_star_bold_pure_star_interior_is_complete(self):
+        """
+        Given: span='*****', delim='**'  (from '*****foo*****' S1 probe)
+        When: _classify_emphasis_shape is called
+        Then: returns 'complete'
+
+        Interior is '***'; '*' is not whitespace -> 'complete'.
+        """
+        _require_classify()
+        assert _classify_emphasis_shape("*****", "**") == "complete"
+
+
+# ===========================================================================
+# TestTokenShapeField — ADR-028 D1 Token.shape wire-up
+# ===========================================================================
+# ADR-028 D1: Token gains shape: Literal['complete','open','close','neutral']
+# as third field with default 'neutral'.  These tests call tokenize() and
+# inspect .shape on the resulting tokens, satisfying ADR-025 D10 wire-up.
+# ===========================================================================
+
+
+class TestTokenShapeField:
+    r"""
+    Wire-up tests: tokenize() emits tokens whose .shape field carries the
+    ADR-028 D3 classification.  Satisfies ADR-025 D10 (at least one test
+    that calls tokenize() and reads .shape on the result).
+    """
+
+    def _assert_has_shape(self, token: object) -> None:
+        """Assert token has a .shape attribute; fail with diagnostic if not."""
+        assert hasattr(token, "shape"), (
+            f"Token {token!r} has no .shape attribute (ADR-028 D1 requires Token.shape)."
+        )
+
+    def test_simple_bold_has_complete_shape(self):
+        """
+        Given: tokenize('**foo**')
+        When: .shape is read on the first token
+        Then: shape == 'complete'
+
+        ADR-028 D3: interior 'foo' has no edge whitespace -> 'complete'.
+        """
+        _require_module()
+        tokens = tokenize("**foo**")
+        assert len(tokens) == 1
+        self._assert_has_shape(tokens[0])
+        assert tokens[0].shape == "complete", f"Expected shape='complete' for '**foo**', got {tokens[0].shape!r}"
+
+    def test_simple_italic_asterisk_has_complete_shape(self):
+        """
+        Given: tokenize('*foo*')
+        When: .shape is read on the first token
+        Then: shape == 'complete'
+        """
+        _require_module()
+        tokens = tokenize("*foo*")
+        assert len(tokens) == 1
+        self._assert_has_shape(tokens[0])
+        assert tokens[0].shape == "complete"
+
+    def test_simple_italic_underscore_has_complete_shape(self):
+        """
+        Given: tokenize(' _foo_ ')  (whitespace-flanked for current regex to match)
+        When: .shape is read on the ITALIC token
+        Then: shape == 'complete'
+        """
+        _require_module()
+        tokens = tokenize(" _foo_ ")
+        italic_tokens = [t for t in tokens if t.kind == TokenKind.ITALIC]
+        assert len(italic_tokens) == 1, f"Expected one ITALIC token, got {tokens!r}"
+        self._assert_has_shape(italic_tokens[0])
+        assert italic_tokens[0].shape == "complete"
+
+    def test_nested_bold_shapes_are_open_neutral_close(self):
+        """
+        Given: tokenize('**foo **nested** bar**')
+        When: .shape is read on the 3 resulting tokens
+        Then: shapes are ['open', 'neutral', 'close']
+
+        The three tokens are BOLD('**foo **'), TEXT('nested'), BOLD('** bar**').
+        BOLD('**foo **'): interior 'foo ' has trailing whitespace -> 'open'.
+        TEXT('nested'):  non-emphasis token -> 'neutral'.
+        BOLD('** bar**'): interior ' bar' has leading whitespace -> 'close'.
+        """
+        _require_module()
+        tokens = tokenize("**foo **nested** bar**")
+        assert len(tokens) == 3
+        for t in tokens:
+            self._assert_has_shape(t)
+        assert tokens[0].shape == "open", f"Expected 'open', got {tokens[0].shape!r}"
+        assert tokens[1].shape == "neutral", f"Expected 'neutral', got {tokens[1].shape!r}"
+        assert tokens[2].shape == "close", f"Expected 'close', got {tokens[2].shape!r}"
+
+    def test_all_non_emphasis_tokens_carry_neutral_shape(self):
+        """
+        Given: tokenize('hello {{riskFoo}} world')
+        When: .shape is read on every token
+        Then: every non-BOLD/ITALIC token has shape == 'neutral'
+
+        ADR-028 D3 invariant 4: non-emphasis tokens carry shape='neutral'.
+        """
+        _require_module()
+        tokens = tokenize("hello {{riskFoo}} world")
+        for t in tokens:
+            self._assert_has_shape(t)
+            if t.kind not in (TokenKind.BOLD, TokenKind.ITALIC):
+                assert t.shape == "neutral", f"Non-emphasis token {t!r} must have shape='neutral', got {t.shape!r}"
+
+    def test_invalid_token_carries_neutral_shape(self):
+        """
+        Given: tokenize('See https://example.com')
+        When: .shape is read on the INVALID_URL token
+        Then: shape == 'neutral'
+
+        All INVALID_* tokens are non-emphasis -> shape='neutral'.
+        """
+        _require_module()
+        tokens = tokenize("See https://example.com")
+        url_tokens = [t for t in tokens if t.kind == TokenKind.INVALID_URL]
+        assert len(url_tokens) >= 1
+        for t in url_tokens:
+            self._assert_has_shape(t)
+            assert t.shape == "neutral", f"INVALID_URL must have shape='neutral', got {t.shape!r}"
+
+    def test_sentinel_token_carries_neutral_shape(self):
+        """
+        Given: tokenize('{{riskPromptInjection}}')
+        When: .shape is read on the SENTINEL_INTRA token
+        Then: shape == 'neutral'
+        """
+        _require_module()
+        tokens = tokenize("{{riskPromptInjection}}")
+        assert len(tokens) == 1
+        assert tokens[0].kind == TokenKind.SENTINEL_INTRA
+        self._assert_has_shape(tokens[0])
+        assert tokens[0].shape == "neutral"
+
+    def test_text_token_carries_neutral_shape(self):
+        """
+        Given: tokenize('plain prose text')
+        When: .shape is read on the TEXT token
+        Then: shape == 'neutral'
+        """
+        _require_module()
+        tokens = tokenize("plain prose text")
+        assert len(tokens) == 1
+        assert tokens[0].kind == TokenKind.TEXT
+        self._assert_has_shape(tokens[0])
+        assert tokens[0].shape == "neutral"
+
+    def test_both_edges_whitespace_bold_has_open_shape(self):
+        """
+        Given: tokenize('** foo **')
+        When: .shape is read on the BOLD token
+        Then: shape == 'open'
+
+        D-Open-7: both-edges-whitespace -> 'open' by convention.
+        """
+        _require_module()
+        tokens = tokenize("** foo **")
+        bold_tokens = [t for t in tokens if t.kind == TokenKind.BOLD]
+        assert len(bold_tokens) == 1, f"Expected 1 BOLD, got {tokens!r}"
+        self._assert_has_shape(bold_tokens[0])
+        assert bold_tokens[0].shape == "open", f"D-Open-7: both-edges-ws -> 'open', got {bold_tokens[0].shape!r}"
+
+
+# ===========================================================================
+# TestIntrawordUnderscoreRejection — ADR-028 D3 invariant 3, D-Open-21
+# ===========================================================================
+# ADR-028 D3 invariant 3: intraword \S_\S does NOT qualify as an italic
+# delimiter.  _RE_ITALIC_UNDERSCORE requires whitespace-or-boundary flanking
+# on the opening '_' (left side) and closing '_' (right side).
+# ===========================================================================
+
+
+class TestIntrawordUnderscoreRejection:
+    r"""
+    Tests for D-Open-21: tightened _RE_ITALIC_UNDERSCORE.
+
+    _RE_ITALIC_UNDERSCORE requires whitespace-or-boundary flanking on the
+    opening '_' (left side) and closing '_' (right side).  Intraword
+    underscore pairs like 'home_bar and foo_baz' must NOT tokenize as ITALIC.
+    """
+
+    def test_intraword_underscore_pair_produces_no_italic(self):
+        """
+        Given: 'home_bar and foo_baz'
+        When: tokenize() is called
+        Then: NO ITALIC token in the stream
+
+        _RE_ITALIC_UNDERSCORE requires whitespace-or-boundary flanking;
+        intraword underscores do not satisfy this — all tokens are TEXT.
+        """
+        _require_module()
+        tokens = tokenize("home_bar and foo_baz")
+        italic_tokens = [t for t in tokens if t.kind == TokenKind.ITALIC]
+        assert len(italic_tokens) == 0, (
+            f"D-Open-21: intraword '_' must NOT produce ITALIC. Got ITALIC tokens: {italic_tokens!r}."
+        )
+
+    def test_adjacent_intraword_underscore_produces_no_italic(self):
+        """
+        Given: 'a_b_c'  (both underscores intraword)
+        When: tokenize() is called
+        Then: NO ITALIC token — entire string is TEXT
+
+        Both underscores have non-whitespace flanking characters; the
+        tightened regex rejects them as italic delimiters.
+        """
+        _require_module()
+        tokens = tokenize("a_b_c")
+        italic_tokens = [t for t in tokens if t.kind == TokenKind.ITALIC]
+        assert len(italic_tokens) == 0, f"D-Open-21: 'a_b_c' must produce no ITALIC. Got: {italic_tokens!r}."
+
+    def test_whitespace_flanked_underscore_italic_still_tokenizes(self):
+        """
+        Given: 'prefix _italic_ suffix'  (whitespace on both sides)
+        When: tokenize() is called
+        Then: ITALIC('_italic_') is still produced
+
+        Whitespace flanking satisfies _RE_ITALIC_UNDERSCORE's flanking
+        requirement — this is the canonical accepted form.
+        """
+        _require_module()
+        tokens = tokenize("prefix _italic_ suffix")
+        italic_tokens = [t for t in tokens if t.kind == TokenKind.ITALIC]
+        assert len(italic_tokens) == 1, f"Expected 1 ITALIC for whitespace-flanked '_italic_', got {tokens!r}"
+        assert italic_tokens[0].value == "_italic_"
+
+    def test_string_boundary_flanked_underscore_italic_tokenizes(self):
+        """
+        Given: '_foo_'  (start/end-of-string flanking)
+        When: tokenize() is called
+        Then: ITALIC('_foo_') is produced
+
+        Start-of-string counts as whitespace-or-boundary flanking per
+        D-Open-21.2(a) cosai-simpler form.
+        """
+        _require_module()
+        tokens = tokenize("_foo_")
+        assert len(tokens) == 1, f"Expected 1 token, got {tokens!r}"
+        assert tokens[0].kind == TokenKind.ITALIC
+        assert tokens[0].value == "_foo_"
+
+    def test_end_of_string_close_flanked_underscore_italic_tokenizes(self):
+        """
+        Given: 'some text _foo_'  (end-of-string after close underscore)
+        When: tokenize() is called
+        Then: ITALIC('_foo_') is produced
+
+        D-Open-21.2(a): end-of-string after the closing '_' qualifies as a
+        word boundary and satisfies the whitespace-or-boundary flanking
+        requirement on the close side.
+
+        Empirically verified (2026-05-29):
+            tokenize('some text _foo_') ->
+              TEXT('some text ')
+              ITALIC('_foo_')
+        """
+        _require_module()
+        tokens = tokenize("some text _foo_")
+        italic_tokens = [t for t in tokens if t.kind == TokenKind.ITALIC]
+        assert len(italic_tokens) == 1, (
+            f"Expected 1 ITALIC token for end-of-string close-flanked '_foo_', got {tokens!r}"
+        )
+        assert italic_tokens[0].value == "_foo_", f"Expected ITALIC value '_foo_', got {italic_tokens[0].value!r}"
+
+    def test_double_underscore_still_produces_no_italic_or_bold(self):
+        """
+        Given: '__double__'
+        When: tokenize() is called
+        Then: no BOLD and no ITALIC token
+
+        ADR-017 D1: __bold__ is NOT recognized.
+        """
+        _require_module()
+        tokens = tokenize("__double__")
+        assert all(t.kind not in (TokenKind.BOLD, TokenKind.ITALIC) for t in tokens), (
+            f"'__double__' must produce neither BOLD nor ITALIC. Got: {tokens!r}"
+        )
+
+
+# ===========================================================================
+# TestUnderscoreFlanking — ADR-028 D-Open-21.2(b) CommonMark-style flanking
+# ===========================================================================
+# ADR-028 D-Open-21.2 was flipped (a)->(b): the underscore-italic delimiter
+# rule moves from cosai-simpler whitespace-flanked-only to fuller CommonMark-
+# style not-intraword flanking.  A '_' qualifies as an emphasis delimiter iff
+# it is NOT intraword (at least one immediate side is whitespace, punctuation,
+# or a string boundary).  Once it qualifies, the EXISTING
+# _classify_emphasis_shape(span, "_") derives complete/open/close from interior
+# edge whitespace — the same as for '*'/'**'.
+#
+# Consequence: underscore italic can now emit 'open'/'close' shapes (previously
+# always 'complete'), so a nested underscore span splits and the D5 depth walk
+# catches it.  The nested split is also locked by the fixture-backed
+# test_emphasis_shape_token_stream for nested_italic_underscore_three_token.
+# ===========================================================================
+
+
+class TestUnderscoreFlanking:
+    r"""
+    Tests for ADR-028 D-Open-21.2(b): CommonMark-style not-intraword flanking
+    for the underscore-italic delimiter.
+
+    A '_' qualifies as an emphasis delimiter iff at least one immediate side is
+    whitespace, punctuation, or a string boundary (i.e., NOT intraword).  Once
+    it qualifies, _classify_emphasis_shape(span, "_") determines shape from
+    interior edge whitespace, exactly as for '*'/'**'.
+
+    Intraword preservation (snake_case is not italic):
+      - snake_case stays one TEXT token (intraword underscores)
+      - _italic_ at string boundary -> ITALIC(complete)
+      - _See important, then act._ (period before close) -> ITALIC(complete)
+
+    Not-intraword delimiting (the punctuation-boundary and nested cases):
+      - _foo_, (comma after close) -> ITALIC(complete) + TEXT(",")
+      - _foo _nested_ bar_ -> [ITALIC(open), TEXT, ITALIC(close)], the
+        precondition for the D5 depth-counter to detect nested underscore.
+    """
+
+    # --- Intraword preservation: snake_case and boundary/period spans ---
+
+    def test_snake_case_stays_one_text_token(self):
+        """
+        Given: 'home_bar and foo_baz'
+        When: tokenize() is called
+        Then: ONE TEXT token with value 'home_bar and foo_baz'; no ITALIC
+
+        Intraword underscores (word-char on both sides) are not emphasis
+        delimiters under the not-intraword flanking rule (ADR-028 D3 invariant 3):
+        a snake_case identifier pair stays plain TEXT.
+        """
+        _require_module()
+        tokens = tokenize("home_bar and foo_baz")
+        assert len(tokens) == 1, f"Expected 1 TEXT token, got {tokens!r}"
+        assert tokens[0].kind == TokenKind.TEXT
+        assert tokens[0].value == "home_bar and foo_baz"
+
+    def test_string_boundary_italic_underscore_still_tokenizes(self):
+        """
+        Given: '_italic_'
+        When: tokenize() is called
+        Then: ITALIC('_italic_') with shape == 'complete'
+
+        String-boundary flanking satisfies D-Open-21.2(b); interior 'italic'
+        has no edge whitespace -> shape 'complete'.  Preservation guard.
+        """
+        _require_module()
+        tokens = tokenize("_italic_")
+        assert len(tokens) == 1, f"Expected 1 ITALIC, got {tokens!r}"
+        assert tokens[0].kind == TokenKind.ITALIC
+        assert tokens[0].value == "_italic_"
+        assert tokens[0].shape == "complete"
+
+    def test_sentence_period_before_close_underscore_still_italic(self):
+        """
+        Given: '_See important, then act._'
+        When: tokenize() is called
+        Then: ITALIC('_See important, then act._') with shape == 'complete'
+
+        The period before the closing '_' is punctuation on the interior side;
+        the close '_' itself is at end-of-string (boundary flanking on the
+        right).  Interior 'See important, then act.' has no edge whitespace ->
+        shape 'complete'.  Preservation guard.
+        """
+        _require_module()
+        tokens = tokenize("_See important, then act._")
+        assert len(tokens) == 1, f"Expected 1 ITALIC, got {tokens!r}"
+        assert tokens[0].kind == TokenKind.ITALIC
+        assert tokens[0].value == "_See important, then act._"
+        assert tokens[0].shape == "complete"
+
+    # --- Not-intraword flanking: punctuation-boundary and nested underscore ---
+
+    def test_punctuation_flanked_close_underscore_italic_tokenizes(self):
+        """
+        Given: '_foo_,'
+        When: tokenize() is called
+        Then: [ITALIC('_foo_', complete), TEXT(',', neutral)]
+
+        ADR-028 D-Open-21.2(b): the comma after the closing '_' is punctuation;
+        punctuation on the right side of a '_' satisfies the not-intraword
+        condition, so '_foo_' qualifies as a complete italic span.
+        """
+        _require_module()
+        tokens = tokenize("_foo_,")
+        assert len(tokens) == 2, (
+            f"Expected [ITALIC('_foo_'), TEXT(',')], got {tokens!r}. "
+            "A punctuation-flanked close '_' qualifies as a delimiter (D-Open-21.2(b))."
+        )
+        assert tokens[0].kind == TokenKind.ITALIC, f"Token 0: expected ITALIC, got {tokens[0].kind!r}"
+        assert tokens[0].value == "_foo_", f"Token 0: expected '_foo_', got {tokens[0].value!r}"
+        assert tokens[0].shape == "complete", f"Token 0: expected shape='complete', got {tokens[0].shape!r}"
+        assert tokens[1].kind == TokenKind.TEXT, f"Token 1: expected TEXT, got {tokens[1].kind!r}"
+        assert tokens[1].value == ",", f"Token 1: expected ',', got {tokens[1].value!r}"
+
+    def test_nested_underscore_produces_three_token_stream(self):
+        """
+        Given: '_foo _nested_ bar_'
+        When: tokenize() is called
+        Then: [ITALIC('_foo _', open), TEXT('nested', neutral), ITALIC('_ bar_', close)]
+
+        ADR-028 D-Open-21.2(b) + D3: the opening '_foo _' closes early at the
+        inner '_' (trailing interior whitespace -> shape 'open').  'nested' is
+        TEXT.  '_ bar_' is the second ITALIC whose interior ' bar' has leading
+        whitespace -> shape 'close'.  This three-token stream is the precondition
+        for the D5 depth-counter to detect nested underscore emphasis.
+
+        Shape assertions use direct attribute access (the fixture-projection
+        helper drops shape per D-Open-20; shape is asserted here via .shape).
+        """
+        _require_module()
+        tokens = tokenize("_foo _nested_ bar_")
+        assert len(tokens) == 3, (
+            f"Expected exactly 3 tokens for nested underscore italic, got {len(tokens)}: {tokens!r}. "
+            "Whitespace-flanked inner '_'s qualify as delimiters, so the span splits "
+            "[open, text, close] (D-Open-21.2(b))."
+        )
+        assert tokens[0].kind == TokenKind.ITALIC, f"Token 0: expected ITALIC, got {tokens[0].kind!r}"
+        assert tokens[0].value == "_foo _", f"Token 0: expected '_foo _', got {tokens[0].value!r}"
+        assert tokens[0].shape == "open", (
+            f"Token 0: expected shape='open' (trailing interior space), got {tokens[0].shape!r}"
+        )
+        assert tokens[1].kind == TokenKind.TEXT, f"Token 1: expected TEXT, got {tokens[1].kind!r}"
+        assert tokens[1].value == "nested", f"Token 1: expected 'nested', got {tokens[1].value!r}"
+        assert tokens[2].kind == TokenKind.ITALIC, f"Token 2: expected ITALIC, got {tokens[2].kind!r}"
+        assert tokens[2].value == "_ bar_", f"Token 2: expected '_ bar_', got {tokens[2].value!r}"
+        assert tokens[2].shape == "close", (
+            f"Token 2: expected shape='close' (leading interior space), got {tokens[2].shape!r}"
+        )
