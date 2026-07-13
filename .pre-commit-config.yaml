@@ -248,6 +248,23 @@ repos:
         pass_filenames: true
 
   # ---------------------------------------------------------------------------
+  # ADR-033 D2a/D5 vendor-neutrality check. Scoped to the two neutral-surface
+  # trees that ship in this repository — scripts/agents/** and
+  # scripts/skills/** — not the whole repo; scripts/skills/ does not exist yet,
+  # but the `files:` pattern activates automatically once it does. Flags
+  # harness-specific vendor/product/model names, invocation stage directions,
+  # and config paths in those two trees only.
+  # ---------------------------------------------------------------------------
+  - repo: local
+    hooks:
+      - id: validate-neutrality
+        name: 'validate: vendor-neutrality of agent/skill surfaces (ADR-033)'
+        language: system
+        entry: python3 scripts/hooks/precommit/validate_neutrality.py
+        files: ^scripts/(agents|skills)/
+        pass_filenames: true
+
+  # ---------------------------------------------------------------------------
   # Prose authoring linters. Both consume the shared _prose_tokens.py tokenizer
   # and block on violations.
   # validate-yaml-prose-subset enforces ADR-017 D4 grammar rejections;
