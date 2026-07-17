@@ -27,15 +27,15 @@ ControlGraph/RiskGraph, driving the risk-map/diagrams/*.mmd / *.md inputs
 that regenerate_svgs.py would otherwise convert) and the Markdown table
 generator (yaml_to_markdown.py, driving risk-map/tables/*.md).
 
-Verified 2026-07-17 (pre-implementation): none of these generators crash on
-an unrecognized 4th top-level category today — ComponentGraph/ControlGraph
-group components generically by whatever `.category` string is present, and
-yaml_to_markdown.py's table columns just read `.get("category", "")`. These
-tests are therefore GREEN today (regression guards, not red-phase drivers);
-the red-phase coverage for componentsTools consumer wiring lives in
-test_mermaid_styles_tools_category.py (the missing style line) and
-test_category_ownership_guard.py (the missing CI guard). This module's job is
-to make sure that gap-closing work does not later introduce a crash.
+Verified 2026-07-17: none of these generators crash on a 4th top-level
+category — ComponentGraph/ControlGraph group components generically by
+whatever `.category` string is present, and yaml_to_markdown.py's table
+columns just read `.get("category", "")`. These tests are regression guards,
+not the tests that exercise componentsTools-specific new behavior; that
+coverage — the mermaid style entry and the ownership CI guard — lives in
+test_mermaid_styles_tools_category.py and test_category_ownership_guard.py
+respectively. This module's job is to make sure that gap-closing work does
+not introduce a crash.
 """
 
 import subprocess
@@ -347,13 +347,13 @@ Total Tests: 6
   components tables via yaml_to_markdown.py subprocess CLI.
 - TestLiveCorpusGenerationBaseline (1): today's live corpus still generates.
 
-All 6 are GREEN today (verified 2026-07-17) — none of these generators crash
-or choke on an unrecognized 4th top-level category; they are regression
-guards protecting the componentsTools consumer-wiring work (schema, yaml,
-mermaid-styles.yaml, the new CI guard — see test_components_schema_tools_category.py,
+All 6 are GREEN (verified 2026-07-17) — none of these generators crash or
+choke on the 4th top-level category; they are regression guards protecting
+the componentsTools consumer-wiring work (schema, yaml, mermaid-styles.yaml,
+the new CI guard — see test_components_schema_tools_category.py,
 test_components_yaml_tools_category.py, test_mermaid_styles_tools_category.py,
-test_category_ownership_guard.py for the red-phase tests) from introducing a
-crash while closing those gaps.
+test_category_ownership_guard.py for that coverage) from a future regression
+introducing a crash.
 
 Out of scope (documented, not silently skipped): risk-map/svg/ generation
 via `npx mmdc` requires a headless Chromium binary not present in this

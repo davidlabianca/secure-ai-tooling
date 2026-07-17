@@ -170,6 +170,17 @@ def _make_control(
 # check (after 2.3.9 wires, every component has a valid (category, subcategory)
 # pair so the nesting check stays silent and the mirror behavior remains
 # isolated).
+#
+# componentModelFiller/componentAppFiller/componentToolsFiller give the
+# remaining 3 real schema categories (componentsModel, componentsApplication,
+# componentsTools) a component each. The category style/ownership check
+# (ADR-030 D1) sources schema_categories from the real, repo-relative
+# components.schema.json enum (all 4 categories), not this corpus's own
+# categories: block, so every --block CLI test below needs all 4 covered or
+# it trips unrelated ownership warnings regardless of what it targets (the
+# mirror check). Style is not separately supplied: these corpora omit
+# mermaid-styles.yaml, so MermaidConfigLoader falls back to its emergency
+# defaults, which already style all 4 real categories.
 _MINIMAL_COMPONENTS: dict[str, Any] = {
     "components": [
         {
@@ -186,6 +197,27 @@ _MINIMAL_COMPONENTS: dict[str, Any] = {
             "subcategory": "componentsData",
             "edges": {"to": [], "from": ["componentAlpha"]},
         },
+        {
+            "id": "componentModelFiller",
+            "title": "Model Filler",
+            "category": "componentsModel",
+            "subcategory": "componentsModelTraining",
+            "edges": {"to": [], "from": []},
+        },
+        {
+            "id": "componentAppFiller",
+            "title": "App Filler",
+            "category": "componentsApplication",
+            "subcategory": "componentsAgent",
+            "edges": {"to": [], "from": []},
+        },
+        {
+            "id": "componentToolsFiller",
+            "title": "Tools Filler",
+            "category": "componentsTools",
+            "subcategory": "componentsToolCore",
+            "edges": {"to": [], "from": []},
+        },
     ],
     "categories": [
         {
@@ -195,19 +227,50 @@ _MINIMAL_COMPONENTS: dict[str, Any] = {
                 {"id": "componentsData", "title": "Data"},
             ],
         },
+        {
+            "id": "componentsModel",
+            "title": "Model",
+            "subcategory": [
+                {"id": "componentsModelTraining", "title": "Model Training"},
+            ],
+        },
+        {
+            "id": "componentsApplication",
+            "title": "Application",
+            "subcategory": [
+                {"id": "componentsAgent", "title": "Agent"},
+            ],
+        },
+        {
+            "id": "componentsTools",
+            "title": "Tools",
+            "subcategory": [
+                {"id": "componentsToolCore", "title": "Tool Core"},
+            ],
+        },
     ],
 }
 
 # controls.yaml that references only IDs present in _MINIMAL_COMPONENTS.
+# personas is non-empty so this control also satisfies the category
+# style/ownership check (ADR-030 D1) for all 4 real schema categories — a
+# control naming a specific (non-"all") component with a persona is
+# required for a category to count as owned.
 _CLEAN_CONTROLS: dict[str, Any] = {
     "controls": [
         {
             "id": "controlClean",
             "title": "Clean Control",
             "category": "controlsModel",
-            "components": ["componentAlpha", "componentBeta"],
+            "components": [
+                "componentAlpha",
+                "componentBeta",
+                "componentModelFiller",
+                "componentAppFiller",
+                "componentToolsFiller",
+            ],
             "risks": [],
-            "personas": [],
+            "personas": ["personaModelProvider"],
         }
     ]
 }
@@ -227,6 +290,9 @@ _DIRTY_CONTROLS: dict[str, Any] = {
 }
 
 # controls.yaml using only "all" escape hatch — must not trigger mirror warning.
+# controlOwner adds specific-component references (one per real schema
+# category) with a persona so the category style/ownership check (ADR-030
+# D1) is satisfied for all 4; "all" alone never confers ownership by design.
 _ESCAPE_ALL_CONTROLS: dict[str, Any] = {
     "controls": [
         {
@@ -236,7 +302,15 @@ _ESCAPE_ALL_CONTROLS: dict[str, Any] = {
             "components": ["all"],
             "risks": [],
             "personas": [],
-        }
+        },
+        {
+            "id": "controlOwner",
+            "title": "Owner Control",
+            "category": "controlsModel",
+            "components": ["componentAlpha", "componentModelFiller", "componentAppFiller", "componentToolsFiller"],
+            "risks": [],
+            "personas": ["personaModelProvider"],
+        },
     ]
 }
 

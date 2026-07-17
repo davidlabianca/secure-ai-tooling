@@ -55,8 +55,7 @@ tool-provider persona is the candidate owner."
 Symbol contract
 ----------------
 Pure-function tests import `check_category_style_and_ownership` from
-`riskmap_validator.validator`. SWE must expose a callable with this name and
-signature:
+`riskmap_validator.validator`, implemented with this signature:
 
     check_category_style_and_ownership(
         schema_categories: set[str],
@@ -77,16 +76,15 @@ both, and CI output should let a reader triage them separately):
 Returns a list of human-readable warning strings; empty when every schema
 category is both styled and owned. Order is not asserted by these tests.
 
-CLI wiring: validate_riskmap.py should run this as a warn-only check
-following the existing controls↔components-mirror / category-subcategory-
-nesting pattern (same --block promotion, same print-label convention). Tests
-below assert on a label containing "Category style" and "ownership" appearing
-in stdout — see TestCLIWiring for the exact substrings asserted.
+CLI wiring: validate_riskmap.py runs this as a warn-only check following the
+existing controls↔components-mirror / category-subcategory-nesting pattern
+(same --block promotion, same print-label convention). Tests below assert on
+a label containing "Category style" and "ownership" appearing in stdout —
+see TestCLIWiring for the exact substrings asserted.
 
 Test structure
 --------------
-1. TestCheckCategoryStyleAndOwnership — pure-function tests. FAIL today with
-   ImportError (function not yet implemented).
+1. TestCheckCategoryStyleAndOwnership — pure-function tests.
 2. TestCLIWiring — subprocess end-to-end tests against validate_riskmap.py.
 """
 
@@ -418,7 +416,18 @@ def _run(cwd: Path, *extra_args: str) -> subprocess.CompletedProcess:
     )
 
 
-# Minimal components covering the 3 REAL (pre-ADR-030) top-level categories.
+# Minimal components covering the 3 REAL pre-ADR-030 top-level categories
+# PLUS componentsTools as an always-clean bystander category. Since Finding 1
+# of the ADR-030 D1 code review, schema_categories is sourced from the real,
+# repo-relative components.schema.json enum (via _get_schema_categories()),
+# which now has 4 entries post-D1 (componentsTools was added by this same
+# feature). Without a componentsTools entry here, every synthetic corpus
+# below would trip an unrelated "componentsTools has no style/no owner"
+# warning regardless of what scenario the test targets. compTools/ctrlTools
+# and componentsTools' mermaid-styles entry (_FULLY_STYLED_MERMAID) keep that
+# 4th category clean in every fixture so the dirty-corpus tests below stay
+# focused on the one category they intend to exercise (componentsModel).
+#
 # No edges needed — CLI tests always pass --allow-isolated. Each component
 # declares a subcategory nested consistently under its category in the
 # categories: block below, so the pre-existing category/subcategory nesting
@@ -447,6 +456,13 @@ _THREE_CATEGORY_COMPONENTS: dict[str, Any] = {
             "subcategory": "componentsAgent",
             "edges": {},
         },
+        {
+            "id": "compTools",
+            "title": "Tools",
+            "category": "componentsTools",
+            "subcategory": "componentsToolCore",
+            "edges": {},
+        },
     ],
     "categories": [
         {
@@ -464,10 +480,16 @@ _THREE_CATEGORY_COMPONENTS: dict[str, Any] = {
             "title": "Application",
             "subcategory": [{"id": "componentsAgent", "title": "Agent"}],
         },
+        {
+            "id": "componentsTools",
+            "title": "Tools",
+            "subcategory": [{"id": "componentsToolCore", "title": "Tool Core"}],
+        },
     ],
 }
 
-# Controls giving every one of the 3 categories an owning persona.
+# Controls giving every one of the 4 categories (3 REAL pre-ADR-030 + the
+# componentsTools bystander) an owning persona.
 _THREE_CATEGORY_CONTROLS_ALL_OWNED: dict[str, Any] = {
     "controls": [
         {
@@ -494,18 +516,31 @@ _THREE_CATEGORY_CONTROLS_ALL_OWNED: dict[str, Any] = {
             "risks": [],
             "personas": ["personaX"],
         },
+        {
+            "id": "ctrlTools",
+            "title": "Tools Ctrl",
+            "category": "controlsApplication",
+            "components": ["compTools"],
+            "risks": [],
+            "personas": ["personaX"],
+        },
     ]
 }
 
 # Same as above but componentsModel has no owning control (personas omitted
-# entirely for that category).
+# entirely for that category). componentsTools stays owned (index 3 kept)
+# since it is a bystander category, not the scenario under test.
 _THREE_CATEGORY_CONTROLS_MODEL_UNOWNED: dict[str, Any] = {
     "controls": [
         _THREE_CATEGORY_CONTROLS_ALL_OWNED["controls"][0],
         _THREE_CATEGORY_CONTROLS_ALL_OWNED["controls"][2],
+        _THREE_CATEGORY_CONTROLS_ALL_OWNED["controls"][3],
     ]
 }
 
+# Styles all 4 real schema categories (3 pre-ADR-030 + componentsTools) so
+# the schema-sourced ownership/style check (Finding 1) has no unrelated
+# bystander warnings to report.
 _FULLY_STYLED_MERMAID: dict[str, Any] = {
     "version": "1.0.0",
     "foundation": {"colors": {}, "strokeWidths": {}, "strokePatterns": {}},
@@ -515,6 +550,7 @@ _FULLY_STYLED_MERMAID: dict[str, Any] = {
             "componentsInfrastructure": {"fill": "#e6f3e6", "stroke": "#333333", "strokeWidth": "2px"},
             "componentsModel": {"fill": "#ffe6e6", "stroke": "#333333", "strokeWidth": "2px"},
             "componentsApplication": {"fill": "#e6f0ff", "stroke": "#333333", "strokeWidth": "2px"},
+            "componentsTools": {"fill": "#fff3e6", "stroke": "#333333", "strokeWidth": "2px"},
         },
     },
     "graphTypes": {
@@ -532,6 +568,7 @@ _MODEL_UNSTYLED_MERMAID: dict[str, Any] = {
         "componentCategories": {
             "componentsInfrastructure": {"fill": "#e6f3e6", "stroke": "#333333", "strokeWidth": "2px"},
             "componentsApplication": {"fill": "#e6f0ff", "stroke": "#333333", "strokeWidth": "2px"},
+            "componentsTools": {"fill": "#fff3e6", "stroke": "#333333", "strokeWidth": "2px"},
         },
     },
 }
@@ -546,15 +583,17 @@ class TestCLIWiring:
     (via riskmap_validator.graphing.graph_utils._get_schema_categories(), which
     resolves the schema path relative to its own module location, not cwd —
     see that module's docstring). Synthetic tmp-cwd corpora below therefore
-    use the 3 REAL pre-ADR-030 category ids, not fictional ones; only
+    use all 4 REAL category ids (the 3 pre-ADR-030 categories the dirty-corpus
+    tests actually target, plus componentsTools as an always-clean bystander —
+    see the fixture comments above), not fictional ones; only
     mermaid-styles.yaml (cwd-relative, per riskmap_validator.config) and
     components.yaml/controls.yaml (also cwd-relative) are actually synthetic.
     """
 
     def test_dirty_style_with_block_exits_1(self, tmp_path):
         """
-        Given: synthetic corpus, all 3 categories owned, but componentsModel
-               missing its mermaid-styles.yaml entry
+        Given: synthetic corpus, all 4 real schema categories owned, but
+               componentsModel missing its mermaid-styles.yaml entry
         When: validate_riskmap.py --force --allow-isolated --block runs
         Then: exit 1 (style warning promoted to error)
         """
@@ -569,9 +608,9 @@ class TestCLIWiring:
 
     def test_dirty_ownership_with_block_exits_1(self, tmp_path):
         """
-        Given: synthetic corpus, all 3 categories styled, but componentsModel
-               has no owning control (no control with personas references a
-               componentsModel component)
+        Given: synthetic corpus, all 4 real schema categories styled, but
+               componentsModel has no owning control (no control with
+               personas references a componentsModel component)
         When: validate_riskmap.py --force --allow-isolated --block runs
         Then: exit 1 (ownership warning promoted to error)
         """
@@ -586,14 +625,14 @@ class TestCLIWiring:
 
     def test_clean_corpus_with_block_exits_0(self, tmp_path):
         """
-        Given: synthetic corpus, all 3 categories styled AND owned
+        Given: synthetic corpus, all 4 real schema categories styled AND owned
         When: validate_riskmap.py --force --allow-isolated --block runs
         Then: exit 0
 
-        Weak red-phase signal in isolation (an unwired check also exits 0
-        here), but a necessary regression companion to the two dirty tests
-        above — see test_category_subcategory_nesting.py for the same
-        acknowledged pattern.
+        Weak signal in isolation (a no-op check would also exit 0 here), but
+        a necessary regression companion to the two dirty tests above — see
+        test_category_subcategory_nesting.py for the same acknowledged
+        pattern.
         """
         _write_corpus(
             tmp_path, _THREE_CATEGORY_COMPONENTS, _THREE_CATEGORY_CONTROLS_ALL_OWNED, _FULLY_STYLED_MERMAID
@@ -611,8 +650,9 @@ class TestCLIWiring:
         Then: exit 0 (warn-only preserved) AND stdout/stderr names
               'componentsModel'
 
-        Primary red driver independent of ImportError: requires the CLI to
-        actually print something naming the dirty category, not just exist.
+        The category-name assertion is the meaningful check here — it
+        confirms the CLI actually prints the dirty category, not just that
+        the exit code happens to match.
         """
         _write_corpus(
             tmp_path, _THREE_CATEGORY_COMPONENTS, _THREE_CATEGORY_CONTROLS_ALL_OWNED, _MODEL_UNSTYLED_MERMAID
@@ -675,17 +715,11 @@ TestCLIWiring (subprocess): 6 tests
   the category; live corpus no --block -> exit 0; live corpus + --block ->
   exit 0.
 
-RED today (all fail — function does not exist / check not wired):
-- All of TestCheckCategoryStyleAndOwnership (ImportError via the ownership_fn
-  fixture)
-- TestCLIWiring.test_dirty_style_with_block_exits_1
-- TestCLIWiring.test_dirty_ownership_with_block_exits_1
-- TestCLIWiring.test_dirty_style_no_block_exits_0_and_prints_warning_naming_category
-  (exit code matches by coincidence; the category-name assertion is the real
-  red driver)
-
-GREEN today (weak/no-op signal, included for regression parity once wired):
-- TestCLIWiring.test_clean_corpus_with_block_exits_0
-- TestCLIWiring.test_live_corpus_no_block_exits_0
-- TestCLIWiring.test_live_corpus_with_block_exits_0
+check_category_style_and_ownership is implemented in riskmap_validator.validator
+and wired into validate_riskmap.py as a --block-gated warn-only check; all
+tests in this module are green. The two CLI tests that only assert exit code
+(test_clean_corpus_with_block_exits_0, test_live_corpus_*_exits_0) are weak
+signals in isolation — an unwired or no-op check would also exit 0 — and are
+retained as regression companions to the dirty-corpus tests, which assert on
+the printed category name in addition to the exit code.
 """

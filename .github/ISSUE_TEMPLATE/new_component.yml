@@ -66,6 +66,8 @@ body:
         - "componentsModel: componentsOrchestration"
         - "componentsApplication: componentsAgent"
         - "componentsApplication: componentsApplicationCore"
+        - "componentsTools: componentsToolControls"
+        - "componentsTools: componentsToolCore"
     validations:
       required: true
 

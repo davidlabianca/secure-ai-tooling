@@ -24,12 +24,13 @@ Two independent surfaces are exercised here:
    MermaidConfigLoader against the LIVE mermaid-styles.yaml on disk: a
    component in category=componentsTools must render with both a
    `style componentsTools ...` line and a `subgraph componentsTools` block.
-   Verified 2026-07-17: ComponentGraph does NOT crash on an unrecognized 4th
-   category (it renders the subgraph structure generically); the concrete gap
-   is that the "Node style definitions" loop only iterates
-   config_loader.get_component_category_styles(), so an unstyled category is
-   silently dropped from styling, not from structure. These tests pin that
-   the STYLE line specifically appears once mermaid-styles.yaml is wired.
+   Verified 2026-07-17: ComponentGraph does not crash on a 4th category (it
+   renders the subgraph structure generically); an unstyled category would be
+   silently dropped from styling (not from structure) because the "Node
+   style definitions" loop only iterates
+   config_loader.get_component_category_styles(). These tests pin that the
+   STYLE line specifically appears now that mermaid-styles.yaml carries a
+   componentsTools entry.
 """
 
 import json
@@ -289,13 +290,12 @@ class TestComponentGraphRendersComponentsToolsStyled:
         Then: the output contains BOTH a 'subgraph componentsTools' block AND
               a 'style componentsTools' line
 
-        Verified 2026-07-17 (pre-implementation): the subgraph line already
-        renders (ComponentGraph's category grouping is generic), but the style
-        line does NOT — the "Node style definitions" loop in
-        ComponentGraph.build_graph only iterates
-        config_loader.get_component_category_styles(), which today has no
-        componentsTools key. This is the concrete form of ADR-030's
-        "renders unstyled" consequence.
+        The subgraph line renders regardless (ComponentGraph's category
+        grouping is generic); the style line depends on the "Node style
+        definitions" loop in ComponentGraph.build_graph, which iterates
+        config_loader.get_component_category_styles() — this is the concrete
+        form of ADR-030's "renders unstyled" consequence that the
+        componentsTools mermaid-styles.yaml entry closes.
         """
         components = {
             "compA": ComponentNode(
@@ -345,16 +345,16 @@ Total Tests: 10
 - TestComponentGraphRendersComponentsToolsStyled (1): subgraph AND style line
   both render via the live default loader
 
-RED today (pre-implementation) — verified 2026-07-17, 8 failing:
+componentsTools has a mermaid-styles.yaml styling entry and a matching
+schema allowance (ADR-030 D1, closing the "renders unstyled" consequence);
+all 10 tests are green:
 - TestMermaidStylesSchemaAllowsComponentsTools (all 3)
 - TestMermaidStylesYamlHasComponentsToolsEntry.test_componentstools_entry_present
 - TestMermaidStylesYamlHasComponentsToolsEntry.test_componentstools_entry_has_required_style_fields
 - TestLoaderSeesComponentsToolsOnLiveCorpus (all 3)
 - TestComponentGraphRendersComponentsToolsStyled.test_componentstools_subgraph_and_style_both_render
-  (style line specifically; subgraph line already renders today)
+  (both the subgraph line and the style line render)
 
-GREEN today (forward guard):
+Forward guard (atomicity, regression protection):
 - TestMermaidStylesYamlHasComponentsToolsEntry.test_live_mermaid_styles_yaml_passes_check_jsonschema
-  (nothing to reject yet; starts exercising the atomicity guard once either
-  file is edited)
 """
