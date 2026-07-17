@@ -54,7 +54,8 @@
             "componentsApplicationCore",
             "componentsRegistries",
             "componentsToolControls",
-            "componentsToolCore"
+            "componentsToolCore",
+            "componentsIdentity"
           ]
         },
         "title": { "type": "string" },
@@ -152,7 +153,7 @@
       "allOf": [
         {
           "if": { "properties": { "category": { "const": "componentsInfrastructure" } } },
-          "then": { "properties": { "subcategory": { "enum": ["componentsData", "componentsModelDeployment", "componentsRegistries"] } } }
+          "then": { "properties": { "subcategory": { "enum": ["componentsData", "componentsModelDeployment", "componentsRegistries", "componentsIdentity"] } } }
         },
         {
           "if": { "properties": { "category": { "const": "componentsModel" } } },

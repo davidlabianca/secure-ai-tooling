@@ -202,14 +202,19 @@ class TestSubcategoryIdEnumGainsToolSubcategories:
         missing = existing_ids - set(subcategory_id_enum)
         assert not missing, f"D1 is additive; expected pre-existing subcategory ids to remain. Missing: {missing}"
 
-    def test_subcategory_enum_has_exactly_ten_members(self, subcategory_id_enum: list):
+    def test_subcategory_enum_has_at_least_ten_members(self, subcategory_id_enum: list):
         """
         Given: definitions/subcategory/properties/id/enum
         When: its length is checked
-        Then: it has exactly 10 members (8 existing + 2 new tool subcategories)
+        Then: it has at least 10 members (8 existing + 2 new tool subcategories)
+
+        Not pinned to exactly 10: ADR-030 D2 (test_components_schema_identity_subcategory.py)
+        lands an 11th (componentsIdentity) on the same branch. The exact
+        post-D1+D2 count (11) is pinned there; this test only guards D1's own
+        additive contribution.
         """
-        assert len(subcategory_id_enum) == 10, (
-            f"Expected exactly 10 subcategory ids after ADR-030 D1 (8 existing + "
+        assert len(subcategory_id_enum) >= 10, (
+            f"Expected at least 10 subcategory ids after ADR-030 D1 (8 existing + "
             f"componentsToolControls + componentsToolCore); got "
             f"{len(subcategory_id_enum)}: {subcategory_id_enum}"
         )
@@ -290,7 +295,7 @@ Total Tests: 10
 - TestCategoryIdEnumGainsComponentsTools (3): presence, existing-3-unchanged,
   exactly-4-members
 - TestSubcategoryIdEnumGainsToolSubcategories (3, one parametrized x2):
-  presence x2, existing-8-unchanged, exactly-10-members
+  presence x2, existing-8-unchanged, at-least-10-members
 - TestComponentIdEnumUnaffectedByD1 (2): componentTools still present,
   net-new tool component ids NOT yet present (scope boundary)
 
@@ -300,7 +305,7 @@ subcategory.id enums (ADR-030 D1); all 10 tests are green:
 - TestCategoryIdEnumGainsComponentsTools.test_category_enum_has_exactly_four_members
 - TestSubcategoryIdEnumGainsToolSubcategories.test_new_subcategory_in_enum[componentsToolControls]
 - TestSubcategoryIdEnumGainsToolSubcategories.test_new_subcategory_in_enum[componentsToolCore]
-- TestSubcategoryIdEnumGainsToolSubcategories.test_subcategory_enum_has_exactly_ten_members
+- TestSubcategoryIdEnumGainsToolSubcategories.test_subcategory_enum_has_at_least_ten_members
 
 Forward guards (unaffected by D1's scope, regression protection):
 - TestSchemaMetaValidity, existing-unchanged checks, TestComponentIdEnumUnaffectedByD1
