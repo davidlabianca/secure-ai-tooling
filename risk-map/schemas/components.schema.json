@@ -27,7 +27,7 @@
       "properties": {
         "id": {
           "type": "string",
-          "enum": ["componentsInfrastructure", "componentsModel", "componentsApplication"]
+          "enum": ["componentsInfrastructure", "componentsModel", "componentsApplication", "componentsTools"]
         },
         "title": { "type": "string" },
         "subcategory": {
@@ -52,7 +52,9 @@
             "componentsModelDeployment",
             "componentsModelCore",
             "componentsApplicationCore",
-            "componentsRegistries"
+            "componentsRegistries",
+            "componentsToolControls",
+            "componentsToolCore"
           ]
         },
         "title": { "type": "string" },
@@ -159,6 +161,10 @@
         {
           "if": { "properties": { "category": { "const": "componentsApplication" } } },
           "then": { "properties": { "subcategory": { "enum": ["componentsAgent", "componentsApplicationCore"] } } }
+        },
+        {
+          "if": { "properties": { "category": { "const": "componentsTools" } } },
+          "then": { "properties": { "subcategory": { "enum": ["componentsToolControls", "componentsToolCore"] } } }
         }
       ]
     },

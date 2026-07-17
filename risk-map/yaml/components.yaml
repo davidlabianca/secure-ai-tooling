@@ -151,6 +151,29 @@ categories:
             The application that consumes the model and the input/output handling that
             filters traffic crossing the application boundary. Agent components add
             autonomous reasoning and tool-use capabilities on top of this surface.
+  - id: componentsTools
+    title: Tools components
+    description:
+      - >
+        External tools are third-party services an AI system integrates with but does
+        not own — a distinct trust domain from the system's own infrastructure, model,
+        and application tiers. This category collects the tool and tool-authorization
+        components: the runtime tool services agents invoke, and the control-plane
+        components that mediate and authorize that access.
+    subcategory:
+      - id: componentsToolControls
+        title: Tool control plane
+        description:
+          - >
+            The policy-enforcement and authorization components that mediate access to
+            external tools, distinct from the tool services themselves.
+      - id: componentsToolCore
+        title: Tool data plane
+        description:
+          - >
+            The runtime tool services an agent invokes and their request/response
+            handling, distinct from the control-plane components that authorize access
+            to them.
 components:
   - id: componentDataSources
     title: Data Sources
@@ -505,8 +528,8 @@ components:
         invocation methods) is handled separately by {{componentToolRegistry}}; this
         component's scope is strictly the runtime tool services and their invocation
         surface.
-    category: componentsModel
-    subcategory: componentsOrchestration
+    category: componentsTools
+    subcategory: componentsToolCore
     edges:
       to:
         - componentOrchestrationOutputHandling

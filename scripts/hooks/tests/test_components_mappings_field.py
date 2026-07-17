@@ -486,8 +486,8 @@ class TestCurrentYamlStillValid:
 # componentsInfrastructure/componentsModel/componentsApplication, with two
 # subcategories: componentsToolControls (control plane) and componentsToolCore
 # (data plane). These two pairs extend the D10 pairing-constraint contract to
-# the new category; they are RED until the SWE lands the componentsTools allOf
-# branch (ADR-030 "Schema impact").
+# the new category, matched by the componentsTools allOf branch in
+# components.schema.json (ADR-030 "Schema impact").
 _D10_VALID_PAIRS: list[tuple[str, str]] = [
     ("componentsInfrastructure", "componentsData"),
     ("componentsInfrastructure", "componentsModelDeployment"),
@@ -566,7 +566,7 @@ class TestSchemaContainsPairingConstraint:
         top-level category (componentsTools), which per the same D10 pattern
         gets its own if/then branch restricting subcategory to
         {componentsToolControls, componentsToolCore}. Was 3 (pre-ADR-030); is
-        4 once D1 lands. RED until the SWE adds the componentsTools branch.
+        4 with the componentsTools branch (ADR-030 D1).
         """
         component_def = components_schema.get("definitions", {}).get("component", {})
         all_of = component_def.get("allOf", [])
@@ -914,11 +914,11 @@ RED items (fail until Phase-2 schema flip lands, #343):
 - TestPinnedValuesAccepted (all pinned forms require @-token or :year)
 - TestLegacyFormsRejected (all legacy forms currently accepted)
 
-RED items (fail until ADR-030 D1 componentsTools schema branch lands):
+ADR-030 D1 componentsTools schema branch coverage:
 - TestSchemaContainsPairingConstraint.test_allof_contains_one_clause_per_category
-  (now asserts 4 clauses, not 3)
+  (asserts 4 clauses: Infrastructure, Model, Application, Tools)
 - TestPairingConstraintBehavior.test_valid_pair_is_accepted[componentsTools-...]
-  (2 new parametrized cases: componentsToolControls, componentsToolCore)
+  (2 parametrized cases: componentsToolControls, componentsToolCore)
 - TestPairingConstraintBehavior.test_tools_category_invalid_subcategory_is_rejected
 
 Coverage areas:

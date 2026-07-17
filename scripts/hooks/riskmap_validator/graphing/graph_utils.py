@@ -170,6 +170,12 @@ class MermaidConfigLoader:
                         "strokeWidth": "2px",
                         "subgroupFill": "#f0e6e6",
                     },
+                    "componentsTools": {
+                        "fill": "#f3e6ff",
+                        "stroke": "#333333",
+                        "strokeWidth": "2px",
+                        "subgroupFill": "#e6d4f0",
+                    },
                 },
             },
             "graphTypes": {

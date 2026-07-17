@@ -21,11 +21,12 @@ is recategorized. Schema-level enum/allOf coverage lives in
 test_components_schema_tools_category.py and the extended
 TestPairingConstraintBehavior in test_components_mappings_field.py.
 
-These tests are RED until the SWE:
-  1. adds a componentsTools entry (title + subcategory: [componentsToolControls,
-     componentsToolCore]) to the categories: block, and
-  2. changes componentTools' category from componentsModel to componentsTools
-     and its subcategory from componentsOrchestration to componentsToolCore.
+components.yaml now:
+  1. declares a componentsTools entry (title + subcategory: [componentsToolControls,
+     componentsToolCore]) in the categories: block, and
+  2. has componentTools' category set to componentsTools and its subcategory
+     set to componentsToolCore (moved from componentsModel /
+     componentsOrchestration).
 """
 
 import sys
@@ -328,16 +329,13 @@ class TestNestingCheckCoversComponentsTools:
         Given: the live components.yaml, parsed into ComponentNode objects and
                a category_to_subcategories map derived from its categories: block
         When: check_category_subcategory_nesting() is called
-        Then: 0 warnings — componentTools' new (componentsTools,
+        Then: 0 warnings — componentTools' (componentsTools,
               componentsToolCore) pairing is recognized as valid nesting
 
-        RED today for two independent reasons that both resolve together once
-        D1 lands: (a) componentTools' pairing does not yet reflect D1's target
-        state (this test parses the live corpus, so it is currently a
-        regression guard on TODAY's — pre-D1 — pairing, which is valid; it
-        will only start asserting the D1 pairing once the corpus is edited),
-        and (b) if the categories: block is edited without an accompanying
-        nesting-map-consistent edit, this test surfaces the drift.
+        This test parses the live corpus, so it is a regression guard on the
+        live componentTools pairing plus a drift guard: if the categories:
+        block is ever edited without an accompanying nesting-map-consistent
+        edit, this test surfaces the mismatch.
         """
         from riskmap_validator.utils import parse_components_yaml
 
@@ -406,24 +404,21 @@ Total Tests: 15
 - TestNestingCheckCoversComponentsTools (2): aggregate zero-warning regression
   guard + componentTools-specific nesting pin
 
-RED today (pre-implementation) — verified 2026-07-17, 8 failing:
-- All 6 of TestCategoriesBlockDeclaresComponentsTools (componentsTools category
-  absent from categories: block)
+componentTools is recategorized into componentsTools/componentsToolCore and
+the categories: block declares componentsTools with its two subcategories
+(ADR-030 D1); all 15 tests are green:
+- TestCategoriesBlockDeclaresComponentsTools (6) — componentsTools category
+  present in the categories: block with both subcategories
 - TestComponentToolsRecategorized.test_componenttools_category_is_componentstools
-  and test_componenttools_subcategory_is_componentstoolcore (componentTools is
-  still category=componentsModel, subcategory=componentsOrchestration)
-
-GREEN today (forward guards, should remain green through and after
-implementation) — verified 2026-07-17, 7 passing:
+  and test_componenttools_subcategory_is_componentstoolcore — componentTools
+  is category=componentsTools, subcategory=componentsToolCore
 - TestComponentToolsRecategorized.test_componenttools_entry_exists
 - TestComponentToolsRecategorized.test_componenttools_edges_unchanged_by_recategorization
-- TestRegistriesStayInInfrastructure (both parametrized cases)
-- TestLiveCorpusValidatesAfterRecategorization (componentTools' CURRENT
-  pairing — componentsModel/componentsOrchestration — is schema-valid today;
-  this test only starts exercising the D1 atomicity guarantee once the yaml
-  is edited to claim componentsTools, at which point it goes red until the
-  schema is edited in the same commit)
-- TestNestingCheckCoversComponentsTools (both — pin TODAY's valid pre-D1
-  pairing; remain valid post-D1 once componentTools' category/subcategory and
-  the categories: block move together)
+- TestRegistriesStayInInfrastructure (both parametrized cases) — recategorization
+  is scoped to componentTools only
+- TestLiveCorpusValidatesAfterRecategorization — componentTools' new
+  componentsTools/componentsToolCore pairing is schema-valid (ADR-030 atomic
+  schema+yaml pairing)
+- TestNestingCheckCoversComponentsTools (both) — componentTools' category/
+  subcategory and the categories: block agree
 """

@@ -294,14 +294,15 @@ Total Tests: 10
 - TestComponentIdEnumUnaffectedByD1 (2): componentTools still present,
   net-new tool component ids NOT yet present (scope boundary)
 
-RED today (pre-implementation) — verified 2026-07-17, 6 failing:
+componentsTools lands in components.schema.json's category.id and
+subcategory.id enums (ADR-030 D1); all 10 tests are green:
 - TestCategoryIdEnumGainsComponentsTools.test_componentstools_in_category_enum
 - TestCategoryIdEnumGainsComponentsTools.test_category_enum_has_exactly_four_members
 - TestSubcategoryIdEnumGainsToolSubcategories.test_new_subcategory_in_enum[componentsToolControls]
 - TestSubcategoryIdEnumGainsToolSubcategories.test_new_subcategory_in_enum[componentsToolCore]
 - TestSubcategoryIdEnumGainsToolSubcategories.test_subcategory_enum_has_exactly_ten_members
 
-GREEN today (forward guards):
+Forward guards (unaffected by D1's scope, regression protection):
 - TestSchemaMetaValidity, existing-unchanged checks, TestComponentIdEnumUnaffectedByD1
-  (both — component.id enum is untouched by D1's scope)
+  (component.id enum is untouched by D1's scope)
 """
