@@ -295,6 +295,46 @@ class TestCheckCategoryStyleAndOwnership:
         assert "componentsData" in combined
         assert "componentsAgent" in combined
 
+    def test_all_escape_hatch_skip_is_load_bearing_even_if_id_collides(self, ownership_fn, make_component):
+        """
+        Given: a component whose id happens to be the literal string 'all'
+               (impossible in the real corpus's closed id enum, but not
+               impossible for the pure function's own contract, which takes
+               plain dicts) plus a control referencing components=['all']
+               with a non-empty personas list
+        When: check_category_style_and_ownership() is called
+        Then: an ownership warning still fires for that component's category
+
+        Regression guard for a review finding (2026-07-17): the sibling test
+        above (test_all_escape_hatch_does_not_confer_ownership) passes even
+        if validator.py's explicit `if component_ref ==
+        _OWNERSHIP_ALL_ESCAPE_HATCH: continue` skip is deleted, because the
+        real corpus never has a component literally named 'all' — the skip
+        was structurally redundant against real data, so that test could not
+        catch its removal. This test constructs the case the skip actually
+        guards against: an id collision between the escape hatch and a real
+        component id. Without the explicit skip, this control's 'all'
+        reference would incidentally match this component by id and the
+        ownership warning would wrongly disappear.
+        """
+        components = {"all": make_component("Literally Named All", "componentsData")}
+        from riskmap_validator.models import ControlNode
+
+        controls = {
+            "ctrlAll": ControlNode(
+                title="Universal",
+                category="controlsGovernance",
+                components=["all"],
+                risks=[],
+                personas=["personaX"],
+            )
+        }
+        result = ownership_fn({"componentsData"}, {"componentsData"}, components, controls)
+        assert len(result) == 1 and "componentsData" in result[0], (
+            f"Expected the ownership warning to still fire even though a real component id "
+            f"collides with the 'all' escape hatch string; got: {result}"
+        )
+
     def test_multiple_categories_evaluated_independently(self, ownership_fn, make_component):
         """
         Given: 3 categories — one clean, one missing style, one missing
@@ -707,7 +747,7 @@ TestCheckCategoryStyleAndOwnership (pure function): 12 tests
   no-components category is ownerless; empty-personas control does not confer
   ownership; a second owning control rescues it; 'all' escape hatch does NOT
   confer ownership on any category; multi-category independence; empty input;
-  return-type contract; live-corpus regression (today's 3 categories clean).
+  return-type contract; live-corpus regression (today's 4 categories clean).
 
 TestCLIWiring (subprocess): 6 tests
 - dirty style + --block -> exit 1; dirty ownership + --block -> exit 1;

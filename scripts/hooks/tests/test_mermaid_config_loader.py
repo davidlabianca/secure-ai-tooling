@@ -1290,7 +1290,7 @@ class TestBaseGraphEmitsCategoryWarnings:
         BaseGraph instantiated with the default singleton loader produces no warnings.
 
         Given: The real mermaid-styles.yaml and the real components.schema.json
-               (live state has all 3 categories present in styling config)
+               (live state has all 4 categories present in styling config)
         When: BaseGraph is instantiated with no explicit config_loader
               (uses the default singleton, which reads the real styles file)
         Then: No UserWarning is emitted
