@@ -68,14 +68,31 @@ _DENYLIST_CATEGORIES: tuple[tuple[re.Pattern[str], str], ...] = (
 SKILL_FRONTMATTER_ALLOWED_KEYS = frozenset({"name", "description"})
 _AGENT_FRONTMATTER_FORBIDDEN_KEYS_NORMALIZED = frozenset({"tools", "model", "color", "allowed-tools"})
 
-# Text-file extensions eligible for discovery. Restricting discovery to known
-# text extensions (rather than a bare `rglob("*")` plus a try/except around
-# the decode) keeps a binary file staged under scripts/agents/** or
-# scripts/skills/** (e.g. a future skill package's bundled icon or sample
-# data) from ever reaching `path.read_text()` and crashing the hook with
-# `UnicodeDecodeError`. Mirrors how `discover_workflow_files` in
-# validate_workflow_uses_pinning.py restricts to `*.yml`.
-_DISCOVERABLE_TEXT_EXTENSIONS = frozenset({".md", ".py", ".yaml", ".yml", ".json", ".txt"})
+# Text-file extensions eligible for discovery AND treated as "known text" by
+# validate_file's binary/text policy. One shared set for both entry paths
+# (PR #428 review Finding 3): restricting discovery to known text extensions
+# (rather than a bare `rglob("*")` plus a try/except around the decode) keeps
+# a binary file staged under scripts/agents/** or scripts/skills/** (e.g. a
+# skill package's bundled icon or sample data) from ever reaching
+# `path.read_text()` and crashing the hook with `UnicodeDecodeError`. Mirrors
+# how `discover_workflow_files` in validate_workflow_uses_pinning.py restricts
+# to `*.yml`.
+_TEXT_EXTENSIONS = frozenset({".md", ".py", ".yaml", ".yml", ".json", ".txt", ".sh", ".js", ".ts", ".toml"})
+
+
+def _looks_binary(raw: bytes) -> bool:
+    """
+    Heuristically detect binary content from raw bytes.
+
+    Mirrors the Git/grep NUL-byte heuristic: a NUL in the first 8KB is a
+    strong binary signal that is never legitimate in the text extensions this
+    hook cares about. Only consulted for files whose extension is NOT a known
+    text extension (see `validate_file`) — a known-text file with a NUL byte
+    still fails closed as invalid UTF-8 rather than being silently skipped
+    (LB1: a naive "NUL anywhere -> binary -> skip" rule would wrongly skip
+    that case too).
+    """
+    return b"\x00" in raw[:8192]
 
 
 @dataclass(frozen=True)
@@ -356,30 +373,21 @@ def validate_file(path: Path) -> list[Violation]:
     """
     Validate one file against the ADR-033 denylist/allowlist and frontmatter rules.
 
-    Fails closed on unreadable input: a text-extension file carrying invalid
-    UTF-8, or a broken (dangling) symlink, cannot be checked for neutrality, so
-    it is flagged rather than silently passed or allowed to crash the gate.
+    Fails closed on unreadable input: a known-text-extension file carrying
+    invalid UTF-8, or a broken (dangling) symlink, cannot be checked for
+    neutrality, so it is flagged rather than silently passed or allowed to
+    crash the gate. A file whose extension is not known text (e.g. a bundled
+    binary asset) is silently skipped rather than flagged, whether it is
+    handed to this function via discovery or as an explicit CLI argument.
 
     Args:
         path: File to validate.
 
     Returns:
-        List of violations, empty if the file is clean.
+        List of violations, empty if the file is clean or skipped.
     """
     try:
-        text = path.read_text(encoding="utf-8")
-    except UnicodeDecodeError:
-        # LB1: invalid UTF-8 in a text-extension file. Fail closed — an
-        # undecodable file's neutrality cannot be verified, and an unguarded
-        # decode would crash the whole hook (including main([]) self-discovery).
-        return [
-            Violation(
-                path=path,
-                line=1,
-                token=path.name,
-                message="file is not valid UTF-8; cannot verify neutrality",
-            )
-        ]
+        raw = path.read_bytes()
     except OSError:
         # Broken symlink or other unreadable path. Fail closed rather than raise.
         return [
@@ -388,6 +396,34 @@ def validate_file(path: Path) -> list[Violation]:
                 line=1,
                 token=path.name,
                 message="file could not be read; cannot verify neutrality",
+            )
+        ]
+
+    is_known_text = path.suffix in _TEXT_EXTENSIONS
+    if not is_known_text and _looks_binary(raw):
+        # Not a known text extension and content looks binary (NUL in the
+        # first 8KB): skip silently. A known-text file is never skipped here
+        # even if its bytes also contain a NUL — see the UnicodeDecodeError
+        # branch below (LB1).
+        return []
+
+    try:
+        text = raw.decode("utf-8")
+    except UnicodeDecodeError:
+        if not is_known_text:
+            # Undecodable and not a known text extension: treat as an
+            # unrecognized binary asset and skip, same as the NUL-heuristic
+            # branch above.
+            return []
+        # LB1: invalid UTF-8 in a known-text-extension file. Fail closed — an
+        # undecodable file's neutrality cannot be verified, and an unguarded
+        # decode would crash the whole hook (including main([]) self-discovery).
+        return [
+            Violation(
+                path=path,
+                line=1,
+                token=path.name,
+                message="file is not valid UTF-8; cannot verify neutrality",
             )
         ]
 
@@ -413,9 +449,10 @@ def discover_neutral_surface_files(root: Path) -> list[Path]:
     Args:
         root: Repository root to scan.
 
-    Only files with a known text extension (`_DISCOVERABLE_TEXT_EXTENSIONS`)
-    are returned; a non-text file (e.g. a bundled icon or sample data asset)
-    is silently excluded rather than crashing `validate_file` on decode.
+    Only files with a known text extension (`_TEXT_EXTENSIONS`, the same set
+    `validate_file` uses for its binary/text policy) are returned; a non-text
+    file (e.g. a bundled icon or sample data asset) is silently excluded
+    rather than crashing `validate_file` on decode.
 
     A dangling symlink (broken target) is included rather than filtered out.
     `path.is_file()` follows symlinks and returns False for one whose target is
@@ -439,9 +476,7 @@ def discover_neutral_surface_files(root: Path) -> list[Path]:
             sorted(
                 path
                 for path in base.rglob("*")
-                if not path.is_dir()
-                and (path.is_file() or path.is_symlink())
-                and path.suffix in _DISCOVERABLE_TEXT_EXTENSIONS
+                if not path.is_dir() and (path.is_file() or path.is_symlink()) and path.suffix in _TEXT_EXTENSIONS
             )
         )
     return discovered
