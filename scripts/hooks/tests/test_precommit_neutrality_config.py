@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
 """
 Structural drift-guard tests for the ADR-033 neutrality hook wiring in
-.pre-commit-config.yaml (PR #428 review Finding 2, does not exist yet — TDD
-red phase for the `-policy` hook).
+.pre-commit-config.yaml (PR #428 review Finding 2).
 
 The existing `validate-neutrality` hook is scoped to `^scripts/(agents|skills)/`,
 so it only fires when a file under those two trees is staged. Editing the
@@ -34,7 +33,7 @@ Mirrors the conventions in test_precommit_hook_install.py: `_load_config`,
 `_all_hooks`, `_hooks_by_id` helpers; `re.search` semantics against `files:`
 regexes (matching the pre-commit framework's own matching behavior).
 
-Public contract under test (RED — none of it exists yet on `main`):
+Public contract locked by this suite:
     - A hook with id `validate-neutrality-policy` exists, with
       `pass_filenames: false`, and a `files:` regex matching BOTH
       `scripts/hooks/precommit/validate_neutrality.py` and
@@ -96,7 +95,9 @@ class TestPrecommitConfig:
         When: searching for a hook with id `validate-neutrality-policy`
         Then: exactly one such hook is declared
 
-        RED: this hook does not exist on `main` yet (PR #428 review Finding 2).
+        Finding 2 requires a second local hook so a policy-data or
+        validator-logic change re-scans the whole agent/skill corpus in the
+        same commit.
         """
         hooks = _hooks_by_id("validate-neutrality-policy")
         assert len(hooks) == 1, (
@@ -148,11 +149,10 @@ class TestPrecommitConfig:
         When: applying it against each path in POLICY_FILES
         Then: every path matches
 
-        RED: the hook does not exist yet, so this fails until the trigger is
-        added covering both validate_neutrality.py and _neutrality_data.py —
-        a regex/logic edit to the validator itself can flip a verdict just as
-        much as a denylist/allowlist data edit can, so both modules are in
-        POLICY_FILES.
+        The trigger covers both validate_neutrality.py and
+        _neutrality_data.py — a regex/logic edit to the validator itself can
+        flip a verdict just as much as a denylist/allowlist data edit can, so
+        both modules are in POLICY_FILES.
         """
         hooks = _hooks_by_id("validate-neutrality-policy")
         assert len(hooks) == 1, "validate-neutrality-policy hook missing"

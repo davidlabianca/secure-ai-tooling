@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Tests for scripts/hooks/precommit/validate_neutrality.py (does not exist yet — TDD red phase).
+Tests for scripts/hooks/precommit/validate_neutrality.py.
 
 ADR-033 D2a/D5 establish a "vendor-neutral shipping" contract for the two
 authoring surfaces that ship in this repository: `scripts/agents/**` and
@@ -1657,24 +1657,22 @@ class TestDocumentedGapsAndLockins:
 
 class TestFalsyFrontmatterFinding1:
     """
-    PR #428 review Finding 1: falsy non-mapping frontmatter must fail closed.
+    PR #428 review Finding 1: falsy non-mapping frontmatter fails closed.
 
-    `_frontmatter_violations` currently does `yaml.safe_load(...) or {}`
-    (validate_neutrality.py line 266), which coerces `False`/`0`/`[]`/`""` to
-    `{}` before the `isinstance(..., dict)` guard ever runs. On a
-    structurally-expected file (canonical skill-root SKILL.md, top-level agent
-    .md) this silently treats a falsy-but-non-mapping frontmatter block as
-    empty/compliant instead of flagging it as unverifiable — a fail-open hole
-    on exactly the files this rule exists to protect.
+    `_frontmatter_violations` splits YAML parsing from the empty-block default
+    (`parsed = yaml.safe_load(...); frontmatter = {} if parsed is None else
+    parsed`), so a falsy-but-non-mapping parse result (`False`, `0`, `[]`)
+    reaches the `isinstance(..., dict)` guard instead of being coerced to `{}`
+    beforehand. On a structurally-expected file (canonical skill-root
+    SKILL.md, top-level agent .md) this closes a fail-open hole: a falsy
+    frontmatter block is flagged as unverifiable rather than silently treated
+    as empty/compliant.
 
-    RED (this class): `false`/`0`/`[]` currently produce zero violations; they
-    must be flagged as unverifiable frontmatter once parse and default are
-    split (`parsed = yaml.safe_load(...); frontmatter = {} if parsed is None
-    else parsed`).
+    `false`/`0`/`[]` are each flagged as unverifiable frontmatter.
 
-    GREEN (negative lock, must stay passing): a truly empty block (`---\\n---`)
-    and a whitespace-only block both parse to `None` via `yaml.safe_load`, so
-    they become `{}` under the fixed logic too and must remain clean.
+    Negative lock (must stay passing): a truly empty block (`---\\n---`) and a
+    whitespace-only block both parse to `None` via `yaml.safe_load`, so they
+    become `{}` under the split logic and remain clean.
     """
 
     @pytest.mark.parametrize(
@@ -1692,8 +1690,10 @@ class TestFalsyFrontmatterFinding1:
         When: validate_file scans it
         Then: An unverifiable-frontmatter violation is returned (fail closed)
 
-        RED: `yaml.safe_load(...) or {}` currently coerces each of these to
-        `{}`, so today's implementation returns zero violations here.
+        The parse/default split (`parsed = yaml.safe_load(...); frontmatter =
+        {} if parsed is None else parsed`) only treats a `None` parse result
+        as empty; each of these falsy-but-non-None values reaches the
+        `isinstance(..., dict)` guard and is flagged.
         """
         skill = _write_skill_file(tmp_path, block)
 
@@ -1749,28 +1749,29 @@ class TestTextBinaryPolicyFinding3:
     PR #428 review Finding 3: a shared text/binary policy between discovery
     and validate_file.
 
-    Two current defects:
-      (a) `validate_file` has no binary-vs-text distinction at all: it always
-          attempts `path.read_text(encoding="utf-8")` and, on failure, always
-          emits a "not valid UTF-8" violation — even for a file whose
-          extension isn't textual at all (e.g. a bundled `assets/icon.png`).
-          A binary asset should be silently skipped (`[]`), not flagged.
-      (b)/(c)/(d) `discover_neutral_surface_files` only enumerates
-          `_DISCOVERABLE_TEXT_EXTENSIONS = {.md, .py, .yaml, .yml, .json,
-          .txt}`, silently skipping the plan's full textual-extension set —
-          `.sh`/`.js`/`.ts`/`.toml` — bundled with a skill, so a denylisted
-          term in a bundled setup script or config is invisible to the hook
-          via self-discovery. The discovery-inclusion test below is
-          parametrized over all four so a partial fix (e.g. only `.sh`/
-          `.toml`) does not silently pass.
+    `validate_file` and `discover_neutral_surface_files` share one text-
+    extension set, `_TEXT_EXTENSIONS = {.md, .py, .yaml, .yml, .json, .txt,
+    .sh, .js, .ts, .toml}` (renamed from `_DISCOVERABLE_TEXT_EXTENSIONS`):
+      (a) `validate_file` reads a file's bytes once, and only treats a
+          `UnicodeDecodeError` as "not valid UTF-8" (flag) when the file's
+          extension is in `_TEXT_EXTENSIONS`; otherwise, if `_looks_binary`
+          detects a NUL byte in the first 8192 bytes, the file is silently
+          skipped (`[]`) rather than flagged. A binary asset (e.g. a bundled
+          `assets/icon.png`) is skipped, not flagged.
+      (b)/(c)/(d) `discover_neutral_surface_files` enumerates every extension
+          in `_TEXT_EXTENSIONS`, so a bundled `.sh`/`.js`/`.ts`/`.toml` file's
+          denylisted terms are reachable via self-discovery, not just via an
+          explicit path handed to `validate_file`. The discovery-inclusion
+          test below is parametrized over all four so a partial extension set
+          would be caught.
 
-    LB1 preservation (critical constraint, must NOT regress): a **known-text**
-    file (a `.md`) with invalid UTF-8 bytes — including one whose bytes
-    contain a NUL, the exact shape `test_main_self_discovery_does_not_raise_
-    on_invalid_utf8` in TestFailClosedNonUtf8 exercises — must still be
-    flagged, not skipped. A naive "NUL byte anywhere ⇒ binary ⇒ skip" rule
-    would wrongly skip that case; binary-skip must be gated on the file NOT
-    being a known text extension.
+    LB1 preservation (critical constraint, verified here, not regressed): a
+    **known-text** file (a `.md`) with invalid UTF-8 bytes — including one
+    whose bytes contain a NUL, the exact shape
+    `test_main_self_discovery_does_not_raise_on_invalid_utf8` in
+    TestFailClosedNonUtf8 exercises — is still flagged, not skipped, because
+    the binary-skip in (a) is gated on the file NOT being a known text
+    extension, not merely on NUL-byte presence.
     """
 
     @staticmethod
@@ -1785,11 +1786,10 @@ class TestTextBinaryPolicyFinding3:
         When: validate_file scans it directly
         Then: It returns [] (skipped), not a violation and not a raised exception
 
-        RED: today, validate_file has no extension-based binary/text
-        distinction, so any UnicodeDecodeError (which the PNG bytes reliably
-        trigger) is unconditionally flagged as "not valid UTF-8" — a spurious
-        fail on a file whose neutrality was never a legitimate concern in the
-        first place. It should be silently skipped instead.
+        `.png` is not in `_TEXT_EXTENSIONS`, so `_looks_binary` (a NUL-byte
+        check) gates the decode failure: the file is silently skipped rather
+        than flagged as "not valid UTF-8" — a binary asset's neutrality was
+        never a legitimate concern in the first place.
         """
         icon = _write_skill_asset_bytes(tmp_path, "assets/icon.png", self._png_bytes())
 
@@ -1806,8 +1806,8 @@ class TestTextBinaryPolicyFinding3:
         When: main([<png-path>]) runs
         Then: It returns 0 and raises nothing
 
-        RED: today this returns 1 (the spurious UTF-8-decode-failure
-        violation from (a) above).
+        Confirms the skip in (a) above propagates through the CLI: a binary
+        asset produces no violation, so main() exits 0.
         """
         icon = _write_skill_asset_bytes(tmp_path, "assets/icon.png", self._png_bytes())
 
@@ -1822,11 +1822,12 @@ class TestTextBinaryPolicyFinding3:
         When: validate_file scans it directly
         Then: A violation is returned naming the offending term
 
-        This passes today (validate_file has no extension gate on the
-        *scanning* side — it will happily decode and scan a .sh file handed to
-        it directly); the gap Finding 3 (b) actually targets is discovery
-        (see test_discovery_includes_bundled_shell_scripts below). Kept here as
-        the paired positive case alongside the clean-.sh negative case.
+        `validate_file` has no extension gate on the *scanning* side — it
+        decodes and scans a `.sh` file handed to it directly regardless of
+        `_TEXT_EXTENSIONS` membership. Finding 3 (b)'s actual gap is
+        discovery (see test_discovery_includes_bundled_text_extensions
+        below); this is the paired positive case alongside the clean-`.sh`
+        negative case.
         """
         script = _write_skill_asset_bytes(
             tmp_path,
@@ -1901,9 +1902,9 @@ class TestTextBinaryPolicyFinding3:
         Then: A violation is returned naming the offending term
 
         Matches the .sh positive-scan shape: validate_file has no extension
-        gate on the scanning side today, so this passes when called directly;
-        the actual Finding 3 discovery gap for .js is covered by
-        test_discovery_includes_bundled_text_extensions below.
+        gate on the scanning side, so a `.js` file is decoded and scanned
+        when called directly; the discovery-side coverage for `.js` is
+        covered by test_discovery_includes_bundled_text_extensions below.
         """
         script = _write_skill_asset_bytes(
             tmp_path,
@@ -1933,12 +1934,11 @@ class TestTextBinaryPolicyFinding3:
         When: discover_neutral_surface_files scans the root
         Then: The file is included in the discovered set
 
-        RED: `_DISCOVERABLE_TEXT_EXTENSIONS` includes none of these today, so
-        each is invisible to self-discovery — a denylisted term inside any of
-        them would never be caught by `main([])` / the pre-commit hook's
-        no-args self-discovery path. Parametrized over the full plan literal
-        set (not just .sh/.toml) so a partial fix (e.g. only .sh/.toml) still
-        shows red here.
+        `_TEXT_EXTENSIONS` includes all four, so each is reachable via
+        self-discovery — a denylisted term inside any of them is caught by
+        `main([])` / the pre-commit hook's no-args self-discovery path.
+        Parametrized over the full plan literal set (not just .sh/.toml) so a
+        partial extension set would be caught here.
         """
         script = _write_skill_asset_bytes(tmp_path, f"scripts/setup{extension}", content)
 
@@ -1954,12 +1954,11 @@ class TestTextBinaryPolicyFinding3:
         When: discover_neutral_surface_files scans the root
         Then: The .png file is NOT included in the discovered set
 
-        Locks the existing (and desired) behavior: discovery only enumerates
-        known text extensions, so a binary asset is never handed to
-        validate_file via the self-discovery path in the first place. This is
-        already GREEN today (.png was never in the text-extension set) and
-        must remain GREEN after the Finding 3 fix — the extension set grows
-        to include .sh/.js/.ts/.toml, not arbitrary binary types.
+        Locks the desired behavior: discovery only enumerates known text
+        extensions, so a binary asset is never handed to validate_file via
+        the self-discovery path in the first place. `_TEXT_EXTENSIONS` grows
+        to include `.sh`/`.js`/`.ts`/`.toml`, not arbitrary binary types, so
+        `.png` stays excluded.
         """
         icon = _write_skill_asset_bytes(tmp_path, "assets/icon.png", self._png_bytes())
 
@@ -2084,39 +2083,38 @@ gaps in the first hardening pass:
   path that fails `exists()` but is a symlink, so a broken link reaches
   `validate_file`'s OSError guard instead of being filtered out upstream of it.
 
-PR #428 review red-phase additions (19), for the three implementation
-findings raised in review (treatment plan:
-working-plans/pr-428-review-treatment-plan.md). None of these are
-implemented yet on this branch; they specify the fixes and are expected RED
-until the SWE step lands them:
+PR #428 review additions (19), for the three implementation findings raised
+in review (treatment plan: working-plans/pr-428-review-treatment-plan.md):
 - TestFalsyFrontmatterFinding1: 5 (Finding 1) — `false`/`0`/`[]` frontmatter on
-  a canonical SKILL.md must be flagged as unverifiable (RED: `yaml.safe_load(
-  ...) or {}` currently coerces each to `{}`); an empty block (`---\n---`) and
-  a whitespace-only block both parse to `None` and must stay clean (GREEN,
-  negative lock — these are not part of the fail-open gap).
+  a canonical SKILL.md is flagged as unverifiable (the parse/default split,
+  `parsed = yaml.safe_load(...); frontmatter = {} if parsed is None else
+  parsed`, only treats a `None` parse as empty); an empty block (`---\n---`)
+  and a whitespace-only block both parse to `None` and stay clean (negative
+  lock — these are not part of the fail-open gap).
 - TestTextBinaryPolicyFinding3: 14 (Finding 3) — shared text/binary policy
-  between discover_neutral_surface_files and validate_file. A bundled binary
-  asset (PNG header + NUL bytes) must be skipped ([], not flagged, no raise)
-  by validate_file directly and via main() (RED, 2 tests: today any
-  UnicodeDecodeError is unconditionally flagged regardless of extension).
+  between discover_neutral_surface_files and validate_file, via one shared
+  `_TEXT_EXTENSIONS` set (renamed from `_DISCOVERABLE_TEXT_EXTENSIONS`) and
+  `_looks_binary` (NUL-byte heuristic). A bundled binary asset (PNG header +
+  NUL bytes) is skipped ([], not flagged, no raise) by validate_file directly
+  and via main() (2 tests: a `UnicodeDecodeError` is only flagged when the
+  extension is known-text, otherwise `_looks_binary` gates a silent skip).
   Bundled .sh/.js/.toml files with a denylisted term are flagged, and clean
-  .sh/.toml are clean, when validate_file is called directly (GREEN today —
-  validate_file has no extension gate on the scanning side). Discovery is
-  parametrized over the plan's full extension set (.sh/.js/.ts/.toml, 4
-  cases) and must include a bundled file of each under scripts/skills/** (RED:
-  `_DISCOVERABLE_TEXT_EXTENSIONS` has none of these today); a binary asset
-  must stay excluded from discovery (GREEN, already true — .png was never in
-  the text-extension set and must not become one). LB1 preservation
-  (re-affirmed, not weakened): a known-text .md with invalid UTF-8 (including
-  NUL bytes) must still fail closed via both validate_file directly and
-  main([]) self-discovery (GREEN, 2 tests) — any fix must gate binary-skip on
-  the extension not being known-text, not merely on NUL-byte presence.
+  .sh/.toml are clean, when validate_file is called directly (validate_file
+  has no extension gate on the scanning side). Discovery is parametrized over
+  the plan's full extension set (.sh/.js/.ts/.toml, 4 cases) and includes a
+  bundled file of each under scripts/skills/** (`_TEXT_EXTENSIONS` covers all
+  four); a binary asset stays excluded from discovery (`.png` is not in
+  `_TEXT_EXTENSIONS`). LB1 preservation (locked, not weakened): a known-text
+  .md with invalid UTF-8 (including NUL bytes) still fails closed via both
+  validate_file directly and main([]) self-discovery (2 tests) — binary-skip
+  is gated on the extension not being known-text, not merely on NUL-byte
+  presence.
 
 A companion structural-drift suite for Finding 2 (policy-data/validator-logic
-edits must re-trigger a full corpus re-scan) lives in a separate file,
+edits re-trigger a full corpus re-scan) lives in a separate file,
 scripts/hooks/tests/test_precommit_neutrality_config.py, since it parses
 .pre-commit-config.yaml rather than exercising validate_neutrality.py
-directly — see that file's module docstring for its own RED/GREEN breakdown.
+directly — see that file's module docstring for its own test breakdown.
 
 Coverage Areas:
 - ADR-033 denylist categories: vendor/product/company/CLI names (incl. lowercase
