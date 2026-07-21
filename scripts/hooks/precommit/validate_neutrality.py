@@ -263,7 +263,14 @@ def _frontmatter_violations(path: Path, lines: list[str]) -> list[Violation]:
 
     block_lines = lines[1:closing_index]
     try:
-        frontmatter = yaml.safe_load("\n".join(block_lines)) or {}
+        # Split parse from default: only a truly empty/whitespace-only block
+        # (parses to None) becomes {}. A falsy-but-non-mapping parse (False,
+        # 0, []) must fall through to the isinstance(dict) guard below rather
+        # than being coerced to {} and treated as compliant (PR #428 review
+        # Finding 1 — `or {}` was a fail-open hole on structurally-expected
+        # files).
+        parsed = yaml.safe_load("\n".join(block_lines))
+        frontmatter = {} if parsed is None else parsed
     except yaml.YAMLError as error:
         if structurally_expected:
             reason = str(error).splitlines()[0] if str(error) else "block is not valid YAML"
