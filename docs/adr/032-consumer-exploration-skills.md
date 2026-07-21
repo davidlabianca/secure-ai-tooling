@@ -1,8 +1,9 @@
 # ADR-032: Read-only consumer exploration skill surface
 
-**Status:** Draft
+**Status:** Accepted
 **Date:** 2026-07-06
 **Authors:** Architect agent, with maintainer review
+**Conforms to:** [ADR-033](033-vendor-neutral-agent-skill-shipping.md) — the exploration corpus this ADR defines ships under ADR-033's vendor-neutral shipping standard and lifecycle.
 
 ---
 
