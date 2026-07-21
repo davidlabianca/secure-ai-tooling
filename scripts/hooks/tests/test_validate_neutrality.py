@@ -111,6 +111,20 @@ def _write_skill_reference_file(tmp_path: Path, content: str, name: str = "lexic
     return path
 
 
+def _write_skill_asset_bytes(tmp_path: Path, relative: str, data: bytes, skill_dir: str = "example-skill") -> Path:
+    """
+    Write raw bytes at scripts/skills/<skill_dir>/<relative> and return its path.
+
+    Used for bundled non-.md skill assets (binary icons, .sh/.toml scripts)
+    that PR #428 review Finding 3 concerns: the discovery/validate_file text
+    vs. binary policy split.
+    """
+    path = tmp_path / "scripts" / "skills" / skill_dir / relative
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(data)
+    return path
+
+
 def _write_nested_skill_md_reference(tmp_path: Path, content: str) -> Path:
     """
     Write a file literally named SKILL.md under a skill's references/ subdirectory.
@@ -1641,10 +1655,371 @@ class TestDocumentedGapsAndLockins:
         assert "Cursor" in joined, "CRLF body vendor term must be flagged"
 
 
+class TestFalsyFrontmatterFinding1:
+    """
+    PR #428 review Finding 1: falsy non-mapping frontmatter must fail closed.
+
+    `_frontmatter_violations` currently does `yaml.safe_load(...) or {}`
+    (validate_neutrality.py line 266), which coerces `False`/`0`/`[]`/`""` to
+    `{}` before the `isinstance(..., dict)` guard ever runs. On a
+    structurally-expected file (canonical skill-root SKILL.md, top-level agent
+    .md) this silently treats a falsy-but-non-mapping frontmatter block as
+    empty/compliant instead of flagging it as unverifiable — a fail-open hole
+    on exactly the files this rule exists to protect.
+
+    RED (this class): `false`/`0`/`[]` currently produce zero violations; they
+    must be flagged as unverifiable frontmatter once parse and default are
+    split (`parsed = yaml.safe_load(...); frontmatter = {} if parsed is None
+    else parsed`).
+
+    GREEN (negative lock, must stay passing): a truly empty block (`---\\n---`)
+    and a whitespace-only block both parse to `None` via `yaml.safe_load`, so
+    they become `{}` under the fixed logic too and must remain clean.
+    """
+
+    @pytest.mark.parametrize(
+        ("label", "block"),
+        [
+            ("false", "---\nfalse\n---\nBody.\n"),
+            ("zero", "---\n0\n---\nBody.\n"),
+            ("empty_list", "---\n[]\n---\nBody.\n"),
+        ],
+    )
+    def test_falsy_non_mapping_frontmatter_is_flagged_on_skill_md(self, tmp_path, label, block):
+        """
+        Given: A canonical SKILL.md whose frontmatter block parses to a falsy,
+               non-dict YAML value (`False`, `0`, or `[]`)
+        When: validate_file scans it
+        Then: An unverifiable-frontmatter violation is returned (fail closed)
+
+        RED: `yaml.safe_load(...) or {}` currently coerces each of these to
+        `{}`, so today's implementation returns zero violations here.
+        """
+        skill = _write_skill_file(tmp_path, block)
+
+        violations = validate_file(skill)
+
+        assert violations != [], (
+            f"falsy frontmatter ({label}) on a structurally-expected SKILL.md must be "
+            f"flagged as unverifiable, not silently treated as empty/compliant"
+        )
+        assert any("unverifiable frontmatter" in v.message for v in violations), (
+            f"expected an 'unverifiable frontmatter' violation for falsy frontmatter ({label}); "
+            f"got messages: {[v.message for v in violations]}"
+        )
+
+    def test_empty_frontmatter_block_stays_clean(self, tmp_path):
+        """
+        Given: A canonical SKILL.md with an empty frontmatter block (`---\\n---`,
+               no content between the fences at all)
+        When: validate_file scans it
+        Then: No violations are produced — NEGATIVE LOCK
+
+        `yaml.safe_load("")` returns `None`, which both the current `or {}`
+        coercion and the corrected `None`-only default treat as an empty
+        mapping. This must stay clean after the Finding 1 fix; only a truly
+        falsy-but-non-None parse result (False/0/[]) is the fail-open gap.
+        """
+        skill = _write_skill_file(tmp_path, "---\n---\nBody.\n")
+
+        violations = validate_file(skill)
+
+        assert violations == []
+
+    def test_whitespace_only_frontmatter_block_stays_clean(self, tmp_path):
+        """
+        Given: A canonical SKILL.md whose frontmatter block contains only
+               whitespace between the fences
+        When: validate_file scans it
+        Then: No violations are produced — NEGATIVE LOCK
+
+        `yaml.safe_load("   ")` also returns `None` (whitespace-only YAML
+        documents parse to null), so this must remain clean after the fix,
+        same reasoning as the empty-block case above.
+        """
+        skill = _write_skill_file(tmp_path, "---\n   \n---\nBody.\n")
+
+        violations = validate_file(skill)
+
+        assert violations == []
+
+
+class TestTextBinaryPolicyFinding3:
+    """
+    PR #428 review Finding 3: a shared text/binary policy between discovery
+    and validate_file.
+
+    Two current defects:
+      (a) `validate_file` has no binary-vs-text distinction at all: it always
+          attempts `path.read_text(encoding="utf-8")` and, on failure, always
+          emits a "not valid UTF-8" violation — even for a file whose
+          extension isn't textual at all (e.g. a bundled `assets/icon.png`).
+          A binary asset should be silently skipped (`[]`), not flagged.
+      (b)/(c)/(d) `discover_neutral_surface_files` only enumerates
+          `_DISCOVERABLE_TEXT_EXTENSIONS = {.md, .py, .yaml, .yml, .json,
+          .txt}`, silently skipping the plan's full textual-extension set —
+          `.sh`/`.js`/`.ts`/`.toml` — bundled with a skill, so a denylisted
+          term in a bundled setup script or config is invisible to the hook
+          via self-discovery. The discovery-inclusion test below is
+          parametrized over all four so a partial fix (e.g. only `.sh`/
+          `.toml`) does not silently pass.
+
+    LB1 preservation (critical constraint, must NOT regress): a **known-text**
+    file (a `.md`) with invalid UTF-8 bytes — including one whose bytes
+    contain a NUL, the exact shape `test_main_self_discovery_does_not_raise_
+    on_invalid_utf8` in TestFailClosedNonUtf8 exercises — must still be
+    flagged, not skipped. A naive "NUL byte anywhere ⇒ binary ⇒ skip" rule
+    would wrongly skip that case; binary-skip must be gated on the file NOT
+    being a known text extension.
+    """
+
+    @staticmethod
+    def _png_bytes() -> bytes:
+        """Real PNG file signature plus non-UTF-8 filler bytes, including a NUL."""
+        return b"\x89PNG\r\n\x1a\n" + b"\x00\x01\x02\x03" * 16 + b"\xff\xfe\xfd"
+
+    def test_binary_asset_is_skipped_not_flagged_by_validate_file(self, tmp_path):
+        """
+        Given: A bundled binary asset (scripts/skills/<x>/assets/icon.png) with
+               real binary bytes, including a PNG header and NUL bytes
+        When: validate_file scans it directly
+        Then: It returns [] (skipped), not a violation and not a raised exception
+
+        RED: today, validate_file has no extension-based binary/text
+        distinction, so any UnicodeDecodeError (which the PNG bytes reliably
+        trigger) is unconditionally flagged as "not valid UTF-8" — a spurious
+        fail on a file whose neutrality was never a legitimate concern in the
+        first place. It should be silently skipped instead.
+        """
+        icon = _write_skill_asset_bytes(tmp_path, "assets/icon.png", self._png_bytes())
+
+        violations = validate_file(icon)  # must not raise
+
+        assert violations == [], (
+            f"a binary asset (icon.png) must be skipped ([]), not flagged; got: {[v.message for v in violations]}"
+        )
+
+    def test_main_on_binary_asset_returns_zero(self, tmp_path):
+        """
+        Given: The same bundled binary asset, passed as an explicit CLI arg
+               (the shape pre-commit uses: it hands the hook matched filenames)
+        When: main([<png-path>]) runs
+        Then: It returns 0 and raises nothing
+
+        RED: today this returns 1 (the spurious UTF-8-decode-failure
+        violation from (a) above).
+        """
+        icon = _write_skill_asset_bytes(tmp_path, "assets/icon.png", self._png_bytes())
+
+        exit_code = main([str(icon)])  # must not raise
+
+        assert exit_code == 0, "main() must return 0 for a skipped binary asset, not flag it"
+
+    def test_bundled_shell_script_with_denylist_term_is_flagged(self, tmp_path):
+        """
+        Given: A bundled scripts/skills/<x>/scripts/setup.sh containing a
+               denylisted vendor term
+        When: validate_file scans it directly
+        Then: A violation is returned naming the offending term
+
+        This passes today (validate_file has no extension gate on the
+        *scanning* side — it will happily decode and scan a .sh file handed to
+        it directly); the gap Finding 3 (b) actually targets is discovery
+        (see test_discovery_includes_bundled_shell_scripts below). Kept here as
+        the paired positive case alongside the clean-.sh negative case.
+        """
+        script = _write_skill_asset_bytes(
+            tmp_path,
+            "scripts/setup.sh",
+            b"#!/bin/bash\necho 'Built with Anthropic tooling'\n",
+        )
+
+        violations = validate_file(script)
+
+        assert violations != []
+        assert any("Anthropic" in v.token or "Anthropic" in v.message for v in violations)
+
+    def test_clean_bundled_shell_script_is_clean(self, tmp_path):
+        """
+        Given: A bundled scripts/skills/<x>/scripts/setup.sh with no
+               denylisted content
+        When: validate_file scans it directly
+        Then: No violations are produced
+        """
+        script = _write_skill_asset_bytes(
+            tmp_path,
+            "scripts/setup.sh",
+            b"#!/bin/bash\necho 'Installing dependencies'\n",
+        )
+
+        violations = validate_file(script)
+
+        assert violations == []
+
+    def test_bundled_toml_with_denylist_term_is_flagged(self, tmp_path):
+        """
+        Given: A bundled scripts/skills/<x>/config.toml containing a
+               denylisted vendor term
+        When: validate_file scans it directly
+        Then: A violation is returned naming the offending term
+        """
+        toml_file = _write_skill_asset_bytes(
+            tmp_path,
+            "config.toml",
+            b'name = "example"\nvendor = "Anthropic"\n',
+        )
+
+        violations = validate_file(toml_file)
+
+        assert violations != []
+        assert any("Anthropic" in v.token or "Anthropic" in v.message for v in violations)
+
+    def test_clean_bundled_toml_is_clean(self, tmp_path):
+        """
+        Given: A bundled scripts/skills/<x>/config.toml with no denylisted
+               content
+        When: validate_file scans it directly
+        Then: No violations are produced
+
+        Mirrors test_clean_bundled_shell_script_is_clean for .toml symmetry.
+        """
+        toml_file = _write_skill_asset_bytes(
+            tmp_path,
+            "config.toml",
+            b'name = "example"\nversion = "1.0.0"\n',
+        )
+
+        violations = validate_file(toml_file)
+
+        assert violations == []
+
+    def test_bundled_js_with_denylist_term_is_flagged(self, tmp_path):
+        """
+        Given: A bundled scripts/skills/<x>/scripts/setup.js containing a
+               denylisted vendor term
+        When: validate_file scans it directly
+        Then: A violation is returned naming the offending term
+
+        Matches the .sh positive-scan shape: validate_file has no extension
+        gate on the scanning side today, so this passes when called directly;
+        the actual Finding 3 discovery gap for .js is covered by
+        test_discovery_includes_bundled_text_extensions below.
+        """
+        script = _write_skill_asset_bytes(
+            tmp_path,
+            "scripts/setup.js",
+            b"// Built with Anthropic tooling\nconsole.log('setup');\n",
+        )
+
+        violations = validate_file(script)
+
+        assert violations != []
+        assert any("Anthropic" in v.token or "Anthropic" in v.message for v in violations)
+
+    @pytest.mark.parametrize(
+        ("extension", "content"),
+        [
+            (".sh", b"#!/bin/bash\necho 'Installing dependencies'\n"),
+            (".js", b"// setup script\nconsole.log('setup');\n"),
+            (".ts", b"// setup script\nconst x: number = 1;\n"),
+            (".toml", b'name = "example"\n'),
+        ],
+        ids=["sh", "js", "ts", "toml"],
+    )
+    def test_discovery_includes_bundled_text_extensions(self, tmp_path, extension, content):
+        """
+        Given: A bundled scripts/skills/<x>/scripts/setup<extension> file, for
+               each of the plan's Finding-3 extension set (.sh/.js/.ts/.toml)
+        When: discover_neutral_surface_files scans the root
+        Then: The file is included in the discovered set
+
+        RED: `_DISCOVERABLE_TEXT_EXTENSIONS` includes none of these today, so
+        each is invisible to self-discovery — a denylisted term inside any of
+        them would never be caught by `main([])` / the pre-commit hook's
+        no-args self-discovery path. Parametrized over the full plan literal
+        set (not just .sh/.toml) so a partial fix (e.g. only .sh/.toml) still
+        shows red here.
+        """
+        script = _write_skill_asset_bytes(tmp_path, f"scripts/setup{extension}", content)
+
+        discovered = discover_neutral_surface_files(tmp_path)
+
+        assert script in discovered, (
+            f"expected {script} to be discovered under scripts/skills/**; discovered set: {discovered}"
+        )
+
+    def test_discovery_excludes_binary_asset(self, tmp_path):
+        """
+        Given: A bundled scripts/skills/<x>/assets/icon.png binary asset
+        When: discover_neutral_surface_files scans the root
+        Then: The .png file is NOT included in the discovered set
+
+        Locks the existing (and desired) behavior: discovery only enumerates
+        known text extensions, so a binary asset is never handed to
+        validate_file via the self-discovery path in the first place. This is
+        already GREEN today (.png was never in the text-extension set) and
+        must remain GREEN after the Finding 3 fix — the extension set grows
+        to include .sh/.js/.ts/.toml, not arbitrary binary types.
+        """
+        icon = _write_skill_asset_bytes(tmp_path, "assets/icon.png", self._png_bytes())
+
+        discovered = discover_neutral_surface_files(tmp_path)
+
+        assert icon not in discovered
+
+    def test_known_text_md_with_invalid_utf8_is_still_flagged_lb1_preserved(self, tmp_path):
+        """
+        Given: A .md file under scripts/agents/ (a known text extension)
+               containing invalid UTF-8 bytes, including a NUL byte — the exact
+               landmine shape `test_main_self_discovery_does_not_raise_on_
+               invalid_utf8` uses
+        When: validate_file scans it directly
+        Then: It is still flagged as not valid UTF-8 (LB1 fail-closed), NOT
+              silently skipped as if it were binary
+
+        This is the critical constraint from the review: a naive "NUL byte
+        anywhere in the file ⇒ treat as binary ⇒ skip" heuristic would
+        wrongly skip this known-text file too, since its bytes also contain a
+        NUL. Any Finding 3 fix must gate the binary-skip decision on the file
+        extension NOT being a known text type, not merely on NUL-byte
+        presence, so this known-text case keeps failing closed.
+        """
+        agent = _write_agent_file(tmp_path, "placeholder\n")
+        agent.write_bytes(b"\xff\xfe\x00 invalid\n")
+
+        violations = validate_file(agent)
+
+        assert violations != [], "a known-text (.md) file with invalid UTF-8 must still fail closed"
+        assert any("UTF-8" in v.message or "utf-8" in v.message for v in violations)
+
+    def test_main_self_discovery_still_does_not_raise_on_invalid_utf8_md(self, tmp_path, monkeypatch, capsys):
+        """
+        Given: A scripts/agents/ tree containing a .md file with invalid UTF-8
+               bytes (including a NUL byte)
+        When: main([]) self-discovers and validates from that root as cwd
+        Then: It returns 1 (violation) without raising, and reports the file
+
+        Re-affirms (does not weaken) the existing
+        `test_main_self_discovery_does_not_raise_on_invalid_utf8` fail-closed
+        lock in TestFailClosedNonUtf8, as an explicit Finding 3 regression
+        guard: any change to validate_file's read-path for the binary/text
+        split must keep this passing unchanged.
+        """
+        agent = _write_agent_file(tmp_path, "placeholder\n")
+        agent.write_bytes(b"\xff\xfe\x00 invalid\n")
+        monkeypatch.chdir(tmp_path)
+
+        exit_code = main([])
+        captured = capsys.readouterr()
+
+        assert exit_code == 1
+        assert str(agent) in captured.err
+
+
 """
 Test Summary
 ============
-Total Tests: 133 (counting parametrize expansion)
+Total Tests: 152 (counting parametrize expansion)
 
 Original suite (74), unchanged except the TestScopeBoundaries/TestLiveCorpus
 moves noted below:
@@ -1708,6 +2083,40 @@ gaps in the first hardening pass:
   returns False for a broken one), and `main()` no longer `continue`s past a
   path that fails `exists()` but is a symlink, so a broken link reaches
   `validate_file`'s OSError guard instead of being filtered out upstream of it.
+
+PR #428 review red-phase additions (19), for the three implementation
+findings raised in review (treatment plan:
+working-plans/pr-428-review-treatment-plan.md). None of these are
+implemented yet on this branch; they specify the fixes and are expected RED
+until the SWE step lands them:
+- TestFalsyFrontmatterFinding1: 5 (Finding 1) — `false`/`0`/`[]` frontmatter on
+  a canonical SKILL.md must be flagged as unverifiable (RED: `yaml.safe_load(
+  ...) or {}` currently coerces each to `{}`); an empty block (`---\n---`) and
+  a whitespace-only block both parse to `None` and must stay clean (GREEN,
+  negative lock — these are not part of the fail-open gap).
+- TestTextBinaryPolicyFinding3: 14 (Finding 3) — shared text/binary policy
+  between discover_neutral_surface_files and validate_file. A bundled binary
+  asset (PNG header + NUL bytes) must be skipped ([], not flagged, no raise)
+  by validate_file directly and via main() (RED, 2 tests: today any
+  UnicodeDecodeError is unconditionally flagged regardless of extension).
+  Bundled .sh/.js/.toml files with a denylisted term are flagged, and clean
+  .sh/.toml are clean, when validate_file is called directly (GREEN today —
+  validate_file has no extension gate on the scanning side). Discovery is
+  parametrized over the plan's full extension set (.sh/.js/.ts/.toml, 4
+  cases) and must include a bundled file of each under scripts/skills/** (RED:
+  `_DISCOVERABLE_TEXT_EXTENSIONS` has none of these today); a binary asset
+  must stay excluded from discovery (GREEN, already true — .png was never in
+  the text-extension set and must not become one). LB1 preservation
+  (re-affirmed, not weakened): a known-text .md with invalid UTF-8 (including
+  NUL bytes) must still fail closed via both validate_file directly and
+  main([]) self-discovery (GREEN, 2 tests) — any fix must gate binary-skip on
+  the extension not being known-text, not merely on NUL-byte presence.
+
+A companion structural-drift suite for Finding 2 (policy-data/validator-logic
+edits must re-trigger a full corpus re-scan) lives in a separate file,
+scripts/hooks/tests/test_precommit_neutrality_config.py, since it parses
+.pre-commit-config.yaml rather than exercising validate_neutrality.py
+directly — see that file's module docstring for its own RED/GREEN breakdown.
 
 Coverage Areas:
 - ADR-033 denylist categories: vendor/product/company/CLI names (incl. lowercase
