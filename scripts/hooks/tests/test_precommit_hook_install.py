@@ -719,6 +719,14 @@ _LOCAL_VALIDATOR_TRIGGER_COVERAGE: dict[str, set[str] | None] = {
     # Discovers (schema, yaml) pairs from the filesystem at runtime; the read
     # set is not a fixed list of paths.
     "validate-all-yaml-on-master-schema-change": None,
+    # validate-neutrality-policy: SENTINEL — re-scan hook for the ADR-033
+    # neutrality checker (PR #428 review Finding 2). With no file args,
+    # main([]) self-discovers via discover_neutral_surface_files(cwd), which
+    # walks scripts/agents/** and scripts/skills/** at runtime; the read set
+    # is whatever files currently exist in those two trees, not a fixed list.
+    # Exempt per ADR-005 § Addendum 2026-05-08: Hook trigger-vs-read-set
+    # invariant.
+    "validate-neutrality-policy": None,
     # validate-frameworks-versionid-purity: reads only frameworks.yaml at the
     # canonical path. Trigger is anchored on the same path.
     "validate-frameworks-versionid-purity": {
