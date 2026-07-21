@@ -1,6 +1,6 @@
 # ADR-033: Vendor-neutral shipping and lifecycle for CoSAI agents and skills
 
-**Status:** Draft
+**Status:** Accepted
 **Date:** 2026-07-08
 **Authors:** Architect agent, with maintainer review
 
