@@ -151,7 +151,8 @@
             "componentRuntimeHosting",
             "componentToolInputHandling",
             "componentToolOutputHandling",
-            "componentSecureLogging"
+            "componentSecureLogging",
+            "componentApplicationNetworkPolicyEnforcementPoint"
           ]
         },
         "title": {

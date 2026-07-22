@@ -343,9 +343,11 @@ components:
       to:
         - componentTheModel
         - componentSecureLogging
+        - componentApplicationNetworkPolicyEnforcementPoint
       from:
         - componentModelRegistry
         - componentIsolationRuntime
+        - componentApplicationNetworkPolicyEnforcementPoint
   - id: componentModelRegistry
     title: Model Registry and Marketplace
     description:
@@ -400,7 +402,6 @@ components:
       to:
         - componentModelEvaluation
         - componentAgentInputHandling
-        - componentApplicationInputHandling
         - componentOrchestrationInputHandling
       from:
         - componentModelTrainingTuning
@@ -408,7 +409,6 @@ components:
         - componentModelStorage
         - componentModelRegistry
         - componentAgentOutputHandling
-        - componentApplicationOutputHandling
         - componentOrchestrationOutputHandling
   - id: componentApplication
     title: Application
@@ -445,7 +445,7 @@ components:
     subcategory: componentsApplicationCore
     edges:
       to:
-        - componentTheModel
+        - componentApplicationNetworkPolicyEnforcementPoint
         - componentApplicationConsentSurface
         - componentAgentInputHandling
       from:
@@ -464,7 +464,7 @@ components:
       to:
         - componentApplication
       from:
-        - componentTheModel
+        - componentApplicationNetworkPolicyEnforcementPoint
         - componentApplicationConsentSurface
         - componentAgentOutputHandling
   - id: componentReasoningCore
@@ -1381,6 +1381,57 @@ components:
         - componentApplicationInputHandling
       from:
         - componentApplicationOutputHandling
+  - id: componentApplicationNetworkPolicyEnforcementPoint
+    title: Application Network Policy Enforcement Point
+    description:
+      - >
+        The application network policy enforcement point is the client-side data-plane
+        control through which the application's outbound model-serving traffic transits
+        on its way to the model-serving endpoint it consumes. It is a Policy Enforcement
+        Point in the {{ref:nist-sp-800-207}} sense — the runtime element that enables,
+        monitors, and terminates connections — applied at the network layer on the
+        application operator's side: it admits or blocks each outbound connection against
+        the operator's reviewed egress policy and enforces transport protections such as
+        allowed destinations, TLS/mTLS, rate limiting, and audit on the traffic it carries
+        ({{ref:nist-sp-800-162-abac}}).
+      - >
+        It is distinct from {{componentAgentNetworkPolicyEnforcementPoint}}: the two
+        enforce the same class of egress policy but for different authorities. The
+        application is operated by the application developer/operator; the agentic
+        runtime — agent and orchestration — is operated separately (an agentic platform
+        or framework provider). Routing the application's model-serving traffic through
+        the agent's enforcement point would place one operator's egress under another
+        operator's reviewed policy, so each authority gets its own enforcement instance
+        rather than sharing one across a trust boundary.
+      - >
+        Its security value is enforcement of a reviewed policy, not centralization,
+        matching the same {{ref:mitre-attack-m1037}}-style egress-filtering posture as
+        its agent-side counterpart. It remains a high-value trust boundary: a compromised
+        or misconfigured instance can blind the audit trail, leak the credentials it
+        terminates, or relax the policy it enforces.
+    category: componentsApplication
+    subcategory: componentsApplicationCore
+    edges:
+      to:
+        - componentApplicationInputHandling
+        - componentModelServing
+      from:
+        - componentApplicationOutputHandling
+        - componentModelServing
+    externalReferences:
+      - type: spec
+        id: nist-sp-800-207
+        title: NIST SP 800-207 — Zero Trust Architecture
+        url: https://doi.org/10.6028/NIST.SP.800-207
+      - type: spec
+        id: nist-sp-800-162-abac
+        title: NIST SP 800-162 — Guide to Attribute Based Access Control (ABAC)
+          Definition and Considerations
+        url: https://csrc.nist.gov/pubs/sp/800/162/upd2/final
+      - type: other
+        id: mitre-attack-m1037
+        title: 'MITRE ATT&CK M1037: Filter Network Traffic'
+        url: https://attack.mitre.org/mitigations/M1037/
   - id: componentToolHosting
     title: Tool Hosting
     description:
