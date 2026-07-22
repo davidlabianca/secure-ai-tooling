@@ -78,7 +78,7 @@
             "componentsData",
             "componentsAgent",
             "componentsOrchestration",
-            "componentsModelDeployment",
+            "componentsDeployment",
             "componentsModelCore",
             "componentsApplicationCore",
             "componentsRegistries",
@@ -240,7 +240,7 @@
               "subcategory": {
                 "enum": [
                   "componentsData",
-                  "componentsModelDeployment",
+                  "componentsDeployment",
                   "componentsRegistries",
                   "componentsIdentity"
                 ]
