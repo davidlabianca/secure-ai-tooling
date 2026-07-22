@@ -425,7 +425,6 @@ components:
     edges:
       to:
         - componentApplicationOutputHandling
-        - componentAgentInputHandling
       from:
         - componentApplicationInputHandling
   - id: componentApplicationOutputHandling
@@ -436,12 +435,19 @@ components:
         protect against unwanted, unexpected or dangerous outputs from a model. Output
         handling is a major line of defense against various risks and an area primed
         for more development.
+      - >
+        This is also the application's own outbound gate: any influence the application
+        directs outward — including handing off to an agent it hosts — passes through
+        this component rather than reaching another tier's core directly, mirroring
+        the discipline this corpus already applies to reaching cores through their
+        own input gate.
     category: componentsApplication
     subcategory: componentsApplicationCore
     edges:
       to:
         - componentTheModel
         - componentApplicationConsentSurface
+        - componentAgentInputHandling
       from:
         - componentApplication
   - id: componentApplicationInputHandling
@@ -493,7 +499,6 @@ components:
     edges:
       to:
         - componentAgentOutputHandling
-        - componentAuthorizationPolicyEnforcementPoint
         - componentSecureLogging
       from:
         - componentAgentInputHandling
@@ -513,13 +518,13 @@ components:
       to:
         - componentTheModel
         - componentSecureLogging
+        - componentAgentNetworkPolicyEnforcementPoint
+        - componentAgentToolTransport
+        - componentFederationProxy
       from:
-        - componentTools
         - componentMemory
         - componentRAGContent
-        - componentToolServer
-        - componentAgentToolTransport
-        - componentAgentNetworkPolicyEnforcementPoint
+        - componentOrchestrationInputHandling
   - id: componentOrchestrationInputHandling
     title: Input Handling
     description:
@@ -531,18 +536,15 @@ components:
     subcategory: componentsOrchestration
     edges:
       to:
-        - componentTools
         - componentMemory
         - componentRAGContent
-        - componentToolServer
-        - componentAgentToolTransport
-        - componentFederationProxy
-        - componentAgentNetworkPolicyEnforcementPoint
-        - componentAuthorizationPolicyEnforcementPoint
         - componentSecureLogging
+        - componentOrchestrationOutputHandling
       from:
         - componentTheModel
         - componentToolRegistry
+        - componentAgentNetworkPolicyEnforcementPoint
+        - componentAgentToolTransport
   - id: componentTools
     title: External Tools and Services
     description:
@@ -569,16 +571,12 @@ components:
     subcategory: componentsToolCore
     edges:
       to:
-        - componentOrchestrationOutputHandling
+        - componentToolServer
         - componentToolRegistry
-        - componentAgentToolTransport
         - componentSecureLogging
       from:
-        - componentOrchestrationInputHandling
         - componentToolRegistry
-        - componentToolServer
-        - componentAgentToolTransport
-        - componentFederationProxy
+        - componentAuthorizationPolicyEnforcementPoint
         - componentAuthorizationPolicyEnforcementPoint
   - id: componentToolRegistry
     title: Tool Registry and Discovery
@@ -743,7 +741,9 @@ components:
         from untrusted data to prevent manipulation of the agent’s core logic.
       - Tool metadata and descriptors a remote server returns (for example a
         {{ref:mcp-security}}-style tools/list response) pass through this facet
-        before reaching {{componentReasoningCore}}, so a compromised or
+        before reaching {{componentReasoningCore}} — arriving via the tool
+        server's own output gate and the network policy enforcement chain, not
+        a direct connection from the tool server — so a compromised or
         impersonating server advertising deceptive tool capabilities is caught at
         the same perception-layer gate that screens every other implicit input,
         rather than reaching the reasoning core unchecked.
@@ -757,10 +757,9 @@ components:
         - componentAgentUserQuery
         - componentAgentSystemInstruction
         - componentTheModel
-        - componentApplication
+        - componentApplicationOutputHandling
         - componentAgentConsentSurface
         - componentAgentNetworkPolicyEnforcementPoint
-        - componentToolServer
     externalReferences:
       - type: spec
         id: mcp-security
@@ -795,7 +794,6 @@ components:
         - componentAgentConsentSurface
         - componentAgentNetworkPolicyEnforcementPoint
         - componentSecureLogging
-        - componentToolServer
       from:
         - componentReasoningCore
   - id: componentIdentityProvider
@@ -883,13 +881,16 @@ components:
     description:
       - >
         **External prompt templates** are parameterized instruction or message templates
-        that a remote tooling or service provider supplies at runtime, which the orchestration
-        layer fills in and injects into the model context.
+        that a remote tooling or service provider supplies at runtime, which the tool
+        zone's content-layer handling fills in and injects into the model context.
       - >
         This component owns the provider-supplied template text and its injection point
-        at the orchestration boundary. Upstream, the template originates outside the trusted
-        system and is fetched from a third party; downstream, the orchestration layer
-        populates and injects it into the context consumed by core logic.
+        at the tool boundary. Upstream, the template originates outside the trusted
+        system and is fetched from a third party; downstream, it enters through
+        {{componentToolInputHandling}} — the same content-layer gate that screens every
+        other tool-invocation request — rather than reaching {{componentToolServer}}
+        directly, so a poisoned or impersonating template is caught at that gate instead
+        of injecting straight into what the server serves.
       - >
         The key distinction from locally authored system instructions is origin and trust:
         because the text is *instruction-shaped* rather than reference data, yet enters
@@ -899,7 +900,7 @@ components:
     subcategory: componentsToolControls
     edges:
       to:
-        - componentToolServer
+        - componentToolInputHandling
   - id: componentAgentConsentSurface
     title: Agent Consent Elicitation Surface
     description:
@@ -1055,19 +1056,10 @@ components:
     subcategory: componentsToolCore
     edges:
       to:
-        - componentTools
-        - componentOrchestrationOutputHandling
-        - componentAgentInputHandling
-        - componentAgentToolTransport
-        - componentToolNetworkPolicyEnforcementPoint
         - componentToolOutputHandling
+        - componentAuthorizationPolicyEnforcementPoint
       from:
-        - componentOrchestrationInputHandling
-        - componentAgentOutputHandling
-        - componentExternalPromptTemplate
-        - componentAgentToolTransport
-        - componentFederationProxy
-        - componentToolNetworkPolicyEnforcementPoint
+        - componentTools
         - componentToolInputHandling
     externalReferences:
       - type: spec
@@ -1096,12 +1088,16 @@ components:
       - >
         This channel owns the transport between the calling orchestration layer and the
         serving tool endpoint: the underlying stream or socket and the session that carries
-        messages in flight. Mutual authentication of the calling and serving ends is
-        exercised here, though issuing and deciding that authentication is the job of
-        dedicated components elsewhere in the graph ({{componentIdentityProvider}},
-        {{componentAgentNetworkPolicyEnforcementPoint}}). It is distinct from the tool
-        itself, which performs the invoked action; the channel only conveys the call to
-        and from that endpoint.
+        messages in flight. On the graph it is realized as the segment between the orchestration
+        gates and {{componentAgentNetworkPolicyEnforcementPoint}} — the agent's own egress
+        enforcement — rather than a direct link to {{componentToolServer}}; the PEP chain
+        on to the tool provider's own ingress gate is what actually reaches the endpoint,
+        so no traffic conveyed by this channel bypasses that enforcement. Mutual authentication
+        of the calling and serving ends is exercised here, though issuing and deciding
+        that authentication is the job of dedicated components elsewhere in the graph
+        ({{componentIdentityProvider}}, {{componentAgentNetworkPolicyEnforcementPoint}}).
+        It is distinct from the tool itself, which performs the invoked action; the channel
+        only conveys the call to and from that endpoint.
       - >
         The key distinction is that this is a connecting locus rather than an action endpoint.
         Transport-level assurances are established or lost here, independent of whether
@@ -1130,13 +1126,11 @@ components:
     subcategory: componentsAgent
     edges:
       to:
-        - componentTools
-        - componentToolServer
-        - componentOrchestrationOutputHandling
-      from:
-        - componentTools
-        - componentToolServer
+        - componentAgentNetworkPolicyEnforcementPoint
         - componentOrchestrationInputHandling
+      from:
+        - componentAgentNetworkPolicyEnforcementPoint
+        - componentOrchestrationOutputHandling
     externalReferences:
       - id: mcp-spec-overview
         title: Model Context Protocol specification — architecture and JSON-RPC
@@ -1172,15 +1166,18 @@ components:
         allow-or-deny: the proxy carries and binds authorization context rather than authenticating
         or deciding. Its lineage is the classical credential-delegation role — WS-Trust
         security token services, OAuth token-exchange brokers, Kerberos constrained delegation
-        — each re-presenting a principal's authority across a trust boundary.
+        — each re-presenting a principal's authority across a trust boundary. It presents
+        the delegated credential at the tool provider's own admission point, {{componentToolNetworkPolicyEnforcementPoint}},
+        rather than reaching the tool server directly — the same resource-side ingress
+        gate that {{componentIdentityProvider}} and {{componentAuthorizationPolicyDecisionPoint}}
+        already reach as control-plane peers.
     category: componentsTools
     subcategory: componentsToolControls
     edges:
       to:
-        - componentTools
-        - componentToolServer
+        - componentToolNetworkPolicyEnforcementPoint
       from:
-        - componentOrchestrationInputHandling
+        - componentOrchestrationOutputHandling
         - componentIdentityProvider
     externalReferences:
       - type: spec
@@ -1239,12 +1236,14 @@ components:
     edges:
       to:
         - componentAgentInputHandling
-        - componentOrchestrationOutputHandling
-        - componentToolNetworkPolicyEnforcementPoint
-      from:
-        - componentAgentOutputHandling
         - componentOrchestrationInputHandling
         - componentToolNetworkPolicyEnforcementPoint
+        - componentAgentToolTransport
+      from:
+        - componentAgentOutputHandling
+        - componentOrchestrationOutputHandling
+        - componentToolNetworkPolicyEnforcementPoint
+        - componentAgentToolTransport
     externalReferences:
       - type: spec
         id: nist-sp-800-207
@@ -1282,9 +1281,11 @@ components:
         via a verified token or assertion, carried to the decision rather than re-derived
         here. It is distinct from the action surface it guards, such as {{componentTools}}:
         that surface performs the operation, while this component authorizes each invocation
-        of it. Realizations vary — a sidecar policy engine, API-gateway authorization,
-        or an in-process authorization library — deployment attributes, not the identity
-        of the component.
+        of it. Invocations reach this enforcement point as presented by {{componentToolServer}}
+        on the caller's behalf, in line rather than bypassed by a client-side path directly
+        into the action surface. Realizations vary — a sidecar policy engine, API-gateway
+        authorization, or an in-process authorization library — deployment attributes,
+        not the identity of the component.
       - >
         Its scope is the authorization of the action, not the network path. It governs
         *whether* a given identity may perform a specific operation on a specific resource
@@ -1296,9 +1297,8 @@ components:
     subcategory: componentsToolControls
     edges:
       from:
-        - componentOrchestrationInputHandling
-        - componentReasoningCore
         - componentAuthorizationPolicyDecisionPoint
+        - componentToolServer
       to:
         - componentTools
     externalReferences:
@@ -1333,15 +1333,14 @@ components:
     subcategory: componentsToolControls
     edges:
       to:
-        - componentToolServer
         - componentAgentNetworkPolicyEnforcementPoint
         - componentToolInputHandling
       from:
         - componentAgentNetworkPolicyEnforcementPoint
-        - componentToolServer
         - componentToolOutputHandling
         - componentAuthorizationPolicyDecisionPoint
         - componentIdentityProvider
+        - componentFederationProxy
     externalReferences:
       - type: spec
         id: nist-sp-800-207
@@ -1448,9 +1447,10 @@ components:
       - >
         **Tool input handling** is the content-layer handling stage on the tool side of
         the tool-server boundary that validates, sanitizes, and filters incoming tool-invocation
-        requests before the tool server acts on them. It is the tool-boundary instance
-        of the in-flow input-handling pattern the corpus already models at the application,
-        orchestration, and agent boundaries.
+        requests, and provider-supplied content such as {{componentExternalPromptTemplate}}
+        entering the serving surface, before the tool server acts on them. It is the
+        tool-boundary instance of the in-flow input-handling pattern the corpus already
+        models at the application, orchestration, and agent boundaries.
       - >
         It sits between the connection-layer admission performed by {{componentToolNetworkPolicyEnforcementPoint}},
         which decides whether a request reaches the tool zone at all, and {{componentToolServer}},
@@ -1470,6 +1470,7 @@ components:
         - componentToolServer
       from:
         - componentToolNetworkPolicyEnforcementPoint
+        - componentExternalPromptTemplate
   - id: componentToolOutputHandling
     title: Tool Output Handling
     description:
