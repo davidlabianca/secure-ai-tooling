@@ -70,21 +70,25 @@ categories:
         title: Deployment components
         description:
           - >
-            Infrastructure that stores trained model artifacts and serves them for inference.
-            Distinct from training infrastructure (which produces models) and from data
-            infrastructure (which feeds training), model deployment infrastructure carries
-            the production-time risks of model integrity, availability, and access control.
+            Infrastructure that stores trained model artifacts and hosts the execution
+            environments first-party and third-party workloads run in. Distinct from
+            training infrastructure (which produces models), from data infrastructure
+            (which feeds training), and from model serving (a Model component, since
+            serving is the inference-time locus that touches the model artifact directly
+            rather than the hosting substrate underneath it), deployment infrastructure
+            carries the production-time risks of artifact integrity, availability, and
+            access control.
       - id: componentsRegistries
         title: Registry components
         description:
           - >
             Registration-authority, catalog, and discovery infrastructure for AI/ML
-            assets. Distinct from deployment infrastructure (which stores and serves
-            artifacts), registries hold the authoritative metadata and pointers that
-            inform which asset to select and how to obtain it. They share a common
-            threat surface — metadata tampering, namespace governance, publisher
-            identity, and provenance attacks — regardless of what they catalog,
-            spanning both model registries and tool registries.
+            assets. Distinct from deployment infrastructure (which stores artifacts) and
+            from model serving (which serves them for inference), registries hold the
+            authoritative metadata and pointers that inform which asset to select and how
+            to obtain it. They share a common threat surface — metadata tampering,
+            namespace governance, publisher identity, and provenance attacks — regardless
+            of what they catalog, spanning both model registries and tool registries.
       - id: componentsIdentity
         title: Identity components
         description:
@@ -116,9 +120,11 @@ categories:
         description:
           - >
             The trained model artifact itself — the pairing of code and weights produced
-            by
-            training and consumed at inference. Distinct from the training-time processes
-            that produce it and from the orchestration tooling that augments it at runtime.
+            by training and consumed at inference — together with the serving component
+            that makes it available for inference. Distinct from the training-time
+            processes that produce the artifact, from the deployment substrate that hosts
+            the serving stack, and from the orchestration tooling that augments the model
+            at runtime.
       - id: componentsOrchestration
         title: Orchestration
         description:
@@ -318,7 +324,7 @@ components:
     subcategory: componentsDeployment
     edges:
       to:
-        - componentTheModel
+        - componentModelServing
       from:
         - componentModelRegistry
   - id: componentModelServing
@@ -337,17 +343,38 @@ components:
         controls. Such deployments depend on tenant isolation, centrally managed
         identity, and access control at the platform layer to prevent cross-tenant
         access to served endpoints and model artifacts.
-    category: componentsInfrastructure
-    subcategory: componentsDeployment
+      - >
+        Serving is the sole runtime toucher of {{componentTheModel}}: every path that
+        reaches the model for inference arrives through this component rather than the
+        model artifact directly. The agent and application tiers each cross their own
+        client-side network enforcement point first — {{componentAgentNetworkPolicyEnforcementPoint}}
+        and {{componentApplicationNetworkPolicyEnforcementPoint}} respectively — and this
+        component itself enforces ingress against the tenant-isolation and access-control
+        posture described above. Orchestration ({{componentOrchestrationInputHandling}},
+        {{componentOrchestrationOutputHandling}}) connects directly, with no PEP of its
+        own, because it is the served model's own machinery rather than a separate trust
+        domain: this component's ingress enforcement is what stands between orchestration
+        and every external caller, the same role a dedicated PEP plays for the agent and
+        application tiers. It executes on the hosting substrate provided by
+        {{componentRuntimeHosting}}, within the confinement {{componentIsolationRuntime}}
+        owns.
+    category: componentsModel
+    subcategory: componentsModelCore
     edges:
       to:
         - componentTheModel
         - componentSecureLogging
         - componentApplicationNetworkPolicyEnforcementPoint
+        - componentAgentNetworkPolicyEnforcementPoint
+        - componentOrchestrationInputHandling
       from:
         - componentModelRegistry
-        - componentIsolationRuntime
+        - componentModelStorage
+        - componentRuntimeHosting
+        - componentTheModel
         - componentApplicationNetworkPolicyEnforcementPoint
+        - componentAgentNetworkPolicyEnforcementPoint
+        - componentOrchestrationOutputHandling
   - id: componentModelRegistry
     title: Model Registry and Marketplace
     description:
@@ -383,7 +410,6 @@ components:
     edges:
       to:
         - componentModelServing
-        - componentTheModel
         - componentModelStorage
       from:
         - componentModelTrainingTuning
@@ -393,23 +419,24 @@ components:
       - >
         A pairing of code and weights, created with data during a training process.
         In the CoSAI Risk Map, the model is represented as the result of the output
-        of the Data Components being trained, stored, and served using the Infrastructure
-        Components. A model is ultimately useful when deployed in applications, using
-        Application Components.
+        of the Data Components being trained and stored using the Infrastructure
+        Components, and served using {{componentModelServing}}, a Model component. A
+        model is ultimately useful when deployed in applications, using Application
+        Components.
+      - >
+        The model artifact itself is reached only through {{componentModelServing}} for
+        inference; the agent, application, and orchestration tiers each reach the model
+        through their own network enforcement point and {{componentModelServing}}, never
+        directly.
     category: componentsModel
     subcategory: componentsModelCore
     edges:
       to:
         - componentModelEvaluation
-        - componentAgentInputHandling
-        - componentOrchestrationInputHandling
+        - componentModelServing
       from:
         - componentModelTrainingTuning
         - componentModelServing
-        - componentModelStorage
-        - componentModelRegistry
-        - componentAgentOutputHandling
-        - componentOrchestrationOutputHandling
   - id: componentApplication
     title: Application
     description:
@@ -440,14 +467,17 @@ components:
         directs outward — including handing off to an agent it hosts — passes through
         this component rather than reaching another tier's core directly, mirroring
         the discipline this corpus already applies to reaching cores through their
-        own input gate.
+        own input gate. The agent handoff crosses {{componentApplicationNetworkPolicyEnforcementPoint}}
+        like every other outbound path from this gate — never directly into the agent
+        operator's own enforcement point — with the two PEPs connecting to each other
+        as peers to carry the handoff onward; a same-deployment composition does not
+        exempt this gate from its own operator's egress enforcement.
     category: componentsApplication
     subcategory: componentsApplicationCore
     edges:
       to:
         - componentApplicationNetworkPolicyEnforcementPoint
         - componentApplicationConsentSurface
-        - componentAgentInputHandling
       from:
         - componentApplication
   - id: componentApplicationInputHandling
@@ -466,7 +496,6 @@ components:
       from:
         - componentApplicationNetworkPolicyEnforcementPoint
         - componentApplicationConsentSurface
-        - componentAgentOutputHandling
   - id: componentReasoningCore
     title: Agent Reasoning Core
     description:
@@ -516,11 +545,8 @@ components:
     subcategory: componentsOrchestration
     edges:
       to:
-        - componentTheModel
         - componentSecureLogging
-        - componentAgentNetworkPolicyEnforcementPoint
-        - componentAgentToolTransport
-        - componentFederationProxy
+        - componentModelServing
       from:
         - componentMemory
         - componentRAGContent
@@ -541,10 +567,7 @@ components:
         - componentSecureLogging
         - componentOrchestrationOutputHandling
       from:
-        - componentTheModel
-        - componentToolRegistry
-        - componentAgentNetworkPolicyEnforcementPoint
-        - componentAgentToolTransport
+        - componentModelServing
   - id: componentTools
     title: External Tools and Services
     description:
@@ -575,8 +598,6 @@ components:
         - componentToolRegistry
         - componentSecureLogging
       from:
-        - componentToolRegistry
-        - componentAuthorizationPolicyEnforcementPoint
         - componentAuthorizationPolicyEnforcementPoint
   - id: componentToolRegistry
     title: Tool Registry and Discovery
@@ -630,17 +651,21 @@ components:
         processes and shadow-deployment detection act over: the enumerated set of tools,
         services, and serving endpoints an agentic system is permitted to reach, each
         carrying a trust-state marker that lets stale or unauthorized entries be flagged
-        before an agent routes a call to them. This enumerated-endpoint role is protocol-agnostic
+        before a call is routed to them. This enumerated-endpoint role is protocol-agnostic
         — MCP server manifests, A2A peer directories, and classical service-discovery
-        endpoints are deployment variations of the same function — and it is what {{componentOrchestrationInputHandling}}
-        consults at resolution time, on the reasoning core's behalf, to determine which
-        external tools exist and how to address them."
+        endpoints are deployment variations of the same function — and it is what
+        {{componentToolNetworkPolicyEnforcementPoint}} consults as a control-plane peer,
+        alongside {{componentIdentityProvider}} and {{componentAuthorizationPolicyDecisionPoint}},
+        to admit a connection only to an endpoint the registry actually enumerates. This
+        moves registry consultation to the network admission decision rather than the
+        reasoning-time tool-selection step, which draws on the registry's data
+        indirectly through whatever the served model already knows about available
+        tools."
     category: componentsInfrastructure
     subcategory: componentsRegistries
     edges:
       to:
-        - componentOrchestrationInputHandling
-        - componentTools
+        - componentToolNetworkPolicyEnforcementPoint
       from:
         - componentTools
     externalReferences:
@@ -756,8 +781,6 @@ components:
       from:
         - componentAgentUserQuery
         - componentAgentSystemInstruction
-        - componentTheModel
-        - componentApplicationOutputHandling
         - componentAgentConsentSurface
         - componentAgentNetworkPolicyEnforcementPoint
     externalReferences:
@@ -784,13 +807,16 @@ components:
         resources like images are automatically loaded by the  application, implicitly
         passing sensitive information to an attacker's server via  the resource's URL.
         Similarly, improper sanitization can lead to cross-site  scripting (XSS) attacks.
-
+      - >
+        Handing this output back to the hosting application crosses
+        {{componentAgentNetworkPolicyEnforcementPoint}} like every other outbound path
+        from this gate — never directly into the application operator's own enforcement
+        point — with the two PEPs connecting to each other as peers to carry the handoff
+        onward, the same treatment this gate's own outbound traffic already gets.
     category: componentsApplication
     subcategory: componentsAgent
     edges:
       to:
-        - componentApplicationInputHandling
-        - componentTheModel
         - componentAgentConsentSurface
         - componentAgentNetworkPolicyEnforcementPoint
         - componentSecureLogging
@@ -985,7 +1011,6 @@ components:
     subcategory: componentsDeployment
     edges:
       to:
-        - componentModelServing
         - componentToolHosting
         - componentRuntimeHosting
       from: []
@@ -1061,6 +1086,7 @@ components:
       from:
         - componentTools
         - componentToolInputHandling
+        - componentToolHosting
     externalReferences:
       - type: spec
         id: mcp-spec
@@ -1079,25 +1105,25 @@ components:
     description:
       - >
         The communications channel that carries request and response messages between
-        an agent's orchestration layer and the external tools and services it invokes.
-        It frames, delivers, and returns structured calls — typically JSON-RPC 2.0 messages
-        ({{ref:jsonrpc-2-0}}) — over either a local inter-process stream or a networked
-        session, abstracting the same agent-to-tool exchange across local and distributed
-        deployments, as specified for remote-tooling protocols such as the Model Context
-        Protocol ({{ref:mcp-spec-overview}}).
+        the agent's own network enforcement point and the tool provider's network
+        enforcement point. It frames, delivers, and returns structured calls — typically
+        JSON-RPC 2.0 messages ({{ref:jsonrpc-2-0}}) — over either a local inter-process
+        stream or a networked session, abstracting the same agent-to-tool exchange across
+        local and distributed deployments, as specified for remote-tooling protocols such
+        as the Model Context Protocol ({{ref:mcp-spec-overview}}).
       - >
-        This channel owns the transport between the calling orchestration layer and the
-        serving tool endpoint: the underlying stream or socket and the session that carries
-        messages in flight. On the graph it is realized as the segment between the orchestration
-        gates and {{componentAgentNetworkPolicyEnforcementPoint}} — the agent's own egress
-        enforcement — rather than a direct link to {{componentToolServer}}; the PEP chain
-        on to the tool provider's own ingress gate is what actually reaches the endpoint,
-        so no traffic conveyed by this channel bypasses that enforcement. Mutual authentication
-        of the calling and serving ends is exercised here, though issuing and deciding
-        that authentication is the job of dedicated components elsewhere in the graph
-        ({{componentIdentityProvider}}, {{componentAgentNetworkPolicyEnforcementPoint}}).
-        It is distinct from the tool itself, which performs the invoked action; the channel
-        only conveys the call to and from that endpoint.
+        This channel owns the transport between {{componentAgentNetworkPolicyEnforcementPoint}}
+        and {{componentToolNetworkPolicyEnforcementPoint}}: the underlying stream or
+        socket and the session that carries messages in flight across the network
+        boundary the two PEPs sit at opposite ends of. It is the wire the PEP pairing
+        enforces over, not a separate path around it — matching the client-PEP / channel
+        / resource-PEP shape the corpus already uses wherever a connection crosses a
+        trust boundary. Mutual authentication of the calling and serving ends is
+        exercised here, though issuing and deciding that authentication is the job of
+        dedicated components elsewhere in the graph ({{componentIdentityProvider}},
+        {{componentAgentNetworkPolicyEnforcementPoint}}). It is distinct from the tool
+        itself, which performs the invoked action; the channel only conveys the call to
+        and from that endpoint.
       - >
         The key distinction is that this is a connecting locus rather than an action endpoint.
         Transport-level assurances are established or lost here, independent of whether
@@ -1120,17 +1146,17 @@ components:
         under the Model Context Protocol to other agent-to-tool wire protocols such as
         gRPC and REST-over-HTTP, with encoding and deployment form varying while the channel's
         role stays the same. Payload-level validation of the calls themselves is out of
-        scope for this channel and belongs to the adjacent {{componentOrchestrationInputHandling}}
-        and {{componentOrchestrationOutputHandling}} components."
+        scope for this channel and belongs to {{componentToolInputHandling}} and
+        {{componentToolOutputHandling}} on the far side of the resource-side PEP."
     category: componentsApplication
     subcategory: componentsAgent
     edges:
       to:
         - componentAgentNetworkPolicyEnforcementPoint
-        - componentOrchestrationInputHandling
+        - componentToolNetworkPolicyEnforcementPoint
       from:
         - componentAgentNetworkPolicyEnforcementPoint
-        - componentOrchestrationOutputHandling
+        - componentToolNetworkPolicyEnforcementPoint
     externalReferences:
       - id: mcp-spec-overview
         title: Model Context Protocol specification — architecture and JSON-RPC
@@ -1177,7 +1203,6 @@ components:
       to:
         - componentToolNetworkPolicyEnforcementPoint
       from:
-        - componentOrchestrationOutputHandling
         - componentIdentityProvider
     externalReferences:
       - type: spec
@@ -1206,14 +1231,26 @@ components:
     description:
       - >
         The agent network policy enforcement point is the client-side data-plane control
-        through which an agent's outbound tool-call traffic transits on its way to external
-        tool servers and services, typically over a tooling protocol such as the Model
-        Context Protocol ({{ref:model-context-protocol}}). It is a Policy Enforcement
-        Point in the {{ref:nist-sp-800-207}} sense — the runtime element that enables,
-        monitors, and terminates connections — applied at the network layer on the agent
-        operator's side: it admits or blocks each outbound connection against the operator's
-        reviewed egress policy and enforces transport protections such as allowed destinations,
-        TLS/mTLS, rate limiting, and audit on the traffic it carries ({{ref:nist-sp-800-162-abac}}).
+        through which the agent's outbound traffic transits — its tool-call traffic to
+        external tool servers and services, typically over a tooling protocol such as the
+        Model Context Protocol ({{ref:model-context-protocol}}), and its model-serving
+        traffic to {{componentModelServing}}, and traffic handed off to or received from
+        the hosting application via {{componentApplicationNetworkPolicyEnforcementPoint}}
+        as a peer — the two enforcement points connect directly to each other rather than
+        either one reaching past its counterpart into the other tier's output/input gates.
+        These classes of traffic share this one enforcement point because they cross the
+        same operator's egress boundary under the same reviewed policy; splitting them
+        across separate agent-side PEPs would create two narrower gates an attacker could
+        arbitrage between. Orchestration is not a further class of traffic here: it has
+        no PEP of its own and no edge to this one, reaching {{componentModelServing}}
+        directly as the served model's own machinery rather than as agent-operator-controlled
+        egress. It is a Policy Enforcement Point in the {{ref:nist-sp-800-207}} sense —
+        the runtime element that
+        enables, monitors, and terminates connections — applied at the network layer on
+        the agent operator's side: it admits or blocks each outbound connection against
+        the operator's reviewed egress policy and enforces transport protections such as
+        allowed destinations, TLS/mTLS, rate limiting, and audit on the traffic it carries
+        ({{ref:nist-sp-800-162-abac}}).
       - >
         Its security value is enforcement of a reviewed policy, not centralization. Realized
         as a per-agent sidecar in a service-mesh data plane rather than a single shared
@@ -1236,14 +1273,16 @@ components:
     edges:
       to:
         - componentAgentInputHandling
-        - componentOrchestrationInputHandling
         - componentToolNetworkPolicyEnforcementPoint
         - componentAgentToolTransport
+        - componentModelServing
+        - componentApplicationNetworkPolicyEnforcementPoint
       from:
         - componentAgentOutputHandling
-        - componentOrchestrationOutputHandling
         - componentToolNetworkPolicyEnforcementPoint
         - componentAgentToolTransport
+        - componentModelServing
+        - componentApplicationNetworkPolicyEnforcementPoint
     externalReferences:
       - type: spec
         id: nist-sp-800-207
@@ -1321,10 +1360,14 @@ components:
         It is the counterpart to {{componentAgentNetworkPolicyEnforcementPoint}}: the
         two sit at opposite ends of the same connection but serve different owners and
         goals — the agent PEP enforces the operator's egress policy (self protecting self),
-        this PEP enforces the tool provider's ingress policy (remote protecting self).
-        Realized as a sidecar or gateway in front of {{componentToolServer}}, it applies
-        allowed-source, TLS/mTLS, rate-limit, and audit controls ({{ref:mitre-attack-m1037}})
-        at the resource boundary.
+        this PEP enforces the tool provider's ingress policy (remote protecting self). The
+        connection between them is carried by {{componentAgentToolTransport}}. Realized as
+        a sidecar or gateway in front of {{componentToolServer}}, it applies allowed-source,
+        TLS/mTLS, rate-limit, and audit controls ({{ref:mitre-attack-m1037}}) at the
+        resource boundary, admitting a connection only to an endpoint
+        {{componentToolRegistry}} actually enumerates, alongside the identity and policy
+        context {{componentIdentityProvider}} and {{componentAuthorizationPolicyDecisionPoint}}
+        supply as control-plane peers.
       - >
         As a network-layer control it is distinct from the tool server itself, which performs
         the served action, and from content-layer handling: it governs which connections
@@ -1334,13 +1377,16 @@ components:
     edges:
       to:
         - componentAgentNetworkPolicyEnforcementPoint
+        - componentAgentToolTransport
         - componentToolInputHandling
       from:
         - componentAgentNetworkPolicyEnforcementPoint
+        - componentAgentToolTransport
         - componentToolOutputHandling
         - componentAuthorizationPolicyDecisionPoint
         - componentIdentityProvider
         - componentFederationProxy
+        - componentToolRegistry
     externalReferences:
       - type: spec
         id: nist-sp-800-207
@@ -1386,12 +1432,16 @@ components:
     description:
       - >
         The application network policy enforcement point is the client-side data-plane
-        control through which the application's outbound model-serving traffic transits
-        on its way to the model-serving endpoint it consumes. It is a Policy Enforcement
-        Point in the {{ref:nist-sp-800-207}} sense — the runtime element that enables,
-        monitors, and terminates connections — applied at the network layer on the
-        application operator's side: it admits or blocks each outbound connection against
-        the operator's reviewed egress policy and enforces transport protections such as
+        control through which the application's outbound traffic transits — its
+        model-serving traffic to the model-serving endpoint it consumes, and its handoff
+        traffic to an agent it hosts, carried to {{componentAgentNetworkPolicyEnforcementPoint}}
+        as a peer rather than reaching the agent's input gate directly. Both classes of
+        traffic cross the same operator's egress boundary under the same reviewed policy,
+        so neither bypasses this gate. It is a Policy Enforcement Point in the
+        {{ref:nist-sp-800-207}} sense — the runtime element that enables, monitors, and
+        terminates connections — applied at the network layer on the application
+        operator's side: it admits or blocks each outbound connection against the
+        operator's reviewed egress policy and enforces transport protections such as
         allowed destinations, TLS/mTLS, rate limiting, and audit on the traffic it carries
         ({{ref:nist-sp-800-162-abac}}).
       - >
@@ -1399,10 +1449,11 @@ components:
         enforce the same class of egress policy but for different authorities. The
         application is operated by the application developer/operator; the agentic
         runtime — agent and orchestration — is operated separately (an agentic platform
-        or framework provider). Routing the application's model-serving traffic through
-        the agent's enforcement point would place one operator's egress under another
-        operator's reviewed policy, so each authority gets its own enforcement instance
-        rather than sharing one across a trust boundary.
+        or framework provider). Routing the application's model-serving or agent-handoff
+        traffic through the agent's enforcement point directly, rather than peering PEP
+        to PEP, would place one operator's egress under another operator's reviewed
+        policy, so each authority gets its own enforcement instance rather than sharing
+        one across a trust boundary.
       - >
         Its security value is enforcement of a reviewed policy, not centralization,
         matching the same {{ref:mitre-attack-m1037}}-style egress-filtering posture as
@@ -1415,9 +1466,11 @@ components:
       to:
         - componentApplicationInputHandling
         - componentModelServing
+        - componentAgentNetworkPolicyEnforcementPoint
       from:
         - componentApplicationOutputHandling
         - componentModelServing
+        - componentAgentNetworkPolicyEnforcementPoint
     externalReferences:
       - type: spec
         id: nist-sp-800-207
@@ -1452,11 +1505,14 @@ components:
       - >
         Tool hosting is the hosted workload, not the boundary it runs inside; the confinement
         itself is owned by {{componentIsolationRuntime}}, within which this substrate
-        executes.
+        executes. It is what {{componentToolServer}} — the process fronting external tool
+        capabilities — runs on, the same relationship {{componentRuntimeHosting}} has to
+        {{componentModelServing}}.
     category: componentsInfrastructure
     subcategory: componentsDeployment
     edges:
-      to: []
+      to:
+        - componentToolServer
       from:
         - componentIsolationRuntime
     externalReferences:
@@ -1468,10 +1524,12 @@ components:
     title: Runtime Hosting
     description:
       - >
-        **Runtime hosting** is the serving substrate on which the AI system's own application
-        and agent code execute. It owns the execution environment for first-party application
-        and agent workloads, as distinct from model inference or external tool code, and
-        sits alongside model serving and tool hosting within the deployment substrate.
+        **Runtime hosting** is the serving substrate on which the AI system's own
+        first-party workloads execute: the application and agent code, and the model-serving
+        stack ({{componentModelServing}}) that makes the model available for inference.
+        It owns the execution environment for these first-party workloads, as distinct
+        from external tool code, and sits alongside tool hosting within the deployment
+        substrate.
       - >
         Application execution and agent execution share this one substrate and one set
         of hosting controls, so they are modeled as a single component rather than two.
@@ -1481,15 +1539,16 @@ components:
         control set as the conservative default. This keeps the distinction an attribute
         question rather than component sprawl.
       - >
-        It is distinct from {{componentModelServing}}, which makes a model available for
-        inference, and from {{componentToolHosting}}, which runs untrusted external tool
-        code; runtime hosting runs the system's own application and agent logic. Like
-        its peers it is the hosted workload, executing inside the confinement owned by
+        It is distinct from {{componentToolHosting}}, which runs untrusted external tool
+        code rather than a first-party workload; runtime hosting runs the system's own
+        application and agent logic and hosts the model-serving stack. Like its peer it
+        is the hosted workload, executing inside the confinement owned by
         {{componentIsolationRuntime}}.
     category: componentsInfrastructure
     subcategory: componentsDeployment
     edges:
-      to: []
+      to:
+        - componentModelServing
       from:
         - componentIsolationRuntime
   - id: componentToolInputHandling
