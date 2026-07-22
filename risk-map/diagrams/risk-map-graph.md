@@ -108,27 +108,23 @@ graph TD
     componentTheModel --> componentApplicationInputHandling
     componentTheModel --> componentOrchestrationInputHandling
     componentApplication --> componentApplicationOutputHandling
-    componentApplication --> componentAgentInputHandling
     componentApplicationOutputHandling --> componentTheModel
     componentApplicationOutputHandling --> componentApplicationConsentSurface
+    componentApplicationOutputHandling --> componentAgentInputHandling
     componentApplicationInputHandling --> componentApplication
     componentReasoningCore --> componentAgentOutputHandling
-    componentReasoningCore --> componentAuthorizationPolicyEnforcementPoint
     componentReasoningCore --> componentSecureLogging
     componentOrchestrationOutputHandling --> componentTheModel
     componentOrchestrationOutputHandling --> componentSecureLogging
-    componentOrchestrationInputHandling --> componentTools
+    componentOrchestrationOutputHandling --> componentAgentNetworkPolicyEnforcementPoint
+    componentOrchestrationOutputHandling --> componentAgentToolTransport
+    componentOrchestrationOutputHandling --> componentFederationProxy
     componentOrchestrationInputHandling --> componentMemory
     componentOrchestrationInputHandling --> componentRAGContent
-    componentOrchestrationInputHandling --> componentToolServer
-    componentOrchestrationInputHandling --> componentAgentToolTransport
-    componentOrchestrationInputHandling --> componentFederationProxy
-    componentOrchestrationInputHandling --> componentAgentNetworkPolicyEnforcementPoint
-    componentOrchestrationInputHandling --> componentAuthorizationPolicyEnforcementPoint
     componentOrchestrationInputHandling --> componentSecureLogging
-    componentTools --> componentOrchestrationOutputHandling
+    componentOrchestrationInputHandling --> componentOrchestrationOutputHandling
+    componentTools --> componentToolServer
     componentTools --> componentToolRegistry
-    componentTools --> componentAgentToolTransport
     componentTools --> componentSecureLogging
     componentToolRegistry --> componentOrchestrationInputHandling
     componentToolRegistry --> componentTools
@@ -143,33 +139,26 @@ graph TD
     componentAgentOutputHandling --> componentAgentConsentSurface
     componentAgentOutputHandling --> componentAgentNetworkPolicyEnforcementPoint
     componentAgentOutputHandling --> componentSecureLogging
-    componentAgentOutputHandling --> componentToolServer
     componentIdentityProvider --> componentAuthorizationPolicyDecisionPoint
     componentIdentityProvider --> componentFederationProxy
     componentIdentityProvider --> componentToolNetworkPolicyEnforcementPoint
     componentAuthorizationPolicyDecisionPoint --> componentAuthorizationPolicyEnforcementPoint
     componentAuthorizationPolicyDecisionPoint --> componentToolNetworkPolicyEnforcementPoint
-    componentExternalPromptTemplate --> componentToolServer
+    componentExternalPromptTemplate --> componentToolInputHandling
     componentAgentConsentSurface --> componentAgentInputHandling
     componentIsolationRuntime --> componentModelServing
     componentIsolationRuntime --> componentToolHosting
     componentIsolationRuntime --> componentRuntimeHosting
-    componentToolServer --> componentTools
-    componentToolServer --> componentOrchestrationOutputHandling
-    componentToolServer --> componentAgentInputHandling
-    componentToolServer --> componentAgentToolTransport
-    componentToolServer --> componentToolNetworkPolicyEnforcementPoint
     componentToolServer --> componentToolOutputHandling
-    componentAgentToolTransport --> componentTools
-    componentAgentToolTransport --> componentToolServer
-    componentAgentToolTransport --> componentOrchestrationOutputHandling
-    componentFederationProxy --> componentTools
-    componentFederationProxy --> componentToolServer
+    componentToolServer --> componentAuthorizationPolicyEnforcementPoint
+    componentAgentToolTransport --> componentAgentNetworkPolicyEnforcementPoint
+    componentAgentToolTransport --> componentOrchestrationInputHandling
+    componentFederationProxy --> componentToolNetworkPolicyEnforcementPoint
     componentAgentNetworkPolicyEnforcementPoint --> componentAgentInputHandling
-    componentAgentNetworkPolicyEnforcementPoint --> componentOrchestrationOutputHandling
+    componentAgentNetworkPolicyEnforcementPoint --> componentOrchestrationInputHandling
     componentAgentNetworkPolicyEnforcementPoint --> componentToolNetworkPolicyEnforcementPoint
+    componentAgentNetworkPolicyEnforcementPoint --> componentAgentToolTransport
     componentAuthorizationPolicyEnforcementPoint --> componentTools
-    componentToolNetworkPolicyEnforcementPoint --> componentToolServer
     componentToolNetworkPolicyEnforcementPoint --> componentAgentNetworkPolicyEnforcementPoint
     componentToolNetworkPolicyEnforcementPoint --> componentToolInputHandling
     componentApplicationConsentSurface --> componentApplicationInputHandling
