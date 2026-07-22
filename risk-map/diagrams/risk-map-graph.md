@@ -138,7 +138,7 @@ graph TD
     componentAgentSystemInstruction --> componentAgentInputHandling
     componentAgentInputHandling --> componentReasoningCore
     componentAgentInputHandling --> componentSecureLogging
-    componentAgentOutputHandling --> componentApplication
+    componentAgentOutputHandling --> componentApplicationInputHandling
     componentAgentOutputHandling --> componentTheModel
     componentAgentOutputHandling --> componentAgentConsentSurface
     componentAgentOutputHandling --> componentAgentNetworkPolicyEnforcementPoint
