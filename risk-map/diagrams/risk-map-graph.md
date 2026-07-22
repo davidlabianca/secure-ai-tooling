@@ -111,7 +111,9 @@ graph TD
     componentApplication --> componentApplicationOutputHandling
     componentApplicationOutputHandling --> componentApplicationNetworkPolicyEnforcementPoint
     componentApplicationOutputHandling --> componentApplicationConsentSurface
+    componentApplicationOutputHandling --> componentSecureLogging
     componentApplicationInputHandling --> componentApplication
+    componentApplicationInputHandling --> componentSecureLogging
     componentReasoningCore --> componentAgentOutputHandling
     componentReasoningCore --> componentSecureLogging
     componentOrchestrationOutputHandling --> componentSecureLogging
@@ -136,8 +138,14 @@ graph TD
     componentIdentityProvider --> componentAuthorizationPolicyDecisionPoint
     componentIdentityProvider --> componentFederationProxy
     componentIdentityProvider --> componentToolNetworkPolicyEnforcementPoint
+    componentIdentityProvider --> componentAgentNetworkPolicyEnforcementPoint
+    componentIdentityProvider --> componentApplicationNetworkPolicyEnforcementPoint
+    componentIdentityProvider --> componentModelServing
     componentAuthorizationPolicyDecisionPoint --> componentAuthorizationPolicyEnforcementPoint
     componentAuthorizationPolicyDecisionPoint --> componentToolNetworkPolicyEnforcementPoint
+    componentAuthorizationPolicyDecisionPoint --> componentAgentNetworkPolicyEnforcementPoint
+    componentAuthorizationPolicyDecisionPoint --> componentApplicationNetworkPolicyEnforcementPoint
+    componentAuthorizationPolicyDecisionPoint --> componentModelServing
     componentExternalPromptTemplate --> componentToolInputHandling
     componentAgentConsentSurface --> componentAgentInputHandling
     componentIsolationRuntime --> componentToolHosting
@@ -152,18 +160,23 @@ graph TD
     componentAgentNetworkPolicyEnforcementPoint --> componentAgentToolTransport
     componentAgentNetworkPolicyEnforcementPoint --> componentModelServing
     componentAgentNetworkPolicyEnforcementPoint --> componentApplicationNetworkPolicyEnforcementPoint
+    componentAgentNetworkPolicyEnforcementPoint --> componentSecureLogging
     componentAuthorizationPolicyEnforcementPoint --> componentTools
     componentToolNetworkPolicyEnforcementPoint --> componentAgentNetworkPolicyEnforcementPoint
     componentToolNetworkPolicyEnforcementPoint --> componentAgentToolTransport
     componentToolNetworkPolicyEnforcementPoint --> componentToolInputHandling
+    componentToolNetworkPolicyEnforcementPoint --> componentSecureLogging
     componentApplicationConsentSurface --> componentApplicationInputHandling
     componentApplicationNetworkPolicyEnforcementPoint --> componentApplicationInputHandling
     componentApplicationNetworkPolicyEnforcementPoint --> componentModelServing
     componentApplicationNetworkPolicyEnforcementPoint --> componentAgentNetworkPolicyEnforcementPoint
+    componentApplicationNetworkPolicyEnforcementPoint --> componentSecureLogging
     componentToolHosting --> componentToolServer
     componentRuntimeHosting --> componentModelServing
     componentToolInputHandling --> componentToolServer
+    componentToolInputHandling --> componentSecureLogging
     componentToolOutputHandling --> componentToolNetworkPolicyEnforcementPoint
+    componentToolOutputHandling --> componentSecureLogging
 
 %% Node style definitions
     style componentsInfrastructure fill:#e6f3e6,stroke:#333333,stroke-width:2px

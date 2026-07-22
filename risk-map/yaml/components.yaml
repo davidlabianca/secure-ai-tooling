@@ -355,9 +355,11 @@ components:
         own, because it is the served model's own machinery rather than a separate trust
         domain: this component's ingress enforcement is what stands between orchestration
         and every external caller, the same role a dedicated PEP plays for the agent and
-        application tiers. It executes on the hosting substrate provided by
-        {{componentRuntimeHosting}}, within the confinement {{componentIsolationRuntime}}
-        owns.
+        application tiers. As that enforcement point it consults {{componentIdentityProvider}}
+        and {{componentAuthorizationPolicyDecisionPoint}} as control-plane peers, the same
+        relationship {{componentToolNetworkPolicyEnforcementPoint}} already has with them.
+        It executes on the hosting substrate provided by {{componentRuntimeHosting}},
+        within the confinement {{componentIsolationRuntime}} owns.
     category: componentsModel
     subcategory: componentsModelCore
     edges:
@@ -375,6 +377,8 @@ components:
         - componentApplicationNetworkPolicyEnforcementPoint
         - componentAgentNetworkPolicyEnforcementPoint
         - componentOrchestrationOutputHandling
+        - componentIdentityProvider
+        - componentAuthorizationPolicyDecisionPoint
   - id: componentModelRegistry
     title: Model Registry and Marketplace
     description:
@@ -478,6 +482,7 @@ components:
       to:
         - componentApplicationNetworkPolicyEnforcementPoint
         - componentApplicationConsentSurface
+        - componentSecureLogging
       from:
         - componentApplication
   - id: componentApplicationInputHandling
@@ -493,6 +498,7 @@ components:
     edges:
       to:
         - componentApplication
+        - componentSecureLogging
       from:
         - componentApplicationNetworkPolicyEnforcementPoint
         - componentApplicationConsentSurface
@@ -849,6 +855,12 @@ components:
         server are attributes of how identity is wired in, not the identity of the component
         itself; it remains the identity trust root on which dependent components — notably
         {{componentAuthorizationPolicyDecisionPoint}} — base every authorization decision.
+        As that trust root it reaches every network enforcement point in the corpus as a
+        control-plane peer, not only the tool zone's: the identity context it asserts backs
+        connection admission at {{componentAgentNetworkPolicyEnforcementPoint}} and
+        {{componentApplicationNetworkPolicyEnforcementPoint}} the same way it already does
+        at {{componentToolNetworkPolicyEnforcementPoint}}, and at {{componentModelServing}}
+        acting as the model tier's own enforcement point.
     category: componentsInfrastructure
     subcategory: componentsIdentity
     edges:
@@ -856,6 +868,9 @@ components:
         - componentAuthorizationPolicyDecisionPoint
         - componentFederationProxy
         - componentToolNetworkPolicyEnforcementPoint
+        - componentAgentNetworkPolicyEnforcementPoint
+        - componentApplicationNetworkPolicyEnforcementPoint
+        - componentModelServing
     externalReferences:
       - type: spec
         id: rfc-6749-oauth2
@@ -893,12 +908,21 @@ components:
       - >
         The key distinction is the separation of the decision point from the enforcement
         point: a single, auditable policy is applied consistently across many enforcement
-        loci rather than re-implemented inline at each tool or service boundary.
+        loci rather than re-implemented inline at each tool or service boundary. That
+        consistency extends across every network enforcement point, not only the tool
+        zone's: {{componentAgentNetworkPolicyEnforcementPoint}}, {{componentApplicationNetworkPolicyEnforcementPoint}},
+        and {{componentModelServing}} (acting as the model tier's own enforcement point)
+        consult the same policy evaluation this component already provides
+        {{componentToolNetworkPolicyEnforcementPoint}}, rather than each tier
+        re-implementing its own admission logic.
     category: componentsInfrastructure
     edges:
       to:
         - componentAuthorizationPolicyEnforcementPoint
         - componentToolNetworkPolicyEnforcementPoint
+        - componentAgentNetworkPolicyEnforcementPoint
+        - componentApplicationNetworkPolicyEnforcementPoint
+        - componentModelServing
       from:
         - componentIdentityProvider
     subcategory: componentsIdentity
@@ -1267,7 +1291,9 @@ components:
         and output handling — connection enforcement wraps prompt and context enforcement.
         It is the client-side half of a pair: the resource-side {{componentToolNetworkPolicyEnforcementPoint}}
         enforces the remote tool provider's ingress policy at the other end of the same
-        connection.
+        connection. It consults {{componentIdentityProvider}} and {{componentAuthorizationPolicyDecisionPoint}}
+        as control-plane peers for the identity and policy context its own egress decisions
+        rest on, the same relationship the resource-side PEP already has with them.
     category: componentsApplication
     subcategory: componentsAgent
     edges:
@@ -1277,12 +1303,15 @@ components:
         - componentAgentToolTransport
         - componentModelServing
         - componentApplicationNetworkPolicyEnforcementPoint
+        - componentSecureLogging
       from:
         - componentAgentOutputHandling
         - componentToolNetworkPolicyEnforcementPoint
         - componentAgentToolTransport
         - componentModelServing
         - componentApplicationNetworkPolicyEnforcementPoint
+        - componentIdentityProvider
+        - componentAuthorizationPolicyDecisionPoint
     externalReferences:
       - type: spec
         id: nist-sp-800-207
@@ -1379,6 +1408,7 @@ components:
         - componentAgentNetworkPolicyEnforcementPoint
         - componentAgentToolTransport
         - componentToolInputHandling
+        - componentSecureLogging
       from:
         - componentAgentNetworkPolicyEnforcementPoint
         - componentAgentToolTransport
@@ -1459,7 +1489,10 @@ components:
         matching the same {{ref:mitre-attack-m1037}}-style egress-filtering posture as
         its agent-side counterpart. It remains a high-value trust boundary: a compromised
         or misconfigured instance can blind the audit trail, leak the credentials it
-        terminates, or relax the policy it enforces.
+        terminates, or relax the policy it enforces. It consults {{componentIdentityProvider}}
+        and {{componentAuthorizationPolicyDecisionPoint}} as control-plane peers for the
+        identity and policy context its own egress decisions rest on, the same relationship
+        its agent-side counterpart and the resource-side tool PEP already have with them.
     category: componentsApplication
     subcategory: componentsApplicationCore
     edges:
@@ -1467,10 +1500,13 @@ components:
         - componentApplicationInputHandling
         - componentModelServing
         - componentAgentNetworkPolicyEnforcementPoint
+        - componentSecureLogging
       from:
         - componentApplicationOutputHandling
         - componentModelServing
         - componentAgentNetworkPolicyEnforcementPoint
+        - componentIdentityProvider
+        - componentAuthorizationPolicyDecisionPoint
     externalReferences:
       - type: spec
         id: nist-sp-800-207
@@ -1578,6 +1614,7 @@ components:
     edges:
       to:
         - componentToolServer
+        - componentSecureLogging
       from:
         - componentToolNetworkPolicyEnforcementPoint
         - componentExternalPromptTemplate
@@ -1607,6 +1644,7 @@ components:
     edges:
       to:
         - componentToolNetworkPolicyEnforcementPoint
+        - componentSecureLogging
       from:
         - componentToolServer
   - id: componentSecureLogging
@@ -1643,3 +1681,10 @@ components:
         - componentOrchestrationOutputHandling
         - componentAgentInputHandling
         - componentAgentOutputHandling
+        - componentAgentNetworkPolicyEnforcementPoint
+        - componentApplicationNetworkPolicyEnforcementPoint
+        - componentToolNetworkPolicyEnforcementPoint
+        - componentApplicationInputHandling
+        - componentApplicationOutputHandling
+        - componentToolInputHandling
+        - componentToolOutputHandling
