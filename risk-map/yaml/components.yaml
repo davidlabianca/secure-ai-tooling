@@ -66,7 +66,7 @@ categories:
             Compromising these model weights can have a significant impact on the model's
             behavior and outputs. This makes attacks on model weights as potentially damaging
             as attacks targeting the code in traditional software development.
-      - id: componentsModelDeployment
+      - id: componentsDeployment
         title: Deployment components
         description:
           - >
@@ -315,7 +315,7 @@ components:
         model to retrieve is handled separately by {{componentModelRegistry}}; storage's
         scope is strictly the artifact bytes and their lifecycle.
     category: componentsInfrastructure
-    subcategory: componentsModelDeployment
+    subcategory: componentsDeployment
     edges:
       to:
         - componentTheModel
@@ -338,7 +338,7 @@ components:
         identity, and access control at the platform layer to prevent cross-tenant
         access to served endpoints and model artifacts.
     category: componentsInfrastructure
-    subcategory: componentsModelDeployment
+    subcategory: componentsDeployment
     edges:
       to:
         - componentTheModel
@@ -981,7 +981,7 @@ components:
         and gating access on the result are control activities performed against this
         component, separate from the structural fact of the boundary's existence."
     category: componentsInfrastructure
-    subcategory: componentsModelDeployment
+    subcategory: componentsDeployment
     edges:
       to:
         - componentModelServing
@@ -1404,7 +1404,7 @@ components:
         itself is owned by {{componentIsolationRuntime}}, within which this substrate
         executes.
     category: componentsInfrastructure
-    subcategory: componentsModelDeployment
+    subcategory: componentsDeployment
     edges:
       to: []
       from:
@@ -1437,7 +1437,7 @@ components:
         its peers it is the hosted workload, executing inside the confinement owned by
         {{componentIsolationRuntime}}.
     category: componentsInfrastructure
-    subcategory: componentsModelDeployment
+    subcategory: componentsDeployment
     edges:
       to: []
       from:
@@ -1521,7 +1521,7 @@ components:
         investigation. A compromised or unavailable log store undermines every control
         that depends on log integrity for its evidentiary value.
     category: componentsInfrastructure
-    subcategory: componentsModelDeployment
+    subcategory: componentsDeployment
     edges:
       to: []
       from:
