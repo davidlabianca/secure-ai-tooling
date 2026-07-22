@@ -428,7 +428,6 @@ components:
         - componentAgentInputHandling
       from:
         - componentApplicationInputHandling
-        - componentAgentOutputHandling
   - id: componentApplicationOutputHandling
     title: Output Handling
     description:
@@ -461,6 +460,7 @@ components:
       from:
         - componentTheModel
         - componentApplicationConsentSurface
+        - componentAgentOutputHandling
   - id: componentReasoningCore
     title: Agent Reasoning Core
     description:
@@ -790,7 +790,7 @@ components:
     subcategory: componentsAgent
     edges:
       to:
-        - componentApplication
+        - componentApplicationInputHandling
         - componentTheModel
         - componentAgentConsentSurface
         - componentAgentNetworkPolicyEnforcementPoint
