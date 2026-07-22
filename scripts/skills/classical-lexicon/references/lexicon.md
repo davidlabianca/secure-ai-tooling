@@ -60,29 +60,44 @@ The identity of a component/risk/control is the role or locus it occupies; a spe
 | Habituation | desensitization to repeated security prompts; "prompt blindness" | usable-security literature (Bravo-Lillo et al.; Sunshine et al.); NIST SP 800-63B (authenticator UX) |
 | Consent fatigue | reflexive approval of consent/confirmation dialogs | ENISA / GDPR (ICO) guidance — privacy-scoped |
 
-> For AI-agent confirmation/consent surfaces specifically, these are the nearest established terms; where none fits cleanly, surface the non-US framing and flag to the maintainer (ADR-031 D3b) rather than coining.
+> For AI-agent confirmation/consent surfaces specifically, these are the nearest established terms; where none fits cleanly, do not coin — surface any non-US framing found and raise a `D3b-parochialism` maintainer flag instead.
 
-## Non-US and international equivalents (D3b counterbalance)
+## International equivalents (ADR-031 D3b — recorded unconditionally)
 
-When a term is contested or NIST is silent, surface the non-US framing so the choice is made against a broader base (ADR-031 D3b), and flag it for the maintainer. These are real, citable equivalents — use them to broaden, not to replace NIST-first.
+Every grounded term gets its international/standards equivalent recorded here, always — not only when NIST is silent or contested. These are real, citable equivalents, used to broaden the base, not to replace NIST-first. A maintainer flag fires only when the equivalence check below finds a problem (missing or conflicting equivalent), never merely because a term was checked.
 
-| Concept | US framing | Non-US / international equivalent |
-|---|---|---|
-| AI risk management | NIST AI RMF | EU AI Act **Article 9** (risk management system); **ISO/IEC 23894** (AI risk management); **ISO/IEC 42001** (AI management system) |
-| Human oversight | NIST AI RMF GOVERN; "human-in-the-loop" | EU AI Act **Article 14** (human oversight); "meaningful human control" (EU ethics/HLEG discourse — stronger emphasis than oversight) |
-| Record-keeping / audit logging | NIST SP 800-53 AU family | EU AI Act **Article 12** (record-keeping / automatic event logging) |
-| Data governance | NIST | EU AI Act **Article 10** (data and data governance) |
-| Robustness / accuracy / security | NIST | EU AI Act **Article 15** (accuracy, robustness and cybersecurity) |
-| Transparency | NIST | EU AI Act **Articles 13 & 50** (transparency obligations) |
-| ML threat taxonomy | MITRE ATLAS | **ENISA** "Securing Machine Learning Algorithms" threat taxonomy |
-| Secure AI development lifecycle | NIST SSDF (SP 800-218) | **UK NCSC + CISA** "Guidelines for Secure AI System Development" (2023); **ISO/IEC 42001** |
-| AI concepts & terminology | NIST glossary | **ISO/IEC 22989** (AI concepts and terminology) |
-| Alert / consent fatigue | NIST SP 800-61 / SP 800-63B | **ENISA** / GDPR (ICO) — consent fatigue (privacy-scoped) |
+| Concept | US framing (NIST-first) | International equivalent | Maintainer flag |
+|---|---|---|---|
+| Policy Enforcement Point (PEP) | NIST SP 800-207 / 800-162 | XACML PEP/PDP model; **ISO/IEC 29146** (access management framework) | none — agrees |
+| Least privilege | Saltzer & Schroeder 1975; NIST SP 800-53 AC-6 | **ISO/IEC 27002** (least-privilege access control) | none — agrees |
+| Fail-safe defaults | Saltzer & Schroeder 1975 | **ISO/IEC 27002** (secure-configuration guidance) — the principle is internationally current | none — agrees |
+| Input validation and sanitization | OWASP Input Validation Cheat Sheet; NIST SP 800-53 SI family | **ISO/IEC 27002** (secure-development guidance); OWASP is itself an international project | none — agrees |
+| Audit logging / telemetry | NIST SP 800-53 AU family | EU AI Act **Article 12** (record-keeping / automatic event logging); **ISO/IEC 27002** (logging) | none — agrees |
+| Human oversight | NIST AI RMF GOVERN; "human-in-the-loop" | EU AI Act **Article 14** (human oversight — same term, US and non-US agree); "meaningful human control" (EU ethics/HLEG discourse — stronger emphasis, surfaced informationally) | none — agrees |
+| AI risk management | NIST AI RMF | EU AI Act **Article 9** (risk management system); **ISO/IEC 23894** (AI risk management); **ISO/IEC 42001** (AI management system) | none — broadening acknowledgment |
+| Reference monitor | Anderson 1972; NIST glossary | ISO/IEC 15408 (Common Criteria) "reference validation mechanism" — same concept, different label | `naming-conflict` |
+| Trustworthiness characteristics | NIST AI RMF (seven characteristics: valid & reliable; safe; secure & resilient; accountable & transparent; explainable & interpretable; privacy-enhanced; fair with harmful bias managed) | EU HLEG Trustworthy AI (seven requirements: human agency & oversight; technical robustness & safety; privacy & data governance; transparency; diversity/non-discrimination & fairness; societal & environmental wellbeing; accountability) — overlapping but not the same set; EU includes "societal & environmental wellbeing" and "human agency" as first-class items NIST's set does not | `substantive-conflict` |
+| Confused deputy | Hardy 1988 | none found — no crisp international-standard equivalent | `D3b-parochialism` |
+| Orphaned / unregistered principal; unauthorized asset | classical asset-management / IAM | none found — no crisp international-standard equivalent | `D3b-parochialism` |
+| Secure AI development lifecycle | NIST SSDF (SP 800-218) | **UK NCSC + CISA** "Guidelines for Secure AI System Development" (2023); **ISO/IEC 42001** | none — broadening acknowledgment |
+| ML threat taxonomy | MITRE ATLAS | **ENISA** "Securing Machine Learning Algorithms" threat taxonomy | none — broadening acknowledgment |
+| Data governance | NIST | EU AI Act **Article 10** (data and data governance) | none — agrees |
+| Robustness / accuracy / security | NIST | EU AI Act **Article 15** (accuracy, robustness and cybersecurity) | none — agrees |
+| Transparency | NIST | EU AI Act **Articles 13 & 50** (transparency obligations) | none — agrees |
+| AI concepts & terminology | NIST glossary | **ISO/IEC 22989** (AI concepts and terminology) | none — agrees |
+| Alert / consent fatigue | NIST SP 800-61 / SP 800-63B | **ENISA** / GDPR (ICO) — consent fatigue (privacy-scoped) | none — agrees |
+| Secrets / credential management | CWE-522, CWE-798; NIST SP 800-57, SP 800-53 IA/SC | *(intentionally unasserted — equivalence not yet corroborated; do not invent one)* | *(unasserted)* |
 
-Note the convenient cases: EU AI Act Article 14 and NIST both say "human oversight," so the term is *not* contested there — do not manufacture a counterbalance flag when US and non-US bodies agree.
+Rows marked "none — agrees" or "none — broadening acknowledgment" are informational: the equivalent was found and does not conflict, so no maintainer-flag token applies. Only `D3b-parochialism`, `naming-conflict`, and `substantive-conflict` are controlled maintainer-flag tokens (see SKILL.md for the fourth, `missing-pin`, which applies when a canonical source itself can't be pinned to a dated edition — not represented in this snapshot's stable terms).
+
+## Persona / role equivalents
+
+| CoSAI persona (ADR-021) | International role equivalent |
+|---|---|
+| AI Model Serving | **ISO/IEC 22989** provider/role vocabulary (e.g. "AI provider" framing for hosting/serving); EU AI Act **provider** / **deployer** role terms |
 
 ## Usage notes
 
 - **NIST-first:** when more than one source offers a term, prefer NIST (ADR-031 D3a).
-- **Contested / NIST-silent:** do not coin. Surface any non-US (ENISA/ISO) framing and flag to the maintainer (ADR-031 D3b).
+- **International equivalence is unconditional:** record it for every grounded term, always (ADR-031 D3b). Do not coin a term to avoid a `D3b-parochialism` flag — keep the grounded term and flag the gap.
 - **Sources are required:** an entry without a real source is not lexicon material — it is a candidate for governance review, not a rule.
