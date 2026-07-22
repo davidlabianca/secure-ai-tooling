@@ -73,9 +73,15 @@ graph LR
 
     subgraph components
     subgraph componentsInfrastructure ["Infrastructure Components"]
+        componentAuthorizationPolicyDecisionPoint[Authorization Policy Decision Point]
         componentDataFilteringAndProcessing[Data Filtering and Processing]
         componentDataSources[Data Sources]
         componentDataStorage[Data Storage Infrastructure]
+        componentIdentityProvider[Identity Provider]
+        componentIsolationRuntime[Isolation Runtime Boundary]
+        componentRuntimeHosting[Runtime Hosting]
+        componentSecureLogging[Secure Logging]
+        componentToolHosting[Tool Hosting]
         componentToolRegistry[Tool Registry and Discovery]
         componentTrainingData[Training Data]
         subgraph componentsModelInfrastructure ["Model Infrastructure"]
@@ -101,17 +107,28 @@ graph LR
     end
 
     subgraph componentsApplication ["Application Components"]
+        componentAgentConsentSurface[Agent Consent Elicitation Surface]
         componentAgentInputHandling[Input Handling]
+        componentAgentNetworkPolicyEnforcementPoint[Agent Network Policy Enforcement Point]
         componentAgentOutputHandling[Output Handling]
         componentAgentSystemInstruction[Agent System Instructions]
+        componentAgentToolTransport[Agent Tool Transport Channel]
         componentAgentUserQuery[Agent User Query]
         componentApplication[Application]
+        componentApplicationConsentSurface[Application Consent Surface]
         componentApplicationInputHandling[Input Handling]
         componentApplicationOutputHandling[Output Handling]
         componentReasoningCore[Agent Reasoning Core]
     end
 
     subgraph componentsTools ["Tools Components"]
+        componentAuthorizationPolicyEnforcementPoint[Authorization Policy Enforcement Point]
+        componentExternalPromptTemplate[External Prompt Templates]
+        componentFederationProxy[Authorization Federation Proxy]
+        componentToolInputHandling[Tool Input Handling]
+        componentToolNetworkPolicyEnforcementPoint[Tool Network Policy Enforcement Point]
+        componentToolOutputHandling[Tool Output Handling]
+        componentToolServer[Tool Server]
         componentTools[External Tools and Services]
     end
 
@@ -152,7 +169,7 @@ graph LR
     controlAgentPluginPermissions --> componentMemory
     controlAgentPluginPermissions --> componentRAGContent
     controlAgentPluginPermissions --> componentReasoningCore
-    controlAgentPluginPermissions --> componentsTools
+    controlAgentPluginPermissions --> componentTools
     controlRedTeaming -.-> components
     controlVulnerabilityManagement -.-> components
     controlThreatDetection -.-> components
@@ -171,24 +188,24 @@ graph LR
     controlOrchestratorAndRouteIntegrity --> componentApplication
     controlOrchestratorAndRouteIntegrity --> componentModelServing
     controlAgentInventoryManagement --> componentReasoningCore
+    controlAgentInventoryManagement --> componentTools
     controlAgentInventoryManagement --> componentsOrchestration
-    controlAgentInventoryManagement --> componentsTools
     controlAgentIntegrityManagement --> componentModelServing
     controlAgentIntegrityManagement --> componentOrchestrationInputHandling
     controlAgentIntegrityManagement --> componentReasoningCore
-    controlAgentIntegrityManagement --> componentsTools
+    controlAgentIntegrityManagement --> componentTools
     controlAgentCredentialIsolation --> componentMemory
     controlAgentCredentialIsolation --> componentReasoningCore
+    controlAgentCredentialIsolation --> componentTools
     controlAgentCredentialIsolation --> componentsOrchestration
-    controlAgentCredentialIsolation --> componentsTools
     controlInterComponentTransportSecurity --> componentApplication
     controlInterComponentTransportSecurity --> componentModelServing
+    controlInterComponentTransportSecurity --> componentTools
     controlInterComponentTransportSecurity --> componentsOrchestration
-    controlInterComponentTransportSecurity --> componentsTools
     controlComponentIdentityProvenance --> componentApplication
     controlComponentIdentityProvenance --> componentModelServing
+    controlComponentIdentityProvenance --> componentTools
     controlComponentIdentityProvenance --> componentsOrchestration
-    controlComponentIdentityProvenance --> componentsTools
     controlAgentExecutionBounds --> componentReasoningCore
     controlAgentExecutionBounds --> componentsOrchestration
     controlModelRegistryIntegrity --> componentModelRegistry
@@ -202,11 +219,11 @@ graph LR
 
     %% Edge styling
     linkStyle 35,36,37,38 stroke:#4285f4,stroke-width:3px,stroke-dasharray: 8 4
-    linkStyle 0,5,8,9,12,13,14,20,34,42,53,54,58,61,62,65,66,69,70,72 stroke:#34a853,stroke-width:2px
+    linkStyle 0,5,8,9,12,13,14,20,42,54,62,66,70,72 stroke:#34a853,stroke-width:2px
     linkStyle 3,10,15,18,21,24,31,39,43,47,52,55,59,63,67 stroke:#9c27b0,stroke-width:2px
-    linkStyle 4,11,16,19,22,25,32,40,44,48,56,60,64,68 stroke:#ff9800,stroke-width:2px,stroke-dasharray: 5 5
-    linkStyle 17,23,26,33,41,45,49,57 stroke:#e91e63,stroke-width:2px,stroke-dasharray: 10 2
-    linkStyle 46 stroke:#C95792,stroke-width:2px,stroke-dasharray: 10 5
+    linkStyle 4,11,16,19,22,25,32,40,44,48,53,56,60,64,68 stroke:#ff9800,stroke-width:2px,stroke-dasharray: 5 5
+    linkStyle 17,23,26,33,41,45,49,57,61,65,69 stroke:#e91e63,stroke-width:2px,stroke-dasharray: 10 2
+    linkStyle 34,46,58 stroke:#C95792,stroke-width:2px,stroke-dasharray: 10 5
 
 %% Node style definitions
     style components fill:#f0f0f0,stroke:#666666,stroke-width:3px,stroke-dasharray: 10 5
