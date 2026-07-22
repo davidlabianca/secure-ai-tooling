@@ -126,9 +126,15 @@ graph LR
 
     subgraph components
     subgraph componentsInfrastructure ["Infrastructure Components"]
+        componentAuthorizationPolicyDecisionPoint[Authorization Policy Decision Point]
         componentDataFilteringAndProcessing[Data Filtering and Processing]
         componentDataSources[Data Sources]
         componentDataStorage[Data Storage Infrastructure]
+        componentIdentityProvider[Identity Provider]
+        componentIsolationRuntime[Isolation Runtime Boundary]
+        componentRuntimeHosting[Runtime Hosting]
+        componentSecureLogging[Secure Logging]
+        componentToolHosting[Tool Hosting]
         componentToolRegistry[Tool Registry and Discovery]
         componentTrainingData[Training Data]
         subgraph componentsModelInfrastructure ["Model Infrastructure"]
@@ -154,17 +160,28 @@ graph LR
     end
 
     subgraph componentsApplication ["Application Components"]
+        componentAgentConsentSurface[Agent Consent Elicitation Surface]
         componentAgentInputHandling[Input Handling]
+        componentAgentNetworkPolicyEnforcementPoint[Agent Network Policy Enforcement Point]
         componentAgentOutputHandling[Output Handling]
         componentAgentSystemInstruction[Agent System Instructions]
+        componentAgentToolTransport[Agent Tool Transport Channel]
         componentAgentUserQuery[Agent User Query]
         componentApplication[Application]
+        componentApplicationConsentSurface[Application Consent Surface]
         componentApplicationInputHandling[Input Handling]
         componentApplicationOutputHandling[Output Handling]
         componentReasoningCore[Agent Reasoning Core]
     end
 
     subgraph componentsTools ["Tools Components"]
+        componentAuthorizationPolicyEnforcementPoint[Authorization Policy Enforcement Point]
+        componentExternalPromptTemplate[External Prompt Templates]
+        componentFederationProxy[Authorization Federation Proxy]
+        componentToolInputHandling[Tool Input Handling]
+        componentToolNetworkPolicyEnforcementPoint[Tool Network Policy Enforcement Point]
+        componentToolOutputHandling[Tool Output Handling]
+        componentToolServer[Tool Server]
         componentTools[External Tools and Services]
     end
 
@@ -341,7 +358,7 @@ graph LR
     controlAgentPluginPermissions --> componentMemory
     controlAgentPluginPermissions --> componentRAGContent
     controlAgentPluginPermissions --> componentReasoningCore
-    controlAgentPluginPermissions --> componentsTools
+    controlAgentPluginPermissions --> componentTools
     controlRedTeaming -.-> components
     controlVulnerabilityManagement -.-> components
     controlThreatDetection -.-> components
@@ -360,24 +377,24 @@ graph LR
     controlOrchestratorAndRouteIntegrity --> componentApplication
     controlOrchestratorAndRouteIntegrity --> componentModelServing
     controlAgentInventoryManagement --> componentReasoningCore
+    controlAgentInventoryManagement --> componentTools
     controlAgentInventoryManagement --> componentsOrchestration
-    controlAgentInventoryManagement --> componentsTools
     controlAgentIntegrityManagement --> componentModelServing
     controlAgentIntegrityManagement --> componentOrchestrationInputHandling
     controlAgentIntegrityManagement --> componentReasoningCore
-    controlAgentIntegrityManagement --> componentsTools
+    controlAgentIntegrityManagement --> componentTools
     controlAgentCredentialIsolation --> componentMemory
     controlAgentCredentialIsolation --> componentReasoningCore
+    controlAgentCredentialIsolation --> componentTools
     controlAgentCredentialIsolation --> componentsOrchestration
-    controlAgentCredentialIsolation --> componentsTools
     controlInterComponentTransportSecurity --> componentApplication
     controlInterComponentTransportSecurity --> componentModelServing
+    controlInterComponentTransportSecurity --> componentTools
     controlInterComponentTransportSecurity --> componentsOrchestration
-    controlInterComponentTransportSecurity --> componentsTools
     controlComponentIdentityProvenance --> componentApplication
     controlComponentIdentityProvenance --> componentModelServing
+    controlComponentIdentityProvenance --> componentTools
     controlComponentIdentityProvenance --> componentsOrchestration
-    controlComponentIdentityProvenance --> componentsTools
     controlAgentExecutionBounds --> componentReasoningCore
     controlAgentExecutionBounds --> componentsOrchestration
     controlModelRegistryIntegrity --> componentModelRegistry
