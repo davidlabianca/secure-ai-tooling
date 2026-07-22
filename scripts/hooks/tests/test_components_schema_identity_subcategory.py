@@ -212,55 +212,26 @@ class TestInfrastructureBranchGainsIdentitySubcategory:
 
 
 # ============================================================================
-# component.id enum — unchanged (this ADR fixes the home, not the authoring)
-# ============================================================================
-
-
-class TestComponentIdEnumUnaffectedByD2:
-    """
-    D2 fixes the taxonomy home for componentIdentityProvider and
-    componentAuthorizationPolicyDecisionPoint; it does not itself author
-    those component ids into the closed component.id enum (same boundary as
-    D1 — net-new component ids are a separate, later content change that
-    must clear its own justification pass).
-    """
-
-    def test_component_enum_does_not_yet_gain_identity_component_ids(self, component_id_enum: list):
-        """
-        Given: definitions/component/properties/id/enum
-        When: its members are inspected
-        Then: neither 'componentIdentityProvider' nor
-              'componentAuthorizationPolicyDecisionPoint' is present yet
-
-        Scope-boundary guard, not a prohibition forever — see
-        test_components_schema_tools_category.py's equivalent D1 test for
-        the same rationale.
-        """
-        not_yet_expected = {"componentIdentityProvider", "componentAuthorizationPolicyDecisionPoint"}
-        present = not_yet_expected & set(component_id_enum)
-        assert not present, (
-            f"D2 scope is subcategory taxonomy only; these net-new identity "
-            f"component ids should not appear yet: {present}"
-        )
-
-
-# ============================================================================
 # Test Summary
 # ============================================================================
 """
 Test Summary
 ============
-Total Tests: 8
+Total Tests: 7
 
 - TestSchemaMetaValidity (1): Draft-07 validity
 - TestSubcategoryIdEnumGainsIdentity (3): presence, existing-10-unchanged,
   exactly-11-members
 - TestInfrastructureBranchGainsIdentitySubcategory (3): componentsIdentity
   permitted, componentsRegistries still present, exactly-4-members
-- TestComponentIdEnumUnaffectedByD2 (1): net-new identity component ids NOT
-  yet present (scope boundary)
 
 componentsIdentity lands in components.schema.json's subcategory.id enum
 and the componentsInfrastructure allOf branch (ADR-030 D2); no top-level
 category, no mermaid-styles impact (category-scoped only).
+
+Retired 2026-07-21 (feature/mcp-components): TestComponentIdEnumUnaffectedByD2
+(a scope-boundary guard asserting the identity component ids were NOT YET
+present) was removed -- those ids have now landed for real. See this file's
+git history for the original test, which documented its own intended
+obsolescence ("not a prohibition forever").
 """
