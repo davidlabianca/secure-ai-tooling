@@ -59,6 +59,7 @@ graph TD
             componentApplication[Application]
             componentApplicationConsentSurface[Application Consent Surface]
             componentApplicationInputHandling[Input Handling]
+            componentApplicationNetworkPolicyEnforcementPoint[Application Network Policy Enforcement Point]
             componentApplicationOutputHandling[Output Handling]
         end
         subgraph componentsAgent ["Agent"]
@@ -100,15 +101,15 @@ graph TD
     componentModelStorage --> componentTheModel
     componentModelServing --> componentTheModel
     componentModelServing --> componentSecureLogging
+    componentModelServing --> componentApplicationNetworkPolicyEnforcementPoint
     componentModelRegistry --> componentModelServing
     componentModelRegistry --> componentTheModel
     componentModelRegistry --> componentModelStorage
     componentTheModel --> componentModelEvaluation
     componentTheModel --> componentAgentInputHandling
-    componentTheModel --> componentApplicationInputHandling
     componentTheModel --> componentOrchestrationInputHandling
     componentApplication --> componentApplicationOutputHandling
-    componentApplicationOutputHandling --> componentTheModel
+    componentApplicationOutputHandling --> componentApplicationNetworkPolicyEnforcementPoint
     componentApplicationOutputHandling --> componentApplicationConsentSurface
     componentApplicationOutputHandling --> componentAgentInputHandling
     componentApplicationInputHandling --> componentApplication
@@ -162,6 +163,8 @@ graph TD
     componentToolNetworkPolicyEnforcementPoint --> componentAgentNetworkPolicyEnforcementPoint
     componentToolNetworkPolicyEnforcementPoint --> componentToolInputHandling
     componentApplicationConsentSurface --> componentApplicationInputHandling
+    componentApplicationNetworkPolicyEnforcementPoint --> componentApplicationInputHandling
+    componentApplicationNetworkPolicyEnforcementPoint --> componentModelServing
     componentToolInputHandling --> componentToolServer
     componentToolOutputHandling --> componentToolNetworkPolicyEnforcementPoint
 
