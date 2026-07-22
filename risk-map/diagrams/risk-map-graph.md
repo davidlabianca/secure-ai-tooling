@@ -76,6 +76,7 @@ graph TD
 
     subgraph componentsTools ["Tools Components"]
         subgraph componentsToolCore ["Tool Core"]
+            componentExternalPromptTemplate[External Prompt Templates]
             componentToolInputHandling[Tool Input Handling]
             componentToolOutputHandling[Tool Output Handling]
             componentToolServer[Tool Server]
@@ -83,7 +84,6 @@ graph TD
         end
         subgraph componentsToolControls ["Tool Controls"]
             componentAuthorizationPolicyEnforcementPoint[Authorization Policy Enforcement Point]
-            componentExternalPromptTemplate[External Prompt Templates]
             componentFederationProxy[Authorization Federation Proxy]
             componentToolNetworkPolicyEnforcementPoint[Tool Network Policy Enforcement Point]
         end
@@ -109,6 +109,7 @@ graph TD
     componentTheModel --> componentModelEvaluation
     componentTheModel --> componentModelServing
     componentApplication --> componentApplicationOutputHandling
+    componentApplication --> componentSecureLogging
     componentApplicationOutputHandling --> componentApplicationNetworkPolicyEnforcementPoint
     componentApplicationOutputHandling --> componentApplicationConsentSurface
     componentApplicationOutputHandling --> componentSecureLogging
@@ -152,17 +153,18 @@ graph TD
     componentIsolationRuntime --> componentRuntimeHosting
     componentToolServer --> componentToolOutputHandling
     componentToolServer --> componentAuthorizationPolicyEnforcementPoint
+    componentToolServer --> componentTools
+    componentToolServer --> componentSecureLogging
     componentAgentToolTransport --> componentAgentNetworkPolicyEnforcementPoint
     componentAgentToolTransport --> componentToolNetworkPolicyEnforcementPoint
     componentFederationProxy --> componentToolNetworkPolicyEnforcementPoint
     componentAgentNetworkPolicyEnforcementPoint --> componentAgentInputHandling
-    componentAgentNetworkPolicyEnforcementPoint --> componentToolNetworkPolicyEnforcementPoint
     componentAgentNetworkPolicyEnforcementPoint --> componentAgentToolTransport
     componentAgentNetworkPolicyEnforcementPoint --> componentModelServing
     componentAgentNetworkPolicyEnforcementPoint --> componentApplicationNetworkPolicyEnforcementPoint
     componentAgentNetworkPolicyEnforcementPoint --> componentSecureLogging
-    componentAuthorizationPolicyEnforcementPoint --> componentTools
-    componentToolNetworkPolicyEnforcementPoint --> componentAgentNetworkPolicyEnforcementPoint
+    componentAuthorizationPolicyEnforcementPoint --> componentToolServer
+    componentAuthorizationPolicyEnforcementPoint --> componentSecureLogging
     componentToolNetworkPolicyEnforcementPoint --> componentAgentToolTransport
     componentToolNetworkPolicyEnforcementPoint --> componentToolInputHandling
     componentToolNetworkPolicyEnforcementPoint --> componentSecureLogging
@@ -173,6 +175,8 @@ graph TD
     componentApplicationNetworkPolicyEnforcementPoint --> componentSecureLogging
     componentToolHosting --> componentToolServer
     componentRuntimeHosting --> componentModelServing
+    componentRuntimeHosting --> componentApplication
+    componentRuntimeHosting --> componentReasoningCore
     componentToolInputHandling --> componentToolServer
     componentToolInputHandling --> componentSecureLogging
     componentToolOutputHandling --> componentToolNetworkPolicyEnforcementPoint
