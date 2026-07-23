@@ -1,0 +1,166 @@
+# ADR-036: Decoupled component-graph emission — aspects, channels, and bands
+
+**Status:** Draft
+**Date:** 2026-07-22
+**Authors:** Architect agent, with maintainer review
+
+---
+
+## Context
+
+The auto-generated component graph (`risk-map/diagrams/risk-map-graph.mermaid`, produced by `ComponentGraph` in `scripts/hooks/riskmap_validator/graphing/component_graph.py` and written by `scripts/hooks/validate_riskmap.py`) draws every edge in `risk-map/yaml/components.yaml` flat. The current emitter (`component_graph.py:76-80`) iterates `forward_map` and appends one `{src} --> {tgt}` line per edge with no intra/cross distinction, under a top-down layout: the generated `.mermaid` opens with an ELK config frontmatter (`layout: elk`, `elk.mergeEdges: false`, `elk.nodePlacementStrategy: BRANDES_KOEPF`) followed by a `graph TD` declaration, both sourced from `risk-map/yaml/mermaid-styles.yaml:65-70` (`direction: 'TD'` at line 66, the `metadata.layout`/`nodePlacementStrategy` block at lines 68-70). None of the topological-ranking / optimization machinery CLAUDE.md attributes to the graphing package applies to `ComponentGraph` — it is a plain category-subgraph plus flat-edge emitter.
+
+Since [ADR-030](030-agentic-component-model.md) landed the four-category agentic taxonomy, the corpus has grown. As of this writing it has 43 components and 91 directed edges, roughly half of which cross a top-level category boundary (`componentsInfrastructure`, `componentsModel`, `componentsApplication`, `componentsTools`); these counts drift with the corpus and are not normative — the durable claim is that cross-boundary count, not total edge count, drives the clutter. The dominant driver of visual clutter is the *number of edges crossing a top-level subgraph boundary*, not the total edge count: intra-cluster edges are nearly free to route, cross-boundary edges force long spanning lines that tangle the rendering. A large share of the cross-boundary edges come from two structures: the identity/authz fan-out and the write-edges into the observability sink (`componentSecureLogging`). At this scale the flat diagram is no longer legible.
+
+The clutter is removed *topologically* rather than by tuning the layout engine, because the clutter metric is boundary-crossing count and no layout-engine setting reduces that count — only rewriting which edges are drawn does. Throughout, a *cluster* is a top-level category subgraph (Infrastructure, Model, Application, Tools) and a *block* is a subcategory subgraph nested inside a cluster (e.g. Deployment or Registries inside Infrastructure) — the intermediate grouping between a cluster and an individual component node. Three levers apply, in order:
+
+- **Aspects.** An *aspect* is a cross-cutting concern — here, an audit/observability sink that many components write to (mechanically: out-degree 0, cross in-degree above threshold — the candidacy test in D4) — that is deliberately removed from the drawn graph and recorded in a header comment instead of drawn as one more flow among many. Drawing every write into a shared sink as an ordinary edge buries the sink's real role (background infrastructure, not a subject of the diagram) under visual noise.
+- **Channels.** A *channel* replaces a direct edge that crosses a cluster boundary with a labeled pair of *ports* — one where the edge leaves its source cluster (egress), one where it arrives in its target cluster (ingress). The port-to-port link is never drawn, only recorded in a header comment, so a reader traces a cluster-to-cluster relationship through matching port labels rather than a line spanning the whole diagram. Several channels that share a source cluster and a base label collapse into one *broadcast* — a single egress port annotated with its arm count and one ingress port per arm.
+- **Bands.** A *band* pins a set of elements (channel ports, or a block's entry/exit nodes) to the left or right edge of their container using invisible ordering links, so every inbound port in a cluster lines up together rather than scattering wherever the layout engine happens to place it.
+
+Applied together, these produce four vertically stacked clusters with zero lines crossing between them. The transform also surfaces two corpus-specific judgment calls — how aggressively to lift aspects, and how finely to split channels by trust concern — resolved in D4–D5 below.
+
+**Scope boundary — presentation only.** This is an emission-layer decision. `components.yaml`'s nodes and `{to, from}` edges are fixed input; not one is added, removed, or retargeted. Every original edge either survives as a drawn intra-cluster edge, is rewired through a port pair, or is lifted into a header comment — the underlying data model is untouched. This ADR is **not** the representation ADR that [ADR-030](030-agentic-component-model.md) D10 defers. D10 reserves four questions for that future ADR — a typed edge `kind` (`data` / `consult` / `contains`), how inbound/outbound flow through a single PEP is shown, how a control-intermediated full flow is drawn, and whether the overview graph is a subset of per-category detail graphs — gated on a dedicated survey of graphical-mapping approaches. This ADR decides none of the four, and does not perform the survey; all four remain fully deferred. What it addresses is narrower: the cross-boundary clutter that makes the flat emission illegible — a legibility symptom any future D10 representation would also have to solve. It re-routes the *existing untyped* edges through ports and header comments without typing them, so the consult and containment edges ADR-030 D9 landed as plain `{to, from}` mappings still carry data-flow semantics here — re-routed, not re-typed — and the D9 interim mis-render debt persists until the representation ADR lands. When D10's typed edges arrive, this transform applies to the typed edge set unchanged; nothing here pre-empts or constrains that ADR's answers.
+
+## Decision
+
+We adopt the aspects/channels/bands transform as the emission model for the component graph, structured as a pure transform layer feeding a rewritten emission pass (D1–D2), configured through an extended `mermaid-styles.yaml` schema with a flat/decoupled mode toggle as a rollback lever (D3). Aspect membership (D4), channel granularity (D5), and channel arm-splitting (D6) state the classification rules — illustrated against the current corpus — with determinism and guard rules in D7.
+
+### D1. Adopt the topological rewrite; reject layout-engine tuning
+
+The component graph is emitted so that **no edge is drawn between two top-level category clusters** — not even invisible ordering edges. Cross-boundary edges are eliminated by re-routing (channels) or deletion-with-annotation (aspects); intra-cluster edges are preserved verbatim, with mirrored pairs collapsed to `<-->`. A mirrored intra-cluster pair collapses to `<-->` **only when neither endpoint is a PEP-wrapped node** — a mirrored pair where one endpoint is wrapped is retargeted through the wrapper's `_in`/`_out` ports (by the wrap→retarget→collapse ordering) and becomes a port chain rather than a collapsed link, so it never collapses. This is a topological transform of the drawn graph, applied because the clutter metric is boundary-crossing count and no layout-engine setting reduces that count. With no inter-cluster edges, ELK packs the four clusters as separate connected components into a vertical stack automatically.
+
+The `<-->` collapse is an **intra-cluster drawing rule only**. A mirrored pair that crosses a cluster boundary is never collapsed — e.g. the agent-PEP ↔ model-serving inference pair, whose request leg attracts egress controls and whose response leg attracts ingress controls. Each direction becomes its own channel, with its own concern label and its own egress/ingress port pair: four ports total per mirrored pair. This port count is per-channel, not strictly per-pair — channel merging (broadcasts) can let two mirrored cross pairs share one egress port, as the two PEP↔model-serving mirror pairs do on their request-side `app + agent egress` channel — so the four-ports figure is the unmerged case, not an invariant. Two reasons. First, channels are directional constructs by definition — D2 keys them by `(srcRoot, tgtRoot, concern)` and D7 requires ingress ports to have out-degree exactly 1; a bidirectional port construct would break both invariants and re-introduce a second port grammar for a handful of edges' benefit. Second, the two legs are distinct trust concerns on a threat-model diagram — the request leg attracts egress controls (exfiltration prevention, call authorization), the response leg ingress controls (injection defense, sanitization) — so folding them into one label would violate the D5 fidelity rule even if the port grammar allowed it. Under D5's granularity rule these legs are counted as separate channels.
+
+### D2. Two-layer architecture — a transform IR, then an emission pass
+
+The change is structured as a pure-data transform layer between the validator's adjacency maps and the Mermaid text, plus a rewritten emitter that consumes its output. The transform classifies each edge as intra or cross by `root(n) = components[n].category`; lifts configured aspect sinks; keys remaining cross edges into channels by `(srcRoot, tgtRoot, concern)` and groups broadcasts by shared `(srcRoot, concern, label)`; and splits each channel into one arm per distinct target node, each arm landing at that target (D6) — no landing selection among multiple targets occurs, and the intra-edge reachability test survives only as a self-check diagnostic (D7). It emits an **intermediate representation** — dataclasses, no Mermaid strings — describing clusters, blocks, ports, bands, PEP wrappers, and the drawn/undrawn edge sets. A separate emission pass turns that IR into Mermaid text in a fixed output order, and re-asserts an acceptance checklist (D7) as a self-check that raises on violation.
+
+The transform/emission split is load-bearing: it keeps the *judgment-laden* classification (what is an aspect, what concern an edge carries, where a channel lands) separable and testable in isolation from the *mechanical* Mermaid serialization, and it makes the acceptance rubric expressible as assertions over the IR rather than as string scraping. This ADR fixes the two-layer contract, not the module names; a natural package layout is a `graphing/decouple.py` transform plus a rewritten `component_graph.py` emitter, but the concrete layout is an implementation choice for the downstream chain.
+
+### D3. Configuration surface and the rollback lever
+
+The behaviour is driven from `risk-map/yaml/mermaid-styles.yaml` under `graphTypes.component`, governed by `risk-map/schemas/mermaid-styles.schema.json`. The schema is `additionalProperties: false` throughout, so every new key is a coupled schema edit whose consumer set (the `check-jsonschema` pre-commit hook, `MermaidConfigLoader`, and the config test suites) must be updated in the same change. The added surface is:
+
+- **`emission.mode: flat | decoupled`** — the rollback lever. `flat` is the legacy emitter (`component_graph.py` as it stands today); `decoupled` is this ADR's transform. The `MermaidConfigLoader` emergency-defaults path (`_get_emergency_defaults`) degrades to `flat`, so a missing or corrupt config never yields a half-decoupled diagram.
+- **`emission.aspects`** — the list of sink component ids to lift, each with a `minCrossInDegree` guard threshold (D4, D7).
+- **`emission.concerns`** — the cross-edge → concern-label map (D5). This is the channel concern taxonomy; it carries no per-entry override, since arm-splitting is a mechanical function of distinct-target count (D6), not a per-entry judgment.
+
+  Together, `emission.aspects` and `emission.concerns` are the **normative, D7-guarded registries** for the corpus's current aspect membership and per-edge concern-label assignments. They — not this ADR's prose — hold the authoritative record of which components are lifted and which concern each cross edge carries; D4–D6 state the rules and point here for the live assignments rather than re-transcribing them.
+- **`emission.portStyles`** — the `port`, `pepport`, and `pepWrapOutline` style strings, plus the layout-direction flip. The graph declaration shifts to global `direction: LR`, replacing today's `direction: 'TD'` at `mermaid-styles.yaml:66`. Under `decoupled` mode the frontmatter otherwise **retains** the existing ELK metadata unchanged — `layout: elk`, `mergeEdges: false` (so port-to-landing edges are never coalesced), and `nodePlacementStrategy: BRANDES_KOEPF` (the strategy the band pinning is verified against in the Render-verification follow-up); only `direction` changes, from `TD` to `LR`.
+- **PEP wrappers.** A *PEP wrapper* is the visual treatment a policy-enforcement-point node receives so its role as a gate is distinct from an ordinary node: the enforcement point is drawn inside its own outlined enclosure (`pepWrapOutline`) with dedicated inbound/outbound ports (`pepport`), so a reader sees traffic entering and leaving through the enforcement point rather than passing an unremarkable box. `port` styles the ordinary channel ports; `pepport`/`pepWrapOutline` style the enforcement-point wrappers.
+
+Concern labels are semantic knowledge about edges living in a *styling* file keyed by component-id pairs. The cleaner long-term home is an edge annotation in `components.yaml`, but that is a content-schema change and out of scope here; we accept the placement as a documented trade-off, mitigated by the fail-loud sync guards in D7.
+
+### D4. Aspect membership and aggressiveness — conservative, lift observability only
+
+**Aspect candidacy is a mechanical sink test, stated once here:** a component is an aspect candidate if and only if its **total out-degree is 0** (a pure sink — no outgoing edges, intra or cross) **and** its cross in-degree meets the configured `minCrossInDegree` threshold. Both conditions are enforced fail-loud (D7); the sink condition is fixed by this ADR, not configurable. Fan-out *sources* are thereby excluded from aspect candidacy by definition, whatever their cross-degree — e.g. the identity/authz plane, which has cross out-edges and no cross in-edges, fails the sink test outright. The rationale for drawing the rule at sink-ness: a pure sink receives copies of traffic and originates nothing, so removing its edges deletes no information about *who acts on whom* — while a source's fan-out is itself the relationship structure a threat-model diagram exists to show, so lifting a source could only ever hide subject matter. "Primary subject" (below) is why the sink-only rule is the right rule; it is not a second, discretionary test applied per component.
+
+As of this writing the test selects a single component, `componentSecureLogging`; its cross in-edges are lifted into a grouped header-comment inventory and the node itself is kept, rendering edgeless inside Deployment. The live membership list is `emission.aspects` (D3), guarded against drift by D7 — this is a snapshot, not the registry.
+
+The `minCrossInDegree` threshold is the remaining judgment dial, and we set it conservatively: well above the trivial-sink range but below the current sole candidate's cross in-degree, so a future second sink must be deliberately admitted by config edit rather than drifting in. The initial value lands in `emission.aspects` (D3); as of this writing it is 10. The identity/authz control plane is not an aspect candidate at all under the sink test — its fan-out is routed through channels (D5) and stays visible as the primary subject it is; likewise the `componentRuntimeHosting` / `componentToolHosting` fan-outs.
+
+### D5. Channel granularity — split by trust concern
+
+We take the **fidelity** end of the granularity dial: channels are split by trust concern rather than merged by cluster-pair. This is a threat-model diagram; distinct trust concerns must not share a label even when they share a cluster pair.
+
+For example, in the current corpus a `training data` edge (`componentDataStorage → componentModelTrainingTuning`) must not be folded into a `model artifacts` channel merely because both cross the same cluster boundary: doing so would land training data at `componentModelServing`, reaching the trainer only through an eval-loop path the data never actually flows along — a directed-reachability misread the fidelity rule exists to prevent.
+
+Applied to the current corpus, this resolves the unlifted cross edges into a set of egress groups — the identity/authz fan-out collapses into a single broadcast with one arm per distinct target (see D6 below), and each directional counterpart (registration vs. discovery, invocation vs. response) carries its own label. Edge conservation (lifted + channelled = total cross) and per-band ingress-label uniqueness are both D7 self-check invariants, re-verified on every emission — not restated here. The complete, current channel inventory lives in the `emission.concerns` block in `mermaid-styles.yaml` (normative, D7-guarded) and the generated `.mermaid` header comment (descriptive, regenerated every run); this ADR does not duplicate it — the initial concern assignment is reviewed as part of the first landing PR's config diff, not here.
+
+### D6. Channel arm splitting — one arm per distinct target
+
+This channel-splitting rule is not corpus-specific; it is adopted wholesale: **a channel whose member edges name more than one distinct target node in the landing cluster splits into one arm per distinct target, each arm landing at its own target.** Covering a direct target through intra-cluster reachability from another landing draws the channel's concern as flowing along paths that do not carry it — the semantic-misread class D5 (training data) and the runtime-hosting example below name — and the emitter cannot judge path semantics, so reachability-based coverage of direct targets is ruled out wholesale rather than case by case.
+
+For example, in the current corpus the `runtime hosting` broadcast from `componentRuntimeHosting` has a Model arm and an Application arm covering two targets; those two targets are mutually reachable intra-cluster only through the network-PEP chain — a hosting relation drawn as passing through policy enforcement, the same misread class as the D5 training-data example. The rule therefore splits the Application arm into two labeled arms rather than landing both at one target. This satisfies the duplicate-label constraint (two identically-labelled ingress ports in one band are forbidden, since a reader could not tell the arms apart) and keeps the hosting relation from being misdrawn as passing through the PEP.
+
+The following is illustrative, using the runtime-hosting channel as it exists today — the port-id grammar, header-comment convention, and containment structure are normative (D7); the specific arms shown and the `⇢ 3` count are corpus-dependent and will change as the corpus does.
+
+```mermaid
+---
+config:
+  layout: elk
+  elk:
+    mergeEdges: false
+    nodePlacementStrategy: BRANDES_KOEPF
+---
+graph LR
+  %% runtime hosting ⇢ 3 — the port-to-port hops are documented here, never drawn:
+  %%   p_out_infra_runtime_hosting ⇢ p_in_model_runtime_hosting
+  %%   p_out_infra_runtime_hosting ⇢ p_in_app_runtime_hosting_application
+  %%   p_out_infra_runtime_hosting ⇢ p_in_app_runtime_hosting_reasoning_core
+  classDef port fill:#fff5f5,stroke:#c0392b,stroke-width:1.5px,stroke-dasharray:4 3
+
+  subgraph componentsInfrastructure ["Infrastructure Components"]
+    componentRuntimeHosting["Runtime Hosting"]
+    p_out_infra_runtime_hosting["▸ runtime hosting  ⇢ 3"]:::port
+    componentRuntimeHosting --> p_out_infra_runtime_hosting
+  end
+
+  subgraph componentsModel ["Model Components"]
+    p_in_model_runtime_hosting["runtime hosting ▸"]:::port
+    componentModelServing["Model Serving Infrastructure"]
+    p_in_model_runtime_hosting --> componentModelServing
+  end
+
+  subgraph componentsApplication ["Application Components"]
+    p_in_app_runtime_hosting_application["runtime hosting → application ▸"]:::port
+    p_in_app_runtime_hosting_reasoning_core["runtime hosting → reasoning core ▸"]:::port
+    componentApplication["Application"]
+    componentReasoningCore["Agent Reasoning Core"]
+    p_in_app_runtime_hosting_application --> componentApplication
+    p_in_app_runtime_hosting_reasoning_core --> componentReasoningCore
+  end
+```
+
+Every ingress port has exactly one outgoing edge to its landing node; no line is drawn between the egress port and any ingress port, so no edge crosses a cluster boundary.
+
+As a second example: under a most-frequent-target landing rule (rather than this one-arm-per-target rule), the identity/authz broadcast's PDP-to-authorization-PEP verdict edge would be covered only via the tool data path it exists to gate — a policy consult drawn as flowing through the exact mechanism it's supposed to police, the same misread class again. Per-band label uniqueness (D7) is preserved by construction: every arm gets its own distinct label.
+
+By construction, every arm lands at a literal target of its member edges; reachability never justifies a landing, and the reachability test (D2) is thereby a diagnostic, not a landing mechanism. A target with no intra in-edges (e.g. `componentFederationProxy`) forces a split under any rule. The single-landing alternative (fewer ingress ports, arms covered transitively) is rejected on the same fidelity grounds throughout this section; its port savings are bought entirely with semantic misreads.
+
+### D7. Determinism, stable ids, and fail-loud guards
+
+- **Byte-stable output.** Same YAML in → byte-identical `.mermaid` out; all iteration is sorted, no unstable-order hashing.
+- **Content-derived port ids** (`p_in_<root>_<slug(concern)>`, `p_out_<root>_<slug(concern)>`), never positional (`p_in_0`…), so adding one component does not renumber every port and blow up the regen diff.
+- **Fail-loud, not heuristic-silent.** Any of the following raises a loud warning, promoted to error under the existing `validate_riskmap.py --block` machinery: a configured aspect that no longer matches its `minCrossInDegree` guard (corpus drift); a configured aspect that acquires any outgoing edge (sink-condition violation); a `concerns`/`aspects` id absent from the corpus (rename drift); or a new cross-boundary edge with no `concerns` entry. Concern labelling thereby becomes part of the contribution workflow without ever silently mislabelling an edge.
+- **Block-level orphan check.** Lifting an aspect must not leave its block with zero drawn intra edges — if it would, the lift is refused and the edges are reclassified as a channel instead, with a loud warning.
+- **Emission self-check** re-asserts the acceptance rubric over the built output: zero drawn node-pairs spanning two roots (including invisible `~~~` links), every `⇢ n` broadcast having exactly `n` matching ingress arms, ingress out-degree exactly 1, per-band label uniqueness, edge-conservation count, and every original `style`/`classDef` line preserved. A generator that silently emits a wrong diagram is worse than one that raises.
+
+## Alternatives Considered
+
+- **Stay with flat emission plus manual/layout tuning.** Keep `component_graph.py` as-is and lean on ELK options (`nodePlacementStrategy`, `mergeEdges`, direction) or hand-editing to reduce clutter. Rejected: clutter tracks the count of edges crossing a top-level boundary, and no layout setting changes that count — dozens of spanning edges tangle under every engine setting. Hand-editing a generated artifact is not durable; the next regen overwrites it. This is the counterfactual the topological argument in D1 rules out.
+- **Hand a general graph-layout library the flat graph and let it decide.** Adopt a different renderer or an automatic edge-bundling/orthogonal-routing library without the aspects/channels model. Rejected for the same topological reason: bundling and routing reduce the *visual noise* of crossings but do not reduce their *number*, and they cannot know that the logging sink is background noise to be lifted or that the identity plane is a primary subject to be kept — those are semantic, human-owned decisions the aspects/channels model encodes and a layout library cannot infer.
+- **Infer concern grouping/labels heuristically from topology (subcategories, id patterns).** Derive the channel concern taxonomy (D3, D5) automatically from graph structure instead of declaring it in the `emission.concerns` registry. Rejected: payload semantics are not derivable from graph structure — demonstrated by the bake-off's heuristic prototype (fused hosting channels, destroyed `model artifacts`/`training data` distinction); labels are declared, topology is computed.
+- **Single-pass augmentation of the existing emitter (no IR).** Fold channel/aspect logic directly into `build_graph` without an intermediate representation. Rejected as the ADR-level architecture: it entangles judgment-laden classification with string serialization, makes the acceptance checklist expressible only as fragile post-hoc string scraping, and resists unit-testing the transforms in isolation. The two-layer contract in D2 is what this ADR fixes.
+- **Merge channels by cluster-pair to minimize port count (the low-fidelity granularity end).** Rejected per D5: on a threat-model diagram, collapsing distinct trust concerns into one label misrepresents the model and reintroduces the directed-reachability misreads D5/D6 name.
+- **Land the runtime-hosting broadcast's Application arm at a single node instead of splitting it.** Land both `componentApplication` and `componentReasoningCore` targets at `componentApplication` alone, reading the hosting relation as "provisions the app, which contains the agent." Defensible, but rejected on the same fidelity grounds as the D5 training-data split: it would draw the hosting relation as passing through intervening components (the network-PEP chain) it does not actually depend on.
+- **Define aspect candidacy broadly enough to lift the identity/authz plane too (any high-cross-degree hub, source or sink), cutting many more cross edges.** Rejected, and the candidacy test in D4 is written to make this structurally impossible rather than merely disfavored: aspects are pure sinks (out-degree 0), and the identity plane is a fan-out source (cross out-edges only, no cross in-edges). A source's fan-out is the subject matter of a security diagram — lifting it would hide the very structure the diagram exists to show — which is why the mechanical rule is drawn at sink-ness instead of leaving source-lifting as a per-corpus judgment call.
+- **Split the graph into multiple smaller diagrams — an overview plus per-category detail views, or one diagram per top-level category (instead of the aspects/channels/bands transform).** [ADR-030](030-agentic-component-model.md) D10 itself floated "whether the overview graph is a subset of per-category detail graphs" as part of the deferred representation problem. Per-category diagrams eliminate cross-boundary clutter for free and introduce *zero* new visual vocabulary — no ports, bands, aspects, or wrappers to learn. Rejected as the primary model here: splitting removes the single-diagram overview a reader needs to see how the four tiers relate to one another at all, and the cross-tier relationships (the identity/authz fan-out, the model-serving and hosting flows) are precisely what a security reader comes to this diagram to see — arguably its more important use case. The aspects/channels/bands transform keeps that one overview legible rather than fragmenting it. Per-category detail views remain available as a **future complement** (they are the D10 overview-vs-detail question, not foreclosed by this ADR), not a replacement for the single overview.
+
+## Consequences
+
+**Positive**
+
+- A component graph that is legible at 50+ nodes: four vertically stacked clusters with zero lines crossing between them. Cross-cluster traffic is summarized as a small set of labeled ports instead of dozens of tangled spanning edges.
+- The clutter fix is regenerated deterministically from YAML on every run, not hand-maintained — it survives corpus edits, with fail-loud guards (D7) forcing new cross edges to be classified rather than silently mislabelled.
+- The classification rules (D4, D5, D6) are locked before implementation, so the classification logic is not relitigated during the TDD chain; the initial per-edge concern assignments are reviewed as part of the first landing PR's config diff.
+- The `flat` mode toggle (D3) is a clean rollback lever and enables A/B rendering during review.
+
+**Negative**
+
+- **New config surface with a schema coupling.** The `emission` block is a coupled edit to `mermaid-styles.schema.json` (`additionalProperties: false`), dragging in the `check-jsonschema` hook, `MermaidConfigLoader`, and the config test suites in the same change.
+- **Semantic labels live in a styling file.** Concern labels are edge semantics keyed by component-id pairs in `mermaid-styles.yaml`; the cleaner home is a `components.yaml` edge annotation, deferred as a content-schema change. Accepted trade-off, mitigated by the D7 sync guards.
+- **The `flat` rollback lever means two emitters are maintained indefinitely.** Keeping `emission.mode: flat` (D3) as a rollback path keeps the legacy flat emitter (`component_graph.py` as it stands today) alive and under test alongside the new decoupled transform — two code paths, two sets of expectations, and a regression surface that never fully retires. This is the standing cost of the rollback and A/B-rendering benefit noted in Positives; it is accepted as the price of a safe flip, but it is a real ongoing maintenance burden, not a free option, and a future decision to delete `flat` once `decoupled` is trusted would be the way to retire it.
+- **A heuristic-vs-fail-loud-guard tension for aspect detection.** Aspect membership is human-declared (D4) but guarded by its candidacy guards (sink condition and `minCrossInDegree`); the guard must warn loudly on drift without either silently lifting a mis-declared sink or hard-blocking every regen. D7 resolves this toward fail-loud-under-`--block`, but the tension is real and lives in the config contract.
+- **Generated-diagram diffs become less line-by-line obvious.** The `.mermaid` output is now IR-derived (ports, bands, wrappers, reordered emission) rather than a flat edge dump, so a reviewer can no longer read a diagram diff as a direct mirror of a `components.yaml` edge change. Content-derived stable ids (D7) and the two-PR landing (code+config at `mode: flat`, then the flip+regen as its own diff) mitigate this.
+- **Renderer risk.** The band pattern depends on ELK behaviour; the mermaid-cli / puppeteer stack must be re-verified before the default flips, via a render smoke test and a port x-position measurement (ingress ports pinned to the left edge, egress to the right).
+- **Lifted information is invisible in the rendered SVG.** Port-to-port hops and the lifted logging-sink inventory live in `.mermaid` header comments, which do not survive rendering — in `risk-map/svg/risk-map-graph.svg`, the artifact most readers actually look at, `componentSecureLogging` renders as an edgeless node with no visible explanation, and channel tracing relies entirely on a reader label-matching an egress port to its ingress port with no drawn line between them. The clutter reduction is therefore partly a transfer of information out of the rendered image into source-only comments. Accepted as the cost of legibility at this scale; a mitigation — an on-node or on-port annotation that renders in the SVG (e.g. an "N writes lifted" caption on the logging node, and inline channel counts) — is a worthwhile future improvement but is out of scope for this emission change and flagged here as a known gap.
+
+**Follow-up**
+
+- **Lifecycle.** This ADR lands as `Status: Draft`; sign-off flips it to `Accepted` and gates the standard testing → code-reviewer → swe → code-reviewer implementation chain, with the ADR as the contract.
+- **Two-PR landing.** Land the transform, config, schema, and guards with `emission.mode` defaulting to `flat` first (no diagram churn); flip to `decoupled` and regenerate `risk-map/diagrams/` and `risk-map/svg/` in a second PR so the diagram flip is its own reviewable diff.
+- **Index reconciliation.** Landing this ADR requires adding a `036` row to the index table in `docs/adr/README.md`, and reconciling this branch's ADR numbering against `upstream/main` at rebase/merge time to confirm `036` is still free.
+- **Render verification.** Before the flip, render the graph with mermaid-cli and measure port x-positions (ingress ≈0.0–0.1, egress ≈0.9–1.0) to confirm the bands pin as intended.
+- **Possible content-schema follow-on.** If concern labels prove better modeled as edge annotations in `components.yaml`, that is a separate content-schema ADR, not part of this emission change.
