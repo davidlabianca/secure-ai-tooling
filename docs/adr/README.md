@@ -50,6 +50,8 @@ If a decision is about *how the Risk Map content model is shaped*, it belongs in
 | [032](032-consumer-exploration-skills.md) | Read-only consumer exploration skill surface (explore-* skills) | Accepted | 2026-07-06 |
 | [033](033-vendor-neutral-agent-skill-shipping.md) | Vendor-neutral shipping and lifecycle for CoSAI agents and skills — canonical-only neutral cloneable artifacts, the neutrality contract (machine-checkable denylist + framework-authority allowlist), consumer adaptation, required neutrality check, develop/eval/expand lifecycle | Accepted | 2026-07-08 |
 | [034](034-corpus-change-landing-sequence.md) | Dependency-ordered landing sequence for risk-map corpus changes | Draft | 2026-07-09 |
+| 035 | Pinned-sources manifest for reproducible citation provenance | Reserved (`feature/sources-manifest-adr`, not yet landed) | — |
+| [036](036-decoupled-component-graph-emission.md) | Decoupled component-graph emission — aspects, channels, and bands | Draft | 2026-07-22 |
 
 ## Conventions
 
