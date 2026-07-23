@@ -68,6 +68,12 @@ def slug(text: str) -> str:
     Lowercases, drops '&' entirely (not replaced), collapses any run of
     non-alphanumeric characters to a single '_', and trims leading/trailing '_'.
 
+    Known gap (M6): two differently-worded concern labels that slug identically
+    (e.g. "tool/hosting" and "tool hosting") are not detected here -- the resulting
+    port ids collide. Registration-time uniqueness is deferred to Phase 2's
+    `verify_plan`/S7 self-check rather than fixed in this function; see
+    `build_decoupled_plan`'s docstring for the full rationale.
+
     Example:
         >>> slug("identity & authz")
         'identity_authz'
@@ -476,9 +482,13 @@ def _build_arms(
         member_edges = tuple(sorted(by_target[target]))
         if multi_arm:
             target_suffix = slug(target_short_name(target))
+            # slug() collision note (M6): concern_slug/target_suffix collisions across
+            # differently-worded labels are not checked here; see slug()'s docstring.
             port_id = f"p_in_{root_abbrev}_{concern_slug}_{target_suffix}"
             arm_label = f"{label} → {target_short_name(target)}"
         else:
+            # slug() collision note (M6): see slug()'s docstring -- this bare port id
+            # can still collide with another concern's if the two labels slug identically.
             port_id = f"p_in_{root_abbrev}_{concern_slug}"
             arm_label = label
         landing_id = pep_wrappers[target].in_id if target in pep_wrappers else target
@@ -535,6 +545,8 @@ def _group_broadcasts(channels: list[Channel]) -> tuple[Broadcast, ...]:
     for (src_root, label), member_channels in sorted(grouped.items()):
         ordered_channels = tuple(sorted(member_channels, key=lambda c: c.tgt_root))
         arm_count = sum(len(c.arms) for c in ordered_channels)
+        # slug() collision note (M6): see slug()'s docstring -- two differently-worded
+        # labels that slug identically produce the same egress port id here.
         egress_port_id = f"p_out_{root_slug(src_root)}_{slug(label)}"
         broadcasts.append(
             Broadcast(
@@ -871,6 +883,11 @@ def verify_plan(plan: DecoupledPlan, components: dict[str, ComponentNode]) -> No
         )
 
     for src, tgt in plan.drawn_intra_edges:
+        # `src`/`tgt` may be a PEP wrapper's synthetic `_in`/`_out` port id (retargeted
+        # by _process_intra_edges), not a real components.yaml id -- those are skipped
+        # here rather than flagged, since an edge that reaches a wrapper port is by
+        # construction intra (it was intra before wrapping; wrapping never changes an
+        # edge's category membership), so there is nothing for this check to catch.
         if src in components and tgt in components and components[src].category != components[tgt].category:
             raise AssertionError(f"S1 violated: drawn intra edge ({src}, {tgt}) spans two roots")
 
