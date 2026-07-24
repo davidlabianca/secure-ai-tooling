@@ -157,9 +157,36 @@ docstring for the full mapping):
 Also extends `TestBlockRendering` (H2) with one new method asserting an ordinary
 block member (not entry, not exit) is declared inside the block's span -- the H2
 residual gap.
+
+Adversarial code-critic follow-up (post-Phase-2, `_emit_decoupled()` now
+implemented -- see the module-end "Test Summary" docstring for the full mapping):
+26. `TestSourceEgressResolvesThroughPepWrapper` (Fix 1) -- a PEP-wrapped broadcast
+    source must exit via its wrapper's `_out` port, not the raw component id.
+27. `TestPlanWarningsSurfaced` (Fix 2) -- `plan.warnings` (D7 guard output) must be
+    surfaced (logged and header-commented), never silently dropped.
+28. `TestSelfCheckCatchesGenuineEmitterDefects` (Fix 3) -- strengthens S2 to a
+    text-derived count, adds a per-arm landing-edge text assertion, and a
+    source->egress destination assertion, closing the critic's "passes all of
+    S1-S8" cross-wired-landing finding.
+29. `TestGetEmissionConfigAccessor::test_malformed_concern_entry_bad_edge_tuple_arity_defaults_to_flat`
+    (Fix 4) -- a malformed edge-tuple arity in `emission.concerns` must degrade to
+    flat, not crash later with a raw `ValueError`.
+
+Adversarial review follow-up on S9/S10 themselves (the checks' own implementation, not
+the emitted output; see `docs/adr/036-decoupled-component-graph-emission.md` and the
+task that added this section for the full writeup):
+30. `TestSelfChecksCatchS9S10ImplementationGaps` -- Bug 1: `expected in text` (S9, and
+    S10's first loop) is an unanchored substring match, and this corpus's real ids have
+    prefix relationships (`componentApplication` is a prefix of
+    `componentApplicationInputHandling`), so a cross-wired edge to the wrong (but
+    prefix-related) node is invisible to the check. Bug 2: S10's reverse loop only
+    flags a matched `<src> --> p_out_...` line when its port is a KNOWN egress port id,
+    so an edge to a nonexistent/typo'd port is silently skipped rather than flagged,
+    contradicting the check's own docstring.
 """
 
 import dataclasses
+import logging
 import random
 import re
 import sys
@@ -716,6 +743,55 @@ class TestGetEmissionConfigAccessor:
         )
         loader = MermaidConfigLoader(config_file)
         assert loader.get_emission_config().mode == "flat"
+
+    @pytest.mark.parametrize(
+        "bad_edge",
+        [
+            ["componentA", "componentB", "componentC"],  # 3 elements -- too many
+            ["componentA"],  # 1 element -- too few
+            "componentA",  # bare string, not a [src, tgt] list at all
+        ],
+        ids=["three-element-tuple", "one-element-tuple", "bare-string"],
+    )
+    def test_malformed_concern_entry_bad_edge_tuple_arity_defaults_to_flat(self, tmp_path, bad_edge):
+        """
+        Fix 4 (maintainer: "that's a real failure"). A `concerns[n].edges` entry whose
+        tuple arity is not exactly 2 (`[src, tgt]`) is accepted today without
+        validation -- `get_emission_config()` happily builds a `ConcernDecl` with a
+        3-tuple (or 1-tuple) edge, and the crash only surfaces much later, deep inside
+        `decouple.py::_resolve_concern_coverage`'s `for src, tgt in decl.edges:`
+        unpacking, as a raw `ValueError: too many values to unpack` (confirmed by
+        direct reproduction before writing this test) -- not the graceful degradation
+        this accessor's own docstring promises ("missing or corrupt config never
+        yields a half-decoupled diagram").
+
+        The bare-string case (`edges: [componentA]` written without the inner list,
+        i.e. a plain scalar) reproduces the identical deferred crash via a different
+        route: `tuple("componentA")` silently succeeds, producing a 14-character
+        tuple rather than raising, so this malformed shape is just as capable of
+        slipping past an unvalidated accessor as the two explicit bad-arity lists
+        above.
+
+        Matches the established malformed-aspect-entry precedent immediately above
+        (`test_malformed_aspect_entry_missing_required_key_defaults_to_flat`): a
+        malformed entry degrades the WHOLE block to `flat`, not a per-entry drop with
+        the rest of the config surviving -- for consistency with that precedent.
+        """
+        edge_yaml = "[" + ", ".join(bad_edge) + "]" if isinstance(bad_edge, list) else bad_edge
+        config_file = tmp_path / "mermaid-styles.yaml"
+        config_file.write_text(
+            "version: '1.0.0'\nfoundation: {}\nsharedElements: {}\n"
+            "graphTypes:\n  component:\n    emission:\n      mode: decoupled\n"
+            "      concerns:\n        - label: bad edge arity\n"
+            f"          edges:\n            - {edge_yaml}\n",
+            encoding="utf-8",
+        )
+        loader = MermaidConfigLoader(config_file)
+        assert loader.get_emission_config().mode == "flat", (
+            "a concerns entry with a non-2-element edge tuple must degrade the whole "
+            "emission block to flat (matching the malformed-aspect-entry precedent), "
+            "not be accepted and crash later inside decouple.py's edge unpacking"
+        )
 
     def test_non_dict_port_styles_defaults_to_flat(self, tmp_path):
         config_file = tmp_path / "mermaid-styles.yaml"
@@ -1416,10 +1492,259 @@ class TestSelfCheckTextLevelChecks:
         cfg = EmissionConfig(mode="decoupled", port_styles={"port": "fill:red"})  # no pepport/pepWrapOutline
         plan = build_decoupled_plan(forward_map, components, cfg)
         assert plan.pep_wrappers  # sanity: the fixture actually needs pepport styling
-        graph = _make_graph(components, forward_map, cfg, repo_root)
+        # `_build_pep_wrappers` wraps every matching-suffix component unconditionally
+        # (independent of forward_map), so `_S_CHECK_COMPONENTS`/{} (the sibling S1-S3
+        # tests' safe-construction recipe) can't be reused here -- it would drop the
+        # PEP component entirely, and `_emit_decoupled`'s title lookup needs it in
+        # `self.components`. Instead, construct with these same components/forward_map
+        # but a self-check-safe cfg (full port_styles, so __init__'s own internal
+        # build_graph()/_emit_decoupled() pass cleanly), then swap the loader's cfg to
+        # the S6-violating `cfg` afterwards so only the explicit call below observes
+        # the missing pepport/pepWrapOutline keys.
+        safe_cfg = EmissionConfig(mode="decoupled", port_styles=PLACEHOLDER_PORT_STYLES)
+        graph = _make_graph(components, forward_map, safe_cfg, repo_root)
+        graph.config_loader._emission_cfg = cfg
 
         with pytest.raises(AssertionError, match=r"S6 violated"):
             graph._emit_decoupled(plan)
+
+
+# ============================================================================
+# Fix 3: strengthen the self-check's actual bug-catching power (maintainer: "we
+# should fix this and improve the strength")
+# ============================================================================
+
+
+class TestSelfCheckCatchesGenuineEmitterDefects:
+    """
+    Fix 3 (maintainer: "we should fix this and improve the strength"). The
+    adversarial critic demonstrated that S2 (`_check_s2_arm_counts`) and S5
+    (`verify_plan`'s edge-conservation check) both recompute from the SAME IR
+    counters/fields that built the plan in the first place -- `_check_s2_arm_counts`
+    literally re-executes `sum(len(channel.arms) for channel in broadcast.channels)`,
+    the identical expression `_group_broadcasts` used to compute `arm_count` when the
+    plan was constructed. Such a check can only ever fire when a TEST hand-corrupts
+    the IR after construction (as `TestSelfCheckTextLevelChecks`/`TestS2Reverse
+    DirectionMismatch` already do); it can never fire against a genuine
+    `_emit_decoupled()` implementation defect, because a real emitter bug corrupts
+    the built TEXT while leaving the IR internally self-consistent -- exactly the
+    case these checks are blind to.
+
+    Confirmed concretely: a cross-wired ingress->landing edge (an arm's port pointing
+    at the wrong node in the rendered text, while the IR's own `arm.landing_id` field
+    is correct) passes all of S1-S8 today (verified via the throwaway prototypes
+    below, run against the current implementation before this suite was written).
+
+    Since this task requires RED tests only (no fix), and the current `_emit_
+    decoupled()`/`decouple.py` genuinely cannot MISWIRE their own output (the text is
+    built directly and correctly from the IR every time), each test below simulates
+    "a genuine emitter defect" the only way possible without editing production code:
+    monkeypatching one of `_emit_decoupled()`'s own step methods (`_decoupled_edges`,
+    `_decoupled_cluster_subgraphs`) to return a plausibly-buggy variant of what it
+    would otherwise produce, while leaving the `DecoupledPlan` IR passed in fully
+    self-consistent (arm_count matches actual arms, `verify_plan`'s S1/S4/S5/S7 all
+    hold). This isolates exactly the property under test: does the self-check
+    inspect the BUILT TEXT for this specific defect class, or does it only ever
+    recompute from IR fields that, by construction, cannot disagree with themselves.
+    """
+
+    def test_text_derived_s2_catches_a_dropped_ingress_port_declaration(self, repo_root: Path):
+        """
+        Genuine text-derived S2 (bullet 1). Simulates an emitter bug that drops one
+        arm's ingress PORT NODE DECLARATION from the cluster-subgraph ingress band
+        (`_decoupled_cluster_subgraphs`) while its `port_id --> landing_id` edge
+        (a separate method, `_decoupled_edges`) is still drawn correctly -- the IR
+        itself (`plan.broadcasts[*].channels[*].arms`, `arm_count`) is completely
+        untouched and internally consistent, so the CURRENT `_check_s2_arm_counts`
+        (`actual = sum(len(channel.arms) for channel in broadcast.channels)`) recomputes
+        the same correct count from the same untouched IR and does not fire -- proving
+        the tautology directly. A genuine text-derived S2 must instead count the actual
+        ingress-port declarations/edges present for this broadcast IN THE BUILT TEXT
+        and compare that count against `arm_count`, which would find only 2 declared
+        ports for a `⇢ 3` broadcast here and raise.
+        """
+        components = _small_synthetic_components()
+        forward_map = _forward_map(components)
+        cfg = _small_synthetic_cfg()
+        plan = build_decoupled_plan(forward_map, components, cfg)
+        graph = _make_graph(components, forward_map, cfg, repo_root)
+
+        broadcast = plan.broadcasts[0]
+        assert broadcast.arm_count == 3  # sanity: the ADR D6 ⇢3 worked example
+        app_channel = next(c for c in broadcast.channels if c.tgt_root == APP)
+        dropped_arm = next(a for a in app_channel.arms if a.target == "componentReasoningCore")
+
+        original_cluster_subgraphs = ComponentGraph._decoupled_cluster_subgraphs
+
+        def _dropping_one_ingress_declaration(self, plan, port_styles):
+            lines = original_cluster_subgraphs(self, plan, port_styles)
+            marker = f'{dropped_arm.port_id}["'
+            return [line for line in lines if marker not in line]
+
+        with mock.patch.object(ComponentGraph, "_decoupled_cluster_subgraphs", _dropping_one_ingress_declaration):
+            with pytest.raises(AssertionError, match=r"S2"):
+                graph._emit_decoupled(plan)
+
+    def test_arm_port_to_landing_edge_must_literally_appear_in_built_text(self, repo_root: Path):
+        """
+        Closes the cross-wired-landing gap directly (bullet 2): a new assertion that
+        every arm's `<port_id> --> <landing_id>` edge literally appears in the built
+        text. Simulates an emitter bug that draws one arm's ingress edge to the WRONG
+        node (a cross-wired landing) instead of `arm.landing_id` -- the arm's declared
+        `landing_id` in the IR is untouched and correct, the port's rendered out-degree
+        is still exactly 1 (S3, already implemented, does not fire: it only counts
+        out-degree, never checks WHERE the edge points), and no existing check (S1-S8)
+        inspects a specific arm's edge destination at all.
+        """
+        components = _small_synthetic_components()
+        forward_map = _forward_map(components)
+        cfg = _small_synthetic_cfg()
+        plan = build_decoupled_plan(forward_map, components, cfg)
+        graph = _make_graph(components, forward_map, cfg, repo_root)
+
+        broadcast = plan.broadcasts[0]
+        app_channel = next(c for c in broadcast.channels if c.tgt_root == APP)
+        target_arm = next(a for a in app_channel.arms if a.target == "componentReasoningCore")
+        correct_line = f"{target_arm.port_id} --> {target_arm.landing_id}"
+        wrong_line = f"{target_arm.port_id} --> componentApplication"  # cross-wired to a real, but wrong, node
+
+        original_edges = ComponentGraph._decoupled_edges
+
+        def _crosswiring_one_landing_edge(self, plan):
+            lines = original_edges(self, plan)
+            return [wrong_line if line.strip() == correct_line else line for line in lines]
+
+        with mock.patch.object(ComponentGraph, "_decoupled_edges", _crosswiring_one_landing_edge):
+            with pytest.raises(AssertionError):
+                graph._emit_decoupled(plan)
+
+    def test_source_to_egress_edge_pointing_at_wrong_egress_port_is_caught(self, repo_root: Path):
+        """
+        Bullet 3: extends text-level checking to source->egress lines (ties in
+        naturally with Fix 1's new source-resolution logic -- a resolution bug there
+        is exactly a source->egress edge pointing at an unexpected port id). Simulates
+        an emitter bug that draws the broadcast source's egress edge to a bogus,
+        unrelated port id instead of `broadcast.egress_port_id`. No existing check
+        (S1-S8) inspects a source->egress line's destination at all today.
+        """
+        components = _small_synthetic_components()
+        forward_map = _forward_map(components)
+        cfg = _small_synthetic_cfg()
+        plan = build_decoupled_plan(forward_map, components, cfg)
+        graph = _make_graph(components, forward_map, cfg, repo_root)
+
+        broadcast = plan.broadcasts[0]
+        correct_line = f"componentRuntimeHosting --> {broadcast.egress_port_id}"
+        wrong_line = "componentRuntimeHosting --> p_out_WRONG_EGRESS_PORT"
+
+        original_edges = ComponentGraph._decoupled_edges
+
+        def _wrong_egress_port(self, plan):
+            lines = original_edges(self, plan)
+            return [wrong_line if line.strip() == correct_line else line for line in lines]
+
+        with mock.patch.object(ComponentGraph, "_decoupled_edges", _wrong_egress_port):
+            with pytest.raises(AssertionError):
+                graph._emit_decoupled(plan)
+
+
+class TestSelfChecksCatchS9S10ImplementationGaps:
+    """
+    Adversarial review found a real gap in S9/S10's OWN implementation (not the
+    emitted output -- the checks themselves are under-specified). Both bugs are
+    regressions against the current code (RED here, GREEN after the S9/S10 fix):
+
+    Bug 1 (unanchored substring match, S9 + S10's first loop): `expected in text`
+    has no line/token anchoring. Since the expected string's tail is a component id,
+    and this corpus's real ids have genuine prefix relationships (`componentApplication`
+    is a strict prefix of `componentApplicationInputHandling`,
+    `componentApplicationOutputHandling`, `componentApplicationConsentSurface`, and
+    `componentApplicationNetworkPolicyEnforcementPoint`), a cross-wired edge to the
+    WRONG node whose id happens to extend the correct one satisfies `expected in text`
+    via prefix match against the wrong line -- defeating the check entirely for this
+    class of bug. `TestSelfCheckCatchesGenuineEmitterDefects.
+    test_arm_port_to_landing_edge_must_literally_appear_in_built_text` above does not
+    already cover this: its cross-wired target (`componentApplication`) is NOT a
+    prefix of the correct landing id, so it is caught by the "expected line is simply
+    absent" case, not this substring-collision case.
+
+    Bug 2 (S10's reverse loop silently skips nonexistent egress ports): the reverse
+    sweep only flags a found `<src> --> <port>` line when `port in egress_port_ids`,
+    so an emitted edge to a port id that doesn't belong to ANY broadcast (a typo'd or
+    stale port) is silently ignored rather than flagged -- contradicting the check's
+    own docstring ("catches a source wired to the wrong (or a nonexistent) broadcast
+    port"). Distinct from the existing
+    `test_source_to_egress_edge_pointing_at_wrong_egress_port_is_caught` above, which
+    REPLACES the correct line (so the first loop's "expected pair missing" branch
+    already catches it); this test ADDS an extra bogus line while leaving every
+    correct edge in place, isolating the reverse loop as the only branch that could
+    catch it.
+    """
+
+    def test_arm_landing_edge_cross_wired_to_a_prefix_related_sibling_id_is_caught(self, repo_root: Path):
+        """
+        Live corpus, Bug 1: the "runtime hosting" broadcast's arm landing at
+        `componentApplication` (`p_in_app_runtime_hosting_application`) is
+        cross-wired to `componentApplicationInputHandling` -- a real, live, but wrong
+        sibling id that happens to extend `componentApplication` as a substring.
+        Under the current unanchored `expected in text` check, `"p_in_app_runtime_
+        hosting_application --> componentApplication" in text` is still True (it's a
+        substring of the wrong line), so S9 does not fire and this test is RED against
+        the current implementation.
+        """
+        components, forward_map = _live_corpus(repo_root)
+        cfg = _live_emission_config()
+        plan = build_decoupled_plan(forward_map, components, cfg)
+        graph = _make_graph(components, forward_map, cfg, repo_root)
+
+        broadcast = next(b for b in plan.broadcasts if b.label == "runtime hosting")
+        target_arm = next(a for c in broadcast.channels for a in c.arms if a.target == "componentApplication")
+        assert target_arm.landing_id == "componentApplication"  # sanity
+        assert "componentApplicationInputHandling" in components  # sanity: a real, live sibling id
+
+        correct_line = f"{target_arm.port_id} --> {target_arm.landing_id}"
+        wrong_line = f"{target_arm.port_id} --> componentApplicationInputHandling"
+
+        original_edges = ComponentGraph._decoupled_edges
+
+        def _crosswiring_to_prefix_related_sibling(self, plan):
+            lines = original_edges(self, plan)
+            return [wrong_line if line.strip() == correct_line else line for line in lines]
+
+        with mock.patch.object(ComponentGraph, "_decoupled_edges", _crosswiring_to_prefix_related_sibling):
+            with pytest.raises(AssertionError, match="S9"):
+                graph._emit_decoupled(plan)
+
+    def test_source_egress_edge_to_a_nonexistent_port_id_is_caught(self, repo_root: Path):
+        """
+        Live corpus, Bug 2: an extra, bogus `<src> --> p_out_...` line is appended
+        alongside every correct source->egress edge (none removed), pointing at a
+        port id that belongs to no broadcast at all. Under the current
+        `port in egress_port_ids` filter, this line is silently skipped by the
+        reverse loop (and the first loop never fires, since every expected pair is
+        still present verbatim), so this test is RED against the current
+        implementation.
+        """
+        components, forward_map = _live_corpus(repo_root)
+        cfg = _live_emission_config()
+        plan = build_decoupled_plan(forward_map, components, cfg)
+        graph = _make_graph(components, forward_map, cfg, repo_root)
+
+        broadcast = next(b for b in plan.broadcasts if b.label == "runtime hosting")
+        egress_port_ids = {b.egress_port_id for b in plan.broadcasts}
+        bogus_port = "p_out_BOGUS_NONEXISTENT"
+        assert bogus_port not in egress_port_ids  # sanity: not a known egress port at all
+        source = next(iter({src for channel in broadcast.channels for src, _tgt in channel.edges}))
+        bogus_line = f"    {source} --> {bogus_port}"
+
+        original_edges = ComponentGraph._decoupled_edges
+
+        def _appending_a_bogus_egress_line(self, plan):
+            return [*original_edges(self, plan), bogus_line]
+
+        with mock.patch.object(ComponentGraph, "_decoupled_edges", _appending_a_bogus_egress_line):
+            with pytest.raises(AssertionError, match="S10"):
+                graph._emit_decoupled(plan)
 
 
 # ============================================================================
@@ -1443,6 +1768,158 @@ class TestSelfCheckDiagnosticsNeverRaise:
         text = graph._emit_decoupled(plan_with_diagnostic)  # must NOT raise
 
         assert "XYZZY123" in text, "expected the diagnostic to be surfaced (e.g. as a comment), not swallowed"
+
+
+# ============================================================================
+# Fix 2: plan.warnings (D7 guard output, G-A1..G-O1) must be surfaced
+# ============================================================================
+
+
+class TestPlanWarningsSurfaced:
+    """
+    Fix 2 (maintainer: "this should be resolved"). `_emit_decoupled()` currently
+    surfaces `plan.diagnostics` (S8, advisory) via a header comment and
+    `logger.debug`, but drops `plan.warnings` (the actual D7 guard output,
+    G-A1..G-O1) entirely -- confirmed by reading `component_graph.py`: `plan.
+    warnings` is never referenced anywhere in the module, so a guard warning (e.g. a
+    stale aspect id, or a threshold violation) is not logged, not commented, and not
+    raised. Since Phase 3 (which wires `check_emission_drift` into `validate_riskmap.
+    py`'s `--block` machinery) hasn't landed yet, this emitter call is currently the
+    ONLY place a human could observe a guard warning at all, and today it is silent.
+
+    Design decision (this suite's own call, per the task's instruction to decide and
+    document the mechanism): surface via BOTH channels, mirroring the existing S8
+    diagnostics precedent (`TestSelfCheckDiagnosticsNeverRaise`), which already
+    surfaces `plan.diagnostics` both via `logger.debug` AND a header comment --
+      1. `logger.warning()`, once per warning message (the task's stated minimum
+         bar) -- verified via `caplog`.
+      2. A `%%`-prefixed header-comment block (step 2, alongside the lifted-aspect
+         inventory and hop lists) -- more discoverable than a log line, since it
+         lands directly in the committed `.mermaid` artifact that is this repo's
+         actual diagram-review surface.
+    Warnings must never raise (Phase 3's `--block` territory, not this emitter's) and
+    must never change the drawn plan/output structure -- pinned by the third test
+    below via a diff against the same plan with `warnings=[]`.
+    """
+
+    def _threshold_violation_fixture(self):
+        """
+        Reuses `test_decouple_guards.py::TestGA3AspectBelowThreshold`'s exact fixture
+        shape (an aspect whose live cross in-degree, 7, is below its configured
+        `minCrossInDegree`, 10) -- one of the two example triggers the task names,
+        and one already established elsewhere in this TDD chain rather than invented
+        fresh here.
+        """
+        components = {"componentSink": _node(INFRA, subcategory="componentsBlockX")}
+        components["componentInfraFeeder"] = _node(
+            INFRA, to_edges=["componentSink"], subcategory="componentsBlockX"
+        )
+        for i in range(7):
+            components[f"componentModelSource{i}"] = _node(MODEL, to_edges=["componentSink"])
+        forward_map = _forward_map(components)
+        cfg = EmissionConfig(
+            mode="decoupled",
+            aspects=(AspectDecl(id="componentSink", min_cross_in_degree=10),),  # live cross in-degree 7 < 10
+            concerns=(
+                ConcernDecl(
+                    label="under threshold flow",
+                    edges=tuple((f"componentModelSource{i}", "componentSink") for i in range(7)),
+                ),
+            ),
+            port_styles=PLACEHOLDER_PORT_STYLES,
+        )
+        return components, forward_map, cfg
+
+    def test_guard_warning_logged_via_logger_warning(self, repo_root: Path, caplog):
+        components, forward_map, cfg = self._threshold_violation_fixture()
+        plan = build_decoupled_plan(forward_map, components, cfg)
+        assert plan.warnings, "sanity: the G-A3 threshold violation must produce a plan.warnings entry"
+        graph = _make_graph(components, forward_map, cfg, repo_root)
+
+        with caplog.at_level(logging.WARNING):
+            graph._emit_decoupled(plan)  # must NOT raise
+
+        logged = "\n".join(record.message for record in caplog.records)
+        for warning in plan.warnings:
+            assert warning in logged, (
+                f"expected every plan.warnings entry to be logged via logger.warning(); "
+                f"missing: {warning!r}; captured log records:\n{logged}"
+            )
+
+    def test_guard_warning_surfaced_in_header_comment(self, repo_root: Path):
+        components, forward_map, cfg = self._threshold_violation_fixture()
+        plan = build_decoupled_plan(forward_map, components, cfg)
+        assert plan.warnings
+
+        graph = _make_graph(components, forward_map, cfg, repo_root)
+        text = graph._emit_decoupled(plan)  # must NOT raise
+
+        for warning in plan.warnings:
+            assert warning in text, (
+                f"expected plan.warnings entry surfaced as a header comment (discoverable "
+                f"in the committed .mermaid artifact itself); missing: {warning!r}\ngot:\n{text}"
+            )
+
+    def test_warnings_never_raise_and_do_not_alter_drawn_output_structure(self, repo_root: Path):
+        """
+        Diffs the warning-bearing plan's emitted text against the identical plan with
+        `warnings=[]`: every line present in one run but not the other must be
+        attributable to warning surfacing itself (a comment line naming one of the
+        warnings), never a change to a drawn node/edge/style line -- pins the "must
+        not alter the drawn plan/output structure" constraint directly.
+        """
+        components, forward_map, cfg = self._threshold_violation_fixture()
+        plan = build_decoupled_plan(forward_map, components, cfg)
+        assert plan.warnings
+
+        graph = _make_graph(components, forward_map, cfg, repo_root)
+        text_with_warnings = graph._emit_decoupled(plan)  # must NOT raise
+
+        plan_without_warnings = dataclasses.replace(plan, warnings=[])
+        text_without_warnings = graph._emit_decoupled(plan_without_warnings)
+
+        lines_with = text_with_warnings.splitlines()
+        lines_without = text_without_warnings.splitlines()
+        extra_lines = [line for line in lines_with if line not in lines_without]
+        for line in extra_lines:
+            assert any(warning in line for warning in plan.warnings), (
+                f"a warnings-present run must only ADD warning-surfacing comment lines, "
+                f"never change a drawn node/edge/style line; unexpected extra line: {line!r}"
+            )
+
+    def test_warnings_and_diagnostics_both_surfaced_when_both_present(self, repo_root: Path):
+        """
+        This fixture's sole channel has one arm, so `build_decoupled_plan()` itself
+        can never populate `plan.diagnostics` here (`_reachability_diagnostic` in
+        `decouple.py` skips channels with fewer than 2 targets) -- meaning warnings and
+        diagnostics have only ever been exercised in isolation elsewhere in this suite
+        (this fixture for warnings; the live corpus, whose warnings are empty, for
+        `TestSelfCheckDiagnosticsNeverRaise`). Attaching a synthetic diagnostic via
+        `dataclasses.replace` (the same technique `TestSelfCheckDiagnosticsNeverRaise`
+        uses) proves the two header-comment-building code paths compose -- i.e. that
+        the implementation appends both sections rather than one assignment
+        clobbering the other.
+        """
+        components, forward_map, cfg = self._threshold_violation_fixture()
+        plan = build_decoupled_plan(forward_map, components, cfg)
+        assert plan.warnings, "sanity: fixture must still produce a warning"
+
+        marker = "reachability diagnostic (advisory only): test marker CLOBBER456"
+        plan_with_both = dataclasses.replace(plan, diagnostics=[marker])
+
+        graph = _make_graph(components, forward_map, cfg, repo_root)
+        text = graph._emit_decoupled(plan_with_both)  # must NOT raise
+
+        for warning in plan.warnings:
+            assert warning in text, (
+                f"expected the warning to still be surfaced when a diagnostic is also "
+                f"present; missing: {warning!r}\ngot:\n{text}"
+            )
+        assert "CLOBBER456" in text, (
+            "expected the diagnostic to still be surfaced when a warning is also "
+            "present -- one header-comment section must not clobber the other\n"
+            f"got:\n{text}"
+        )
 
 
 # ============================================================================
@@ -1859,6 +2336,173 @@ class TestIngressLandingAtPepWrappedTarget:
             f"ingress->landing edge must retarget through the PEP wrapper's _in port "
             f"({arm.landing_id!r}), not land directly at the raw PEP component id "
             f"({arm.target!r}); found {wrong!r} in emitted text"
+        )
+
+
+class TestSourceEgressResolvesThroughPepWrapper:
+    """
+    Fix 1 (confirmed defect, maintainer: "they need to exit via the out port"). The
+    sibling to `TestIngressLandingAtPepWrappedTarget` above, but on the SOURCE side of
+    a broadcast: `_decoupled_edges`'s source->egress line construction
+    (`component_graph.py`) currently uses the raw source component id even when that
+    source is PEP-wrapped, drawing a cross-boundary edge straight from the bare PEP
+    node to the egress port -- never passing through the wrapper's `_out` port. This
+    contradicts ADR-036 D3's rationale for PEP wrappers ("a reader sees traffic
+    entering and leaving through the enforcement point"), and is live in the real
+    corpus today: reproduced directly below against the two `app + agent egress`
+    sources and the `tool results` source (confirmed via direct reproduction before
+    writing this test -- see class-level note in the task report).
+
+    Constraint: this is resolvable entirely in the emission layer via
+    `plan.pep_wrappers` lookups (`Arm.landing_id` already demonstrates the identical
+    pattern on the target side in `decouple.py::_build_arms`) -- no IR-level change to
+    `decouple.py` is required or expected; these tests exercise `_emit_decoupled()`
+    only, never `decouple.py` directly.
+    """
+
+    def test_app_agent_egress_broadcast_both_pep_sources_resolve_through_out_port(self, repo_root: Path):
+        """
+        Live corpus, primary defect fixture: the `app + agent egress` broadcast has
+        TWO distinct sources, both PEP-wrapped (`componentAgentNetworkPolicy
+        EnforcementPoint`, `componentApplicationNetworkPolicyEnforcementPoint`) -- the
+        exact scenario the task names. Also closes a related test gap: no existing
+        test asserted a source->egress edge per DISTINCT source at all (see the
+        sibling multi-source test below for the non-PEP case).
+        """
+        components, forward_map = _live_corpus(repo_root)
+        cfg = _live_emission_config()
+        plan = build_decoupled_plan(forward_map, components, cfg)
+        graph = _make_graph(components, forward_map, cfg, repo_root)
+
+        broadcast = next(b for b in plan.broadcasts if b.label == "app + agent egress")
+        sources = sorted({src for channel in broadcast.channels for src, _tgt in channel.edges})
+        assert sources == [
+            "componentAgentNetworkPolicyEnforcementPoint",
+            "componentApplicationNetworkPolicyEnforcementPoint",
+        ]  # sanity: both sources are PEP-wrapped (plan.pep_wrappers, asserted below)
+        for source in sources:
+            assert source in plan.pep_wrappers  # sanity
+
+        text = graph._emit_decoupled(plan)
+
+        for source in sources:
+            wrapper = plan.pep_wrappers[source]
+            expected = f"{wrapper.out_id} --> {broadcast.egress_port_id}"
+            assert expected in text, (
+                f"expected the PEP-wrapped source to exit via its _out port ({expected!r}); got:\n{text}"
+            )
+            wrong = f"{source} --> {broadcast.egress_port_id}"
+            assert wrong not in text, (
+                f"a PEP-wrapped source must never draw its source->egress edge from the "
+                f"raw component id ({wrong!r}) -- it must exit via {wrapper.out_id!r}; "
+                f"found the raw form in emitted text"
+            )
+
+        # Literal reproduction of the task's own worked example, independent of the
+        # programmatically-derived strings above.
+        assert "agentNetworkPep_out --> p_out_app_app_agent_egress" in text
+        assert "applicationNetworkPep_out --> p_out_app_app_agent_egress" in text
+        assert "componentAgentNetworkPolicyEnforcementPoint --> p_out_app_app_agent_egress" not in text
+        assert "componentApplicationNetworkPolicyEnforcementPoint --> p_out_app_app_agent_egress" not in text
+
+    def test_tool_results_broadcast_single_pep_source_resolves_through_out_port(self, repo_root: Path):
+        """Live corpus: the `tool results` broadcast's sole source is the
+        tool-network PEP -- the third live-corpus instance the task names."""
+        components, forward_map = _live_corpus(repo_root)
+        cfg = _live_emission_config()
+        plan = build_decoupled_plan(forward_map, components, cfg)
+        graph = _make_graph(components, forward_map, cfg, repo_root)
+
+        broadcast = next(b for b in plan.broadcasts if b.label == "tool results")
+        source = "componentToolNetworkPolicyEnforcementPoint"
+        assert source in plan.pep_wrappers  # sanity
+
+        text = graph._emit_decoupled(plan)
+
+        wrapper = plan.pep_wrappers[source]
+        expected = f"{wrapper.out_id} --> {broadcast.egress_port_id}"
+        assert expected in text, f"expected {expected!r} in emitted text; got:\n{text}"
+        assert "componentToolNetworkPolicyEnforcementPoint --> p_out_tools_tool_results" not in text
+        assert "toolNetworkPep_out --> p_out_tools_tool_results" in text
+
+    def test_identity_authz_broadcast_multiple_non_pep_sources_each_get_own_edge(self, repo_root: Path):
+        """
+        Live corpus: the `identity & authz` broadcast has two distinct sources
+        (`componentIdentityProvider`, `componentAuthorizationPolicyDecisionPoint`),
+        NEITHER of which is PEP-wrapped -- the multi-source coverage gap the task
+        separately names ("weren't previously asserted per-source at all"). This test
+        is expected to ALREADY PASS against the current implementation (the raw-id
+        source->egress construction is correct when the source isn't PEP-wrapped;
+        `_decoupled_edges` already iterates the full distinct-source set) -- kept here
+        as an explicit regression pin for that gap, and to document that the defect's
+        scope is the PEP-source-resolution path specifically, not multi-source
+        handling in general.
+        """
+        components, forward_map = _live_corpus(repo_root)
+        cfg = _live_emission_config()
+        plan = build_decoupled_plan(forward_map, components, cfg)
+        graph = _make_graph(components, forward_map, cfg, repo_root)
+
+        broadcast = next(b for b in plan.broadcasts if b.label == "identity & authz")
+        sources = sorted({src for channel in broadcast.channels for src, _tgt in channel.edges})
+        assert sources == ["componentAuthorizationPolicyDecisionPoint", "componentIdentityProvider"]
+        for source in sources:
+            assert source not in plan.pep_wrappers  # sanity: neither source is PEP-wrapped
+
+        text = graph._emit_decoupled(plan)
+
+        for source in sources:
+            expected = f"{source} --> {broadcast.egress_port_id}"
+            assert expected in text, f"expected a distinct source->egress edge {expected!r}; got:\n{text}"
+
+    def test_synthetic_broadcast_mixing_pep_and_plain_sources_resolves_each_independently(self, repo_root: Path):
+        """
+        Clean unit-level pin, independent of the live corpus and its 12-entry
+        registry: a minimal synthetic fixture with ONE broadcast fed by two distinct
+        sources sharing a single arm target -- one PEP-wrapped, one plain -- isolating
+        the per-source resolution decision from any other broadcast/channel-grouping
+        behavior. Confirms both that a PEP source resolves through its `_out` port AND
+        that a plain source in the SAME broadcast is unaffected (still resolves to its
+        raw id), proving the fix is a per-source lookup, not a broadcast-wide switch.
+        """
+        components = {
+            "componentPlainSource": _node(INFRA, to_edges=["componentTarget"]),
+            "componentSourcePolicyEnforcementPoint": _node(INFRA, to_edges=["componentTarget"]),
+            "componentTarget": _node(MODEL, to_edges=[]),
+        }
+        forward_map = _forward_map(components)
+        cfg = EmissionConfig(
+            mode="decoupled",
+            concerns=(
+                ConcernDecl(
+                    label="multi src test",
+                    edges=(
+                        ("componentPlainSource", "componentTarget"),
+                        ("componentSourcePolicyEnforcementPoint", "componentTarget"),
+                    ),
+                ),
+            ),
+            port_styles=PLACEHOLDER_PORT_STYLES,
+        )
+        plan = build_decoupled_plan(forward_map, components, cfg)
+        graph = _make_graph(components, forward_map, cfg, repo_root)
+
+        broadcast = plan.broadcasts[0]
+        assert broadcast.egress_port_id == "p_out_infra_multi_src_test"  # sanity
+        wrapper = plan.pep_wrappers["componentSourcePolicyEnforcementPoint"]
+        assert wrapper.out_id == "sourcePep_out"  # sanity
+
+        text = graph._emit_decoupled(plan)
+
+        assert f"componentPlainSource --> {broadcast.egress_port_id}" in text, (
+            "the plain (non-PEP) source must still resolve to its raw id"
+        )
+        assert f"{wrapper.out_id} --> {broadcast.egress_port_id}" in text, (
+            "the PEP-wrapped source, sharing the same broadcast, must independently "
+            "resolve through its own _out port"
+        )
+        assert f"componentSourcePolicyEnforcementPoint --> {broadcast.egress_port_id}" not in text, (
+            "the raw PEP id must never appear as a source->egress edge"
         )
 
 
@@ -2320,4 +2964,41 @@ RED-phase notes for the code-reviewer (task 2.3):
   `AttributeError` reason as the rest of the file, EXCEPT
   `test_emitted_band_links_never_span_two_roots` (H2 fix to an existing test, same RED
   character as before) -- none of the new tests are green-today regression pins.
+
+Adversarial code-critic follow-up, four confirmed post-Phase-2 defects (`_emit_
+decoupled()` now implemented; these tests are RED against that real implementation,
+not the earlier no-such-method RED phase):
+- Fix 1 `TestGetEmissionConfigAccessor` is unaffected; Fix 1 itself lives in
+  `TestSourceEgressResolvesThroughPepWrapper` -- a PEP-wrapped broadcast source draws
+  its source->egress edge from the raw component id instead of the wrapper's `_out`
+  port. 4 tests: 3 RED (live-corpus `app + agent egress` two-PEP-source case,
+  `tool results` single-PEP-source case, a synthetic mixed PEP/plain-source unit
+  pin); 1 GREEN-today regression pin (`identity & authz`'s two non-PEP sources --
+  proves the defect is PEP-source-resolution specific, not multi-source handling in
+  general, which was already correct).
+- Fix 2 `TestPlanWarningsSurfaced` -- `plan.warnings` (D7 guard output) is built but
+  never surfaced by `_emit_decoupled()`. 3 tests: 2 RED (logged via `logger.warning`;
+  surfaced as a `%%` header comment, mirroring the existing S8-diagnostics
+  precedent); 1 GREEN-today (warnings must not alter drawn structure -- trivially
+  true today since nothing surfaces yet, remains true as a design guard once fixed).
+- Fix 3 `TestSelfCheckCatchesGenuineEmitterDefects` -- S2/S5 recompute from the same
+  IR fields that built the plan, so they cannot fire against a genuine emitter
+  defect, only hand-corrupted test IR. 3 RED tests, each simulating "a genuine
+  emitter defect" by monkeypatching one of `_emit_decoupled()`'s own step methods
+  (impossible to construct via IR corruption alone, since IR corruption is exactly
+  what the existing tautological checks already catch): a dropped ingress-port
+  declaration (text-derived S2), a cross-wired ingress->landing edge (closes the
+  critic's named gap directly), and a source->egress edge pointing at the wrong
+  egress port id (bullet 3, ties to Fix 1).
+- Fix 4 `TestGetEmissionConfigAccessor::test_malformed_concern_entry_bad_edge_tuple_arity_defaults_to_flat`
+  -- a `concerns[n].edges` entry with the wrong tuple arity (3 or 1 elements instead
+  of `[src, tgt]`) is accepted without validation today and crashes later, deep in
+  `decouple.py`, with a raw `ValueError` instead of degrading gracefully. 2 RED cases
+  (parametrized), matching the existing malformed-aspect-entry precedent (whole
+  block degrades to `flat`).
+
+Total: 12 new tests (10 RED, 2 GREEN-today regression/design pins) across the four
+fixes. Constraint honored throughout: no fix implemented, `decouple.py` untouched
+(Fix 1 confirmed resolvable entirely via `component_graph.py`'s `plan.pep_wrappers`
+lookups, the same pattern `Arm.landing_id` already uses on the target side).
 """
