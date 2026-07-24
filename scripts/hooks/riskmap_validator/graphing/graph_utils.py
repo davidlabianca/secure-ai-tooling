@@ -44,6 +44,21 @@ def _get_schema_categories() -> set[str]:
     return _schema_categories_cache
 
 
+def _validated_edge(edge: Any) -> tuple[str, str]:
+    """
+    Validate one `emission.concerns[*].edges` entry as a 2-element `[src, tgt]` pair.
+
+    Raises `ValueError` on anything else (wrong-arity list/tuple, or a bare
+    string -- `tuple("componentA")` would otherwise silently succeed, producing
+    a per-character tuple rather than raising). The caller's existing
+    `except (KeyError, TypeError, ValueError)` degrades the whole `emission`
+    block to `flat` on this, matching the malformed-aspect-entry precedent.
+    """
+    if isinstance(edge, str) or not isinstance(edge, (list, tuple)) or len(edge) != 2:
+        raise ValueError(f"expected a 2-element [src, tgt] edge, got {edge!r}")
+    return tuple(edge)
+
+
 class MermaidConfigLoader:
     """
     Loads Mermaid styling configuration from YAML files with caching and fallbacks.
@@ -501,7 +516,10 @@ class MermaidConfigLoader:
                 for entry in raw.get("aspects", [])
             )
             concerns = tuple(
-                ConcernDecl(label=entry["label"], edges=tuple(tuple(edge) for edge in entry.get("edges", [])))
+                ConcernDecl(
+                    label=entry["label"],
+                    edges=tuple(_validated_edge(edge) for edge in entry.get("edges", [])),
+                )
                 for entry in raw.get("concerns", [])
             )
             port_styles = raw.get("portStyles")
