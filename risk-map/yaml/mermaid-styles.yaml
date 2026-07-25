@@ -139,11 +139,16 @@ graphTypes:
         - label: 'tool results'
           edges:
             - [componentToolNetworkPolicyEnforcementPoint, componentAgentToolTransport]
-      # Style strings for decoupled-mode channel ports and PEP wrappers (D3).
+      # Style strings for decoupled-mode channel ports, PEP wrappers, and the
+      # lifted-aspect marker (D3).
       portStyles:
         port: 'fill:#fff5f5,stroke:#c0392b,stroke-width:1.5px,stroke-dasharray:4 3'
         pepport: 'fill:#eef7ff,stroke:#2c3e83,stroke-width:1.5px,stroke-dasharray:4 3'
         pepWrapOutline: 'fill:none,stroke:#2c3e83,stroke-width:2px,stroke-dasharray:2 2'
+        # Dashed-border marker for a lifted aspect node (D3/D4): amber, distinct
+        # from the red port and blue pepport/pepWrapOutline hues, reusing the
+        # same stroke-dasharray convention.
+        aspectStyle: 'fill:#fdf6e3,stroke:#b58900,stroke-width:1.5px,stroke-dasharray:4 3'
 
   # ControlGraph configuration
   control:

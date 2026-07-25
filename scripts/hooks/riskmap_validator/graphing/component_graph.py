@@ -319,18 +319,22 @@ class ComponentGraph(BaseGraph):
 
     def _decoupled_classdefs(self, port_styles: dict[str, str]) -> list[str]:
         """
-        Step 3: `classDef port`/`classDef pepport`, config-driven and
-        position-fixed -- emitted whenever the config supplies the corresponding
-        style, independent of whether this particular plan uses any port/pepport
-        node (mirrors the flat emitter's always-emit-the-full-style-block
-        convention). A missing key here is caught by S6 if the plan actually
-        needs it.
+        Step 3: `classDef port`/`classDef pepport`/`classDef aspectStyle`,
+        config-driven and position-fixed -- emitted whenever the config supplies
+        the corresponding style, independent of whether this particular plan
+        uses any port/pepport/aspect node (mirrors the flat emitter's always-
+        emit-the-full-style-block convention). A missing key here is caught by
+        S6 if the plan actually needs it (port/pepport only -- S6 deliberately
+        does not gain an aspectStyle clause, see `TestAspectVisualMarker`'s
+        docstring).
         """
         lines: list[str] = []
         if port := port_styles.get("port"):
             lines.append(f"    classDef port {port}")
         if pepport := port_styles.get("pepport"):
             lines.append(f"    classDef pepport {pepport}")
+        if aspect_style := port_styles.get("aspectStyle"):
+            lines.append(f"    classDef aspectStyle {aspect_style}")
         return lines
 
     def _decoupled_cluster_subgraphs(self, plan: DecoupledPlan, port_styles: dict[str, str]) -> list[str]:
@@ -376,22 +380,40 @@ class ComponentGraph(BaseGraph):
                 block_display = self._get_category_display_name(block.id)
                 lines.append(f'    subgraph {block.id} ["{block_display}"]')
                 for member_id in sorted(block.members):
-                    lines.extend(self._decoupled_member_lines(member_id, plan, indent="        "))
+                    lines.extend(self._decoupled_member_lines(member_id, plan, port_styles, indent="        "))
                 lines.append("    end")
 
             for member_id in cluster.members:
-                lines.extend(self._decoupled_member_lines(member_id, plan, indent="    "))
+                lines.extend(self._decoupled_member_lines(member_id, plan, port_styles, indent="    "))
 
             lines.append("end")
             lines.append("")
 
         return lines
 
-    def _decoupled_member_lines(self, member_id: str, plan: DecoupledPlan, indent: str) -> list[str]:
-        """A cluster/block member: a PEP wrap subgraph, or a plain `id[title]` node line."""
+    def _decoupled_member_lines(
+        self, member_id: str, plan: DecoupledPlan, port_styles: dict[str, str], indent: str
+    ) -> list[str]:
+        """
+        A cluster/block member: a PEP wrap subgraph, or a plain `id[title]` node line.
+
+        A lifted aspect (D3/D4) gets a visual marker -- a second label line
+        stating its live lifted in-edge count and the `:::aspectStyle` class --
+        but only when `aspectStyle` is configured. Without it, the node falls
+        back to the plain declaration: this class's presence/absence is the sole
+        gate, so a config that omits it never leaves an orphaned `:::aspectStyle`
+        usage with no backing `classDef` (mirrors the `port`/`pepport` graceful-
+        degradation convention).
+        """
         if member_id in plan.pep_wrappers:
             return self._decoupled_pep_wrap_lines(plan.pep_wrappers[member_id], indent)
         title = self.components[member_id].title
+        aspect_style = port_styles.get("aspectStyle")
+        if aspect_style:
+            for lifted in plan.lifted_aspects:
+                if lifted.aspect_id == member_id:
+                    count = len(lifted.edges)
+                    return [f"{indent}{member_id}[{title}<br/>{count} writes lifted]:::aspectStyle"]
         return [f"{indent}{member_id}[{title}]"]
 
     def _decoupled_pep_wrap_lines(self, wrapper: PepWrapper, indent: str) -> list[str]:
