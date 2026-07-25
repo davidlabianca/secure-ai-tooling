@@ -624,6 +624,10 @@
         "pepWrapOutline": {
           "type": "string",
           "description": "style for a PEP wrapper's outline subgraph"
+        },
+        "aspectStyle": {
+          "type": "string",
+          "description": "classDef style for a lifted aspect node's visual marker (D3/D4)"
         }
       }
     },
