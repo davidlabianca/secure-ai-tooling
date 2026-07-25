@@ -1143,6 +1143,77 @@ class TestBandsAndBlocks:
         assert isinstance(block.exit_skips, (set, frozenset))
         assert "componentFeederOnly" in block.pure_feeders
 
+    def test_multiple_egress_ports_sharing_a_root_are_never_chained(self):
+        """
+        Given: two distinct broadcasts sharing the same src_root (two egress ports in
+        one cluster)
+        When: build_decoupled_plan runs
+        Then: `band_links` contains no pair linking the two egress ports together.
+
+        ADR-036 D1's "band ports are not chained together with invisible ordering
+        links" revision: a band's own subgraph nesting is what pins its ports to the
+        container's edge (ELK's compound-node contiguity constraint) -- chaining the
+        ports with `~~~` links was found to actively cause horizontal sprawl (ELK's
+        `INCLUDE_CHILDREN` hierarchy handling overrides the nested subgraph's own
+        layout direction whenever a boundary-crossing edge, which every port carries
+        by definition, touches it) and is removed entirely. RED against the current
+        `_build_band_links`, which still chains every root's egress ports together.
+        """
+        components = {
+            "componentInfraA": _node(INFRA, to_edges=["componentModelA"]),
+            "componentInfraB": _node(INFRA, to_edges=["componentModelB"]),
+            "componentModelA": _node(MODEL),
+            "componentModelB": _node(MODEL),
+        }
+        cfg = EmissionConfig(
+            mode="decoupled",
+            concerns=(
+                ConcernDecl(label="concern one", edges=(("componentInfraA", "componentModelA"),)),
+                ConcernDecl(label="concern two", edges=(("componentInfraB", "componentModelB"),)),
+            ),
+        )
+        plan = build_decoupled_plan(_forward_map(components), components, cfg)
+        egress_ports = {b.egress_port_id for b in plan.broadcasts}
+        assert len(egress_ports) == 2  # sanity: genuinely two distinct egress ports, same root
+        for a, b in plan.band_links:
+            assert not (a in egress_ports and b in egress_ports), (
+                f"egress ports {a!r}/{b!r} are chained together in band_links; port-to-port "
+                "chaining is removed by the ADR-036 D1 band-ports-not-chained revision"
+            )
+
+    def test_multiple_ingress_ports_sharing_a_root_are_never_chained(self):
+        """
+        Given: a channel with 3 distinct targets landing in the same root (reuses the
+        `TestArmSplitting.test_multi_target_channel_splits_one_arm_per_target_no_
+        frequency_bias` fixture, which produces exactly 3 ingress ports all in MODEL)
+        When: build_decoupled_plan runs
+        Then: `band_links` contains no pair linking any two of the resulting ingress
+        ports together -- the same D1 revision as the egress case above, applied to
+        the ingress side.
+        """
+        components = {
+            "componentInfraHub": _node(INFRA, to_edges=["componentModelMinorA", "componentModelMinorB"]),
+            "componentModelDominant": _node(MODEL),
+            "componentModelMinorA": _node(MODEL),
+            "componentModelMinorB": _node(MODEL),
+        }
+        for i in range(5):
+            components[f"componentInfraFeeder{i}"] = _node(INFRA, to_edges=["componentModelDominant"])
+        edges = [(f"componentInfraFeeder{i}", "componentModelDominant") for i in range(5)]
+        edges += [
+            ("componentInfraHub", "componentModelMinorA"),
+            ("componentInfraHub", "componentModelMinorB"),
+        ]
+        cfg = EmissionConfig(mode="decoupled", concerns=(ConcernDecl(label="fanout", edges=tuple(edges)),))
+        plan = build_decoupled_plan(_forward_map(components), components, cfg)
+        ingress_ports = {arm.port_id for c in plan.broadcasts[0].channels for arm in c.arms}
+        assert len(ingress_ports) == 3  # sanity: genuinely three distinct ingress ports, same root
+        for a, b in plan.band_links:
+            assert not (a in ingress_ports and b in ingress_ports), (
+                f"ingress ports {a!r}/{b!r} are chained together in band_links; port-to-port "
+                "chaining is removed by the ADR-036 D1 band-ports-not-chained revision"
+            )
+
 
 # ============================================================================
 # 11. Live-corpus inventory (plan §C)
@@ -1332,11 +1403,50 @@ class TestLiveCorpusInventory:
         assert frozenset({"componentModelServing", "componentTheModel"}) in collapsed
         assert frozenset({"componentTools", "componentToolServer"}) in collapsed
 
+    def test_band_links_are_block_entry_exit_pairs_only_no_port_chains(self, live_plan):
+        """
+        ADR-036 D1 revision ("Band ports are not chained together with invisible
+        ordering links"): a band's own subgraph nesting is what pins its ports to the
+        container's edge (ELK's compound-node contiguity constraint), not a chain of
+        `~~~` links across the ports themselves -- a hands-on render-verification pass
+        found the chain links actively caused horizontal sprawl (every port carries a
+        boundary-crossing edge, which makes ELK stamp `INCLUDE_CHILDREN` hierarchy
+        handling on it, silently overriding the nested subgraph's own layout
+        direction). Only a block's entry->exit pair (one link, two real component
+        nodes) is small enough that the same failure mode does not apply, and is
+        retained.
+
+        This is the corpus-scale regression guard: RED against the current
+        `_build_band_links`, which still produces 28 band links in the live corpus --
+        24 port-to-port chain links (each cluster's egress ports chained together,
+        each cluster's ingress ports chained together) plus the 4 block entry/exit
+        pairs (Orchestration, Application Core, Agent, Tool Input/Output Handling).
+        Pins the corrected, block-only count (4) so a future change cannot silently
+        reintroduce port chaining without this test catching it.
+        """
+        port_ids = {b.egress_port_id for b in live_plan.broadcasts}
+        port_ids |= {arm.port_id for b in live_plan.broadcasts for c in b.channels for arm in c.arms}
+
+        for a, b in live_plan.band_links:
+            assert a not in port_ids and b not in port_ids, (
+                f"band link ({a}, {b}) chains a port id -- port-to-port chaining is removed "
+                "by the ADR-036 D1 band-ports-not-chained revision"
+            )
+
+        expected_block_links = {
+            (block.entry_id, block.exit_id)
+            for cluster in live_plan.clusters.values()
+            for block in cluster.blocks.values()
+            if block.entry_id is not None and block.exit_id is not None
+        }
+        assert set(live_plan.band_links) == expected_block_links
+        assert len(live_plan.band_links) == 4
+
 
 """
 Test Summary
 ============
-Total test functions: 63 (across 17 test classes + 3 pytest fixtures used as synthetic
+Total test functions: 66 (across 17 test classes + 3 pytest fixtures used as synthetic
 corpora)
 
 Coverage areas:
@@ -1354,8 +1464,13 @@ Coverage areas:
   cross pair 4-ports-no-collapse, no-intra-in-edges-still-splits).
 - PEP wrap/retarget/collapse ordering (fixture b): 5 tests.
 - Aspect + block-orphan guard interaction (fixture c): 3 tests.
-- Bands/blocks (moderate depth): 3 tests.
-- Live-corpus inventory (plan §C, independently re-verified numbers): 9 tests.
+- Bands/blocks (moderate depth): 5 tests (entry/exit detection, no-entry/exit,
+  pure-feeders/exit-skips, plus two ADR-036 D1 band-ports-not-chained regression
+  tests -- multi-egress-port and multi-ingress-port fixtures proving `band_links`
+  never chains two ports sharing a root; RED against the current `_build_band_links`).
+- Live-corpus inventory (plan §C, independently re-verified numbers): 10 tests
+  (includes one ADR-036 D1 regression guard pinning `band_links` to exactly the 4
+  block entry/exit pairs, zero port-to-port chain links -- RED today).
 
 Notes for the code-reviewer (task 1.3):
 - No landing-selection test exists anywhere in this file (R1/R2/R4 checked).

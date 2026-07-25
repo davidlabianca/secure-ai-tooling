@@ -100,8 +100,10 @@ Task 2.1 (emitter):
     line-format contract, derived from the plan object, not hardcoded); undrawn hop
     list (literal ADR D6 mockup reproduction, order-independent -- see inline note on
     why channel order itself is not pinned).
- 4. `TestBandLinksNeverSpanRoots` -- `plan.band_links` (already true, Phase 1) and the
-    emitted `~~~` text.
+ 4. `TestBandLinksNeverSpanRoots` -- `plan.band_links` and the emitted `~~~` text never
+    span two roots; ADR-036 D1's band-ports-not-chained revision additionally requires
+    that no band link (IR or emitted) ever chains two port ids together -- only a
+    block's entry->exit pair survives (RED against the current `_build_band_links`).
  5. `TestStyleClassDefPassthrough` -- category styles verbatim; port/pepport classDefs;
     pepWrapOutline; band `fill:none,stroke:none`.
  6. `TestOutputFormats` -- `.md` fence and raw (`mermaid`/`mmd`/anything-else) formats.
@@ -612,6 +614,24 @@ def _block_fixture_cfg() -> EmissionConfig:
     return EmissionConfig(mode="decoupled", port_styles=PLACEHOLDER_PORT_STYLES)
 
 
+def _small_synthetic_components_with_block() -> dict[str, ComponentNode]:
+    """
+    `_small_synthetic_components()` extended with `_block_fixture_components()`'s
+    Application-cluster block (entry -> middle -> exit, no cross edges of its own).
+
+    ADR-036 D1's band-ports-not-chained revision removes port-to-port `~~~` chaining
+    entirely, and `_small_synthetic_components()` alone has no subcategory blocks --
+    so, post-revision, that base fixture emits ZERO `~~~` band links at all. A block's
+    entry->exit pair is the only kind of band link that survives the revision, so
+    `TestOutputOrderContract`'s Step 7 marker needs a block present to have anything
+    to find. Used only by that one test; every other test in this suite that calls
+    `_small_synthetic_components()` directly is unaffected by this fixture's existence.
+    """
+    components = dict(_small_synthetic_components())
+    components.update(_block_fixture_components())
+    return components
+
+
 def _pep_landing_fixture_components() -> dict[str, ComponentNode]:
     """
     High-severity composition-gap fixture (coverage-critic re-check, round 2): a
@@ -940,13 +960,17 @@ class TestGetEmissionConfigAccessor:
 class TestOutputOrderContract:
     """
     All 8 fixed-order emission steps must appear, in order, in the built Mermaid text.
-    Uses the small synthetic fixture (`_small_synthetic_components`/`_small_synthetic_cfg`)
-    so every marker below is a known, hand-verified quantity rather than a live-corpus
-    derivation.
+    Uses the small synthetic fixture (`_small_synthetic_components`/`_small_synthetic_cfg`),
+    extended with one block (`_small_synthetic_components_with_block()`) so Step 7 has
+    a genuine `~~~` marker to find -- ADR-036 D1's band-ports-not-chained revision
+    means the base fixture alone (no subcategory blocks) emits zero `~~~` lines,
+    since port-to-port chaining is removed and only a block's entry->exit pair
+    survives -- so every marker below is a known, hand-verified quantity rather than a
+    live-corpus derivation.
     """
 
     def test_all_eight_steps_appear_in_the_fixed_relative_order(self, repo_root: Path):
-        components = _small_synthetic_components()
+        components = _small_synthetic_components_with_block()
         forward_map = _forward_map(components)
         cfg = _small_synthetic_cfg()
         plan = build_decoupled_plan(forward_map, components, cfg)
@@ -955,6 +979,7 @@ class TestOutputOrderContract:
         text = graph._emit_decoupled(plan)
 
         broadcast = plan.broadcasts[0]  # the sole "runtime hosting" broadcast
+        block = plan.clusters[APP].blocks["componentsAppTestBlock"]
 
         # Step 1: frontmatter + graph LR preamble.
         marker_1 = "graph LR"
@@ -970,9 +995,12 @@ class TestOutputOrderContract:
         marker_5 = "componentAlpha --> componentBeta"
         # Step 6: source->egress edge.
         marker_6 = f"componentRuntimeHosting --> {broadcast.egress_port_id}"
-        # Step 7: invisible band link (Application/ReasoningCore ingress ports, the
-        # only cluster in this fixture with >= 2 same-root ports to link).
-        marker_7 = "~~~"
+        # Step 7: invisible band link -- ADR-036 D1's band-ports-not-chained revision
+        # means the only kind of `~~~` link left is a block's entry->exit pair (the
+        # Application-cluster block added by `_small_synthetic_components_with_block()`);
+        # port-to-port chaining across the Application/ReasoningCore ingress ports is
+        # removed entirely, so this marker is no longer a bare "~~~" lookup.
+        marker_7 = f"{block.entry_id} ~~~ {block.exit_id}"
         # Step 8: category style line, verbatim flat-path convention.
         marker_8 = "style componentsInfrastructure fill:"
 
@@ -1098,40 +1126,59 @@ class TestHeaderCommentFormats:
 class TestBandLinksNeverSpanRoots:
     def test_plan_band_links_never_span_two_roots(self, repo_root: Path):
         """
-        Already guaranteed at the IR level by `decouple.py`'s `_build_band_links`
-        (Phase 1) -- included here as an explicit, direct regression pin on the exact
-        data the emitter consumes, not a RED test in itself.
+        Root-scoping already guaranteed at the IR level by `decouple.py`'s
+        `_build_band_links` -- included here as an explicit, direct regression pin on
+        the exact data the emitter consumes.
+
+        ADR-036 D1 revision ("Band ports are not chained together with invisible
+        ordering links"): additionally asserts that no band link touches a port id at
+        all. A band's own subgraph nesting is what pins its ports to the container's
+        edge (ELK's compound-node contiguity constraint) -- chaining the ports
+        together with `~~~` links was found to actively cause horizontal sprawl and is
+        removed entirely; only a block's entry->exit pair (one link, two real
+        component nodes) survives. RED against the current `_build_band_links`, which
+        still chains each cluster's egress ports together and each cluster's ingress
+        ports together (24 port-to-port links in the live corpus).
         """
         components, forward_map = _live_corpus(repo_root)
         plan = build_decoupled_plan(forward_map, components, _live_emission_config())
         port_root = _port_root_map(plan)
+
+        port_ids = {b.egress_port_id for b in plan.broadcasts}
+        port_ids |= {arm.port_id for b in plan.broadcasts for c in b.channels for arm in c.arms}
+
         for a, b in plan.band_links:
             root_a = port_root.get(a)
             root_b = port_root.get(b)
             if root_a is not None and root_b is not None:
                 assert root_a == root_b, f"band link ({a}, {b}) spans roots {root_a}/{root_b}"
+            assert a not in port_ids and b not in port_ids, (
+                f"band link ({a}, {b}) is a port-to-port chain link; ADR-036 D1's "
+                "band-ports-not-chained revision removes port chaining entirely -- only "
+                "block entry/exit pairs are retained"
+            )
 
     def test_emitted_band_links_never_span_two_roots(self, repo_root: Path):
         """
         RED: exercises the emitted `~~~` text itself, not just the IR.
 
-        H2 coverage-gap fix. Before this fix, the loop below guarded every lookup on
-        `port_root.get(...) is not None`, silently SKIPPING any `~~~` line whose
-        endpoint didn't resolve -- and since the old `_port_root_map` only mapped
-        broadcast ports (never block entry/exit ids), that meant every block-level
-        `~~~` link was silently skipped, unconditionally. This test would have passed
-        identically whether block links were correctly root-scoped, incorrectly
-        cross-root, or entirely missing from the output -- it gave zero signal on
-        block links at all, despite `TestBandLinksNeverSpanRoots`'s docstring claiming
-        to cover "the emitted `~~~` text itself".
+        H2 coverage-gap fix (retained). Before that fix, the loop below guarded every
+        lookup on `port_root.get(...) is not None`, silently SKIPPING any `~~~` line
+        whose endpoint didn't resolve -- and since the old `_port_root_map` only
+        mapped broadcast ports (never block entry/exit ids), that meant every
+        block-level `~~~` link was silently skipped, unconditionally. `_port_root_map`
+        now also maps block entry/exit ids to their cluster root, so every `~~~`
+        endpoint in the live corpus should resolve, and the lookups below are hard
+        assertions instead of a silent skip.
 
-        `_port_root_map` now also maps block entry/exit ids to their cluster root (see
-        its docstring), so every `~~~` endpoint in the live corpus (which has multiple
-        blocks with both an entry and an exit -- Orchestration, Application Core,
-        Agent, Tool Input/Output Handling) should resolve. The lookups below are now
-        hard assertions instead of a silent skip, and the test additionally proves at
-        least one block-level link was actually exercised, not just that no violation
-        happened to be found among whatever resolved.
+        ADR-036 D1 revision: additionally asserts that no emitted `~~~` line's
+        endpoint is a port id, and that the total emitted `~~~` line count equals
+        exactly the number of block entry/exit pairs -- zero port-to-port chain lines.
+        Before this revision, a chain among a band's ports could stay root-scoped (and
+        so pass the pre-existing checks) while still being exactly the sprawl-causing
+        behavior this ADR revision removes; this test now catches that case directly.
+        RED against the current `_build_band_links`, which emits ~24 port-to-port
+        `~~~` lines in the live corpus in addition to the 4 block links (28 total).
         """
         components, forward_map = _live_corpus(repo_root)
         cfg = _live_emission_config()
@@ -1152,6 +1199,9 @@ class TestBandLinksNeverSpanRoots:
         }
         assert block_link_ids, "expected at least one block with both an entry and an exit id in the live corpus"
 
+        port_ids = {b.egress_port_id for b in plan.broadcasts}
+        port_ids |= {arm.port_id for b in plan.broadcasts for c in b.channels for arm in c.arms}
+
         checked_block_link = False
         for line in tilde_lines:
             ids = [token.strip() for token in line.split("~~~")]
@@ -1163,11 +1213,19 @@ class TestBandLinksNeverSpanRoots:
                 assert root_a is not None, f"unrecognized band-link endpoint {id_a!r} in line {line!r}"
                 assert root_b is not None, f"unrecognized band-link endpoint {id_b!r} in line {line!r}"
                 assert root_a == root_b, f"emitted band link in line {line!r} spans two roots"
+                assert id_a not in port_ids and id_b not in port_ids, (
+                    f"emitted band link in line {line!r} chains a port id; ADR-036 D1's "
+                    "band-ports-not-chained revision removes port-to-port '~~~' links entirely"
+                )
                 if (id_a, id_b) in block_link_ids:
                     checked_block_link = True
 
         assert checked_block_link, (
             "expected at least one block-level entry->exit '~~~' link to be positively checked"
+        )
+        assert len(tilde_lines) == len(block_link_ids), (
+            f"expected exactly {len(block_link_ids)} '~~~' line(s) -- one per block entry/exit "
+            f"pair, zero port-to-port chain links; got {len(tilde_lines)}"
         )
 
 
@@ -3427,4 +3485,40 @@ Total: 12 new tests (10 RED, 2 GREEN-today regression/design pins) across the fo
 fixes. Constraint honored throughout: no fix implemented, `decouple.py` untouched
 (Fix 1 confirmed resolvable entirely via `component_graph.py`'s `plan.pep_wrappers`
 lookups, the same pattern `Arm.landing_id` already uses on the target side).
+
+ADR-036 D1 revision follow-up: "Band ports are not chained together with invisible
+ordering links" (port-to-port `~~~` chaining removed; only a block's entry->exit pair
+survives) -- decouple.py/component_graph.py untouched, tests only:
+- `TestBandLinksNeverSpanRoots.test_plan_band_links_never_span_two_roots` and
+  `.test_emitted_band_links_never_span_two_roots` -- both updated in place (not
+  replaced) to add an explicit "no band link ever touches a port id" assertion, on top
+  of the pre-existing root-scoping check they already made. The emitted-text test also
+  now pins the total `~~~` line count to exactly the number of block entry/exit pairs
+  (4 in the live corpus). RED against the current `_build_band_links`, which still
+  chains ~24 port-to-port links in the live corpus.
+- `TestBlockRendering.test_block_entry_exit_invisible_link_emitted` (unchanged) is the
+  narrower, still-valid block-entry/exit case this revision does NOT affect -- already
+  GREEN, kept as-is, distinguished explicitly from the removed port-chain case in the
+  two tests above.
+- `TestOutputOrderContract.test_all_eight_steps_appear_in_the_fixed_relative_order`
+  updated to use a new `_small_synthetic_components_with_block()` fixture (extends the
+  existing small-synthetic fixture with one block) and a literal
+  `f"{block.entry_id} ~~~ {block.exit_id}"` marker instead of the bare `"~~~"` lookup
+  -- the base fixture has no blocks, so once port-chaining is removed it would emit
+  zero `~~~` lines at all and this Step-7 marker would never be found. Not a RED test
+  itself (block links already exist today); a required compatibility fix so this
+  order-contract test does not spuriously break when the fix lands.
+- Two new unit-level regression tests added to `test_decouple_transform.py`'s
+  `TestBandsAndBlocks` (`test_multiple_egress_ports_sharing_a_root_are_never_chained`,
+  `test_multiple_ingress_ports_sharing_a_root_are_never_chained`) and one new
+  corpus-scale regression guard added to `TestLiveCorpusInventory`
+  (`test_band_links_are_block_entry_exit_pairs_only_no_port_chains`, pinning
+  `plan.band_links` to exactly the 4 live-corpus block entry/exit pairs). All three are
+  RED against the current `_build_band_links`.
+- `verify_plan()` (D7 self-check, `decouple.py`) and `component_graph.py`'s emission
+  self-check were checked for any assumption that counts or iterates port-to-port band
+  links specifically: neither does. `verify_plan()`'s S1/S4/S5/S7 checks never
+  reference `band_links` at all; `component_graph.py`'s S2/S3/S6 checks are keyed off
+  `plan.broadcasts`/`plan.pep_wrappers`, not `plan.band_links`. No self-check
+  dependency on the old port-chain-link behavior exists.
 """
