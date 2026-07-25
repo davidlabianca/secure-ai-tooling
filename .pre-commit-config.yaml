@@ -209,7 +209,7 @@ repos:
         name: 'risk-map: component edge consistency'
         language: system
         entry: python3 scripts/hooks/validate_riskmap.py --block
-        files: ^risk-map/yaml/(components|controls|risks)\.yaml$
+        files: ^risk-map/yaml/(components|controls|mermaid-styles|risks)\.yaml$
         pass_filenames: false
 
       - id: validate-control-risk-references
@@ -404,7 +404,7 @@ repos:
         name: 'generate: Mermaid graphs (component, control, risk)'
         language: system
         entry: python3 scripts/hooks/precommit/regenerate_graphs.py
-        files: ^risk-map/yaml/(components|controls|risks)\.yaml$
+        files: ^risk-map/yaml/(components|controls|mermaid-styles|risks)\.yaml$
         pass_filenames: true
         require_serial: true
 

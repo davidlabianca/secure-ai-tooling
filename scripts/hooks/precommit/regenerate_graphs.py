@@ -14,6 +14,7 @@ import sys
 _COMPONENTS = "risk-map/yaml/components.yaml"
 _CONTROLS = "risk-map/yaml/controls.yaml"
 _RISKS = "risk-map/yaml/risks.yaml"
+_MERMAID_STYLES = "risk-map/yaml/mermaid-styles.yaml"
 
 # Output file paths (repo-relative)
 _RISK_MAP_MD = "risk-map/diagrams/risk-map-graph.md"
@@ -46,11 +47,15 @@ def main(argv: list[str]) -> int:
     has_components = _matches(argv, _COMPONENTS)
     has_controls = _matches(argv, _CONTROLS)
     has_risks = _matches(argv, _RISKS)
+    # mermaid-styles.yaml styles ALL THREE graph types (foundation/sharedElements
+    # apply repo-wide, not just the component graph's emission block), so it is
+    # the same "widest trigger" shape as components.yaml (ADR-036 D3/D7).
+    has_mermaid_styles = _matches(argv, _MERMAID_STYLES)
 
     # Determine which graphs need to be generated based on trigger logic
-    gen_risk_map = has_components
-    gen_controls = has_components or has_controls
-    gen_risk_graph = has_components or has_controls or has_risks
+    gen_risk_map = has_components or has_mermaid_styles
+    gen_controls = has_components or has_controls or has_mermaid_styles
+    gen_risk_graph = has_components or has_controls or has_risks or has_mermaid_styles
 
     if not (gen_risk_map or gen_controls or gen_risk_graph):
         return 0

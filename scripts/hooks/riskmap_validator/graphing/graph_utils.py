@@ -59,6 +59,65 @@ def _validated_edge(edge: Any) -> tuple[str, str]:
     return tuple(edge)
 
 
+class EmissionConfigError(Exception):
+    """Raised by `_parse_emission_config()` when a present `emission` block fails to parse."""
+
+
+def _parse_emission_config(raw: Any) -> EmissionConfig:
+    """
+    Strictly parse an already-present `graphTypes.component.emission` value.
+
+    Companion to `MermaidConfigLoader.get_emission_config()`, which calls this
+    and catches `EmissionConfigError` to degrade to `EmissionConfig(mode="flat")`
+    per D3's "missing or corrupt config never yields a half-decoupled diagram."
+    Exposed as a module-level function (matching the `_get_schema_categories`
+    cross-module convention) so `validate_riskmap.py`'s emission-drift check
+    (ADR-036 D7) can distinguish "block absent" (caller never calls this),
+    "block present but malformed" (this raises), and "block present and
+    valid" (this returns) -- a distinction the degrading accessor discards by
+    design.
+
+    Args:
+        raw: the raw `graphTypes.component.emission` value. Caller is
+            responsible for confirming the key is present; a non-mapping
+            `raw` is treated as malformed here, not absent.
+
+    Returns:
+        EmissionConfig: parsed config.
+
+    Raises:
+        EmissionConfigError: `raw` is not a mapping, has an invalid `mode`,
+            or has a malformed `aspects`/`concerns`/`portStyles` entry.
+    """
+    if not isinstance(raw, dict) or raw.get("mode") not in ("flat", "decoupled"):
+        raise EmissionConfigError("graphTypes.component.emission is not a mapping or has an invalid mode")
+
+    try:
+        aspects = tuple(
+            AspectDecl(id=entry["id"], min_cross_in_degree=entry["minCrossInDegree"])
+            for entry in raw.get("aspects", [])
+        )
+        concerns = tuple(
+            ConcernDecl(
+                label=entry["label"],
+                edges=tuple(_validated_edge(edge) for edge in entry.get("edges", [])),
+            )
+            for entry in raw.get("concerns", [])
+        )
+        port_styles = raw.get("portStyles")
+        if port_styles is not None and not isinstance(port_styles, dict):
+            raise EmissionConfigError("graphTypes.component.emission.portStyles must be a mapping")
+    except (KeyError, TypeError, ValueError) as e:
+        # Malformed aspect/concern entry (missing key, wrong shape) -- surface as
+        # EmissionConfigError so get_emission_config() degrades and
+        # validate_riskmap.py's drift check can report the real cause.
+        raise EmissionConfigError(
+            f"graphTypes.component.emission has a malformed aspects/concerns entry: {e}"
+        ) from e
+
+    return EmissionConfig(mode=raw["mode"], aspects=aspects, concerns=concerns, port_styles=port_styles)
+
+
 class MermaidConfigLoader:
     """
     Loads Mermaid styling configuration from YAML files with caching and fallbacks.
@@ -491,46 +550,31 @@ class MermaidConfigLoader:
         """
         Parse `graphTypes.component.emission` into an `EmissionConfig` (ADR-036 D3).
 
-        Phase 2/Phase 3 boundary (see `test_decouple_emitter.py` module docstring for
-        the full rationale): this is a minimal, functional accessor -- mode, aspects,
-        concerns, port_styles -- not the schema-validated, emergency-defaults-hardened
-        version Phase 3 (task 3.3) delivers. `mermaid-styles.yaml` has no `emission`
-        block yet, so in production today this always returns the flat default; that
-        is expected, not a bug.
+        This is a minimal, functional accessor -- mode, aspects, concerns,
+        port_styles. Schema validation of the block's shape (ADR-036 D3's closed
+        registry surface) is `check-jsonschema`'s job, not this accessor's; this
+        function's own contract is only degrade-don't-crash on a malformed block.
 
-        Degrades to `EmissionConfig(mode="flat")` on any absent or malformed block --
-        missing block, missing/unknown `mode`, or a malformed `aspects`/`concerns`/
-        `portStyles` entry -- per D3's "missing or corrupt config never yields a
-        half-decoupled diagram."
+        Thin wrapper around `_parse_emission_config()`: degrades to
+        `EmissionConfig(mode="flat")` on an absent block or on
+        `EmissionConfigError` (any malformation -- missing/unknown `mode`, or a
+        malformed `aspects`/`concerns`/`portStyles` entry), per D3's "missing or
+        corrupt config never yields a half-decoupled diagram." This degradation
+        is silent at this layer; `validate_riskmap.py`'s emission-drift check
+        calls `_parse_emission_config()` directly to surface a
+        malformed-but-present block as a loud warning instead (ADR-036 D7).
 
         Returns:
-            EmissionConfig: parsed config, or the flat default on any parse failure.
+            EmissionConfig: parsed config, or the flat default on absence or parse failure.
         """
         raw = self._get_safe_value("graphTypes", "component", "emission", default=None)
-        if not isinstance(raw, dict) or raw.get("mode") not in ("flat", "decoupled"):
+        if raw is None:
             return EmissionConfig(mode="flat")
 
         try:
-            aspects = tuple(
-                AspectDecl(id=entry["id"], min_cross_in_degree=entry["minCrossInDegree"])
-                for entry in raw.get("aspects", [])
-            )
-            concerns = tuple(
-                ConcernDecl(
-                    label=entry["label"],
-                    edges=tuple(_validated_edge(edge) for edge in entry.get("edges", [])),
-                )
-                for entry in raw.get("concerns", [])
-            )
-            port_styles = raw.get("portStyles")
-            if port_styles is not None and not isinstance(port_styles, dict):
-                return EmissionConfig(mode="flat")
-        except (KeyError, TypeError, ValueError):
-            # Malformed aspect/concern entry (missing key, wrong shape) -- degrade to
-            # flat rather than propagate a parse error into graph generation.
+            return _parse_emission_config(raw)
+        except EmissionConfigError:
             return EmissionConfig(mode="flat")
-
-        return EmissionConfig(mode=raw["mode"], aspects=aspects, concerns=concerns, port_styles=port_styles)
 
     def get_control_edge_styles(self) -> dict:
         """

@@ -286,6 +286,86 @@ class TestParseArgs:
         assert args.debug is True
         assert args.mermaid_format is True
 
+    def test_parse_args_with_emission_mode_flat(self):
+        """
+        Test that --emission-mode flat parses to args.emission_mode == "flat".
+
+        Given: Script called with --emission-mode flat
+        When: parse_args() is called
+        Then: Returns namespace with emission_mode == "flat"
+
+        ADR-036 D3: the CLI override lever for A/B rendering during review.
+        Fails until the flag is wired -- argparse currently rejects
+        --emission-mode as unrecognized.
+        """
+        with patch("sys.argv", ["script.py", "--emission-mode", "flat"]):
+            args = parse_args()
+        assert args.emission_mode == "flat"
+
+    def test_parse_args_with_emission_mode_decoupled(self):
+        """Test that --emission-mode decoupled parses to args.emission_mode == "decoupled"."""
+        with patch("sys.argv", ["script.py", "--emission-mode", "decoupled"]):
+            args = parse_args()
+        assert args.emission_mode == "decoupled"
+
+    def test_parse_args_without_emission_mode_defaults_to_none(self):
+        """
+        Test that omitting --emission-mode leaves the override unset.
+
+        Given: argv with no --emission-mode flag
+        When: parse_args() is called
+        Then: args.emission_mode is None (not "flat" or "decoupled")
+
+        ADR-036 D3: config remains the source of truth; the flag never
+        persists. A default of "flat" (rather than None/absent) would force
+        an override on every run even when the user never asked for one,
+        silently defeating the config's own mode value. None is the only
+        default that preserves "absent = use the config as-is."
+        """
+        with patch("sys.argv", ["script.py"]):
+            args = parse_args()
+        assert getattr(args, "emission_mode", None) is None, (
+            f"args.emission_mode must default to None so absence of the flag never "
+            f"overrides the config's own mode; got {getattr(args, 'emission_mode', 'MISSING')!r}"
+        )
+
+    def test_parse_args_rejects_invalid_emission_mode_value(self, capsys):
+        """
+        Test that an unrecognized --emission-mode value is rejected by argparse.
+
+        Given: --emission-mode bogus (not "flat" or "decoupled")
+        When: parse_args() is called
+        Then: SystemExit(2), and argparse's error names 'bogus' as an invalid
+              choice (not a generic "unrecognized arguments" -- see the
+              false-positive-guard note below)
+
+        False-positive guard: any unrecognized flag also produces SystemExit(2)
+        via argparse's "unrecognized arguments" path, which would trivially
+        satisfy a bare `exc_info.value.code == 2` assertion even before
+        --emission-mode is wired at all. Asserting the error text names
+        'bogus' specifically (the `choices=` violation message, e.g. "invalid
+        choice: 'bogus'") -- and does NOT say "unrecognized arguments" --
+        forces this test to stay RED until the flag is wired with
+        choices=["flat", "decoupled"], mirroring the guard pattern used for
+        --mode lifecycle elsewhere in this file.
+        """
+        with patch("sys.argv", ["script.py", "--emission-mode", "bogus"]):
+            with pytest.raises(SystemExit) as exc_info:
+                parse_args()
+
+        assert exc_info.value.code == 2
+        captured = capsys.readouterr()
+        combined = captured.out + captured.err
+        assert "unrecognized arguments" not in combined, (
+            f"argparse rejected --emission-mode as an unrecognized FLAG rather than "
+            f"rejecting 'bogus' as an invalid CHOICE -- the flag must be wired with "
+            f"choices=['flat', 'decoupled'] before this test can validate the actual "
+            f"invalid-value rejection. stderr: {combined!r}"
+        )
+        assert "bogus" in combined, (
+            f"Expected argparse's invalid-choice error to name the offending value 'bogus'; got: {combined!r}"
+        )
+
 
 class TestMainValidation:
     """Tests for main() validation orchestration."""
@@ -1412,4 +1492,174 @@ class TestMainLifecycleMode:
         assert mode_value != "lifecycle", (
             f"Default args.mode must not be 'lifecycle'; got {mode_value!r}. "
             f"Existing default-mode behavior would otherwise be silently overridden."
+        )
+
+
+# ============================================================================
+# TestEmissionModeCLIOverride -- `--emission-mode` (ADR-036 D3, plan P8)
+# ============================================================================
+#
+# Wiring-behavior tests for the CLI override lever, complementing the
+# argparse-level parsing tests in TestParseArgs above. `--emission-mode`
+# lets a reviewer A/B-render the component graph without editing
+# mermaid-styles.yaml; per P8 "Config remains the source of truth; the flag
+# never persists."
+#
+# Judgment call (flagged for code-reviewer): P1 fixes `ComponentGraph.
+# __init__`'s signature as unchanged, and `build_graph()`/`_emit_decoupled()`
+# read emission mode ONLY via `self.config_loader.get_emission_config()`
+# (never from a constructor parameter). Given those two fixed points, the
+# override can only reach graph construction by passing an already-existing
+# `MermaidConfigLoader`-like object through ComponentGraph's existing
+# optional `config_loader=` parameter, whose `get_emission_config()` reflects
+# the override. This is not an assumption about swe's implementation
+# strategy so much as a structural consequence of the frozen signatures --
+# but the exact mechanism (subclass, wrapper, `dataclasses.replace` on a
+# copied instance, etc.) is still an implementation choice, and these tests
+# only pin the externally observable contract: whatever object ends up as
+# `config_loader=`, its `get_emission_config().mode` reflects the override
+# when one was requested.
+
+
+class TestEmissionModeCLIOverride:
+    def test_emission_mode_flag_recognized_reaches_pipeline(self, capsys):
+        """
+        False-positive guard: --emission-mode must be recognized by argparse
+        AND reach graph construction, not merely parse without crashing.
+
+        Given: --force --to-graph out.md --emission-mode decoupled
+        When: main() is called (ComponentGraph mocked)
+        Then: argparse recognizes the flag (no "unrecognized arguments" in
+              stderr) and the script exits 0
+
+        Mirrors the false-positive-guard pattern used for --mode lifecycle
+        elsewhere in this file (test_mode_lifecycle_skips_graph_generation_
+        when_to_graph_also_passed): without this assertion, an unimplemented
+        flag would make argparse itself exit before ComponentGraph is ever
+        constructed, which could otherwise mask a wiring gap in later
+        assertions.
+        """
+        file_paths = [Path("risk-map/yaml/components.yaml")]
+        graph_path = Path("output/graph.md")
+
+        with patch(
+            "sys.argv",
+            ["script.py", "--force", "--to-graph", str(graph_path), "--emission-mode", "decoupled"],
+        ):
+            with patch("validate_riskmap.get_staged_yaml_files", return_value=file_paths):
+                with patch("validate_riskmap.ComponentEdgeValidator") as mock_validator_class:
+                    with patch("validate_riskmap.ComponentGraph") as mock_graph_class:
+                        with patch("builtins.open", mock_open()):
+                            mock_validator = Mock()
+                            mock_validator.validate_file.return_value = True
+                            mock_validator.forward_map = {"A": ["B"]}
+                            mock_validator.components = {"A": Mock(), "B": Mock()}
+                            mock_validator_class.return_value = mock_validator
+
+                            mock_graph = Mock()
+                            mock_graph.to_mermaid.return_value = "graph"
+                            mock_graph_class.return_value = mock_graph
+
+                            with pytest.raises(SystemExit) as exc_info:
+                                main()
+
+        captured = capsys.readouterr()
+        assert "unrecognized arguments" not in captured.err, (
+            f"argparse rejected --emission-mode as unrecognized; the flag must be "
+            f"wired before this test can validate the override. stderr: {captured.err!r}"
+        )
+        assert exc_info.value.code == 0
+
+    def test_emission_mode_override_reaches_component_graph_config(self):
+        """
+        Given: --emission-mode decoupled, and a real MermaidConfigLoader whose
+               underlying (unmocked) file/config would otherwise say "flat"
+               (the repo default -- see MermaidConfigLoader._get_emergency_
+               defaults's graphTypes.component.emission == {"mode": "flat"})
+        When: main() is called with --to-graph set (ComponentGraph mocked)
+        Then: ComponentGraph is constructed with a config_loader whose
+              get_emission_config().mode == "decoupled" -- the override,
+              not the file's own "flat" default
+
+        See the class docstring above for why config_loader is the only
+        structurally possible injection point given the frozen
+        ComponentGraph.__init__ / build_graph() contract.
+        """
+        file_paths = [Path("risk-map/yaml/components.yaml")]
+        graph_path = Path("output/graph.md")
+
+        argv = ["script.py", "--force", "--to-graph", str(graph_path), "--emission-mode", "decoupled"]
+        with patch("sys.argv", argv):
+            with patch("validate_riskmap.get_staged_yaml_files", return_value=file_paths):
+                with patch("validate_riskmap.ComponentEdgeValidator") as mock_validator_class:
+                    with patch("validate_riskmap.ComponentGraph") as mock_graph_class:
+                        with patch("builtins.open", mock_open()):
+                            mock_validator = Mock()
+                            mock_validator.validate_file.return_value = True
+                            mock_validator.forward_map = {"A": ["B"]}
+                            mock_validator.components = {"A": Mock(), "B": Mock()}
+                            mock_validator_class.return_value = mock_validator
+
+                            mock_graph = Mock()
+                            mock_graph.to_mermaid.return_value = "graph"
+                            mock_graph_class.return_value = mock_graph
+
+                            with pytest.raises(SystemExit) as exc_info:
+                                main()
+
+        assert exc_info.value.code == 0
+        assert mock_graph_class.call_count == 1, "ComponentGraph must be constructed exactly once"
+        _, kwargs = mock_graph_class.call_args
+        config_loader = kwargs.get("config_loader")
+        assert config_loader is not None, (
+            "Expected ComponentGraph to be constructed with an explicit config_loader= "
+            "reflecting the --emission-mode override (the only injection point given "
+            "ComponentGraph.__init__'s frozen signature); got no config_loader kwarg at "
+            f"all. Full call: args={mock_graph_class.call_args}"
+        )
+        assert config_loader.get_emission_config().mode == "decoupled", (
+            f"Expected the config_loader passed to ComponentGraph to report mode "
+            f"'decoupled' (the --emission-mode override), got "
+            f"{config_loader.get_emission_config().mode!r}"
+        )
+
+    def test_absent_emission_mode_flag_preserves_existing_call_signature(self):
+        """
+        Given: no --emission-mode flag (existing behavior)
+        When: main() is called with --to-graph set (ComponentGraph mocked)
+        Then: ComponentGraph is still constructed as
+              ComponentGraph(forward_map, components, debug=False) -- the
+              exact call signature test_main_generates_component_graph_when_
+              to_graph_specified already pins
+
+        Regression guard, not a RED-phase test: this already passes today
+        (nothing about the flag's absence changes existing behavior) and
+        must keep passing after --emission-mode is wired in -- proving the
+        override mechanism is opt-in only and never leaks a config_loader
+        override into the default (no-flag) path.
+        """
+        file_paths = [Path("risk-map/yaml/components.yaml")]
+        graph_path = Path("output/graph.md")
+
+        with patch("sys.argv", ["script.py", "--force", "--to-graph", str(graph_path)]):
+            with patch("validate_riskmap.get_staged_yaml_files", return_value=file_paths):
+                with patch("validate_riskmap.ComponentEdgeValidator") as mock_validator_class:
+                    with patch("validate_riskmap.ComponentGraph") as mock_graph_class:
+                        with patch("builtins.open", mock_open()):
+                            mock_validator = Mock()
+                            mock_validator.validate_file.return_value = True
+                            mock_validator.forward_map = {"A": ["B"]}
+                            mock_validator.components = {"A": Mock(), "B": Mock()}
+                            mock_validator_class.return_value = mock_validator
+
+                            mock_graph = Mock()
+                            mock_graph.to_mermaid.return_value = "graph"
+                            mock_graph_class.return_value = mock_graph
+
+                            with pytest.raises(SystemExit) as exc_info:
+                                main()
+
+        assert exc_info.value.code == 0
+        mock_graph_class.assert_called_once_with(
+            mock_validator.forward_map, mock_validator.components, debug=False
         )

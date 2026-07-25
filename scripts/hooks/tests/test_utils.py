@@ -52,6 +52,9 @@ Test Coverage:
    - Non-Path target_file handling
    - subprocess.CalledProcessError handling
    - FileNotFoundError (git not installed)
+   - mermaid-styles.yaml staged alone is picked up (ADR-036 Phase 3 P7)
+   - mermaid-styles.yaml staged together with components.yaml
+   - mermaid-styles.yaml is excluded when not staged (over-broadening guard)
 
 Coverage Target: 95%+ for utils.py (up from 47%)
 """
@@ -1433,6 +1436,81 @@ class TestGetStagedYAMLFiles:
         assert len(result) == 2
         assert Path("risk-map/yaml/components.yaml") in result
         assert Path("risk-map/yaml/controls.yaml") in result
+
+    @patch("riskmap_validator.utils.subprocess.run")
+    def test_get_staged_files_with_mermaid_styles_only_returns_mermaid_styles(self, mock_run):
+        """
+        Test that a commit staging only mermaid-styles.yaml is picked up.
+
+        Given: mermaid-styles.yaml staged alone (no components/controls/risks)
+        When: get_staged_yaml_files() is called
+        Then: Returns [Path("risk-map/yaml/mermaid-styles.yaml")] -- a
+              non-empty result
+
+        RED-PHASE: mermaid-styles.yaml is not currently in target_files
+        (utils.py get_staged_yaml_files, lines 221-225), so today this
+        returns [] and validate_riskmap.py (invoked by regenerate_graphs.py
+        without --force) exits early before ever reaching --to-graph.
+        This is the ADR-036 Phase 3 P7 stale-diagram trigger-coverage bug:
+        staging only mermaid-styles.yaml silently fails to regenerate
+        diagrams even though the pre-commit hook's files: regex is fixed.
+        """
+        mock_run.return_value = Mock(stdout="risk-map/yaml/mermaid-styles.yaml\n")
+
+        with patch("pathlib.Path.exists", return_value=True):
+            result = get_staged_yaml_files(target_file=None, force_check=False)
+
+        assert len(result) == 1, f"Expected exactly one staged file; got {result}"
+        assert Path("risk-map/yaml/mermaid-styles.yaml") in result
+
+    @patch("riskmap_validator.utils.subprocess.run")
+    def test_get_staged_files_with_mermaid_styles_and_components_returns_both(self, mock_run):
+        """
+        Test that mermaid-styles.yaml staged together with components.yaml
+        returns both files.
+
+        Given: mermaid-styles.yaml AND components.yaml staged together
+        When: get_staged_yaml_files() is called
+        Then: Returns both files. Order is not asserted (matches the
+              existing multi-file convention in
+              test_get_staged_files_with_no_target_returns_staged_files
+              above, which also asserts membership rather than a fixed
+              index/order).
+
+        RED-PHASE: same underlying cause as the mermaid-styles-only test
+        above -- mermaid-styles.yaml is not yet in target_files.
+        """
+        mock_run.return_value = Mock(stdout="risk-map/yaml/mermaid-styles.yaml\nrisk-map/yaml/components.yaml\n")
+
+        with patch("pathlib.Path.exists", return_value=True):
+            result = get_staged_yaml_files(target_file=None, force_check=False)
+
+        assert len(result) == 2, f"Expected both staged files; got {result}"
+        assert Path("risk-map/yaml/mermaid-styles.yaml") in result
+        assert Path("risk-map/yaml/components.yaml") in result
+
+    @patch("riskmap_validator.utils.subprocess.run")
+    def test_get_staged_files_excludes_mermaid_styles_when_not_staged(self, mock_run):
+        """
+        Test that an unrelated staged file does not spuriously pull in
+        mermaid-styles.yaml.
+
+        Given: only an unrelated file (personas.yaml, not a target_files
+               entry) is staged; mermaid-styles.yaml is untouched
+        When: get_staged_yaml_files() is called
+        Then: Returns [] -- over-broadening regression guard, proving that
+              adding mermaid-styles.yaml to target_files does not cause
+              unrelated staged files to spuriously match.
+
+        Regression guard, not RED-phase: this passes both before and after
+        the ADR-036 Phase 3 P7 fix.
+        """
+        mock_run.return_value = Mock(stdout="risk-map/yaml/personas.yaml\n")
+
+        with patch("pathlib.Path.exists", return_value=True):
+            result = get_staged_yaml_files(target_file=None, force_check=False)
+
+        assert result == []
 
     @patch("riskmap_validator.utils.subprocess.run")
     def test_get_staged_files_with_no_staged_files_returns_empty(self, mock_run):
