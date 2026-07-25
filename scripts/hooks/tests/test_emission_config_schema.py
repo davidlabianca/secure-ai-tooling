@@ -18,6 +18,18 @@ the RED phase of task 3.1's schema-surface slice; `swe` (task 3.3) adds:
     - `definitions/portStyles` (`port`, `pepport`, `pepWrapOutline`)
     - `mode: {"enum": ["flat", "decoupled"]}`
 
+Phase 3b addition (ADR-036 D3/D4 revision, R9; plan §"Phase 3b -- Aspect visual
+marker", task 3b.1): `definitions/portStyles` gains a 4th, optional key,
+`aspectStyle` -- the dashed-border classDef a lifted aspect node's `:::aspectStyle`
+class references. `TestPortStylesAspectStyleKey` below is this slice's RED phase:
+`portStyles` is `additionalProperties: false` and has no `aspectStyle` property
+declared yet, so a `portStyles` block naming it is currently rejected, and a block
+naming a 5th, still-unrecognized key alongside a fully-valid 4-key block must stay
+rejected once `aspectStyle` lands (closed-object regression guard). Only
+`definitions/portStyles` changes for this slice -- no other emission definition, no
+`emission.aspects`/`emission.concerns` change (D4's live-count second label line is
+computed at emission time from `LiftedAspect.edges`, not declared in config).
+
 Two test classes:
 
     1. TestSchemaRoundTrip -- generic shape tests, using a SYNTHETIC emission
@@ -502,6 +514,117 @@ class TestSchemaRoundTrip:
         combined = _combined_output_excluding_path(result, yaml_path)
         assert result.returncode != 0, "An unrecognized portStyles key must be rejected"
         assert "bogusStyleKey" in combined, f"Expected the offending key named in output; got:\n{combined}"
+
+
+# ============================================================================
+# 1b. portStyles.aspectStyle -- Phase 3b / R9 revision (ADR-036 D3/D4)
+# ============================================================================
+
+
+class TestPortStylesAspectStyleKey:
+    """
+    `portStyles` gains a 4th optional key, `aspectStyle` (D3 revision, R9): the
+    dashed-border classDef style string a lifted aspect node's `:::aspectStyle`
+    class references. Deliberately a SEPARATE class from `TestSchemaRoundTrip`'s
+    existing 3-key `test_portstyles_accepts_the_three_documented_keys`/
+    `test_portstyles_rejects_an_unknown_key` pair (and from the shared
+    `_synthetic_emission_block()` helper those two tests, and others, depend on)
+    rather than folding `aspectStyle` into them -- those two pin the PRE-revision
+    3-key contract and must keep passing unchanged as their own regression guard
+    that the 3 original keys still round-trip once `aspectStyle` is added
+    alongside them, not replacing one of them.
+    """
+
+    _FOUR_KEY_PORT_STYLES = {
+        "port": "fill:#fff",
+        "pepport": "fill:#eef",
+        "pepWrapOutline": "fill:none,stroke:#339",
+        "aspectStyle": "fill:#fdf6e3,stroke:#b58900,stroke-width:1.5px,stroke-dasharray:4 3",
+    }
+
+    def test_portstyles_accepts_all_four_keys_including_aspectstyle(
+        self, tmp_path, base_styles_doc, risk_map_schemas_dir, base_uri
+    ):
+        """
+        Given: a portStyles block with all 4 documented keys (port, pepport,
+               pepWrapOutline, aspectStyle)
+        When: check-jsonschema validates the document
+        Then: exit 0
+
+        RED today: `definitions/portStyles` has no `aspectStyle` property and is
+        `additionalProperties: false`, so this is rejected regardless of the
+        other 3 keys' validity. GREEN once `aspectStyle` is added as an optional
+        property of `definitions/portStyles`.
+        """
+        doc = _with_emission(base_styles_doc, {"mode": "flat", "portStyles": self._FOUR_KEY_PORT_STYLES})
+        yaml_path = _write_doc(tmp_path, doc)
+        schema_path = risk_map_schemas_dir / "mermaid-styles.schema.json"
+
+        result = _run_check_jsonschema(schema_path, yaml_path, base_uri)
+        assert result.returncode == 0, (
+            f"Expected the 4-key portStyles block (including aspectStyle) to validate.\n"
+            f"stdout: {result.stdout}\nstderr: {result.stderr}"
+        )
+
+    def test_aspectstyle_alone_without_the_other_three_keys_validates(
+        self, tmp_path, base_styles_doc, risk_map_schemas_dir, base_uri
+    ):
+        """
+        Given: a portStyles block naming ONLY aspectStyle (no port/pepport/pepWrapOutline)
+        When: check-jsonschema validates the document
+        Then: exit 0
+
+        False-positive guard for the "valid" direction (mirrors
+        `test_minimal_emission_block_with_only_mode_validates`'s rationale): proves
+        the schema genuinely recognizes `aspectStyle` as its OWN independent
+        optional property, not merely as a bystander only accepted when the other
+        3 keys are also present.
+        """
+        doc = _with_emission(base_styles_doc, {"mode": "flat", "portStyles": {"aspectStyle": "fill:#fdf6e3"}})
+        yaml_path = _write_doc(tmp_path, doc)
+        schema_path = risk_map_schemas_dir / "mermaid-styles.schema.json"
+
+        result = _run_check_jsonschema(schema_path, yaml_path, base_uri)
+        assert result.returncode == 0, (
+            f"Expected a portStyles block naming only aspectStyle to validate.\n"
+            f"stdout: {result.stdout}\nstderr: {result.stderr}"
+        )
+
+    def test_unknown_fifth_key_alongside_a_valid_four_key_block_is_still_rejected(
+        self, tmp_path, base_styles_doc, risk_map_schemas_dir, base_uri
+    ):
+        """
+        Given: a portStyles block carrying all 4 documented keys PLUS a 5th,
+               undeclared key
+        When: check-jsonschema validates the document
+        Then: rejected, and the offending key name appears in the error output
+
+        Closed-object regression guard (task 3b.1): adding `aspectStyle` as a new
+        optional property must not accidentally widen `portStyles` into an open
+        object -- `additionalProperties: false` must still reject anything beyond
+        the 4 now-documented keys. Named-key assertion mirrors
+        `test_portstyles_rejects_an_unknown_key`'s existing false-positive guard.
+
+        RED/GREEN disposition note: GREEN today, coincidentally -- `aspectStyle`
+        itself is currently ALSO an unrecognized `portStyles` key, so
+        check-jsonschema already rejects this block and names both offending keys
+        in one error message. This stays GREEN after `aspectStyle` lands (only
+        `bogusStyleKeyPastAspectStyle` will remain unrecognized), for the intended
+        reason at that point rather than the coincidental one.
+        """
+        block = {**self._FOUR_KEY_PORT_STYLES, "bogusStyleKeyPastAspectStyle": "fill:#000"}
+        doc = _with_emission(base_styles_doc, {"mode": "flat", "portStyles": block})
+        yaml_path = _write_doc(tmp_path, doc)
+        schema_path = risk_map_schemas_dir / "mermaid-styles.schema.json"
+
+        result = _run_check_jsonschema(schema_path, yaml_path, base_uri)
+        combined = _combined_output_excluding_path(result, yaml_path)
+        assert result.returncode != 0, (
+            "A 5th unrecognized portStyles key must be rejected even alongside aspectStyle"
+        )
+        assert "bogusStyleKeyPastAspectStyle" in combined, (
+            f"Expected the specific offending key named in the error output; got:\n{combined}"
+        )
 
 
 # ============================================================================
