@@ -221,6 +221,7 @@ def get_staged_yaml_files(target_file: Path | None = None, force_check: bool = F
     target_files = [
         Path("risk-map/yaml/components.yaml"),
         Path("risk-map/yaml/controls.yaml"),
+        Path("risk-map/yaml/mermaid-styles.yaml"),
         Path("risk-map/yaml/risks.yaml"),
     ]
 

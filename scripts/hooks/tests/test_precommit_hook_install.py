@@ -248,7 +248,8 @@ class TestValidatorHookContracts:
         Then:  the regex matches
 
         The validate_riskmap.py validator reads controls.yaml as part of its
-        get_staged_yaml_files() target_files constant (utils.py:221-225). A
+        get_staged_yaml_files() target_files constant (utils.py:221-226,
+        after ADR-036 Phase 3 P7 added mermaid-styles.yaml to this list). A
         controls-only commit must trigger the hook so the validator's full
         check suite (including A4 controls-components mirror and nesting checks)
         runs. Without this match, a controls-only commit silently skips all
@@ -276,7 +277,8 @@ class TestValidatorHookContracts:
         Then:  the regex matches
 
         The validate_riskmap.py validator reads risks.yaml as part of its
-        get_staged_yaml_files() target_files constant (utils.py:221-225). A
+        get_staged_yaml_files() target_files constant (utils.py:221-226,
+        after ADR-036 Phase 3 P7 added mermaid-styles.yaml to this list). A
         risks-only commit must trigger the hook for the same reason as
         controls-only commits.
 
@@ -291,6 +293,42 @@ class TestValidatorHookContracts:
             f"risk-map/yaml/risks.yaml (issue #279: trigger must cover the "
             f"full validator read set); got: {files_regex!r}. "
             f"Expected: ^risk-map/yaml/(components|controls|risks)\\.yaml$"
+        )
+
+    def test_validate_component_edges_matches_mermaid_styles_yaml(self):
+        """
+        Test that validate-component-edges matches mermaid-styles.yaml
+        (ADR-036 Phase 3 P7 trigger widening).
+
+        Given: the validate-component-edges hook after the P7 trigger widening
+        When:  applying the hook's files: regex against
+               risk-map/yaml/mermaid-styles.yaml
+        Then:  the regex matches
+
+        mermaid-styles.yaml is read every default-mode run via
+        MermaidConfigLoader (the ADR-030 category style/ownership check,
+        validate_riskmap.py's check_category_style_and_ownership call), and
+        is one of get_staged_yaml_files()'s target_files (utils.py:221-226)
+        per the trigger-coverage-invariant policy (ADR-005 Addendum
+        2026-05-08). A mermaid-styles.yaml-only commit must trigger this
+        hook, or validate_riskmap.py (invoked without --force by
+        regenerate_graphs.py) sees an empty staged-files list and exits
+        before ever reaching --to-graph -- the ADR-036 Phase 3 P7
+        stale-diagram trigger-coverage bug.
+
+        RED-PHASE: this test fails on the current config (files: covers
+        components|controls|risks only) and passes once the trigger is
+        widened per ADR-036 Phase 3 P7.
+        """
+        hooks = _hooks_by_id("validate-component-edges")
+        assert len(hooks) == 1, "Exactly one component-edge validator hook expected"
+        files_regex = hooks[0].get("files", "")
+        assert re.search(files_regex, "risk-map/yaml/mermaid-styles.yaml"), (
+            f"validate-component-edges files regex must match "
+            f"risk-map/yaml/mermaid-styles.yaml (ADR-036 Phase 3 P7: trigger must "
+            f"cover the full get_staged_yaml_files() target_files surface); got: "
+            f"{files_regex!r}. Expected: "
+            f"^risk-map/yaml/(components|controls|mermaid-styles|risks)\\.yaml$"
         )
 
     def test_validate_component_edges_does_not_match_personas_yaml(self):
@@ -653,17 +691,25 @@ class TestPersonaSiteBuildHookContracts:
 # clear diagnostic naming the unregistered hook id.
 _LOCAL_VALIDATOR_TRIGGER_COVERAGE: dict[str, set[str] | None] = {
     # validate-component-edges: these are the fixed target files in
-    # get_staged_yaml_files() (utils.py:221-225). The default pre-commit path
+    # get_staged_yaml_files() (utils.py:221-226). The default pre-commit path
     # parses components.yaml and controls.yaml; risks.yaml is retained because
     # issue #279 explicitly preserves the legacy staged-file discovery surface
-    # so risks-only changes still exercise the validator. lifecycle-stage.yaml
-    # is covered by the dedicated validate-lifecycle-stage hook below; the
-    # default-mode belt-and-suspenders lifecycle check in validate_riskmap.py is
-    # intentionally out of this hook's trigger contract.
+    # so risks-only changes still exercise the validator. mermaid-styles.yaml
+    # was added per ADR-036 Phase 3 P7: it is genuinely read every default-mode
+    # run via MermaidConfigLoader (the ADR-030 category style/ownership check),
+    # and it is one of get_staged_yaml_files()'s target_files, so a
+    # mermaid-styles.yaml-only commit must trigger this hook or
+    # validate_riskmap.py (run without --force by regenerate_graphs.py) exits
+    # before ever reaching --to-graph -- the stale-diagram trigger-coverage bug
+    # P7 fixes. lifecycle-stage.yaml is covered by the dedicated
+    # validate-lifecycle-stage hook below; the default-mode belt-and-suspenders
+    # lifecycle check in validate_riskmap.py is intentionally out of this
+    # hook's trigger contract.
     "validate-component-edges": {
         "risk-map/yaml/components.yaml",
         "risk-map/yaml/controls.yaml",
         "risk-map/yaml/risks.yaml",
+        "risk-map/yaml/mermaid-styles.yaml",
     },
     # validate-control-risk-references: reads both YAMLs every run
     # (validate_control_risk_references.py:25-28).

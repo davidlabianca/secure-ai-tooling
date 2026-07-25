@@ -24,6 +24,7 @@ Options:
 
 import argparse
 import sys
+from dataclasses import replace
 from pathlib import Path
 
 import yaml
@@ -31,7 +32,13 @@ import yaml
 # Configuration Constants
 from riskmap_validator.config import DEFAULT_COMPONENTS_FILE
 from riskmap_validator.graphing import ComponentGraph, ControlGraph, MermaidConfigLoader, RiskGraph
-from riskmap_validator.graphing.graph_utils import MermaidStylesUnavailableError, _get_schema_categories
+from riskmap_validator.graphing.decouple import EmissionConfig, check_emission_drift
+from riskmap_validator.graphing.graph_utils import (
+    EmissionConfigError,
+    MermaidStylesUnavailableError,
+    _get_schema_categories,
+    _parse_emission_config,
+)
 from riskmap_validator.utils import get_staged_yaml_files, parse_controls_yaml, parse_risks_yaml
 from riskmap_validator.validator import (
     ComponentEdgeValidator,
@@ -40,6 +47,25 @@ from riskmap_validator.validator import (
     check_controls_components_mirror,
     check_lifecycle_stage_order_uniqueness,
 )
+
+
+class _EmissionModeOverrideConfigLoader(MermaidConfigLoader):
+    """
+    Wraps `MermaidConfigLoader` to override `graphTypes.component.emission.mode`
+    for a single run (ADR-036 D3, the `--emission-mode` CLI flag).
+
+    Every other accessor delegates to the real, loaded config unchanged; only
+    `get_emission_config().mode` reflects the override. Purely in-memory -- config
+    remains the source of truth and this never persists to mermaid-styles.yaml.
+    """
+
+    def __init__(self, override_mode: str, config_file: Path | None = None) -> None:
+        super().__init__(config_file)
+        self._override_mode = override_mode
+
+    def get_emission_config(self) -> EmissionConfig:
+        base = super().get_emission_config()
+        return replace(base, mode=self._override_mode)
 
 
 def parse_args() -> argparse.Namespace:
@@ -135,6 +161,17 @@ Exit Codes:
             "Run a specific check mode. 'lifecycle': run only the lifecycle-stage.yaml "
             "order-uniqueness check (used by validate-lifecycle-stage pre-commit hook). "
             "'default': run the full component-edges + warn-only check pipeline."
+        ),
+    )
+
+    parser.add_argument(
+        "--emission-mode",
+        choices=["flat", "decoupled"],
+        default=None,
+        help=(
+            "Override graphTypes.component.emission.mode for this run only (ADR-036 D3). "
+            "Config remains the source of truth -- the override never persists "
+            "to mermaid-styles.yaml. Omit to use the config's own mode."
         ),
     )
 
@@ -398,13 +435,76 @@ def main() -> None:
                 if args.block:
                     warn_block_triggered = True
 
-        # Unified exit for warn-only checks — fires after both checks have printed.
+        # Emission drift check (ADR-036 D7). Runs whenever
+        # graphTypes.component.emission is present in mermaid-styles.yaml, regardless
+        # of its mode -- so the aspects/concerns registry cannot silently rot while
+        # the emitter still defaults to flat. Guarded on the
+        # block's presence the same way the other warn-only checks guard on file
+        # existence: an absent emission block (any consumer's mermaid-styles.yaml
+        # that has not opted in) is a silent skip, not a warning.
+        #
+        # Uses _parse_emission_config() (strict, raises on malformation) rather
+        # than MermaidConfigLoader.get_emission_config() (which silently degrades
+        # a malformed block to an empty-registry flat config). Calling the
+        # degrading accessor here would run check_emission_drift() against the
+        # degraded empty registry and cascade one "no entry covers cross edge"
+        # warning per corpus cross edge -- all of them misleading, since the
+        # real registries exist and were merely dropped during parsing. A
+        # malformed-but-present block gets exactly one distinct warning naming
+        # the real problem instead; a validly-parsed block (however sparse)
+        # still runs the normal per-edge drift check below.
+        mermaid_styles_path = Path("risk-map/yaml/mermaid-styles.yaml")
+        if mermaid_styles_path.exists() and validator.components:
+            try:
+                with open(mermaid_styles_path, encoding="utf-8") as _fh:
+                    _styles_data = yaml.safe_load(_fh) or {}
+                _emission_raw = _styles_data.get("graphTypes", {}).get("component", {}).get("emission")
+                if _emission_raw is not None:
+                    try:
+                        emission_cfg = _parse_emission_config(_emission_raw)
+                    except EmissionConfigError:
+                        label = "❌" if args.block else "⚠️"
+                        print(f"   {label} Emission drift check found 1 issue(s):")
+                        print(
+                            "     - graphTypes.component.emission could not be parsed; "
+                            "degraded to flat -- registries could not be validated"
+                        )
+                        if args.block:
+                            warn_block_triggered = True
+                    else:
+                        emission_warnings = check_emission_drift(
+                            validator.forward_map, validator.components, emission_cfg
+                        )
+                        if emission_warnings:
+                            label = "❌" if args.block else "⚠️"
+                            print(f"   {label} Emission drift check found {len(emission_warnings)} issue(s):")
+                            for warning in emission_warnings:
+                                print(f"     - {warning}")
+                            if args.block:
+                                warn_block_triggered = True
+                        elif not args.quiet:
+                            print("✅ Emission drift check passed")
+            except SystemExit:
+                raise
+            except Exception as e:
+                if not args.quiet:
+                    print(f"   ⚠️  Emission drift check skipped: {e}")
+
+        # Unified exit for warn-only checks — fires after all four checks have printed.
         if warn_block_triggered:
             print("   ❌ Warn-only check failures promoted to errors (--block).")
             sys.exit(1)
 
         if args.to_graph:
-            graph = ComponentGraph(validator.forward_map, validator.components, debug=args.debug)
+            if args.emission_mode:
+                graph = ComponentGraph(
+                    validator.forward_map,
+                    validator.components,
+                    debug=args.debug,
+                    config_loader=_EmissionModeOverrideConfigLoader(args.emission_mode),
+                )
+            else:
+                graph = ComponentGraph(validator.forward_map, validator.components, debug=args.debug)
             try:
                 graph_output = graph.to_mermaid()
                 # Write graph to file
