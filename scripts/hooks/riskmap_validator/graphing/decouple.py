@@ -111,6 +111,29 @@ def target_short_name(component_id: str) -> str:
     return " ".join(seg.lower() for seg in segments)
 
 
+# ADR-036 D8: closed, fixed-in-code display-layer acronym set. A single
+# declared term today ("policy enforcement point" -> "PEP"); "policy decision
+# point" is deliberately excluded (see ADR-036 D8). Growing this set is a
+# reviewed edit, not a pattern a future contributor extends ad hoc.
+#
+# Word-boundary anchored on both ends: an unanchored trailing match would also
+# catch inside the plural "policy enforcement points" and wrongly collapse it
+# (to "PEPs", or "PEP" with a dangling "s") -- the plural is a different phrase
+# and must render unchanged.
+_DISPLAY_ACRONYM_RE = re.compile(r"\bpolicy enforcement point\b", re.IGNORECASE)
+
+
+def apply_display_acronyms(text: str) -> str:
+    """
+    Substitute the closed ADR-036 D8 acronym set into a display string.
+
+    Display-time only -- never call this on `slug()`, `target_short_name()`'s
+    id-derivation path, or `pep_wrap_base()`. Those feed port/id construction
+    and must stay byte-stable regardless of display-layer wording (D7).
+    """
+    return _DISPLAY_ACRONYM_RE.sub("PEP", text)
+
+
 def pep_wrap_base(component_id: str) -> str:
     """
     Derive the base string used to build a PEP wrapper's `_in`/`_out`/`_wrap` ids.
@@ -485,7 +508,9 @@ def _build_arms(
             # slug() collision note (M6): concern_slug/target_suffix collisions across
             # differently-worded labels are not checked here; see slug()'s docstring.
             port_id = f"p_in_{root_abbrev}_{concern_slug}_{target_suffix}"
-            arm_label = f"{label} → {target_short_name(target)}"
+            # ADR-036 D8: display-only substitution on the label; port_id above is
+            # computed from a separate target_short_name() call and is untouched.
+            arm_label = f"{label} → {apply_display_acronyms(target_short_name(target))}"
         else:
             # slug() collision note (M6): see slug()'s docstring -- this bare port id
             # can still collide with another concern's if the two labels slug identically.
