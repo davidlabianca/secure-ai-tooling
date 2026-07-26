@@ -323,11 +323,11 @@ class TestMermaidStylesTrigger:
     "Trigger-scope decision" note for why all three graphs (not just
     risk-map-graph) are the correct scope.
 
-    RED today: `_matches`/`main()` only know about `_COMPONENTS`/`_CONTROLS`/
-    `_RISKS` — there is no `_MERMAID_STYLES` constant and no
-    `has_mermaid_styles` dispatch variable, so `main([MERMAID_STYLES_YAML])`
-    currently falls through the `if not (...)` guard and returns 0 with
-    zero subprocess calls (a silent no-op).
+    `_MERMAID_STYLES` (regenerate_graphs.py:17) and the `has_mermaid_styles`
+    dispatch variable (regenerate_graphs.py:53) exist, so
+    `main([MERMAID_STYLES_YAML])` drives generation instead of falling
+    through the `if not (...)` guard as a silent no-op. This class was RED
+    before those were added; it is retained as the regression pin.
     """
 
     def test_mermaid_styles_change_triggers_all_three_graphs(self):

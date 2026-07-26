@@ -1,9 +1,7 @@
 #!/usr/bin/env python3
 """
 Real end-to-end subprocess tests for the `--emission-mode` CLI override
-(ADR-036 D3; plan decision P8;
-`working-plans/component-graph-decouple-strategy-c-implementation-plan.md`
-§F, Phase 3 task 3.1).
+(ADR-036 D3; plan decision P8; Phase 3 task 3.1).
 
 Coverage-gap G4/G5 (adversarial review of the RED suite): every existing
 `--emission-mode` test in `test_validate_riskmap.py::TestEmissionModeCLIOverride`
@@ -22,10 +20,9 @@ rather than importing them, matching this repo's established per-file
 independence convention for CLI-wiring test suites (see that file's own
 module docstring for the same rationale).
 
-RED phase: every test below fails today because `--emission-mode` is not
-yet a recognized argparse flag (`parse_args()` raises SystemExit(2) with
-"unrecognized arguments"). GREEN once task 3.3's `swe` step wires the flag
-through to `ComponentGraph`'s `config_loader=`.
+`--emission-mode` is a recognized argparse flag, wired through to
+`ComponentGraph`'s `config_loader=` by task 3.3's `swe` step; this suite was
+the RED phase before that landed and is retained as the regression pin.
 """
 
 import subprocess

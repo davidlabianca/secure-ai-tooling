@@ -1,14 +1,10 @@
 #!/usr/bin/env python3
 """
-Schema round-trip tests for the `emission` block (ADR-036 D3;
-`working-plans/component-graph-decouple-strategy-c-implementation-plan.md` §F,
-Phase 3 task 3.1).
+Schema round-trip tests for the `emission` block (ADR-036 D3; Phase 3 task 3.1).
 
-`risk-map/schemas/mermaid-styles.schema.json` does not define `emission` today --
-`definitions/componentGraphType` is `additionalProperties: false` and has no
-`emission` property, so ANY `graphTypes.component.emission` key is currently
-rejected outright by check-jsonschema, regardless of its internal shape. This is
-the RED phase of task 3.1's schema-surface slice; `swe` (task 3.3) adds:
+`risk-map/schemas/mermaid-styles.schema.json` defines `emission`:
+`definitions/componentGraphType.properties.emission` references
+`definitions/emission`, which the schema declares as follows (task 3.3):
 
     - `definitions/componentGraphType.properties.emission` (optional)
     - `definitions/emission` (`required: [mode]`, `additionalProperties: false`)
@@ -17,6 +13,9 @@ the RED phase of task 3.1's schema-surface slice; `swe` (task 3.3) adds:
       `additionalProperties: false` -- no override key, per plan R1/P2)
     - `definitions/portStyles` (`port`, `pepport`, `pepWrapOutline`)
     - `mode: {"enum": ["flat", "decoupled"]}`
+
+This suite was the RED phase of task 3.1's schema-surface slice; it is retained
+as the regression pin against the now-GREEN schema.
 
 Phase 3b addition (ADR-036 D3/D4 revision, R9; plan §"Phase 3b -- Aspect visual
 marker", task 3b.1): `definitions/portStyles` gains a 4th, optional key,
@@ -38,10 +37,10 @@ Two test classes:
        says nothing about whether the real `mermaid-styles.yaml` is populated.
        Deliberately separated from #2 (task instructions: "different layer").
     2. TestRealConfigValidates -- integration test against the live,
-       committed `risk-map/yaml/mermaid-styles.yaml`. This is RED until
-       Phase 3 task 3.3's `swe` step populates the real `emission` block
-       (mode: flat + the §C registry) -- expected per task instructions, not
-       a bug in this test.
+       committed `risk-map/yaml/mermaid-styles.yaml`. Task 3.3 populated the
+       real `emission` block (mode: flat + the §C registry); this test is
+       retained as the regression pin proving the committed file keeps
+       round-tripping through check-jsonschema.
 
 Convention: subprocess `check-jsonschema` invocation, matching
 `test_persona_schema_updates.py` / `test_consumer_yaml_check_jsonschema_integration.py`
@@ -183,9 +182,10 @@ class TestSchemaRoundTrip:
         When: check-jsonschema validates the document
         Then: exit 0
 
-        RED today: componentGraphType has no `emission` property and is
-        additionalProperties: false, so this currently fails regardless of
-        the block's internal shape. GREEN once task 3.3 lands the schema.
+        Was RED before task 3.3 landed the schema (componentGraphType had no
+        `emission` property and was additionalProperties: false, so this
+        failed regardless of the block's internal shape); now GREEN and
+        retained as the regression pin.
 
         Coverage-gap G7 (adversarial review): the original version of this
         test only ever exercised mode: flat, so a schema that special-cased
@@ -636,12 +636,11 @@ class TestRealConfigValidates:
     """
     Integration test against the LIVE, committed `risk-map/yaml/mermaid-styles.yaml`.
 
-    RED until Phase 3 task 3.3 ('swe') populates `graphTypes.component.emission`
-    with the real §C registry (mode: flat, 1 aspect, 12 concerns, portStyles) --
-    expected per task instructions, not a bug in this test. Once populated, this
-    proves the actual committed file -- not a synthetic fixture -- round-trips
-    through check-jsonschema exactly as CI (`check-jsonschema` pre-commit hook /
-    `scripts/hooks/precommit/validate_all_schemas.py`) will run it.
+    Was RED until Phase 3 task 3.3 ('swe') populated `graphTypes.component.emission`
+    with the real §C registry (mode: flat, 1 aspect, 12 concerns, portStyles). Now
+    that it is populated, this proves the actual committed file -- not a synthetic
+    fixture -- round-trips through check-jsonschema exactly as CI (`check-jsonschema`
+    pre-commit hook / `scripts/hooks/precommit/validate_all_schemas.py`) runs it.
     """
 
     def test_live_mermaid_styles_yaml_has_a_populated_emission_block(self, risk_map_yaml_dir: Path):

@@ -1,11 +1,10 @@
 #!/usr/bin/env python3
 """
-Tests for the decoupled component-graph transform's drift guards (ADR-036 D7,
-`working-plans/component-graph-decouple-strategy-c-implementation-plan.md` §D).
+Tests for the decoupled component-graph transform's drift guards (ADR-036 D7).
 
-`graphing/decouple.py` does not exist yet — this is the RED phase of the TDD chain
-(Phase 1, task 1.2). Every test in this module is expected to fail at collection with
-a `ModuleNotFoundError` until the `swe` agent implements the module.
+`graphing/decouple.py` implements the guard pass described below. This suite was the
+RED phase of the TDD chain (Phase 1, task 1.2); it is retained as the regression pin
+against the now-GREEN implementation.
 
 This suite exercises `check_emission_drift(forward_map, components, emission_cfg) ->
 list[str]` — the standalone guard pass consumed by the `validate_riskmap.py` warn-only
@@ -48,7 +47,6 @@ from pathlib import Path
 git_root = Path(__file__).parent.parent.parent.parent
 sys.path.insert(0, str(git_root / "scripts" / "hooks"))
 
-# This import is expected to fail until Phase 1.4 implements the module (RED phase).
 from riskmap_validator.graphing.decouple import (  # noqa: E402
     AspectDecl,
     ConcernDecl,

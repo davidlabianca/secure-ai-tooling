@@ -3,19 +3,20 @@
 Coverage-gap tests for the decoupled component-graph transform (ADR-036, `graphing/decouple.py`).
 
 An adversarial coverage review (independent of the Phase 1 RED-suite authors) audited
-`test_decouple_transform.py` and `test_decouple_guards.py` against ADR-036 and
-`working-plans/component-graph-decouple-strategy-c-implementation-plan.md` and found gaps
-in what those suites exercise -- distinct from whether the existing tests are individually
-correct. This module closes the high-severity gaps (H1-H3) and medium-severity gaps
-(M1-M6) the review identified.
+`test_decouple_transform.py` and `test_decouple_guards.py` against ADR-036 and found
+gaps in what those suites exercise -- distinct from whether the existing tests are
+individually correct. This module closes the high-severity gaps (H1-H3) and
+medium-severity gaps (M1-M6) the review identified.
 
-Unlike the original Phase 1 RED suites, `decouple.py` already exists (82/82 of the
-existing tests pass against it). Some tests below are GREEN against the current
-implementation (the coverage gap is closed with no code change needed); others are RED,
-specifying new required behavior for `swe` to implement next, or documenting a genuine
-bug the current implementation contains. Each test class's docstring states which.
+Unlike the original Phase 1 RED suites, `decouple.py` already existed when this module
+was written (82/82 of the existing tests passed against it). Some tests below were
+GREEN against the implementation at that time (the coverage gap was closed with no
+code change needed); others were RED, specifying new required behavior or documenting
+a genuine bug in the implementation at that time. All gaps have since been closed and
+every test in this module now passes; each test class's docstring states its original
+GREEN/RED status and, where applicable, the fix that made it GREEN.
 
-Two results are flagged prominently (see the task report, not repeated at length here):
+Two results are flagged prominently below:
   - H2 (arm-label / port-id collision across broadcasts) was RED against the
     implementation this suite was originally written against: the "bare label unless
     the arm is its root's only arm for that concern" rule scoped "for that concern"
@@ -194,7 +195,8 @@ class TestH1RefusedLiftCascadeWithNoConcernsCoverage:
 
 
 # ============================================================================
-# H2: arm-label / port-id collision across broadcasts (RED -- documents a real bug)
+# H2: arm-label / port-id collision across broadcasts (was RED -- documented a real
+# bug; now GREEN regression coverage for the fix)
 # ============================================================================
 
 
@@ -582,7 +584,8 @@ class TestM2ShuffledInputDeterminismAtTheTransformLevel:
 
 
 # ============================================================================
-# M3: reachability diagnostic needs a pinned IR home (RED -- specifies new behavior)
+# M3: reachability diagnostic needs a pinned IR home (was RED -- specified new
+# behavior; now GREEN, the field has since been added)
 # ============================================================================
 
 
@@ -793,8 +796,8 @@ class TestM6SlugCollisionBetweenDistinctConcernLabels:
     job is only to prove the collision is representable in `slug()` and pin what the
     transform does with it today.
 
-    Flagged prominently in the task report: this reproduces the SAME underlying defect
-    as H2 (port-id collision) from a different trigger -- two distinct, non-colliding
+    This reproduces the SAME underlying defect as H2 (port-id collision) from a
+    different trigger -- two distinct, non-colliding
     concern LABELS that happen to slug identically, rather than one label used from two
     src_roots. `check_emission_drift`/`build_decoupled_plan` currently have no
     registration-time slug-collision guard at all (no G-* entry covers it), so this is
