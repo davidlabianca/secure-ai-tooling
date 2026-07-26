@@ -214,6 +214,21 @@ Review follow-up (two-reviewer gap pass on `TestAspectVisualMarker`/
     `aspectStyle`" contract: gate the entire marker (class + count line) on
     `aspectStyle` being configured; degrade to the ordinary unmarked node
     otherwise. Design decision documented in the class docstring.
+
+ADR-036 D8 addition (display-layer acronym substitution -- node titles; the
+`decouple.py` arm-label counterpart is covered in test_decouple_transform.py):
+34. `TestD8PepWrapTitleSubstitutionLiveCorpus` -- live corpus: all 4 real PEP
+    titles substitute at both `_decoupled_pep_wrap_lines()` positions, each
+    keeping its own prefix; plus a global "phrase never survives" guard.
+35. `TestD8PdpTitleGuardLiveCorpus` -- the real, non-PEP-wrapped
+    `componentAuthorizationPolicyDecisionPoint` renders unchanged (GREEN today,
+    stays GREEN -- PDP is explicitly out of the D8 set).
+36. `TestD8AcronymSubstitutionCaseInsensitivityAndScope` -- synthetic fixtures:
+    arbitrary-case matching, ordinary (non-PEP-id) node substitution, PDP/PEP
+    side by side in one document.
+37. `TestD8SelfCheckAndDeterminismUnaffected` -- full live-corpus emission still
+    passes every D7 self-check and stays byte-stable once D8 lands (GREEN today,
+    D8-specific regression trip-wire).
 """
 
 import dataclasses
@@ -259,6 +274,20 @@ TOOLS = "componentsTools"
 def _node(category: str, to_edges: list[str] | None = None, subcategory: str | None = None) -> ComponentNode:
     return ComponentNode(
         title="Test Node", category=category, to_edges=to_edges or [], from_edges=[], subcategory=subcategory
+    )
+
+
+def _titled_node(
+    category: str, title: str, to_edges: list[str] | None = None, subcategory: str | None = None
+) -> ComponentNode:
+    """
+    `_node()` with a caller-controlled title. `_node()` always uses the fixed "Test
+    Node" title, which is unusable for the D8 acronym-substitution tests (they need
+    specific title text, e.g. one containing "Policy Enforcement Point" in a
+    controlled casing).
+    """
+    return ComponentNode(
+        title=title, category=category, to_edges=to_edges or [], from_edges=[], subcategory=subcategory
     )
 
 
@@ -3374,6 +3403,368 @@ class TestOutputOrderSpanContract:
         )
 
 
+# ----------------------------------------------------------------------------
+# ADR-036 D8: display-layer acronym substitution ("policy enforcement point" (case-
+# insensitive) -> "PEP", node titles only -- decouple.py's arm-label site is covered
+# in test_decouple_transform.py). Not implemented yet in either module this task
+# touches (`decouple.py`, `component_graph.py`) -- RED phase, per the task's
+# constraint that no substitution is implemented here.
+#
+# Real corpus facts (verified by reading risk-map/yaml/components.yaml directly,
+# not assumed): exactly 4 components match the PEP wrap id suffix, all Title Case:
+#   componentAgentNetworkPolicyEnforcementPoint       -> "Agent Network Policy Enforcement Point"
+#   componentApplicationNetworkPolicyEnforcementPoint -> "Application Network Policy Enforcement Point"
+#   componentToolNetworkPolicyEnforcementPoint        -> "Tool Network Policy Enforcement Point"
+#   componentAuthorizationPolicyEnforcementPoint      -> "Authorization Policy Enforcement Point"
+# and one real, non-PEP-wrapped component whose title spells out the explicitly-
+# held-out PDP counterpart:
+#   componentAuthorizationPolicyDecisionPoint -> "Authorization Policy Decision Point"
+#
+# `_decoupled_pep_wrap_lines()` renders a PEP component's title at TWO positions --
+# the wrap subgraph's own header label (`subgraph <wrap_id> ["<title>"]`) and the
+# PEP node's own declaration line inside the wrap (`<pep_id>[<title>]`) -- both from
+# the same unsubstituted `self.components[wrapper.pep_id].title` read
+# (`component_graph.py`'s `_decoupled_pep_wrap_lines`). This answers the task's own
+# scoping question: yes, this site is title-bearing (twice over), not just port/
+# chain lines, so both positions need the substitution and both are asserted below.
+# ----------------------------------------------------------------------------
+
+
+class TestD8PepWrapTitleSubstitutionLiveCorpus:
+    """
+    Live-corpus proof of item 1 (both `_decoupled_pep_wrap_lines()` title
+    positions) and item 6 (all 4 PEPs keep their own distinguishing prefix; a
+    single generic "PEP" replacement losing "Agent Network"/"Application
+    Network"/"Tool Network"/"Authorization" would fail this test).
+    """
+
+    def test_live_corpus_pep_titles_verified_before_asserting_substitution(self, repo_root: Path):
+        """
+        Sanity/documentation: pins today's real, unsubstituted title strings so the
+        substituted expectations in the next test are provably derived from the live
+        corpus, not guessed.
+        """
+        components, _forward_map_ = _live_corpus(repo_root)
+        assert components["componentAgentNetworkPolicyEnforcementPoint"].title == (
+            "Agent Network Policy Enforcement Point"
+        )
+        assert components["componentApplicationNetworkPolicyEnforcementPoint"].title == (
+            "Application Network Policy Enforcement Point"
+        )
+        assert components["componentToolNetworkPolicyEnforcementPoint"].title == (
+            "Tool Network Policy Enforcement Point"
+        )
+        assert components["componentAuthorizationPolicyEnforcementPoint"].title == (
+            "Authorization Policy Enforcement Point"
+        )
+
+    def test_all_four_pep_wrap_titles_render_as_pep_each_keeping_its_own_prefix(self, repo_root: Path):
+        components, forward_map = _live_corpus(repo_root)
+        cfg = _live_emission_config()
+        plan = build_decoupled_plan(forward_map, components, cfg)
+        graph = _make_graph(components, forward_map, cfg, repo_root)
+
+        text = graph._emit_decoupled(plan)
+
+        expected_titles = {
+            "componentAgentNetworkPolicyEnforcementPoint": "Agent Network PEP",
+            "componentApplicationNetworkPolicyEnforcementPoint": "Application Network PEP",
+            "componentToolNetworkPolicyEnforcementPoint": "Tool Network PEP",
+            "componentAuthorizationPolicyEnforcementPoint": "Authorization PEP",
+        }
+        for pep_id, expected_title in expected_titles.items():
+            wrapper = plan.pep_wrappers[pep_id]
+            wrap_start, wrap_end = _subgraph_span(text, wrapper.wrap_id)
+            wrap_text = text[wrap_start:wrap_end]
+
+            expected_header = f'subgraph {wrapper.wrap_id} ["{expected_title}"]'
+            expected_node = f"{wrapper.pep_id}[{expected_title}]"
+            assert expected_header in text, f"expected wrap header {expected_header!r}; got:\n{text}"
+            assert expected_node in wrap_text, (
+                f"expected PEP node declaration {expected_node!r} inside its own wrap span; got:\n{wrap_text}"
+            )
+
+    def test_spelled_out_phrase_never_survives_anywhere_in_emitted_text(self, repo_root: Path):
+        """
+        Global regression guard, item 1 + item 2 combined: once D8 lands at BOTH
+        sites (node titles here, `_build_arms`'s `arm_label` in `decouple.py`), the
+        spelled-out phrase must not survive anywhere in the built text -- not merely
+        at the two known title positions. Port ids are unaffected by construction
+        (slugged with underscores, e.g. '..._policy_enforcement_point', a different
+        substring than the spaced phrase asserted against here), so this assertion
+        can never collide with the D7 port-id byte-stability invariant.
+        """
+        components, forward_map = _live_corpus(repo_root)
+        cfg = _live_emission_config()
+        plan = build_decoupled_plan(forward_map, components, cfg)
+        graph = _make_graph(components, forward_map, cfg, repo_root)
+
+        text = graph._emit_decoupled(plan)
+
+        assert "policy enforcement point" not in text.lower(), (
+            "expected the spelled-out phrase to be fully replaced by 'PEP' (ADR-036 D8); "
+            "found a remaining occurrence in the emitted text"
+        )
+
+
+class TestD8PdpTitleGuardLiveCorpus:
+    """
+    Item 4 regression guard, live-corpus form: `componentAuthorizationPolicyDecisionPoint`
+    is a real corpus component (id does not match the PEP wrap suffix, so it renders
+    through `_decoupled_member_lines()`'s ordinary branch, not the PEP wrap path) whose
+    title spells out "Policy Decision Point" -- the exact NIST 800-162/800-207 pairing
+    ADR-036 D8 evaluated and explicitly held out. Must render completely unchanged.
+
+    Already GREEN today (nothing has changed yet) and must remain GREEN once D8 lands
+    -- this is the regression guard itself, not new behavior to implement.
+    """
+
+    def test_pdp_component_title_renders_unchanged(self, repo_root: Path):
+        components, forward_map = _live_corpus(repo_root)
+        cfg = _live_emission_config()
+        plan = build_decoupled_plan(forward_map, components, cfg)
+        graph = _make_graph(components, forward_map, cfg, repo_root)
+
+        assert components["componentAuthorizationPolicyDecisionPoint"].title == (
+            "Authorization Policy Decision Point"
+        )
+        # Sanity: this id genuinely does not match the PEP wrap suffix pattern, so it
+        # is rendered by _decoupled_member_lines(), not _decoupled_pep_wrap_lines().
+        assert "componentAuthorizationPolicyDecisionPoint" not in plan.pep_wrappers
+
+        text = graph._emit_decoupled(plan)
+
+        expected = "componentAuthorizationPolicyDecisionPoint[Authorization Policy Decision Point]"
+        assert expected in text, f"expected PDP node title unchanged; got:\n{text}"
+
+
+class TestD8AcronymSubstitutionCaseInsensitivityAndScope:
+    """
+    Synthetic, controlled-title fixtures isolating three D8 claims the live corpus
+    alone cannot cleanly separate:
+
+    1. Case-insensitive matching for a source casing that is neither the live
+       corpus's Title Case nor `target_short_name()`'s all-lowercase -- an
+       arbitrary mixed-case title, proving the match is genuinely
+       case-insensitive rather than keyed to one specific casing convention.
+    2. `_decoupled_member_lines()` (the ordinary, non-PEP-wrap node path) also
+       substitutes the phrase in a title -- proving the substitution is a pure
+       text overlay, unconditional on the component id matching the PEP wrap
+       suffix pattern (`componentLegacyAdapter` below deliberately does not
+       match it).
+    3. "Policy Decision Point" is untouched at both sites in one fixture,
+       side-by-side with a PEP occurrence that IS substituted -- ruling out a
+       naive "Policy * Point" pattern that would wrongly catch both.
+    4. (Adversarial-critic gap, word-boundary anchoring) The PLURAL phrase
+       "Policy Enforcement Points" is a different phrase than D8's singular
+       match target ("policy enforcement point", case-insensitive) and must
+       render byte-for-byte unchanged -- ruling out a naive substring/regex
+       match with no trailing word-boundary anchor, which would also match
+       inside the plural and wrongly collapse it (to "PEPs", or to "PEP" with
+       a dangling "s").
+    """
+
+    def _plan_and_graph(
+        self, components: dict[str, ComponentNode], repo_root: Path
+    ) -> tuple[DecoupledPlan, ComponentGraph]:
+        forward_map = _forward_map(components)
+        cfg = EmissionConfig(mode="decoupled", port_styles=PLACEHOLDER_PORT_STYLES)
+        plan = build_decoupled_plan(forward_map, components, cfg)
+        graph = _make_graph(components, forward_map, cfg, repo_root)
+        return plan, graph
+
+    def test_pep_wrap_title_substitutes_case_insensitively_for_arbitrary_mixed_case_source(self, repo_root: Path):
+        components = {
+            "componentGatewayPolicyEnforcementPoint": _titled_node(APP, "Gateway PoLiCy ENFORCEMENT poInt"),
+        }
+        plan, graph = self._plan_and_graph(components, repo_root)
+        text = graph._emit_decoupled(plan)
+
+        wrapper = plan.pep_wrappers["componentGatewayPolicyEnforcementPoint"]
+        wrap_start, wrap_end = _subgraph_span(text, wrapper.wrap_id)
+        wrap_text = text[wrap_start:wrap_end]
+
+        assert f'subgraph {wrapper.wrap_id} ["Gateway PEP"]' in text, f"got:\n{text}"
+        assert f"{wrapper.pep_id}[Gateway PEP]" in wrap_text, f"got:\n{wrap_text}"
+
+    def test_ordinary_member_title_substitutes_even_when_component_id_is_not_pep_suffixed(self, repo_root: Path):
+        components = {
+            "componentLegacyAdapter": _titled_node(APP, "Legacy policy enforcement point Relay"),
+        }
+        plan, graph = self._plan_and_graph(components, repo_root)
+        text = graph._emit_decoupled(plan)
+
+        assert "componentLegacyAdapter" not in plan.pep_wrappers  # sanity: not wrap-treated
+        assert "componentLegacyAdapter[Legacy PEP Relay]" in text, f"got:\n{text}"
+
+    def test_pdp_title_unchanged_alongside_a_substituted_pep_title_in_the_same_document(self, repo_root: Path):
+        components = {
+            "componentAuthorizationPolicyDecisionPoint": _titled_node(APP, "Authorization Policy Decision Point"),
+            "componentGatewayPolicyEnforcementPoint": _titled_node(APP, "Gateway Policy Enforcement Point"),
+        }
+        plan, graph = self._plan_and_graph(components, repo_root)
+        text = graph._emit_decoupled(plan)
+
+        assert "componentAuthorizationPolicyDecisionPoint[Authorization Policy Decision Point]" in text, (
+            f"PDP title must render unchanged; got:\n{text}"
+        )
+        wrapper = plan.pep_wrappers["componentGatewayPolicyEnforcementPoint"]
+        assert f"{wrapper.pep_id}[Gateway PEP]" in text, f"got:\n{text}"
+
+    def test_plural_policy_enforcement_points_phrase_is_left_completely_unchanged(self, repo_root: Path):
+        """
+        Item 4 (adversarial-critic gap, word-boundary anchoring): D8's rule is a
+        phrase match on the SINGULAR "policy enforcement point" only. A naive
+        substring/regex implementation with no trailing word-boundary anchor would
+        also match inside the plural "Policy Enforcement Points" -- wrongly
+        collapsing it to "PEPs", or to "PEP" with a dangling "s" left over. Neither
+        is D8's rule: the plural is a different phrase and must render completely
+        unchanged.
+
+        Paired with a singular occurrence in a SECOND component's title, in the
+        SAME plan/assertion pass -- mirrors `TestD8PdpArmLabelNeverAbbreviated`'s
+        side-by-side PDP+PEP pattern in test_decouple_transform.py: the singular
+        case genuinely substitutes (RED until D8 lands, proving this fixture would
+        catch a naive implementation that failed to substitute anything at all,
+        rather than trivially passing because nothing is substituted yet) while
+        the plural, right next to it, stays untouched (already true today; must
+        remain true once D8 lands, ruling out a non-word-boundary-anchored match
+        that would wrongly catch the plural too).
+        """
+        components = {
+            "componentGatewayCore": _titled_node(APP, "Gateway Policy Enforcement Point"),
+            "componentGatewayCluster": _titled_node(APP, "Gateway Policy Enforcement Points"),
+        }
+        plan, graph = self._plan_and_graph(components, repo_root)
+        text = graph._emit_decoupled(plan)
+
+        # Singular: substituted (RED until D8 lands).
+        assert "componentGatewayCore[Gateway PEP]" in text, f"got:\n{text}"
+        # Plural: unchanged (already true today; must remain true once D8 lands).
+        assert "componentGatewayCluster[Gateway Policy Enforcement Points]" in text, (
+            f"expected the plural phrase to render completely unchanged; got:\n{text}"
+        )
+        assert "componentGatewayCluster[Gateway PEPs]" not in text, (
+            f"expected no incorrect 'PEPs' collapse of the plural phrase; got:\n{text}"
+        )
+        assert "componentGatewayCluster[Gateway PEP]" not in text, (
+            f"expected no incorrect singular 'PEP' collapse with a dangling 's'; got:\n{text}"
+        )
+
+
+class TestD8SelfCheckAndDeterminismUnaffected:
+    """
+    Item 5. ADR-036 D8's own Follow-up entry recommends "a D7-style self-check
+    assertion (a port id is byte-identical with the substitution applied or not)
+    ... tracked in Follow-up rather than mandated here." This class pins the
+    broader claim implied by that recommendation: once D8 lands, the FULL
+    live-corpus decoupled emission still passes every D7 self-check
+    (`verify_plan`'s S1/S4/S5/S7, plus the emitter's own S2/S3/S6/S9/S10 --
+    `_emit_decoupled` raises `AssertionError` on any violation, so a successful
+    return IS the self-check passing) and remains byte-stable (double-run,
+    shuffled-input-dict) -- title/arm-label text substitution has no bearing on
+    any D7-checked structural property (edge conservation, port-id uniqueness,
+    ingress out-degree, style/classDef presence).
+
+    Already GREEN today (neither `decouple.py` nor `component_graph.py` has
+    changed yet) and must remain GREEN once D8's implementation lands -- a
+    regression trip-wire pinned ahead of the change, not a new-behavior RED test.
+    Mirrors `TestByteStability` above; kept as its own class because it is a D8-
+    specific claim (self-check survives a title-rendering change), not a general
+    determinism claim.
+    """
+
+    def test_live_corpus_decoupled_emission_passes_self_check(self, repo_root: Path):
+        components, forward_map = _live_corpus(repo_root)
+        cfg = _live_emission_config()
+        plan = build_decoupled_plan(forward_map, components, cfg)
+        graph = _make_graph(components, forward_map, cfg, repo_root)
+
+        # _emit_decoupled() raises AssertionError on any D7 violation (S1-S10); a
+        # successful return with non-empty text IS the self-check passing.
+        text = graph._emit_decoupled(plan)
+        assert text
+
+    def test_live_corpus_decoupled_emission_stays_byte_stable_across_repeated_runs(self, repo_root: Path):
+        components, forward_map = _live_corpus(repo_root)
+        cfg = _live_emission_config()
+        plan = build_decoupled_plan(forward_map, components, cfg)
+        graph = _make_graph(components, forward_map, cfg, repo_root)
+
+        text_1 = graph._emit_decoupled(plan)
+        text_2 = graph._emit_decoupled(plan)
+        assert text_1 == text_2
+
+    def test_live_corpus_decoupled_emission_stays_byte_stable_across_shuffled_input_dicts(self, repo_root: Path):
+        components, forward_map = _live_corpus(repo_root)
+        cfg = _live_emission_config()
+
+        rng = random.Random(20260726)
+        shuffled_component_items = list(components.items())
+        rng.shuffle(shuffled_component_items)
+        components_shuffled = dict(shuffled_component_items)
+
+        shuffled_forward_items = list(forward_map.items())
+        rng.shuffle(shuffled_forward_items)
+        forward_map_shuffled = dict(shuffled_forward_items)
+
+        plan_a = build_decoupled_plan(forward_map, components, cfg)
+        plan_b = build_decoupled_plan(forward_map_shuffled, components_shuffled, cfg)
+
+        graph_a = _make_graph(components, forward_map, cfg, repo_root)
+        graph_b = _make_graph(components_shuffled, forward_map_shuffled, cfg, repo_root)
+
+        text_a = graph_a._emit_decoupled(plan_a)
+        text_b = graph_b._emit_decoupled(plan_b)
+
+        assert text_a == text_b
+
+
+class TestD8AspectMarkerTitleSubstitution:
+    """
+    Adversarial-critic gap (LOW): `_decoupled_member_lines()`'s aspect-marker
+    branch (`TestAspectVisualMarker` above, ADR-036 D3/D4/R9) independently reads
+    `self.components[member_id].title` to build its second label line -- a
+    distinct interpolation site from both the plain-node branch (`TestD8Acronym
+    SubstitutionCaseInsensitivityAndScope`) and the PEP-wrap branch (`TestD8Pep
+    WrapTitleSubstitutionLiveCorpus`). The live corpus's only lifted aspect
+    (`componentSecureLogging`) has no PEP phrase in its title, so neither the live
+    corpus nor any test above exercises this branch with the phrase present --
+    even `TestD8SelfCheckAndDeterminismUnaffected`'s global "phrase never
+    survives" style guard is blind to it, since it never lifts an aspect whose
+    title contains the phrase.
+
+    This synthetic fixture is both aspect-lifted (so `_decoupled_member_lines()`
+    takes the aspect-marker branch, not the plain-node branch) AND titled with
+    the PEP phrase, isolating this one branch.
+    """
+
+    def test_aspect_marker_title_containing_pep_phrase_is_substituted(self, repo_root: Path):
+        """
+        `_aspect_marker_components(3)` builds a single lifted sink
+        (`componentAspectSink`) with the fixed "Test Node" title
+        (`TestAspectVisualMarker.test_synthetic_fixture_known_count_declares_node_
+        with_class_and_two_line_label`'s baseline) -- overridden here with a title
+        containing the PEP phrase, keeping the rest of the fixture (category,
+        edges, lifted-edge count) identical so only the title varies.
+        """
+        components = _aspect_marker_components(3)
+        components["componentAspectSink"] = _titled_node(INFRA, "Ingress Policy Enforcement Point", to_edges=[])
+        forward_map = _forward_map(components)
+        cfg = _aspect_marker_cfg(3)
+        plan = build_decoupled_plan(forward_map, components, cfg)
+        assert len(plan.lifted_aspects[0].edges) == 3, "sanity: unaffected by the title override"
+        graph = _make_graph(components, forward_map, cfg, repo_root)
+
+        text = graph._emit_decoupled(plan)  # RED today: content mismatch, not AttributeError
+
+        expected = "componentAspectSink[Ingress PEP<br/>3 writes lifted]:::aspectStyle"
+        assert expected in text, (
+            f"expected the aspect marker's title to substitute to 'PEP' while keeping the write-count "
+            f"text and ':::aspectStyle' suffix intact; got:\n{text}"
+        )
+
+
 """
 Test Summary
 ============
@@ -3521,4 +3912,54 @@ survives) -- decouple.py/component_graph.py untouched, tests only:
   reference `band_links` at all; `component_graph.py`'s S2/S3/S6 checks are keyed off
   `plan.broadcasts`/`plan.pep_wrappers`, not `plan.band_links`. No self-check
   dependency on the old port-chain-link behavior exists.
+
+ADR-036 D8 addition (display-layer acronym substitution, "policy enforcement point"
+-> "PEP", node titles only -- neither `decouple.py` nor `component_graph.py` is
+touched by this task; the corresponding `decouple.py` arm-label coverage lives in
+test_decouple_transform.py's own D8 section):
+- `TestD8PepWrapTitleSubstitutionLiveCorpus` -- live corpus: a sanity pin of
+  today's 4 real, unsubstituted PEP titles (GREEN, documents the facts the next
+  test's expectations are derived from), then all 4 substitute at both
+  `_decoupled_pep_wrap_lines()` positions (wrap header, PEP node line), each keeping
+  its own distinguishing prefix (item 6, RED), plus a global "phrase never survives
+  anywhere in the emitted text" guard (RED). 3 tests: 1 GREEN, 2 RED.
+- `TestD8PdpTitleGuardLiveCorpus` -- the real, non-PEP-wrapped
+  `componentAuthorizationPolicyDecisionPoint` renders its spelled-out title
+  unchanged. 1 test, GREEN today and must stay GREEN (regression guard, not new
+  behavior -- PDP is explicitly out of the D8 set).
+- `TestD8AcronymSubstitutionCaseInsensitivityAndScope` -- synthetic fixtures: (a)
+  arbitrary mixed-case source text still substitutes (case-insensitivity beyond the
+  two casings the live corpus/`target_short_name()` happen to produce), (b) an
+  ORDINARY (non-PEP-id) node's title substitutes too, proving the overlay is
+  unconditional on PEP-wrap id matching, (c) PDP and PEP side by side in the same
+  document, ruling out a naive "Policy * Point" pattern, (d) (adversarial-critic gap)
+  the PLURAL phrase "Policy Enforcement Points" renders completely unchanged, ruling
+  out a naive non-word-boundary-anchored match. 4 tests, all RED.
+- `TestD8SelfCheckAndDeterminismUnaffected` -- the full live-corpus decoupled
+  emission still passes every D7 self-check and stays byte-stable (double-run,
+  shuffled-input-dict) once D8 lands; title/arm-label substitution has no bearing on
+  any D7-checked structural property. 3 tests, all GREEN today (nothing has changed
+  yet) and must stay GREEN as a D8-specific regression trip-wire.
+- `TestD8AspectMarkerTitleSubstitution` -- (adversarial-critic gap) the aspect-marker
+  branch of `_decoupled_member_lines()` independently interpolates `title` into its
+  second label line; no existing test (live-corpus or synthetic) exercised this
+  branch with a PEP-phrase title, since the live corpus's sole lifted aspect
+  (`componentSecureLogging`) has none. A synthetic fixture that is both aspect-lifted
+  and PEP-titled closes the gap. 1 test, RED.
+
+Total: 12 new tests (7 RED, 5 GREEN-today regression/sanity pins) across five new
+classes. Verified by direct pytest run before this summary was written (RED tests
+fail with a content mismatch -- an `AssertionError` on the substituted string, not
+a missing-attribute error, since `_emit_decoupled()` already exists from Phase 2).
+Constraint honored: no substitution implemented in either `decouple.py` or
+`component_graph.py`.
+
+Adversarial-critic follow-up (2026-07-26, two gaps closed before implementation):
+closes the two remaining gaps flagged after the second (Fable-model adversarial)
+review pass of the 14-test D8 RED suite (12 in this file + the arm-label site's own
+4 in `test_decouple_transform.py`) -- word-boundary/phrase-exactness (MEDIUM, this
+file's `TestD8AcronymSubstitutionCaseInsensitivityAndScope`, new plural-phrase test)
+and the untested aspect-marker branch (LOW, this file's new
+`TestD8AspectMarkerTitleSubstitution`). Both RED as expected (verified via direct
+pytest run); neither `decouple.py` nor `component_graph.py` touched.
 """
