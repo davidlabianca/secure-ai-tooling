@@ -2,14 +2,12 @@
 """
 Tests for the decoupled component-graph transform (ADR-036, `graphing/decouple.py`).
 
-`graphing/decouple.py` does not exist yet — this is the RED phase of the TDD chain
-described in `working-plans/component-graph-decouple-strategy-c-implementation-plan.md`
-(Phase 1, task 1.1). Every test in this module is expected to fail at collection with
-a `ModuleNotFoundError` until the `swe` agent implements the module against this
-contract and ADR-036 D1-D7.
+`graphing/decouple.py` implements this contract against ADR-036 D1-D7. This suite was
+the RED phase of the TDD chain (Phase 1, task 1.1); it is retained as the regression
+pin against the now-GREEN implementation.
 
-Contract under test (as fixed by this test suite, since no implementation exists yet
-to derive it from):
+Contract under test (as fixed by this test suite; the implementation was derived
+from it):
 
     AspectDecl(id, min_cross_in_degree)
     ConcernDecl(label, edges: tuple[tuple[str, str], ...])
@@ -66,14 +64,12 @@ Test Coverage
     corpus-specific judgment, so exhaustive coverage is not required here).
 11. Live-corpus inventory: `build_decoupled_plan()` against the real
     `risk-map/yaml/components.yaml`, asserting the plan §C numbers this suite's author
-    independently re-derived from the corpus (see PR description / task report).
+    independently re-derived from the corpus.
 12. ADR-036 D8 (display-layer acronym substitution, arm-label site): the real
     "identity & authz" broadcast's 4 PEP-landing arm labels substitute to "PEP",
     each keeping its own distinguishing prefix; the port ids computed from those
     same targets stay byte-identical (the D8 hard invariant); a synthetic PDP+PEP
-    mixed channel proves the closed set doesn't generalize to PDP. Not implemented
-    yet -- RED phase for the label assertions (`decouple.py` untouched by this
-    task); the port-id assertions are GREEN today and must remain so.
+    mixed channel proves the closed set doesn't generalize to PDP.
 
 Everything here is written against the *final* ADR-036 rules, not the bake-off
 prototypes reconciled away in the plan's §R ledger. In particular:
@@ -92,7 +88,6 @@ import pytest
 git_root = Path(__file__).parent.parent.parent.parent
 sys.path.insert(0, str(git_root / "scripts" / "hooks"))
 
-# This import is expected to fail until Phase 1.4 implements the module (RED phase).
 from riskmap_validator.graphing.decouple import (  # noqa: E402
     AspectDecl,
     ConcernDecl,
@@ -1163,8 +1158,9 @@ class TestBandsAndBlocks:
         ports with `~~~` links was found to actively cause horizontal sprawl (ELK's
         `INCLUDE_CHILDREN` hierarchy handling overrides the nested subgraph's own
         layout direction whenever a boundary-crossing edge, which every port carries
-        by definition, touches it) and is removed entirely. RED against the current
-        `_build_band_links`, which still chains every root's egress ports together.
+        by definition, touches it) and is removed entirely. Was RED against
+        `_build_band_links` before it stopped chaining egress ports together; now
+        GREEN and retained as the regression pin.
         """
         components = {
             "componentInfraA": _node(INFRA, to_edges=["componentModelA"]),
@@ -1233,9 +1229,9 @@ class TestLiveCorpusInventory:
     against the real risk-map/yaml/components.yaml, and asserts the plan's numbers.
 
     These numbers were independently re-derived from the live corpus while writing
-    this suite (not copied blind from the plan) -- see the task report for the
-    verification method. They are exact-today assertions; corpus drift is caught by
-    the drift guards (test_decouple_guards.py), not by this test re-deriving anything.
+    this suite, not copied blind from the plan. They are exact-today assertions;
+    corpus drift is caught by the drift guards (test_decouple_guards.py), not by
+    this test re-deriving anything.
     """
 
     @pytest.fixture(scope="class")
@@ -1423,13 +1419,14 @@ class TestLiveCorpusInventory:
         nodes) is small enough that the same failure mode does not apply, and is
         retained.
 
-        This is the corpus-scale regression guard: RED against the current
-        `_build_band_links`, which still produces 28 band links in the live corpus --
-        24 port-to-port chain links (each cluster's egress ports chained together,
-        each cluster's ingress ports chained together) plus the 4 block entry/exit
-        pairs (Orchestration, Application Core, Agent, Tool Input/Output Handling).
-        Pins the corrected, block-only count (4) so a future change cannot silently
-        reintroduce port chaining without this test catching it.
+        This is the corpus-scale regression guard: was RED against
+        `_build_band_links` before the fix, which produced 28 band links in the
+        live corpus -- 24 port-to-port chain links (each cluster's egress ports
+        chained together, each cluster's ingress ports chained together) plus the
+        4 block entry/exit pairs (Orchestration, Application Core, Agent, Tool
+        Input/Output Handling). Now GREEN; pins the corrected, block-only count
+        (4) so a future change cannot silently reintroduce port chaining without
+        this test catching it.
         """
         port_ids = {b.egress_port_id for b in live_plan.broadcasts}
         port_ids |= {arm.port_id for b in live_plan.broadcasts for c in b.channels for arm in c.arms}
@@ -1455,10 +1452,9 @@ class TestLiveCorpusInventory:
 # ("policy enforcement point" -> "PEP", case-insensitive) and its hard invariant
 # (port ids stay byte-identical). The node-title site
 # (`_decoupled_member_lines`/`_decoupled_pep_wrap_lines`) is covered in
-# test_decouple_emitter.py's own D8 section. Not implemented yet in `decouple.py`
-# -- RED phase for the arm-label assertions below; the port-id assertions in the
-# same tests are already GREEN today (nothing has changed) and must remain GREEN
-# once D8 lands -- that persistence IS the D8 hard invariant this suite pins.
+# test_decouple_emitter.py's own D8 section. Implemented in `decouple.py`; the
+# port-id assertions in the same tests staying byte-identical once D8 landed IS
+# the D8 hard invariant this suite pins.
 # ============================================================================
 
 
@@ -1470,11 +1466,11 @@ class TestD8ArmLabelSubstitutionLiveCorpus:
     prose: "6 derived arm-label suffixes").
 
     Port ids captured below were read directly off `build_decoupled_plan()`'s
-    output against the real corpus before this suite was written (not guessed) --
-    see the task report for the derivation. `target_short_name()` always
-    lowercases and space-joins (§E), so every arm label already exercises item 3's
-    lowercase-surround case (item 1's Title Case case is exercised at the node-
-    title site instead, since it is title-derived, not id-derived).
+    output against the real corpus before this suite was written (not guessed).
+    `target_short_name()` always lowercases and space-joins (§E), so every arm
+    label already exercises item 3's lowercase-surround case (item 1's Title
+    Case case is exercised at the node-title site instead, since it is
+    title-derived, not id-derived).
     """
 
     @pytest.fixture(scope="class")
@@ -1555,8 +1551,8 @@ class TestD8ArmLabelSubstitutionLiveCorpus:
         stay byte-identical whether the label substitution is implemented or not.
         These exact strings were captured directly from `build_decoupled_plan()`'s
         output against the real corpus before this suite was written -- already
-        GREEN today, and this test's job is to make sure it is STILL GREEN once D8
-        lands (a regression, not a new-behavior, assertion).
+        GREEN before D8 landed, and this test's job is to make sure it stayed
+        GREEN once D8 landed (a regression, not a new-behavior, assertion).
         """
         arms = self._arms_by_target(live_plan)
         expected_port_ids = {
@@ -1643,12 +1639,12 @@ class TestD8PdpArmLabelNeverAbbreviated:
         pdp_arm = arms_by_target["componentAuthorizationPolicyDecisionPoint"]
         pep_arm = arms_by_target["componentGatewayPolicyEnforcementPoint"]
 
-        # PDP: unaffected -- explicitly held out of the D8 set (already GREEN today,
-        # must stay GREEN once D8 lands).
+        # PDP: unaffected -- explicitly held out of the D8 set (was already GREEN
+        # before D8 landed, stays GREEN now).
         assert pdp_arm.label == "test concern → authorization policy decision point"
-        # PEP: substituted (RED until D8 lands) -- proves this fixture would
-        # genuinely catch a naive "Policy * Point" pattern that wrongly abbreviated
-        # both, since PDP is asserted unchanged in the SAME assertion pass.
+        # PEP: substituted per D8 -- proves this fixture would genuinely catch a
+        # naive "Policy * Point" pattern that wrongly abbreviated both, since PDP
+        # is asserted unchanged in the SAME assertion pass.
         assert pep_arm.label == "test concern → gateway PEP"
 
 
@@ -1676,19 +1672,20 @@ Coverage areas:
 - Bands/blocks (moderate depth): 5 tests (entry/exit detection, no-entry/exit,
   pure-feeders/exit-skips, plus two ADR-036 D1 band-ports-not-chained regression
   tests -- multi-egress-port and multi-ingress-port fixtures proving `band_links`
-  never chains two ports sharing a root; RED against the current `_build_band_links`).
+  never chains two ports sharing a root; was RED against `_build_band_links`
+  before the fix, now GREEN).
 - Live-corpus inventory (plan §C, independently re-verified numbers): 10 tests
   (includes one ADR-036 D1 regression guard pinning `band_links` to exactly the 4
-  block entry/exit pairs, zero port-to-port chain links -- RED today).
+  block entry/exit pairs, zero port-to-port chain links -- was RED, now GREEN).
 - ADR-036 D8 (display-layer acronym substitution, arm-label site): 4 tests across 2
   classes. `TestD8ArmLabelSubstitutionLiveCorpus` -- the real "identity & authz"
   broadcast's 4 PEP-landing arms substitute to "PEP", each keeping its own prefix
-  (1 RED test); the port ids computed from those same targets stay byte-identical
+  (1 test); the port ids computed from those same targets stay byte-identical
   (1 GREEN-today regression pin, the D8 hard invariant); the broadcast's 2 non-PEP
   arms are unaffected (1 GREEN-today scope guard). `TestD8PdpArmLabelNeverAbbreviated`
   -- a synthetic PDP+PEP mixed channel, PDP unchanged/PEP substituted in the same
-  assertion pass (1 test, RED, since its PEP half fails today). Node-title-site D8
-  coverage (`_decoupled_member_lines`/`_decoupled_pep_wrap_lines`) lives in
+  assertion pass (1 test). Node-title-site D8 coverage
+  (`_decoupled_member_lines`/`_decoupled_pep_wrap_lines`) lives in
   test_decouple_emitter.py instead -- this file covers only `decouple.py`'s
   `_build_arms`/`arm_label` site plus the port-id invariant.
 

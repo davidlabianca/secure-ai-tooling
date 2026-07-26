@@ -1447,13 +1447,14 @@ class TestGetStagedYAMLFiles:
         Then: Returns [Path("risk-map/yaml/mermaid-styles.yaml")] -- a
               non-empty result
 
-        RED-PHASE: mermaid-styles.yaml is not currently in target_files
-        (utils.py get_staged_yaml_files, lines 221-225), so today this
-        returns [] and validate_riskmap.py (invoked by regenerate_graphs.py
-        without --force) exits early before ever reaching --to-graph.
-        This is the ADR-036 Phase 3 P7 stale-diagram trigger-coverage bug:
-        staging only mermaid-styles.yaml silently fails to regenerate
-        diagrams even though the pre-commit hook's files: regex is fixed.
+        Was RED-PHASE before mermaid-styles.yaml was added to target_files
+        (utils.py get_staged_yaml_files, lines 221-226): returned [] and
+        validate_riskmap.py (invoked by regenerate_graphs.py without
+        --force) exited early before ever reaching --to-graph. That was
+        the ADR-036 Phase 3 P7 stale-diagram trigger-coverage bug: staging
+        only mermaid-styles.yaml silently failed to regenerate diagrams
+        even though the pre-commit hook's files: regex was fixed. Now
+        GREEN and retained as the regression pin.
         """
         mock_run.return_value = Mock(stdout="risk-map/yaml/mermaid-styles.yaml\n")
 
@@ -1477,8 +1478,9 @@ class TestGetStagedYAMLFiles:
               above, which also asserts membership rather than a fixed
               index/order).
 
-        RED-PHASE: same underlying cause as the mermaid-styles-only test
-        above -- mermaid-styles.yaml is not yet in target_files.
+        Was RED-PHASE for the same underlying cause as the mermaid-styles-only
+        test above -- mermaid-styles.yaml was not yet in target_files. Now
+        GREEN.
         """
         mock_run.return_value = Mock(stdout="risk-map/yaml/mermaid-styles.yaml\nrisk-map/yaml/components.yaml\n")
 

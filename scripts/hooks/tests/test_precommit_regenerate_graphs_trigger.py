@@ -1,24 +1,23 @@
 #!/usr/bin/env python3
 """
 Structural drift-guard test for the `regenerate-graphs` pre-commit hook's
-`files:` trigger regex (ADR-036 D3/D7; plan decision P7;
-`working-plans/component-graph-decouple-strategy-c-implementation-plan.md`
-§F item 4).
+`files:` trigger regex (ADR-036 D3/D7; plan decision P7).
 
-Today `regenerate-graphs`'s `files:` regex is
-`^risk-map/yaml/(components|controls|risks)\\.yaml$` -- it does not include
-`mermaid-styles.yaml`. Once ADR-036 lands `graphTypes.component.emission`
-(mode/aspects/concerns/portStyles) in `mermaid-styles.yaml`, an edit to that
+`regenerate-graphs`'s `files:` regex is
+`^risk-map/yaml/(components|controls|mermaid-styles|risks)\\.yaml$` -- it
+includes `mermaid-styles.yaml`. ADR-036 lands `graphTypes.component.emission`
+(mode/aspects/concerns/portStyles) in `mermaid-styles.yaml`; an edit to that
 file (e.g. the PR 2 mode: flat -> decoupled flip, or a future
 aspects/concerns registry edit) changes what the generated `.mermaid`/`.svg`
-diagrams SHOULD look like, but the hook would not fire and the committed
-diagrams would silently go stale. Plan P7: "add mermaid-styles.yaml to the
-regenerate-graphs pre-commit trigger... today the hook only fires on
-components/controls/risks YAML, so the PR 2 config flip would not regenerate
-diagrams. Shipped in PR 1."
+diagrams SHOULD look like, so the hook firing on that file keeps the
+committed diagrams from silently going stale. Plan P7: "add
+mermaid-styles.yaml to the regenerate-graphs pre-commit trigger... today the
+hook only fires on components/controls/risks YAML, so the PR 2 config flip
+would not regenerate diagrams. Shipped in PR 1."
 
-RED until task 3.3's `swe` step edits `.pre-commit-config.yaml`'s `files:`
-regex to include `mermaid-styles.yaml`.
+This suite was RED until task 3.3's `swe` step edited
+`.pre-commit-config.yaml`'s `files:` regex to include `mermaid-styles.yaml`;
+it is retained as the regression pin.
 
 Mirrors the conventions in test_precommit_hook_install.py and
 test_precommit_neutrality_config.py: `_load_config`/`_all_hooks`/`_hooks_by_id`

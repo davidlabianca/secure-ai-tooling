@@ -22,12 +22,11 @@ guards against only reproduces when `validate_riskmap.py` is invoked the way
 `regenerate_graphs.py` actually invokes it (no `--force`), so the git-staged
 detection path in `get_staged_yaml_files()` must be exercised for real.
 
-RED phase: `get_staged_yaml_files()`'s `target_files` list (utils.py:221-225)
-does not include `mermaid-styles.yaml`, so a commit staging only that file
-returns `[]`, `main()` prints "No YAML files to validate - skipping" and
-exits 0 before ever reaching the `--to-graph` block -- the graph output file
-is never written. GREEN once `mermaid-styles.yaml` is added to `target_files`
-(ADR-036 Phase 3 P7's decided fix).
+`get_staged_yaml_files()`'s `target_files` list (utils.py:221-226) includes
+`mermaid-styles.yaml`, so a commit staging only that file reaches the
+`--to-graph` block and the graph output file is written. This suite was RED
+before that file was added to `target_files` (ADR-036 Phase 3 P7's decided
+fix); it is retained as the regression pin.
 """
 
 import os
@@ -130,12 +129,13 @@ class TestMermaidStylesOnlyStagedReachesToGraph:
               exact regenerate_graphs.py invocation shape, no --force)
         Then: the graph output file is actually written to disk
 
-        RED-PHASE: today get_staged_yaml_files() does not include
-        mermaid-styles.yaml in target_files, so yaml_files is empty, main()
-        prints the "skipping" message, and exits 0 before the --to-graph
-        block ever runs -- out_path is never created. This is exactly the
+        Was RED-PHASE before get_staged_yaml_files() included
+        mermaid-styles.yaml in target_files: yaml_files was empty, main()
+        printed the "skipping" message, and exited 0 before the --to-graph
+        block ever ran -- out_path was never created. That was exactly the
         ADR-036 Phase 3 P7 stale-diagram bug: staging only
-        mermaid-styles.yaml silently fails to regenerate diagrams.
+        mermaid-styles.yaml silently failed to regenerate diagrams. Now
+        GREEN and retained as the regression pin.
         """
         repo = _build_scratch_repo(tmp_path)
         _stage_mermaid_styles(repo)
@@ -171,10 +171,10 @@ class TestMermaidStylesOnlyStagedReachesToGraph:
         entirely, so stdout/stderr text cannot distinguish the early-exit
         path from a real run here; only the written artifacts can.
 
-        RED-PHASE: same underlying cause as the file-existence test above --
-        the entire --to-graph block (including the .mermaid companion
-        write) is unreachable while mermaid-styles.yaml is absent from
-        get_staged_yaml_files()'s target_files.
+        Was RED-PHASE for the same underlying cause as the file-existence
+        test above -- the entire --to-graph block (including the .mermaid
+        companion write) was unreachable while mermaid-styles.yaml was
+        absent from get_staged_yaml_files()'s target_files. Now GREEN.
         """
         repo = _build_scratch_repo(tmp_path)
         _stage_mermaid_styles(repo)

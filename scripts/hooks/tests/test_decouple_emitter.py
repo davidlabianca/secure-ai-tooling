@@ -3,16 +3,14 @@
 Tests for the decoupled component-graph emission pass (ADR-036, Phase 2, tasks 2.1/2.2).
 
 `ComponentGraph._emit_decoupled()` -- the private method that serializes a
-`DecoupledPlan` (built by `graphing/decouple.py`, Phase 1) into Mermaid text -- does
-not exist yet. Neither does `build_graph()`'s mode dispatch (`config_loader.
-get_emission_config().mode == "decoupled"` -> `build_decoupled_plan()` ->
-`self._emit_decoupled(plan)`, per
-`working-plans/component-graph-decouple-strategy-c-implementation-plan.md` §A). This
-is the RED phase of that piece of the TDD chain; `swe` implements against this
-contract next.
+`DecoupledPlan` (built by `graphing/decouple.py`, Phase 1) into Mermaid text -- is
+implemented at `component_graph.py:184`. `build_graph()`'s mode dispatch
+(`config_loader.get_emission_config().mode == "decoupled"` -> `build_decoupled_plan()`
+-> `self._emit_decoupled(plan)`) is implemented at `component_graph.py:113-116`. This
+suite was the RED phase of that piece of the TDD chain; it is retained as the
+regression pin against the now-GREEN implementation.
 
-Contract under test (fixed by this suite, since no implementation exists yet to derive
-it from):
+Contract under test (fixed by this suite; the implementation was derived from it):
 
     ComponentGraph._emit_decoupled(self, plan: DecoupledPlan) -> str
         Serializes the IR in the fixed 8-step output order (plan §A "Emission pass"):
@@ -42,35 +40,39 @@ every test in this file from exercising a real decoupled path. It is a MINIMAL,
 functional accessor -- mode, aspects, concerns, port_styles -- defaulting to
 `EmissionConfig(mode="flat")` on any absent or malformed `graphTypes.component.
 emission` block (D3: "missing or corrupt config never yields a half-decoupled
-diagram"). It is NOT the schema-validated, emergency-defaults-hardened version Phase 3
-(task 3.3) delivers -- Phase 3 hardens this accessor's validation coverage, it does not
-re-derive its basic shape or move it.
+diagram"). This accessor's own contract does not perform schema validation -- that
+responsibility stays with check-jsonschema at the YAML-validation layer (see
+`get_emission_config()`'s own docstring in `graph_utils.py`); Phase 3 (task 3.3) landed
+the schema definitions and the real corpus config without changing this accessor's
+degrade-don't-crash behavior.
 
-`risk-map/yaml/mermaid-styles.yaml` has no `emission` block yet (Phase 3 lands the real
-§C registry there), so in production today `get_emission_config()` always returns the
-flat default -- expected, not a gap; see `TestGetEmissionConfigAccessor` below and
-`TestFlatModeRegression`. Tests in this file that exercise the *decoupled* path
-construct the real §C `EmissionConfig` directly as a fixture (`_live_emission_config()`
-below), mirroring `TestLiveCorpusInventory` in `test_decouple_transform.py` --
-duplicated here rather than imported, per that suite's own precedent
-(`test_decouple_coverage_gaps.py`'s module docstring makes the same call, for the same
-reason: independence between test files covering different phases). `emission.
-portStyles` also has no real content in `mermaid-styles.yaml` yet; tests needing port
-styling use `PLACEHOLDER_PORT_STYLES` below, documented inline -- Phase 3 wires the
-real values.
+`risk-map/yaml/mermaid-styles.yaml` carries a real `graphTypes.component.emission`
+block (Phase 3's §C registry), but its `mode` is `flat` -- the two-PR landing sequence
+(ADR-036 Follow-up) flips it to `decoupled`, along with a regenerated diagram, in a
+separate PR. So in production today `get_emission_config()` still returns the flat
+default; see `TestGetEmissionConfigAccessor` below and `TestFlatModeRegression`. Tests
+in this file that exercise the *decoupled* path construct the real §C `EmissionConfig`
+directly as a fixture (`_live_emission_config()` below), mirroring
+`TestLiveCorpusInventory` in `test_decouple_transform.py` -- duplicated here rather than
+imported, per that suite's own precedent (`test_decouple_coverage_gaps.py`'s module
+docstring makes the same call, for the same reason: independence between test files
+covering different phases). `emission.portStyles` also carries real content in
+`mermaid-styles.yaml` now; tests needing port styling still use `PLACEHOLDER_PORT_STYLES`
+below (documented inline) since they construct their `EmissionConfig` fixtures directly
+rather than reading the still-flat-mode production config.
 
-RED failure mode
-=================
-Most tests below call `ComponentGraph._emit_decoupled()` directly (a method that does
-not exist yet), which raises a clean `AttributeError` at the call site -- verified via
-a throwaway prototype before this suite was written (see the task report for the
-prototype transcript; the same technique Phase 1's testing agent used). A small,
-explicitly flagged subset of tests instead exercise `build_graph()`'s mode-dispatch
-integration directly; since `build_graph()` exists today and unconditionally takes the
-flat path (it does not yet consult `get_emission_config()` at all), those specific
-tests fail today as a content mismatch or (for the flat-regression/bypass tests) may
-already pass, rather than a clean interface error -- each such test's docstring says so
-explicitly, per the task's request to distinguish RED failure characters.
+Original RED failure mode (historical; retained for context on the tests' design)
+====================================================================================
+Most tests below call `ComponentGraph._emit_decoupled()` directly. Before Phase 2
+landed, that method did not exist, so the call raised a clean `AttributeError` at the
+call site -- verified via a throwaway prototype before this suite was written, the same
+technique Phase 1's testing agent used. A small, explicitly flagged subset of tests
+instead exercise `build_graph()`'s mode-dispatch integration directly; before that
+dispatch landed, `build_graph()` unconditionally took the flat path (it did not consult
+`get_emission_config()` at all), so those specific tests failed as a content mismatch
+or (for the flat-regression/bypass tests) already passed, rather than a clean interface
+error -- each such test's docstring says so explicitly, per the task's original request
+to distinguish RED failure characters.
 
 Why message-matching, not import-patching, for "delegates to verify_plan"
 ===========================================================================
@@ -103,7 +105,8 @@ Task 2.1 (emitter):
  4. `TestBandLinksNeverSpanRoots` -- `plan.band_links` and the emitted `~~~` text never
     span two roots; ADR-036 D1's band-ports-not-chained revision additionally requires
     that no band link (IR or emitted) ever chains two port ids together -- only a
-    block's entry->exit pair survives (RED against the current `_build_band_links`).
+    block's entry->exit pair survives (was RED against `_build_band_links` before the
+    fix, now GREEN).
  5. `TestStyleClassDefPassthrough` -- category styles verbatim; port/pepport classDefs;
     pepWrapOutline; band `fill:none,stroke:none`.
  6. `TestOutputFormats` -- `.md` fence and raw (`mermaid`/`mmd`/anything-else) formats.
@@ -186,9 +189,8 @@ task that added this section for the full writeup):
     so an edge to a nonexistent/typo'd port is silently skipped rather than flagged,
     contradicting the check's own docstring.
 
-Phase 3b addition (ADR-036 D3/D4 revision, R9 -- see
-`working-plans/component-graph-decouple-strategy-c-implementation-plan.md`'s "Phase
-3b -- Aspect visual marker" section and task 3b.1): a maintainer render comparison
+Phase 3b addition (ADR-036 D3/D4 revision, R9, task 3b.1 -- "Aspect visual
+marker"): a maintainer render comparison
 against the reference mockup found the fully-out-of-scope R9 reading left
 `componentSecureLogging` visually unremarkable in the rendered SVG. Narrowed back
 in: a lifted aspect node now carries the `aspectStyle` class and a second label
@@ -227,8 +229,8 @@ ADR-036 D8 addition (display-layer acronym substitution -- node titles; the
     arbitrary-case matching, ordinary (non-PEP-id) node substitution, PDP/PEP
     side by side in one document.
 37. `TestD8SelfCheckAndDeterminismUnaffected` -- full live-corpus emission still
-    passes every D7 self-check and stays byte-stable once D8 lands (GREEN today,
-    D8-specific regression trip-wire).
+    passes every D7 self-check and stays byte-stable now that D8 has landed
+    (GREEN today, D8-specific regression trip-wire).
 """
 
 import dataclasses
@@ -832,7 +834,7 @@ class TestGetEmissionConfigAccessor:
     """
     `MermaidConfigLoader.get_emission_config()` is implemented for real as part of this
     task (see module docstring's Phase 2/3 boundary note). These tests are GREEN today
-    -- they exercise the accessor directly, not the not-yet-implemented emitter.
+    -- they exercise the accessor directly, independent of the emitter itself.
     """
 
     def test_absent_emission_block_defaults_to_flat(self, tmp_path):
@@ -1165,9 +1167,9 @@ class TestBandLinksNeverSpanRoots:
         edge (ELK's compound-node contiguity constraint) -- chaining the ports
         together with `~~~` links was found to actively cause horizontal sprawl and is
         removed entirely; only a block's entry->exit pair (one link, two real
-        component nodes) survives. RED against the current `_build_band_links`, which
-        still chains each cluster's egress ports together and each cluster's ingress
-        ports together (24 port-to-port links in the live corpus).
+        component nodes) survives. Was RED against `_build_band_links` before the
+        fix, which chained each cluster's egress ports together and each cluster's
+        ingress ports together (24 port-to-port links in the live corpus). Now GREEN.
         """
         components, forward_map = _live_corpus(repo_root)
         plan = build_decoupled_plan(forward_map, components, _live_emission_config())
@@ -1189,7 +1191,7 @@ class TestBandLinksNeverSpanRoots:
 
     def test_emitted_band_links_never_span_two_roots(self, repo_root: Path):
         """
-        RED: exercises the emitted `~~~` text itself, not just the IR.
+        Exercises the emitted `~~~` text itself, not just the IR.
 
         H2 coverage-gap fix (retained). Before that fix, the loop below guarded every
         lookup on `port_root.get(...) is not None`, silently SKIPPING any `~~~` line
@@ -1206,8 +1208,9 @@ class TestBandLinksNeverSpanRoots:
         Before this revision, a chain among a band's ports could stay root-scoped (and
         so pass the pre-existing checks) while still being exactly the sprawl-causing
         behavior this ADR revision removes; this test now catches that case directly.
-        RED against the current `_build_band_links`, which emits ~24 port-to-port
-        `~~~` lines in the live corpus in addition to the 4 block links (28 total).
+        Was RED against `_build_band_links` before the fix, which emitted ~24
+        port-to-port `~~~` lines in the live corpus in addition to the 4 block links
+        (28 total). Now GREEN.
         """
         components, forward_map = _live_corpus(repo_root)
         cfg = _live_emission_config()
@@ -1448,11 +1451,12 @@ class TestModeDispatchIntegration:
 
     UNLIKE most tests in this file, this one calls the PUBLIC `build_graph()` entry
     point rather than `_emit_decoupled()` directly, to pin the dispatch integration
-    itself. Its RED failure mode is therefore DIFFERENT from the rest of this suite's
-    clean AttributeError: `build_graph()` exists today and unconditionally takes the
-    flat path (it never consults `get_emission_config()` at all), so this test fails
-    today as a content mismatch (decoupled-only markers absent from flat output), not
-    an interface error -- flagged explicitly per the task's request.
+    itself. Its original RED failure mode was therefore DIFFERENT from the rest of
+    this suite's clean AttributeError: before the dispatch landed, `build_graph()`
+    unconditionally took the flat path (it never consulted `get_emission_config()` at
+    all), so this test failed as a content mismatch (decoupled-only markers absent
+    from flat output), not an interface error. `build_graph()` now dispatches on mode
+    (`component_graph.py:113-116`) and this test passes.
     """
 
     def test_decoupled_mode_config_routes_through_emit_decoupled(self, repo_root: Path):
@@ -1852,8 +1856,8 @@ class TestSelfCheckCatchesGenuineEmitterDefects:
 class TestSelfChecksCatchS9S10ImplementationGaps:
     """
     Adversarial review found a real gap in S9/S10's OWN implementation (not the
-    emitted output -- the checks themselves are under-specified). Both bugs are
-    regressions against the current code (RED here, GREEN after the S9/S10 fix):
+    emitted output -- the checks themselves were under-specified). Both bugs were
+    regressions against the code at the time (RED before the S9/S10 fix, GREEN after):
 
     Bug 1 (unanchored substring match, S9 + S10's first loop): `expected in text`
     has no line/token anchoring. Since the expected string's tail is a component id,
@@ -1888,10 +1892,10 @@ class TestSelfChecksCatchS9S10ImplementationGaps:
         `componentApplication` (`p_in_app_runtime_hosting_application`) is
         cross-wired to `componentApplicationInputHandling` -- a real, live, but wrong
         sibling id that happens to extend `componentApplication` as a substring.
-        Under the current unanchored `expected in text` check, `"p_in_app_runtime_
-        hosting_application --> componentApplication" in text` is still True (it's a
-        substring of the wrong line), so S9 does not fire and this test is RED against
-        the current implementation.
+        Under the pre-fix unanchored `expected in text` check, `"p_in_app_runtime_
+        hosting_application --> componentApplication" in text` was still True (it was
+        a substring of the wrong line), so S9 did not fire and this test was RED
+        against the implementation at the time. Now GREEN.
         """
         components, forward_map = _live_corpus(repo_root)
         cfg = _live_emission_config()
@@ -1920,11 +1924,11 @@ class TestSelfChecksCatchS9S10ImplementationGaps:
         """
         Live corpus, Bug 2: an extra, bogus `<src> --> p_out_...` line is appended
         alongside every correct source->egress edge (none removed), pointing at a
-        port id that belongs to no broadcast at all. Under the current
-        `port in egress_port_ids` filter, this line is silently skipped by the
-        reverse loop (and the first loop never fires, since every expected pair is
-        still present verbatim), so this test is RED against the current
-        implementation.
+        port id that belongs to no broadcast at all. Under the pre-fix
+        `port in egress_port_ids` filter, this line was silently skipped by the
+        reverse loop (and the first loop never fired, since every expected pair was
+        still present verbatim), so this test was RED against the implementation at
+        the time. Now GREEN.
         """
         components, forward_map = _live_corpus(repo_root)
         cfg = _live_emission_config()
@@ -1978,15 +1982,16 @@ class TestSelfCheckDiagnosticsNeverRaise:
 
 class TestPlanWarningsSurfaced:
     """
-    Fix 2 (maintainer: "this should be resolved"). `_emit_decoupled()` currently
-    surfaces `plan.diagnostics` (S8, advisory) via a header comment and
-    `logger.debug`, but drops `plan.warnings` (the actual D7 guard output,
+    Fix 2 (maintainer: "this should be resolved"). Before this fix, `_emit_decoupled()`
+    surfaced `plan.diagnostics` (S8, advisory) via a header comment and
+    `logger.debug`, but dropped `plan.warnings` (the actual D7 guard output,
     G-A1..G-O1) entirely -- confirmed by reading `component_graph.py`: `plan.
-    warnings` is never referenced anywhere in the module, so a guard warning (e.g. a
-    stale aspect id, or a threshold violation) is not logged, not commented, and not
-    raised. Since Phase 3 (which wires `check_emission_drift` into `validate_riskmap.
-    py`'s `--block` machinery) hasn't landed yet, this emitter call is currently the
-    ONLY place a human could observe a guard warning at all, and today it is silent.
+    warnings` was never referenced anywhere in the module, so a guard warning (e.g. a
+    stale aspect id, or a threshold violation) was not logged, not commented, and not
+    raised. At the time, Phase 3 (which wires `check_emission_drift` into
+    `validate_riskmap.py`'s `--block` machinery) had not landed yet, so this emitter
+    call was the ONLY place a human could observe a guard warning at all, and it was
+    silent. `plan.warnings` is now surfaced (`component_graph.py:241-242,307-308`).
 
     Design decision (this suite's own call, per the task's instruction to decide and
     document the mechanism): surface via BOTH channels, mirroring the existing S8
@@ -2143,10 +2148,10 @@ class TestFlatModeBypassesSelfCheck:
         "Why message-matching, not import-patching").
 
         Calls the PUBLIC `build_graph()` (not `_emit_decoupled()`), since this test is
-        about the MODE DISPATCH itself. `build_graph()` exists today and always takes
-        the flat path regardless of config, so this test is expected GREEN right now
-        too -- it is a regression pin for the D3 rollback contract that must remain
-        true once Phase 2 wires the dispatch, not a RED test.
+        about the MODE DISPATCH itself. Before Phase 2 wired the dispatch,
+        `build_graph()` always took the flat path regardless of config, so this test
+        was expected GREEN even then -- it is a regression pin for the D3 rollback
+        contract that stayed true once Phase 2 wired the dispatch, not a RED test.
         """
         components = {
             "componentInfraA": _node(INFRA, to_edges=["componentToolsA"]),
@@ -2175,8 +2180,8 @@ class TestFlatModeBypassesSelfCheck:
 #
 # The correctness-focused code-reviewer pass approved the suite above; a separate
 # adversarial coverage critic then found these gaps. Per the maintainer's request,
-# both severities are closed here, before Phase 2 implementation. Each test below is
-# RED for the same reason as the rest of this file -- `_emit_decoupled()` does not
+# both severities were closed here, before Phase 2 implementation. Each test below
+# was RED for the same reason as the rest of this file -- `_emit_decoupled()` did not
 # exist yet -- unless its docstring says otherwise.
 # ============================================================================
 
@@ -2487,8 +2492,8 @@ class TestPortAndComponentNodeDeclarations:
 # above): one high-severity composition gap (PEP-wrapped arm landing, never tested
 # together with the PEP-wrap rendering it composes with) and three medium composition
 # gaps (PEP-wrap-inside-block nesting, block-member placement, concern-label
-# escaping). Each test below is RED for the same reason as the rest of this file --
-# `_emit_decoupled()` does not exist yet -- unless its docstring says otherwise.
+# escaping). Each test below was RED for the same reason as the rest of this file
+# before `_emit_decoupled()` was implemented, unless its docstring says otherwise.
 # ----------------------------------------------------------------------------
 
 
@@ -2507,8 +2512,8 @@ class TestIngressLandingAtPepWrappedTarget:
     pep_wrappers[target].in_id if target in pep_wrappers else target`) would pass all
     50 existing tests while producing wrong edges for every live-corpus arm that lands
     at a PEP -- 7+ real arms (tool discovery, identity & authz x5, inference/serving,
-    tool calls; see `working-plans/component-graph-decouple-strategy-c-implementation-
-    plan.md` §C's concern table). Uses a dedicated, minimal fixture
+    tool calls; see `mermaid-styles.yaml`'s `emission.concerns` registry). Uses a
+    dedicated, minimal fixture
     (`_pep_landing_fixture_components`/`_cfg`) whose sole channel's sole arm targets a
     PEP-wrapped component, isolating exactly this path.
     """
@@ -2552,7 +2557,7 @@ class TestSourceEgressResolvesThroughPepWrapper:
     entering and leaving through the enforcement point"), and is live in the real
     corpus today: reproduced directly below against the two `app + agent egress`
     sources and the `tool results` source (confirmed via direct reproduction before
-    writing this test -- see class-level note in the task report).
+    writing this test).
 
     Constraint: this is resolvable entirely in the emission layer via
     `plan.pep_wrappers` lookups (`Arm.landing_id` already demonstrates the identical
@@ -2903,14 +2908,12 @@ class TestDegenerateEmptyPlans:
 class TestAspectVisualMarker:
     """
     A lifted aspect node carries the `aspectStyle` class and a second label line
-    stating its live lifted in-edge count (ADR-036 D3/D4, R9 revision; plan
-    "Phase 3b -- Aspect visual marker", task 3b.1). Not yet implemented --
-    `_decoupled_member_lines()` today declares every member (including a lifted
-    aspect) with the same plain `<id>[<title>]` line as an ordinary node (verified
-    directly against the current implementation before writing this class: see
-    the RED-character note in each test below), so every test here is a content-
-    mismatch RED, not an AttributeError -- `_emit_decoupled()` itself already
-    exists (Phase 2).
+    stating its live lifted in-edge count (ADR-036 D3/D4, R9 revision, task 3b.1).
+    Implemented at `component_graph.py:412-417` (`_decoupled_member_lines()`).
+    Before that landed, every member (including a lifted aspect) was declared with
+    the same plain `<id>[<title>]` line as an ordinary node, so this class's tests
+    were content-mismatch RED, not an AttributeError -- `_emit_decoupled()` itself
+    already existed (Phase 2). This suite is retained as the regression pin.
 
     Grammar choice (judgment call, flagged for code-reviewer confirmation): this
     repo's committed `.mermaid`/`.md` diagrams have no existing multi-line node
@@ -3005,7 +3008,7 @@ class TestAspectVisualMarker:
         assert len(plan.lifted_aspects[0].edges) == 3, "sanity: this fixture's controlled lifted-edge count"
         graph = _make_graph(components, forward_map, cfg, repo_root)
 
-        text = graph._emit_decoupled(plan)  # RED today: content mismatch, not AttributeError
+        text = graph._emit_decoupled(plan)  # was RED: content mismatch, not AttributeError; now GREEN
 
         expected = "componentAspectSink[Test Node<br/>3 writes lifted]:::aspectStyle"
         assert expected in text, f"expected aspect marker node declaration {expected!r}; got:\n{text}"
@@ -3141,7 +3144,7 @@ class TestAspectVisualMarker:
         assert len(by_id["componentAspectSinkY"].edges) == 5, "sanity: sink Y's controlled lifted-edge count"
         graph = _make_graph(components, forward_map, cfg, repo_root)
 
-        text = graph._emit_decoupled(plan)  # RED today: content mismatch, not AttributeError
+        text = graph._emit_decoupled(plan)  # was RED: content mismatch, not AttributeError; now GREEN
 
         expected_x = "componentAspectSinkX[Test Node<br/>3 writes lifted]:::aspectStyle"
         expected_y = "componentAspectSinkY[Test Node<br/>5 writes lifted]:::aspectStyle"
@@ -3172,17 +3175,17 @@ class TestAspectVisualMarker:
         aspect is still genuinely lifted at the IR level (`plan.lifted_aspects`
         still has the entry) -- only its rendered presentation degrades.
 
-        RED/GREEN character: GREEN today, but not tautologically so -- the
-        current (pre-3b) `_decoupled_member_lines()` declares every member,
-        lifted aspect or not, with the same plain `id[title]` line unconditionally
-        (verified by reading the method directly, same technique used for the
-        rest of this class's RED-character notes), which happens to already be
-        this test's expected outcome for THIS specific config. It stops being
-        vacuous once the marker is implemented: an implementation that emits
-        `:::aspectStyle` unconditionally (option (a), rejected above) turns this
-        GREEN test RED, exercising the decision for real going forward -- the
-        same role `TestFlatModeRegression`'s byte-identical baseline test plays
-        for the flat path.
+        RED/GREEN character: GREEN, but not tautologically so -- the pre-3b
+        `_decoupled_member_lines()` declared every member, lifted aspect or not,
+        with the same plain `id[title]` line unconditionally, which happened to
+        already be this test's expected outcome for THIS specific config. The
+        now-landed 3b implementation gates the marker on `aspectStyle` being
+        configured, so this exact config (aspectStyle unconfigured) still produces
+        the plain fallback line -- this test stays GREEN by design, exercising the
+        decision for real: an implementation that emitted `:::aspectStyle`
+        unconditionally (option (a), rejected above) would turn this test RED,
+        the same role `TestFlatModeRegression`'s byte-identical baseline test
+        plays for the flat path.
         """
         components = _aspect_marker_components(3)
         forward_map = _forward_map(components)
@@ -3406,9 +3409,9 @@ class TestOutputOrderSpanContract:
 # ----------------------------------------------------------------------------
 # ADR-036 D8: display-layer acronym substitution ("policy enforcement point" (case-
 # insensitive) -> "PEP", node titles only -- decouple.py's arm-label site is covered
-# in test_decouple_transform.py). Not implemented yet in either module this task
-# touches (`decouple.py`, `component_graph.py`) -- RED phase, per the task's
-# constraint that no substitution is implemented here.
+# in test_decouple_transform.py). Implemented in `component_graph.py`
+# (`_decoupled_pep_wrap_lines()` calls `apply_display_acronyms()` from `decouple.py`).
+# This suite was RED before D8 landed; retained as the regression pin.
 #
 # Real corpus facts (verified by reading risk-map/yaml/components.yaml directly,
 # not assumed): exactly 4 components match the PEP wrap id suffix, all Title Case:
@@ -3515,8 +3518,8 @@ class TestD8PdpTitleGuardLiveCorpus:
     title spells out "Policy Decision Point" -- the exact NIST 800-162/800-207 pairing
     ADR-036 D8 evaluated and explicitly held out. Must render completely unchanged.
 
-    Already GREEN today (nothing has changed yet) and must remain GREEN once D8 lands
-    -- this is the regression guard itself, not new behavior to implement.
+    Was already GREEN before D8 landed and stays GREEN now that D8 has landed --
+    this is the regression guard itself, not new behavior to implement.
     """
 
     def test_pdp_component_title_renders_unchanged(self, repo_root: Path):
@@ -3624,12 +3627,10 @@ class TestD8AcronymSubstitutionCaseInsensitivityAndScope:
         Paired with a singular occurrence in a SECOND component's title, in the
         SAME plan/assertion pass -- mirrors `TestD8PdpArmLabelNeverAbbreviated`'s
         side-by-side PDP+PEP pattern in test_decouple_transform.py: the singular
-        case genuinely substitutes (RED until D8 lands, proving this fixture would
-        catch a naive implementation that failed to substitute anything at all,
-        rather than trivially passing because nothing is substituted yet) while
-        the plural, right next to it, stays untouched (already true today; must
-        remain true once D8 lands, ruling out a non-word-boundary-anchored match
-        that would wrongly catch the plural too).
+        case genuinely substitutes per D8, proving this fixture would catch a
+        naive implementation that failed to substitute anything at all, while the
+        plural, right next to it, stays untouched, ruling out a
+        non-word-boundary-anchored match that would wrongly catch the plural too.
         """
         components = {
             "componentGatewayCore": _titled_node(APP, "Gateway Policy Enforcement Point"),
@@ -3638,9 +3639,9 @@ class TestD8AcronymSubstitutionCaseInsensitivityAndScope:
         plan, graph = self._plan_and_graph(components, repo_root)
         text = graph._emit_decoupled(plan)
 
-        # Singular: substituted (RED until D8 lands).
+        # Singular: substituted per D8.
         assert "componentGatewayCore[Gateway PEP]" in text, f"got:\n{text}"
-        # Plural: unchanged (already true today; must remain true once D8 lands).
+        # Plural: unchanged, per D8's word-boundary anchoring.
         assert "componentGatewayCluster[Gateway Policy Enforcement Points]" in text, (
             f"expected the plural phrase to render completely unchanged; got:\n{text}"
         )
@@ -3666,12 +3667,12 @@ class TestD8SelfCheckAndDeterminismUnaffected:
     any D7-checked structural property (edge conservation, port-id uniqueness,
     ingress out-degree, style/classDef presence).
 
-    Already GREEN today (neither `decouple.py` nor `component_graph.py` has
-    changed yet) and must remain GREEN once D8's implementation lands -- a
-    regression trip-wire pinned ahead of the change, not a new-behavior RED test.
-    Mirrors `TestByteStability` above; kept as its own class because it is a D8-
-    specific claim (self-check survives a title-rendering change), not a general
-    determinism claim.
+    Was already GREEN before D8 landed (neither `decouple.py` nor
+    `component_graph.py` had changed yet) and stayed GREEN once D8's implementation
+    landed -- a regression trip-wire pinned ahead of the change, not a new-behavior
+    RED test. Mirrors `TestByteStability` above; kept as its own class because it is
+    a D8-specific claim (self-check survives a title-rendering change), not a
+    general determinism claim.
     """
 
     def test_live_corpus_decoupled_emission_passes_self_check(self, repo_root: Path):
@@ -3756,7 +3757,7 @@ class TestD8AspectMarkerTitleSubstitution:
         assert len(plan.lifted_aspects[0].edges) == 3, "sanity: unaffected by the title override"
         graph = _make_graph(components, forward_map, cfg, repo_root)
 
-        text = graph._emit_decoupled(plan)  # RED today: content mismatch, not AttributeError
+        text = graph._emit_decoupled(plan)  # was RED: content mismatch, not AttributeError; now GREEN
 
         expected = "componentAspectSink[Ingress PEP<br/>3 writes lifted]:::aspectStyle"
         assert expected in text, (
@@ -3819,15 +3820,17 @@ closed before Phase 2 implementation):
   Mermaid's `#quot;` entity in quoted port labels but passed through literally in `%%`
   header comments (design decision documented in the class docstring): 1 test.
 
-RED-phase notes for the code-reviewer (task 2.3):
-- Most tests call `ComponentGraph._emit_decoupled()` directly and fail today with a
-  clean `AttributeError: 'ComponentGraph' object has no attribute '_emit_decoupled'`
-  (verified via throwaway prototype, transcript in the task report).
+Notes for the code-reviewer (task 2.3), preserved from the original RED-phase review:
+- Most tests call `ComponentGraph._emit_decoupled()` directly. Before Phase 2 landed,
+  they failed with a clean `AttributeError: 'ComponentGraph' object has no attribute
+  '_emit_decoupled'` (verified via throwaway prototype); they pass today against the
+  real implementation.
 - `TestModeDispatchIntegration` and the flat-regression/bypass tests call the public
-  `build_graph()`/`to_mermaid()` entry points instead; their RED character differs
-  (content mismatch, or already-GREEN regression pin) -- each says so in its docstring.
-- `TestGetEmissionConfigAccessor` is GREEN today (the accessor is a licensed, real
-  implementation landed alongside this test file, not a RED target).
+  `build_graph()`/`to_mermaid()` entry points instead; their original RED character
+  differed (content mismatch, or already-GREEN regression pin) -- each said so in its
+  docstring.
+- `TestGetEmissionConfigAccessor` was GREEN from the start (the accessor is a
+  licensed, real implementation landed alongside this test file, not a RED target).
 - The header-format assertions (aspect-inventory grouping, band style ids) encode this
   suite's OWN chosen line-format contracts where the ADR/plan only specify structural
   requirements ("grouped by source cluster with counts") -- flagged inline, open to
@@ -3835,58 +3838,62 @@ RED-phase notes for the code-reviewer (task 2.3):
 - No test presumes a specific channel-order-within-broadcast (the ADR mockup's own
   Model-before-Application display order contradicts its own D2 sort-by-tgt_root rule)
   -- see `test_undrawn_hop_list_matches_adr_d6_mockup_literally`'s inline note.
-- All coverage-gap tests added in this follow-up are RED for the same clean
+- All coverage-gap tests added in this follow-up were RED for the same clean
   `AttributeError` reason as the rest of the file, EXCEPT
   `test_emitted_band_links_never_span_two_roots` (H2 fix to an existing test, same RED
-  character as before) -- none of the new tests are green-today regression pins.
+  character as before) -- none of the new tests were green-today regression pins at
+  the time.
 
 Adversarial code-critic follow-up, four confirmed post-Phase-2 defects (`_emit_
-decoupled()` now implemented; these tests are RED against that real implementation,
-not the earlier no-such-method RED phase):
+decoupled()` already implemented at the time; these tests were RED against that real
+implementation, not the earlier no-such-method RED phase; all four fixes have since
+landed and every test below now passes):
 - Fix 1 `TestGetEmissionConfigAccessor` is unaffected; Fix 1 itself lives in
-  `TestSourceEgressResolvesThroughPepWrapper` -- a PEP-wrapped broadcast source draws
+  `TestSourceEgressResolvesThroughPepWrapper` -- a PEP-wrapped broadcast source drew
   its source->egress edge from the raw component id instead of the wrapper's `_out`
-  port. 4 tests: 3 RED (live-corpus `app + agent egress` two-PEP-source case,
+  port. 4 tests: 3 were RED (live-corpus `app + agent egress` two-PEP-source case,
   `tool results` single-PEP-source case, a synthetic mixed PEP/plain-source unit
-  pin); 1 GREEN-today regression pin (`identity & authz`'s two non-PEP sources --
+  pin); 1 was a GREEN-today regression pin (`identity & authz`'s two non-PEP sources --
   proves the defect is PEP-source-resolution specific, not multi-source handling in
   general, which was already correct).
-- Fix 2 `TestPlanWarningsSurfaced` -- `plan.warnings` (D7 guard output) is built but
-  never surfaced by `_emit_decoupled()`. 3 tests: 2 RED (logged via `logger.warning`;
-  surfaced as a `%%` header comment, mirroring the existing S8-diagnostics
-  precedent); 1 GREEN-today (warnings must not alter drawn structure -- trivially
-  true today since nothing surfaces yet, remains true as a design guard once fixed).
+- Fix 2 `TestPlanWarningsSurfaced` -- `plan.warnings` (D7 guard output) was built but
+  never surfaced by `_emit_decoupled()`. 3 tests: 2 were RED (logged via
+  `logger.warning`; surfaced as a `%%` header comment, mirroring the existing
+  S8-diagnostics precedent); 1 was GREEN-today (warnings must not alter drawn
+  structure -- trivially true before anything surfaced, remains true as a design
+  guard now that it does).
 - Fix 3 `TestSelfCheckCatchesGenuineEmitterDefects` -- S2/S5 recompute from the same
-  IR fields that built the plan, so they cannot fire against a genuine emitter
+  IR fields that built the plan, so they could not fire against a genuine emitter
   defect, only hand-corrupted test IR. 3 RED tests, each simulating "a genuine
   emitter defect" by monkeypatching one of `_emit_decoupled()`'s own step methods
   (impossible to construct via IR corruption alone, since IR corruption is exactly
-  what the existing tautological checks already catch): a dropped ingress-port
+  what the existing tautological checks already caught): a dropped ingress-port
   declaration (text-derived S2), a cross-wired ingress->landing edge (closes the
   critic's named gap directly), and a source->egress edge pointing at the wrong
   egress port id (bullet 3, ties to Fix 1).
 - Fix 4 `TestGetEmissionConfigAccessor::test_malformed_concern_entry_bad_edge_tuple_arity_defaults_to_flat`
   -- a `concerns[n].edges` entry with the wrong tuple arity (3 or 1 elements instead
-  of `[src, tgt]`) is accepted without validation today and crashes later, deep in
+  of `[src, tgt]`) was accepted without validation and crashed later, deep in
   `decouple.py`, with a raw `ValueError` instead of degrading gracefully. 2 RED cases
   (parametrized), matching the existing malformed-aspect-entry precedent (whole
   block degrades to `flat`).
 
-Total: 12 new tests (10 RED, 2 GREEN-today regression/design pins) across the four
-fixes. Constraint honored throughout: no fix implemented, `decouple.py` untouched
+Total: 12 new tests (10 originally RED, 2 GREEN-today regression/design pins from the
+start) across the four fixes; all 12 now pass against the landed fixes. Constraint
+honored during the RED phase: no fix implemented at the time, `decouple.py` untouched
 (Fix 1 confirmed resolvable entirely via `component_graph.py`'s `plan.pep_wrappers`
 lookups, the same pattern `Arm.landing_id` already uses on the target side).
 
 ADR-036 D1 revision follow-up: "Band ports are not chained together with invisible
 ordering links" (port-to-port `~~~` chaining removed; only a block's entry->exit pair
-survives) -- decouple.py/component_graph.py untouched, tests only:
+survives) -- fix landed in `decouple.py`'s `_build_band_links`, tests below pin it:
 - `TestBandLinksNeverSpanRoots.test_plan_band_links_never_span_two_roots` and
   `.test_emitted_band_links_never_span_two_roots` -- both updated in place (not
   replaced) to add an explicit "no band link ever touches a port id" assertion, on top
   of the pre-existing root-scoping check they already made. The emitted-text test also
-  now pins the total `~~~` line count to exactly the number of block entry/exit pairs
-  (4 in the live corpus). RED against the current `_build_band_links`, which still
-  chains ~24 port-to-port links in the live corpus.
+  pins the total `~~~` line count to exactly the number of block entry/exit pairs (4 in
+  the live corpus). Was RED against `_build_band_links` before the fix, which chained
+  ~24 port-to-port links in the live corpus; now GREEN.
 - `TestBlockRendering.test_block_entry_exit_invisible_link_emitted` (unchanged) is the
   narrower, still-valid block-entry/exit case this revision does NOT affect -- already
   GREEN, kept as-is, distinguished explicitly from the removed port-chain case in the
@@ -3897,15 +3904,15 @@ survives) -- decouple.py/component_graph.py untouched, tests only:
   `f"{block.entry_id} ~~~ {block.exit_id}"` marker instead of the bare `"~~~"` lookup
   -- the base fixture has no blocks, so once port-chaining is removed it would emit
   zero `~~~` lines at all and this Step-7 marker would never be found. Not a RED test
-  itself (block links already exist today); a required compatibility fix so this
-  order-contract test does not spuriously break when the fix lands.
+  itself (block links already existed); a required compatibility fix so this
+  order-contract test does not spuriously break when the fix landed.
 - Two new unit-level regression tests added to `test_decouple_transform.py`'s
   `TestBandsAndBlocks` (`test_multiple_egress_ports_sharing_a_root_are_never_chained`,
   `test_multiple_ingress_ports_sharing_a_root_are_never_chained`) and one new
   corpus-scale regression guard added to `TestLiveCorpusInventory`
   (`test_band_links_are_block_entry_exit_pairs_only_no_port_chains`, pinning
-  `plan.band_links` to exactly the 4 live-corpus block entry/exit pairs). All three are
-  RED against the current `_build_band_links`.
+  `plan.band_links` to exactly the 4 live-corpus block entry/exit pairs). All three were
+  RED against `_build_band_links` before the fix; now GREEN.
 - `verify_plan()` (D7 self-check, `decouple.py`) and `component_graph.py`'s emission
   self-check were checked for any assumption that counts or iterates port-to-port band
   links specifically: neither does. `verify_plan()`'s S1/S4/S5/S7 checks never
@@ -3914,18 +3921,19 @@ survives) -- decouple.py/component_graph.py untouched, tests only:
   dependency on the old port-chain-link behavior exists.
 
 ADR-036 D8 addition (display-layer acronym substitution, "policy enforcement point"
--> "PEP", node titles only -- neither `decouple.py` nor `component_graph.py` is
-touched by this task; the corresponding `decouple.py` arm-label coverage lives in
+-> "PEP", node titles only -- implemented in both `decouple.py` and
+`component_graph.py`; the corresponding `decouple.py` arm-label coverage lives in
 test_decouple_transform.py's own D8 section):
-- `TestD8PepWrapTitleSubstitutionLiveCorpus` -- live corpus: a sanity pin of
-  today's 4 real, unsubstituted PEP titles (GREEN, documents the facts the next
-  test's expectations are derived from), then all 4 substitute at both
+- `TestD8PepWrapTitleSubstitutionLiveCorpus` -- live corpus: a sanity pin of the 4
+  real, unsubstituted PEP titles as they existed before D8 (documents the facts the
+  next test's expectations are derived from), then all 4 substitute at both
   `_decoupled_pep_wrap_lines()` positions (wrap header, PEP node line), each keeping
-  its own distinguishing prefix (item 6, RED), plus a global "phrase never survives
-  anywhere in the emitted text" guard (RED). 3 tests: 1 GREEN, 2 RED.
+  its own distinguishing prefix (item 6), plus a global "phrase never survives
+  anywhere in the emitted text" guard. 3 tests, originally 1 GREEN + 2 RED, all GREEN
+  now that D8 has landed.
 - `TestD8PdpTitleGuardLiveCorpus` -- the real, non-PEP-wrapped
   `componentAuthorizationPolicyDecisionPoint` renders its spelled-out title
-  unchanged. 1 test, GREEN today and must stay GREEN (regression guard, not new
+  unchanged. 1 test, GREEN from the start and stays GREEN (regression guard, not new
   behavior -- PDP is explicitly out of the D8 set).
 - `TestD8AcronymSubstitutionCaseInsensitivityAndScope` -- synthetic fixtures: (a)
   arbitrary mixed-case source text still substitutes (case-insensitivity beyond the
@@ -3934,32 +3942,32 @@ test_decouple_transform.py's own D8 section):
   unconditional on PEP-wrap id matching, (c) PDP and PEP side by side in the same
   document, ruling out a naive "Policy * Point" pattern, (d) (adversarial-critic gap)
   the PLURAL phrase "Policy Enforcement Points" renders completely unchanged, ruling
-  out a naive non-word-boundary-anchored match. 4 tests, all RED.
+  out a naive non-word-boundary-anchored match. 4 tests, originally all RED, all GREEN
+  now.
 - `TestD8SelfCheckAndDeterminismUnaffected` -- the full live-corpus decoupled
   emission still passes every D7 self-check and stays byte-stable (double-run,
-  shuffled-input-dict) once D8 lands; title/arm-label substitution has no bearing on
-  any D7-checked structural property. 3 tests, all GREEN today (nothing has changed
-  yet) and must stay GREEN as a D8-specific regression trip-wire.
+  shuffled-input-dict) now that D8 has landed; title/arm-label substitution has no
+  bearing on any D7-checked structural property. 3 tests, all GREEN from the start
+  (nothing changed at the time they were written) and stay GREEN as a D8-specific
+  regression trip-wire.
 - `TestD8AspectMarkerTitleSubstitution` -- (adversarial-critic gap) the aspect-marker
   branch of `_decoupled_member_lines()` independently interpolates `title` into its
   second label line; no existing test (live-corpus or synthetic) exercised this
   branch with a PEP-phrase title, since the live corpus's sole lifted aspect
   (`componentSecureLogging`) has none. A synthetic fixture that is both aspect-lifted
-  and PEP-titled closes the gap. 1 test, RED.
+  and PEP-titled closes the gap. 1 test, originally RED, GREEN now.
 
-Total: 12 new tests (7 RED, 5 GREEN-today regression/sanity pins) across five new
-classes. Verified by direct pytest run before this summary was written (RED tests
-fail with a content mismatch -- an `AssertionError` on the substituted string, not
-a missing-attribute error, since `_emit_decoupled()` already exists from Phase 2).
-Constraint honored: no substitution implemented in either `decouple.py` or
-`component_graph.py`.
+Total: 12 tests (originally 7 RED, 5 GREEN-today regression/sanity pins) across five
+classes; all 12 now pass against the landed D8 implementation. Before D8 landed, the
+RED tests failed with a content mismatch -- an `AssertionError` on the substituted
+string, not a missing-attribute error, since `_emit_decoupled()` already existed from
+Phase 2.
 
-Adversarial-critic follow-up (2026-07-26, two gaps closed before implementation):
-closes the two remaining gaps flagged after the second (Fable-model adversarial)
-review pass of the 14-test D8 RED suite (12 in this file + the arm-label site's own
-4 in `test_decouple_transform.py`) -- word-boundary/phrase-exactness (MEDIUM, this
-file's `TestD8AcronymSubstitutionCaseInsensitivityAndScope`, new plural-phrase test)
-and the untested aspect-marker branch (LOW, this file's new
-`TestD8AspectMarkerTitleSubstitution`). Both RED as expected (verified via direct
-pytest run); neither `decouple.py` nor `component_graph.py` touched.
+Adversarial-critic follow-up (two gaps closed before implementation): closed the two
+remaining gaps flagged after the second (Fable-model adversarial) review pass of the
+14-test D8 suite (12 in this file + the arm-label site's own 4 in
+`test_decouple_transform.py`) -- word-boundary/phrase-exactness (MEDIUM, this file's
+`TestD8AcronymSubstitutionCaseInsensitivityAndScope`, plural-phrase test) and the
+untested aspect-marker branch (LOW, this file's `TestD8AspectMarkerTitleSubstitution`).
+Both were RED as expected before D8 landed; both are GREEN now.
 """

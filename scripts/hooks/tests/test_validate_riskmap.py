@@ -341,13 +341,13 @@ class TestParseArgs:
 
         False-positive guard: any unrecognized flag also produces SystemExit(2)
         via argparse's "unrecognized arguments" path, which would trivially
-        satisfy a bare `exc_info.value.code == 2` assertion even before
-        --emission-mode is wired at all. Asserting the error text names
+        satisfy a bare `exc_info.value.code == 2` assertion even if
+        --emission-mode were not wired at all. Asserting the error text names
         'bogus' specifically (the `choices=` violation message, e.g. "invalid
         choice: 'bogus'") -- and does NOT say "unrecognized arguments" --
-        forces this test to stay RED until the flag is wired with
-        choices=["flat", "decoupled"], mirroring the guard pattern used for
-        --mode lifecycle elsewhere in this file.
+        proves the flag is wired with choices=["flat", "decoupled"], not just
+        present as an accepted-but-unvalidated argument, mirroring the guard
+        pattern used for --mode lifecycle elsewhere in this file.
         """
         with patch("sys.argv", ["script.py", "--emission-mode", "bogus"]):
             with pytest.raises(SystemExit) as exc_info:

@@ -316,8 +316,8 @@ class TestValidatorHookContracts:
         before ever reaching --to-graph -- the ADR-036 Phase 3 P7
         stale-diagram trigger-coverage bug.
 
-        RED-PHASE: this test fails on the current config (files: covers
-        components|controls|risks only) and passes once the trigger is
+        Was RED-PHASE against the pre-widening config (files: covered
+        components|controls|risks only); passes now that the trigger is
         widened per ADR-036 Phase 3 P7.
         """
         hooks = _hooks_by_id("validate-component-edges")

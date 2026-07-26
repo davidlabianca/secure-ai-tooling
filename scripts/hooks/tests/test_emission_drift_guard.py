@@ -12,9 +12,10 @@ function itself -- per the module docstrings of those two files, which
 explicitly own that coverage and note independence between test files
 covering different guard layers.
 
-This suite's job is narrower: `validate_riskmap.py` does not call
-`check_emission_drift()` at all yet, so the check never runs during a normal
-`--force` invocation regardless of what `mermaid-styles.yaml` says. ADR-036
+This suite's job is narrower: `validate_riskmap.py` calls
+`check_emission_drift()` (wired at `validate_riskmap.py:35,456`) so the check
+runs during a normal `--force` invocation whenever the emission block exists.
+ADR-036
 D7: "Guards run whenever the emission block exists, regardless of mode" --
 a new warn-only check in the existing battery (mirror check / nesting check
 / category-ownership check), following the SAME established pattern each of
@@ -24,10 +25,8 @@ suite mirrors): warnings print with the `⚠️`/`❌` label depending on
 `args.block`, `--block` promotes to `warn_block_triggered = True` and exits 1
 via the existing unified-exit mechanism, non-block mode prints and continues.
 
-Not yet wired: every test below currently fails (or would trivially pass for
-the wrong reason -- see the "no wiring yet" tests) because
-validate_riskmap.py never imports or calls check_emission_drift. Tests turn
-green once that wiring lands.
+Wired: `validate_riskmap.py` imports and calls `check_emission_drift`; every
+test below passes against the current wiring.
 
 Test placement judgment call (flagged for code-reviewer): this repo's
 established convention is one dedicated file per warn-only check
