@@ -671,27 +671,22 @@ def _build_clusters(components: dict[str, ComponentNode], forward_map: dict[str,
     return clusters
 
 
-def _build_band_links(clusters: dict[str, Cluster], broadcasts: tuple[Broadcast, ...]) -> list[tuple[str, str]]:
+def _build_band_links(clusters: dict[str, Cluster]) -> list[tuple[str, str]]:
     """
-    Invisible ordering links (D1's `~~~` pinning) for the emission pass: chains each
-    cluster's egress ports together, each cluster's ingress ports together, and each
-    block's entry->exit pair when both exist. Never spans two roots (D1).
-    """
-    egress_by_root: dict[str, set[str]] = {}
-    ingress_by_root: dict[str, set[str]] = {}
-    for broadcast in broadcasts:
-        egress_by_root.setdefault(broadcast.src_root, set()).add(broadcast.egress_port_id)
-        for channel in broadcast.channels:
-            for arm in channel.arms:
-                ingress_by_root.setdefault(channel.tgt_root, set()).add(arm.port_id)
+    Invisible ordering links (D1's `~~~` pinning) for the emission pass: each block's
+    entry->exit pair when both exist. Never spans two roots (D1).
 
+    Port-to-port chain links (egress ports sharing a cluster, ingress ports sharing a
+    cluster) are deliberately not built here. ADR-036 D1: a band's own subgraph
+    nesting is what pins its ports to the container's edge (an ELK compound-node
+    contiguity constraint) -- chaining the ports with `~~~` links was found to
+    actively cause horizontal sprawl instead, since every port carries a
+    boundary-crossing edge by definition, which makes ELK stamp `INCLUDE_CHILDREN`
+    hierarchy handling on it and override the nested subgraph's own layout direction.
+    A block's entry/exit pair is two real component nodes, not ports, so it is
+    unaffected and is retained.
+    """
     links: list[tuple[str, str]] = []
-    for _, ports in sorted(egress_by_root.items()):
-        ordered = sorted(ports)
-        links.extend(zip(ordered, ordered[1:]))
-    for _, ports in sorted(ingress_by_root.items()):
-        ordered = sorted(ports)
-        links.extend(zip(ordered, ordered[1:]))
     for cluster in clusters.values():
         for block in cluster.blocks.values():
             if block.entry_id is not None and block.exit_id is not None:
@@ -793,7 +788,7 @@ def _classify(
     drawn_intra_edges, collapsed_pairs = _process_intra_edges(intra_edges, pep_wrappers)
 
     clusters = _build_clusters(components, forward_map)
-    band_links = _build_band_links(clusters, broadcasts)
+    band_links = _build_band_links(clusters)
 
     diagnostics = _reachability_diagnostic(channels, intra_edges)
 
