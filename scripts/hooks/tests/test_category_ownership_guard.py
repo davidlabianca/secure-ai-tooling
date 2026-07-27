@@ -521,14 +521,14 @@ def _run(cwd: Path, *extra_args: str) -> subprocess.CompletedProcess:
     )
 
 
-# Minimal components covering the 4 REAL top-level categories. The CLI sources
-# schema_categories from components.schema.json's category.id enum (via
-# _get_schema_categories()), not from a corpus's own categories: block, so a
-# category the schema declares must be styled and owned here or the fixture
-# trips a warning unrelated to the scenario under test. compTools/ctrlTools
-# and componentsTools' mermaid-styles entry (_FULLY_STYLED_MERMAID) keep that
-# 4th category clean in every fixture so the dirty-corpus tests below stay
-# focused on the one category they intend to exercise (componentsModel).
+# Minimal components covering 4 top-level categories, exercising the CLI over
+# more than one category at a time. _write_corpus derives this corpus's schema
+# category enum from the categories: block below, so all 4 must be styled and
+# owned or a fixture trips a warning unrelated to the scenario under test.
+# compTools/ctrlTools and componentsTools' mermaid-styles entry
+# (_FULLY_STYLED_MERMAID) keep that 4th category clean in every fixture so the
+# dirty-corpus tests below stay focused on the one category they intend to
+# exercise (componentsModel).
 #
 # No edges needed — CLI tests always pass --allow-isolated. Each component
 # declares a subcategory nested consistently under its category in the
@@ -679,16 +679,11 @@ class TestCLIWiring:
     """
     End-to-end tests on validate_riskmap.py.
 
-    Note: the schema-category set the CLI derives this check's inputs from
-    is read from the REAL, repo-relative risk-map/schemas/components.schema.json
-    (via riskmap_validator.graphing.graph_utils._get_schema_categories(), which
-    resolves the schema path relative to its own module location, not cwd —
-    see that module's docstring). Synthetic tmp-cwd corpora below therefore
-    use all 4 REAL category ids (the 3 pre-ADR-030 categories the dirty-corpus
-    tests actually target, plus componentsTools as an always-clean bystander —
-    see the fixture comments above), not fictional ones; only
-    mermaid-styles.yaml (cwd-relative, per riskmap_validator.config) and
-    components.yaml/controls.yaml (also cwd-relative) are actually synthetic.
+    Every input the CLI reads here is cwd-relative and synthetic: components,
+    controls, mermaid-styles, and the components.schema.json stub _write_corpus
+    lays down beside them. The category ids are the real ones only so the
+    fixtures read as plausible corpora; nothing in these tests depends on the
+    repo the test module lives in.
     """
 
     def test_dirty_style_with_block_exits_1(self, tmp_path):
@@ -1091,14 +1086,29 @@ TestCheckCategoryStyleAndOwnership (pure function): 12 tests
 - clean -> []; style-only warning; ownership-only warning; both independent;
   no-components category is ownerless; empty-personas control does not confer
   ownership; a second owning control rescues it; 'all' escape hatch does NOT
-  confer ownership on any category; multi-category independence; empty input;
-  return-type contract; live-corpus regression (all live categories clean).
+  confer ownership on any category; multi-category independence; an empty
+  category set is a warning, not a pass; return-type contract; live-corpus
+  regression (all live categories clean).
 
 TestCLIWiring (subprocess): 6 tests
 - dirty style + --block -> exit 1; dirty ownership + --block -> exit 1;
   clean + --block -> exit 0; dirty style without --block -> exit 0 + names
   the category; live corpus no --block -> exit 0; live corpus + --block ->
   exit 0.
+
+TestSchemaCategoryResolution (unit): 7 tests
+- cwd-relative resolution; missing / malformed / restructured / empty-enum
+  schema each raise and name the path; failures are not cached; successful
+  reads are.
+
+TestFlattenedModuleLayout (subprocess): 2 tests
+- validation.yml's flattened layout over a dirty corpus -> exit 1 + names the
+  category (exit 0 would mean the guard resolved no categories at all); over
+  a clean corpus -> exit 0.
+
+TestSchemaUnavailableFailsLoud (subprocess): 3 tests
+- no schema -> no success checkmark + an explicit could-not-run error;
+  --block promotes it to exit 1; --quiet does not suppress it.
 
 check_category_style_and_ownership is implemented in riskmap_validator.validator
 and wired into validate_riskmap.py as a --block-gated warn-only check. The two

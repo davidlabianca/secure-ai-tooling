@@ -679,19 +679,54 @@ def make_component():
 
 @pytest.fixture
 def write_riskmap_corpus():
-    """Return a callable that writes a minimal three-file corpus and returns the base.
+    """Return a callable that writes a minimal synthetic corpus and returns the base.
 
     The callable writes components.yaml, controls.yaml, and a risks.yaml stub
     under base/risk-map/yaml/ — the minimum for validate_riskmap.py --force
-    to load without ENOENT on a missing risks file.
+    to load without ENOENT on a missing risks file — plus a
+    components.schema.json stub under base/risk-map/schemas/.
+
+    The schema stub carries only the one field the validator reads from it:
+    definitions.category.properties.id.enum, derived by default from the
+    components fixture's own `categories:` block. validate_riskmap.py resolves
+    the schema cwd-relatively like every other input, so without this the
+    category style/ownership check has no categories to check. Deriving the
+    enum from the corpus keeps synthetic corpora self-describing: a fixture
+    declares the categories it means to exercise and nothing else, instead of
+    having to enumerate whatever the real repo schema happens to contain.
+
+    Pass schema_categories to decouple the two — that is the case the guard
+    exists for, a category present in the schema but absent from the corpus.
+    Pass write_schema=False to exercise the schema-unavailable path.
     """
 
-    def _write(base: Path, components: dict[str, Any], controls: dict[str, Any]) -> Path:
+    def _write(
+        base: Path,
+        components: dict[str, Any],
+        controls: dict[str, Any],
+        schema_categories: list[str] | None = None,
+        write_schema: bool = True,
+    ) -> Path:
         yaml_dir = base / "risk-map" / "yaml"
         yaml_dir.mkdir(parents=True)
         (yaml_dir / "components.yaml").write_text(yaml.dump(components), encoding="utf-8")
         (yaml_dir / "controls.yaml").write_text(yaml.dump(controls), encoding="utf-8")
         (yaml_dir / "risks.yaml").write_text(yaml.dump({"risks": []}), encoding="utf-8")
+
+        if write_schema:
+            if schema_categories is None:
+                schema_categories = [entry["id"] for entry in components.get("categories", [])]
+            schemas_dir = base / "risk-map" / "schemas"
+            schemas_dir.mkdir(parents=True, exist_ok=True)
+            (schemas_dir / "components.schema.json").write_text(
+                json.dumps(
+                    {
+                        "$schema": "http://json-schema.org/draft-07/schema#",
+                        "definitions": {"category": {"properties": {"id": {"enum": sorted(schema_categories)}}}},
+                    }
+                ),
+                encoding="utf-8",
+            )
         return base
 
     return _write

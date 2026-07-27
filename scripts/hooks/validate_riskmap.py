@@ -348,15 +348,16 @@ def main() -> None:
         # Runs regardless of whether the earlier checks found issues so all
         # warnings are visible before the exit decision below.
         #
-        # schema_categories is sourced from the repo-relative
-        # components.schema.json category.id enum via _get_schema_categories(),
-        # not the corpus's own components.yaml categories: block. Schema
-        # validation only enforces categories: block entries are a subset of
-        # the schema enum, never the reverse, so a category could exist in
-        # the schema without ever being added to categories: block and still
-        # pass schema validation. Sourcing from the corpus block would miss
-        # exactly that styleless/owner-less category — the failure mode this
-        # guard exists to catch (ADR-030 Consequences).
+        # schema_categories is sourced from components.schema.json's
+        # category.id enum via _get_schema_categories(), not the corpus's own
+        # components.yaml categories: block. Schema validation only enforces
+        # that categories: block entries are a subset of the schema enum,
+        # never the reverse, so a category could exist in the schema without
+        # ever being added to categories: block and still pass schema
+        # validation. Sourcing from the corpus block would miss exactly that
+        # styleless/owner-less category — the failure mode this guard exists
+        # to catch (ADR-030 Consequences). The schema path itself is resolved
+        # cwd-relatively, like every other input here.
         if controls_path.exists() and components_path.exists() and validator.components:
             try:
                 schema_categories = _get_schema_categories()
@@ -377,8 +378,12 @@ def main() -> None:
             except SystemExit:
                 raise
             except Exception as e:
-                if not args.quiet:
-                    print(f"   ⚠️  Category style/ownership check skipped: {e}")
+                # Fail loud. A guard that could not run has not passed, so this
+                # prints even under --quiet and is promoted by --block like any
+                # other failure of this check.
+                print(f"   ❌ Category style/ownership check could not run: {e}")
+                if args.block:
+                    warn_block_triggered = True
 
         # Unified exit for warn-only checks — fires after both checks have printed.
         if warn_block_triggered:

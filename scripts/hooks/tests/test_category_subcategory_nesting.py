@@ -123,26 +123,18 @@ def nesting_fn():
 # Synthesized-corpus harness for subprocess tests
 # ---------------------------------------------------------------------------
 
-# Both corpora below carry componentsApplication and componentsTools filler
-# components (componentDelta/componentEpsilon, componentApp/componentTools)
-# purely so their paired controls fixture can give EVERY real schema category
-# an owning, styled entry. This is required because the category style/
-# ownership check (ADR-030 D1) sources schema_categories from the real,
-# repo-relative components.schema.json enum (all 4 categories:
-# componentsInfrastructure, componentsModel, componentsApplication,
-# componentsTools) — not from this corpus's own categories: block — so every
-# synthetic corpus exercising --block must satisfy all 4 or trip unrelated
-# ownership warnings regardless of what the test actually targets (nesting).
-# Style is not separately supplied here: these corpora omit mermaid-styles.yaml
-# entirely, so MermaidConfigLoader falls back to its emergency defaults, which
-# already style all 4 real categories.
+# Both corpora below declare only the categories the scenario needs.
+# write_riskmap_corpus derives each corpus's schema category enum from its own
+# categories: block, so the category style/ownership check (ADR-030 D1) only
+# asks about those — but it does ask, so every declared category still needs an
+# owning control in the paired controls fixture or a --block run exits 1 for a
+# reason unrelated to nesting. Style is not separately supplied here: these
+# corpora omit mermaid-styles.yaml entirely, so MermaidConfigLoader falls back
+# to its emergency defaults, which style every real category.
 
 # Components.yaml with valid nesting + clean components (no mismatches, all
 # subcategories declared). One category ("componentsInfrastructure") has a
-# nested subcategory; components reference it consistently. componentGamma/
-# componentDelta/componentEpsilon give componentsModel/componentsApplication/
-# componentsTools a real component each so _CLEAN_CONTROLS can name them and
-# satisfy the category style/ownership check (ADR-030 D1).
+# nested subcategory; components reference it consistently.
 _CLEAN_COMPONENTS: dict[str, Any] = {
     "components": [
         {
@@ -159,27 +151,6 @@ _CLEAN_COMPONENTS: dict[str, Any] = {
             "subcategory": "componentsData",
             "edges": {"to": [], "from": ["componentAlpha"]},
         },
-        {
-            "id": "componentGamma",
-            "title": "Gamma",
-            "category": "componentsModel",
-            "subcategory": "componentsModelTraining",
-            "edges": {"to": [], "from": []},
-        },
-        {
-            "id": "componentDelta",
-            "title": "Delta",
-            "category": "componentsApplication",
-            "subcategory": "componentsAgent",
-            "edges": {"to": [], "from": []},
-        },
-        {
-            "id": "componentEpsilon",
-            "title": "Epsilon",
-            "category": "componentsTools",
-            "subcategory": "componentsToolCore",
-            "edges": {"to": [], "from": []},
-        },
     ],
     "categories": [
         {
@@ -189,38 +160,18 @@ _CLEAN_COMPONENTS: dict[str, Any] = {
                 {"id": "componentsData", "title": "Data"},
             ],
         },
-        {
-            "id": "componentsModel",
-            "title": "Model",
-            "subcategory": [
-                {"id": "componentsModelTraining", "title": "Model Training"},
-            ],
-        },
-        {
-            "id": "componentsApplication",
-            "title": "Application",
-            "subcategory": [
-                {"id": "componentsAgent", "title": "Agent"},
-            ],
-        },
-        {
-            "id": "componentsTools",
-            "title": "Tools",
-            "subcategory": [
-                {"id": "componentsToolCore", "title": "Tool Core"},
-            ],
-        },
     ],
 }
 
 # Components.yaml with a mismatched-nesting component: componentBad claims
 # category=componentsModel, subcategory=componentsData (which is declared
-# under componentsInfrastructure, not componentsModel). componentModelGood/
-# componentApp/componentTools are correctly-nested filler — distinct from
-# _CLEAN_COMPONENTS (deliberately NOT shared; see _DIRTY_NESTING_CONTROLS
-# below) — so this fixture's own paired controls can give every real schema
-# category an owner without involving componentBad, the one component under
-# test here.
+# under componentsInfrastructure, not componentsModel). Both categories are
+# declared here so componentBad is a genuine mis-nesting rather than a
+# reference to an undeclared category. componentModelGood is correctly-nested
+# filler — distinct from _CLEAN_COMPONENTS (deliberately NOT shared; see
+# _DIRTY_NESTING_CONTROLS below) — so this fixture's own paired controls can
+# give componentsModel an owner without involving componentBad, the one
+# component under test here.
 _DIRTY_NESTING_COMPONENTS: dict[str, Any] = {
     "components": [
         {
@@ -244,20 +195,6 @@ _DIRTY_NESTING_COMPONENTS: dict[str, Any] = {
             "subcategory": "componentsModelTraining",
             "edges": {"to": [], "from": []},
         },
-        {
-            "id": "componentApp",
-            "title": "App",
-            "category": "componentsApplication",
-            "subcategory": "componentsAgent",
-            "edges": {"to": [], "from": []},
-        },
-        {
-            "id": "componentTools",
-            "title": "Tools",
-            "category": "componentsTools",
-            "subcategory": "componentsToolCore",
-            "edges": {"to": [], "from": []},
-        },
     ],
     "categories": [
         {
@@ -274,35 +211,21 @@ _DIRTY_NESTING_COMPONENTS: dict[str, Any] = {
                 {"id": "componentsModelTraining", "title": "Model Training"},
             ],
         },
-        {
-            "id": "componentsApplication",
-            "title": "Application",
-            "subcategory": [
-                {"id": "componentsAgent", "title": "Agent"},
-            ],
-        },
-        {
-            "id": "componentsTools",
-            "title": "Tools",
-            "subcategory": [
-                {"id": "componentsToolCore", "title": "Tool Core"},
-            ],
-        },
     ],
 }
 
 # Clean controls paired with _CLEAN_COMPONENTS only — no dangling refs so the
 # mirror check stays silent and only the nesting check produces output.
-# personas is non-empty and components names one component from each of the
-# 4 real schema categories so the category style/ownership check (ADR-030 D1)
-# also stays silent.
+# personas is non-empty and components names a component in the one declared
+# category so the category style/ownership check (ADR-030 D1) also stays
+# silent.
 _CLEAN_CONTROLS: dict[str, Any] = {
     "controls": [
         {
             "id": "controlClean",
             "title": "Clean",
             "category": "controlsGovernance",
-            "components": ["componentAlpha", "componentGamma", "componentDelta", "componentEpsilon"],
+            "components": ["componentAlpha"],
             "risks": [],
             "personas": ["personaModelProvider"],
         }
@@ -323,7 +246,7 @@ _DIRTY_NESTING_CONTROLS: dict[str, Any] = {
             "id": "controlClean",
             "title": "Clean",
             "category": "controlsGovernance",
-            "components": ["componentAlpha", "componentModelGood", "componentApp", "componentTools"],
+            "components": ["componentAlpha", "componentModelGood"],
             "risks": [],
             "personas": ["personaModelProvider"],
         }

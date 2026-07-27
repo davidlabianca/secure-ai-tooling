@@ -438,9 +438,19 @@ def check_category_style_and_ownership(
 
     Returns:
         List of human-readable warning strings; empty when every schema
-        category is both styled and owned.
+        category is both styled and owned. An empty schema_categories set
+        yields a warning rather than an empty list: the per-category loop
+        below would otherwise iterate zero times and report a clean result
+        for a check that examined nothing.
     """
     warnings: list[str] = []
+
+    # No corpus has zero component categories, so an empty set means the
+    # caller could not read the schema. Report it instead of passing
+    # vacuously — this is a second line of defence behind
+    # _get_schema_categories(), which raises on an unreadable schema.
+    if not schema_categories:
+        return ["No component categories were supplied to the category style/ownership check"]
 
     # Map each category to the specific (non-"all") component ids it owns,
     # so ownership lookup below does not re-scan components per category.
