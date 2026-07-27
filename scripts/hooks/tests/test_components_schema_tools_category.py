@@ -300,7 +300,7 @@ Total Tests: 10
   net-new tool component ids NOT yet present (scope boundary)
 
 componentsTools lands in components.schema.json's category.id and
-subcategory.id enums (ADR-030 D1); all 10 tests are green:
+subcategory.id enums (ADR-030 D1). What each test pins:
 - TestCategoryIdEnumGainsComponentsTools.test_componentstools_in_category_enum
 - TestCategoryIdEnumGainsComponentsTools.test_category_enum_has_exactly_four_members
 - TestSubcategoryIdEnumGainsToolSubcategories.test_new_subcategory_in_enum[componentsToolControls]

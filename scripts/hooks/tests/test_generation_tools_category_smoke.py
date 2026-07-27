@@ -14,20 +14,20 @@ regenerate_tables.py) shell out to — against a synthetic corpus containing a
 componentsTools component, via subprocess so argument parsing / file-writing
 / CLI plumbing is covered, not just the underlying graph classes.
 
-Scope note (verified 2026-07-17): risk-map/svg/ generation
-(scripts/hooks/precommit/regenerate_svgs.py) invokes `npx mmdc`, which
-requires a headless Chromium binary. This sandbox has no Chromium installed
-(`npx mmdc` fails with "Could not find Chrome"), so real SVG rendering is not
-exercised here — regenerate_svgs.py's own test suite
-(test_regenerate_svgs.py) already covers that script's logic with a mocked
-subprocess, which is the appropriate boundary for an external-binary
-dependency. This module instead covers the two generation layers that DO run
-natively in Python: the Mermaid-source generators (ComponentGraph/
+Scope note: risk-map/svg/ generation
+(scripts/hooks/precommit/regenerate_svgs.py) invokes `npx mmdc`, which shells
+out to an external headless Chromium binary. Real SVG rendering is therefore
+outside this module's boundary regardless of whether that binary is
+installed — regenerate_svgs.py's own test suite (test_regenerate_svgs.py)
+covers that script's logic with a mocked subprocess, which is the coverage
+boundary for an external-binary dependency. This module instead covers the
+two generation layers that run natively in Python: the Mermaid-source
+generators (ComponentGraph/
 ControlGraph/RiskGraph, driving the risk-map/diagrams/*.mmd / *.md inputs
 that regenerate_svgs.py would otherwise convert) and the Markdown table
 generator (yaml_to_markdown.py, driving risk-map/tables/*.md).
 
-Verified 2026-07-17: none of these generators crash on a 4th top-level
+None of these generators crash on a 4th top-level
 category — ComponentGraph/ControlGraph group components generically by
 whatever `.category` string is present, and yaml_to_markdown.py's table
 columns just read `.get("category", "")`. These tests are regression guards,
@@ -345,19 +345,19 @@ Total Tests: 6
   against a synthetic componentsTools corpus.
 - TestTableGenerationDoesNotCrashOnComponentsTools (2): full + summary
   components tables via yaml_to_markdown.py subprocess CLI.
-- TestLiveCorpusGenerationBaseline (1): today's live corpus still generates.
+- TestLiveCorpusGenerationBaseline (1): the live corpus still generates.
 
-All 6 are GREEN (verified 2026-07-17) — none of these generators crash or
-choke on the 4th top-level category; they are regression guards protecting
-the componentsTools consumer-wiring work (schema, yaml, mermaid-styles.yaml,
-the new CI guard — see test_components_schema_tools_category.py,
+None of these generators crash or choke on the 4th top-level category; they
+are regression guards protecting the componentsTools consumer-wiring work
+(schema, yaml, mermaid-styles.yaml, the new CI guard — see
+test_components_schema_tools_category.py,
 test_components_yaml_tools_category.py, test_mermaid_styles_tools_category.py,
 test_category_ownership_guard.py for that coverage) from a future regression
 introducing a crash.
 
 Out of scope (documented, not silently skipped): risk-map/svg/ generation
-via `npx mmdc` requires a headless Chromium binary not present in this
-sandbox. regenerate_svgs.py's own mocked-subprocess test suite
-(test_regenerate_svgs.py) is the appropriate coverage boundary for that
-external dependency.
+via `npx mmdc` requires an external headless Chromium binary, so it is not
+exercised in-process here. regenerate_svgs.py's own mocked-subprocess test
+suite (test_regenerate_svgs.py) is the coverage boundary for that external
+dependency.
 """

@@ -281,11 +281,11 @@ class TestLiveCorpusValidatesAfterRecategorization:
         When: check-jsonschema validates the yaml against the schema
         Then: exit code 0
 
-        RED until the schema (category/subcategory enum + allOf) and the yaml
-        (categories: block + componentTools recategorization) land together;
-        a partial edit (yaml without schema, or vice versa) fails this check,
-        which is the intended atomicity guard (ADR-030 Consequences: "The
-        schema and YAML must change together atomically").
+        The schema (category/subcategory enum + allOf) and the yaml
+        (categories: block + componentTools recategorization) must stay in
+        step: a partial edit (yaml without schema, or vice versa) fails this
+        check, which is the intended atomicity guard (ADR-030 Consequences:
+        "The schema and YAML must change together atomically").
         """
         import subprocess
 
@@ -406,7 +406,7 @@ Total Tests: 15
 
 componentTools is recategorized into componentsTools/componentsToolCore and
 the categories: block declares componentsTools with its two subcategories
-(ADR-030 D1); all 15 tests are green:
+(ADR-030 D1). What each test pins:
 - TestCategoriesBlockDeclaresComponentsTools (6) — componentsTools category
   present in the categories: block with both subcategories
 - TestComponentToolsRecategorized.test_componenttools_category_is_componentstools

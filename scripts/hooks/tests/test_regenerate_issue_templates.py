@@ -428,8 +428,9 @@ class TestPerSourceRegenerationDeterminism:
 #
 # D8 — tuple-selector placeholder: {{COMPONENT_CATEGORY_SUBCATEGORY}} renders
 #      the valid (category, subcategory) pairs derived from the
-#      categories[].subcategory[] nesting in components.yaml (ten pairs as of
-#      ADR-030 D1's componentsTools category), formatted as
+#      categories[].subcategory[] nesting in components.yaml (eleven pairs as
+#      of ADR-030 D1's componentsTools category and D2's componentsIdentity
+#      subcategory), formatted as
 #      "<category-id>: <subcategory-id>" with ": " as delimiter.
 #      {{COMPONENT_SUBCATEGORIES}} is retired.
 #

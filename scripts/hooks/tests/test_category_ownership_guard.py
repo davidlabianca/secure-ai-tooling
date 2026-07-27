@@ -17,8 +17,8 @@ including a real-corpus guard so an unstyled or owner-less category fails CI
 rather than rendering silently."
 
 This is a NEW check — no equivalent exists today. The repo has no formal
-"persona owns a component category" schema field (verified 2026-07-17: no
-such relationship exists in personas.schema.json or components.schema.json).
+"persona owns a component category" schema field; no such relationship exists
+in personas.schema.json or components.schema.json.
 Ownership is therefore DERIVED from the existing controls↔components↔personas
 graph: a category is "owned" if at least one control (a) references a
 SPECIFIC component in that category — directly by id — AND (b) declares at
@@ -40,16 +40,15 @@ different question — "does a persona own this category specifically?" — and
 reusing the same escape hatch there would conflate referential validity with
 responsibility assignment.
 
-Verified 2026-07-17: on the CURRENT (pre-ADR-030) live corpus, all 3 existing
-categories are both styled and owned this way, each via multiple controls
-that name specific (non-'all') components in the category with non-empty
-personas — not merely via the 'all' loophole. componentTools' controls
-(controlAgentPluginPermissions et al.) all declare non-empty personas
+On the live corpus every category is both styled and owned this way, each via
+multiple controls that name specific (non-'all') components in the category
+with non-empty personas — not merely via the 'all' loophole. componentTools'
+controls (controlAgentPluginPermissions et al.) all declare non-empty personas
 (personaAgenticProvider, personaPlatformProvider, ...) and name componentTools
-directly (not via 'all'), so once componentTools is recategorized into
-componentsTools per D1, componentsTools inherits an owner "for free" through
-the SAME control mappings — no new content-authoring step is required for D1
-to pass this guard, matching the ADR's own note that "the Agentic Platform /
+directly (not via 'all'), so componentTools' recategorization into
+componentsTools per D1 inherits an owner "for free" through the SAME control
+mappings — no new content-authoring step is required for D1 to pass this
+guard, matching the ADR's own note that "the Agentic Platform /
 tool-provider persona is the candidate owner."
 
 Symbol contract
@@ -305,8 +304,8 @@ class TestCheckCategoryStyleAndOwnership:
         When: check_category_style_and_ownership() is called
         Then: an ownership warning still fires for that component's category
 
-        Regression guard for a review finding (2026-07-17): the sibling test
-        above (test_all_escape_hatch_does_not_confer_ownership) passes even
+        Mutation guard. The sibling test above
+        (test_all_escape_hatch_does_not_confer_ownership) passes even
         if validator.py's explicit `if component_ref ==
         _OWNERSHIP_ALL_ESCAPE_HATCH: continue` skip is deleted, because the
         real corpus never has a component literally named 'all' — the skip
@@ -393,14 +392,13 @@ class TestCheckCategoryStyleAndOwnership:
                mermaid-styles.yaml styled-category keys, and the REAL
                components.yaml / controls.yaml parsed
         When: check_category_style_and_ownership() is called
-        Then: returns [] — verified 2026-07-17, all 3 pre-ADR-030 categories
-              are both styled and owned today
+        Then: returns [] — every category in the schema enum is both styled
+              and owned
 
-        Forward guard: once ADR-030 D1 lands (componentsTools added to the
-        schema enum, styled in mermaid-styles.yaml, and componentTools'
-        existing controls carry it along), this test's inputs pick up the
-        4th category automatically — no edit to this test is needed — and it
-        continues to assert [] as the CI guard's steady state.
+        Forward guard: the inputs are all read from the live corpus, so a
+        category added to the schema enum is picked up automatically — no
+        edit to this test is needed — and it continues to assert [] as the
+        CI guard's steady state.
         """
         import json
 
@@ -456,14 +454,11 @@ def _run(cwd: Path, *extra_args: str) -> subprocess.CompletedProcess:
     )
 
 
-# Minimal components covering the 3 REAL pre-ADR-030 top-level categories
-# PLUS componentsTools as an always-clean bystander category. Since Finding 1
-# of the ADR-030 D1 code review, schema_categories is sourced from the real,
-# repo-relative components.schema.json enum (via _get_schema_categories()),
-# which now has 4 entries post-D1 (componentsTools was added by this same
-# feature). Without a componentsTools entry here, every synthetic corpus
-# below would trip an unrelated "componentsTools has no style/no owner"
-# warning regardless of what scenario the test targets. compTools/ctrlTools
+# Minimal components covering the 4 REAL top-level categories. The CLI sources
+# schema_categories from components.schema.json's category.id enum (via
+# _get_schema_categories()), not from a corpus's own categories: block, so a
+# category the schema declares must be styled and owned here or the fixture
+# trips a warning unrelated to the scenario under test. compTools/ctrlTools
 # and componentsTools' mermaid-styles entry (_FULLY_STYLED_MERMAID) keep that
 # 4th category clean in every fixture so the dirty-corpus tests below stay
 # focused on the one category they intend to exercise (componentsModel).
@@ -578,9 +573,8 @@ _THREE_CATEGORY_CONTROLS_MODEL_UNOWNED: dict[str, Any] = {
     ]
 }
 
-# Styles all 4 real schema categories (3 pre-ADR-030 + componentsTools) so
-# the schema-sourced ownership/style check (Finding 1) has no unrelated
-# bystander warnings to report.
+# Styles all 4 real schema categories so the schema-sourced ownership/style
+# check has no unrelated bystander warnings to report.
 _FULLY_STYLED_MERMAID: dict[str, Any] = {
     "version": "1.0.0",
     "foundation": {"colors": {}, "strokeWidths": {}, "strokePatterns": {}},
@@ -712,7 +706,7 @@ class TestCLIWiring:
         """
         Given: actual repo as cwd, no --block
         When: validate_riskmap.py --force --allow-isolated runs
-        Then: exit 0 — live corpus is clean today (verified 2026-07-17)
+        Then: exit 0 — the live corpus is clean
         """
         result = _run(_REPO_ROOT)
         assert result.returncode == 0, (
@@ -724,10 +718,10 @@ class TestCLIWiring:
         """
         Given: actual repo as cwd, --block
         When: validate_riskmap.py --force --allow-isolated --block runs
-        Then: exit 0 — verified 2026-07-17, all 3 pre-ADR-030 categories are
-              clean; remains the target post-D1 steady state too (componentsTools
-              inherits ownership through componentTools' existing controls, per
-              this module's top-level docstring)
+        Then: exit 0 — every live category is styled and owned, which is the
+              guard's steady state (componentsTools inherits ownership through
+              componentTools' existing controls, per this module's top-level
+              docstring)
         """
         result = _run(_REPO_ROOT, "--block")
         assert result.returncode == 0, (
@@ -747,7 +741,7 @@ TestCheckCategoryStyleAndOwnership (pure function): 12 tests
   no-components category is ownerless; empty-personas control does not confer
   ownership; a second owning control rescues it; 'all' escape hatch does NOT
   confer ownership on any category; multi-category independence; empty input;
-  return-type contract; live-corpus regression (today's 4 categories clean).
+  return-type contract; live-corpus regression (all live categories clean).
 
 TestCLIWiring (subprocess): 6 tests
 - dirty style + --block -> exit 1; dirty ownership + --block -> exit 1;
@@ -756,8 +750,8 @@ TestCLIWiring (subprocess): 6 tests
   exit 0.
 
 check_category_style_and_ownership is implemented in riskmap_validator.validator
-and wired into validate_riskmap.py as a --block-gated warn-only check; all
-tests in this module are green. The two CLI tests that only assert exit code
+and wired into validate_riskmap.py as a --block-gated warn-only check. The two
+CLI tests that only assert exit code
 (test_clean_corpus_with_block_exits_0, test_live_corpus_*_exits_0) are weak
 signals in isolation — an unwired or no-op check would also exit 0 — and are
 retained as regression companions to the dirty-corpus tests, which assert on

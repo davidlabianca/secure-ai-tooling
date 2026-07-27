@@ -310,8 +310,8 @@ _CLEAN_CONTROLS: dict[str, Any] = {
 }
 
 # Clean controls paired with _DIRTY_NESTING_COMPONENTS only. Deliberately NOT
-# shared with _CLEAN_CONTROLS (see prior fixture-cross-contamination note in
-# ADR-030 D1 code review, Finding 2): referencing componentGamma here — a
+# shared with _CLEAN_CONTROLS, to avoid cross-fixture contamination:
+# referencing componentGamma here — a
 # component that only exists in _CLEAN_COMPONENTS — would fail the mirror
 # check and contaminate the dirty-nesting tests below with an unrelated
 # warning. References componentModelGood, not componentBad, for Model

@@ -24,8 +24,8 @@ Two independent surfaces are exercised here:
    MermaidConfigLoader against the LIVE mermaid-styles.yaml on disk: a
    component in category=componentsTools must render with both a
    `style componentsTools ...` line and a `subgraph componentsTools` block.
-   Verified 2026-07-17: ComponentGraph does not crash on a 4th category (it
-   renders the subgraph structure generically); an unstyled category would be
+   ComponentGraph does not crash on a 4th category (it renders the subgraph
+   structure generically); an unstyled category would be
    silently dropped from styling (not from structure) because the "Node
    style definitions" loop only iterates
    config_loader.get_component_category_styles(). These tests pin that the
@@ -346,8 +346,8 @@ Total Tests: 10
   both render via the live default loader
 
 componentsTools has a mermaid-styles.yaml styling entry and a matching
-schema allowance (ADR-030 D1, closing the "renders unstyled" consequence);
-all 10 tests are green:
+schema allowance (ADR-030 D1, closing the "renders unstyled" consequence).
+What each test pins:
 - TestMermaidStylesSchemaAllowsComponentsTools (all 3)
 - TestMermaidStylesYamlHasComponentsToolsEntry.test_componentstools_entry_present
 - TestMermaidStylesYamlHasComponentsToolsEntry.test_componentstools_entry_has_required_style_fields
