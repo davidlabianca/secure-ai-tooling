@@ -165,7 +165,7 @@ graph LR
         componentReasoningCore[Agent Reasoning Core]
     end
 
-    subgraph componentsTools ["Tools Components"]
+    subgraph componentsExternalTools ["External Tools Components"]
         componentTools[External Tools and Services]
     end
 
@@ -342,7 +342,7 @@ graph LR
     controlAgentPluginPermissions --> componentMemory
     controlAgentPluginPermissions --> componentRAGContent
     controlAgentPluginPermissions --> componentReasoningCore
-    controlAgentPluginPermissions --> componentsTools
+    controlAgentPluginPermissions --> componentsExternalTools
     controlRedTeaming -.-> components
     controlVulnerabilityManagement -.-> components
     controlThreatDetection -.-> components
@@ -361,24 +361,24 @@ graph LR
     controlOrchestratorAndRouteIntegrity --> componentApplication
     controlOrchestratorAndRouteIntegrity --> componentModelServing
     controlAgentInventoryManagement --> componentReasoningCore
+    controlAgentInventoryManagement --> componentsExternalTools
     controlAgentInventoryManagement --> componentsOrchestration
-    controlAgentInventoryManagement --> componentsTools
     controlAgentIntegrityManagement --> componentModelServing
     controlAgentIntegrityManagement --> componentOrchestrationInputHandling
     controlAgentIntegrityManagement --> componentReasoningCore
-    controlAgentIntegrityManagement --> componentsTools
+    controlAgentIntegrityManagement --> componentsExternalTools
     controlAgentCredentialIsolation --> componentMemory
     controlAgentCredentialIsolation --> componentReasoningCore
+    controlAgentCredentialIsolation --> componentsExternalTools
     controlAgentCredentialIsolation --> componentsOrchestration
-    controlAgentCredentialIsolation --> componentsTools
     controlInterComponentTransportSecurity --> componentApplication
     controlInterComponentTransportSecurity --> componentModelServing
+    controlInterComponentTransportSecurity --> componentsExternalTools
     controlInterComponentTransportSecurity --> componentsOrchestration
-    controlInterComponentTransportSecurity --> componentsTools
     controlComponentIdentityProvenance --> componentApplication
     controlComponentIdentityProvenance --> componentModelServing
+    controlComponentIdentityProvenance --> componentsExternalTools
     controlComponentIdentityProvenance --> componentsOrchestration
-    controlComponentIdentityProvenance --> componentsTools
     controlAgentExecutionBounds --> componentReasoningCore
     controlAgentExecutionBounds --> componentsOrchestration
     controlModelRegistryIntegrity --> componentModelRegistry
@@ -402,5 +402,5 @@ graph LR
     style componentsInfrastructure fill:#e6f3e6,stroke:#333333,stroke-width:2px
     style componentsApplication fill:#e6f0ff,stroke:#333333,stroke-width:2px
     style componentsModel fill:#ffe6e6,stroke:#333333,stroke-width:2px
-    style componentsTools fill:#f3e6ff,stroke:#333333,stroke-width:2px
+    style componentsExternalTools fill:#f3e6ff,stroke:#333333,stroke-width:2px
 ```

@@ -1226,7 +1226,7 @@ class TestBaseGraphEmitsCategoryWarnings:
 
         Given: A config_loader whose componentCategories contains all four schema
                categories (componentsInfrastructure, componentsModel,
-               componentsApplication, componentsTools — ADR-030 D1)
+               componentsApplication, componentsExternalTools — ADR-030 D1)
         When: BaseGraph is instantiated with that loader
         Then: No UserWarning is emitted during __init__
         """
@@ -1236,7 +1236,7 @@ class TestBaseGraphEmitsCategoryWarnings:
 
         loader = self._loader_with_categories(
             tmp_path,
-            ["componentsInfrastructure", "componentsModel", "componentsApplication", "componentsTools"],
+            ["componentsInfrastructure", "componentsModel", "componentsApplication", "componentsExternalTools"],
         )
         with warnings.catch_warnings(record=True) as caught:
             warnings.simplefilter("always")

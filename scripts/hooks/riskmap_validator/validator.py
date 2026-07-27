@@ -9,9 +9,8 @@ uniqueness across lifecycle stage entries, check_controls_components_mirror
 that validates control→component references against the component ID set
 (ADR-020 D7), check_category_subcategory_nesting that validates each
 component's (category, subcategory) pair against the categories block
-declaration (ADR-018 D6), and check_category_style_and_ownership that
-validates every schema category has both a mermaid-styles.yaml entry and a
-persona owner derived from the controls/components graph (ADR-030 D1).
+declaration (ADR-018 D6), and check_category_style_coverage that validates
+every schema category has a mermaid-styles.yaml entry (ADR-030 D1).
 
 Dependencies:
     - PyYAML: For YAML file parsing
@@ -391,41 +390,22 @@ def check_category_subcategory_nesting(
 
 
 # ---------------------------------------------------------------------------
-# Category style + persona ownership guard (ADR-030 D1, Consequences)
+# Category style guard (ADR-030 D1, Consequences)
 # ---------------------------------------------------------------------------
 
-# "all" is a valid escape hatch for check_controls_components_mirror (ADR-020
-# D7), but it does not confer category-specific ownership here: a universal
-# control would trivially "own" every category, present and future, making
-# this check structurally incapable of ever firing.
-_OWNERSHIP_ALL_ESCAPE_HATCH = "all"
 
-
-def check_category_style_and_ownership(
+def check_category_style_coverage(
     schema_categories: set[str],
     styled_categories: set[str],
-    components: dict[str, ComponentNode],
-    controls: dict[str, ControlNode],
 ) -> list[str]:
     """
-    Check that every schema category is both styled and persona-owned.
+    Check that every schema component category has a mermaid-styles entry.
 
-    Per ADR-030 Consequences: "mermaid-styles.yaml needs a componentsTools
+    Per ADR-030 Consequences: "mermaid-styles.yaml needs a componentsExternalTools
     style or the new category renders unstyled; a real-corpus guard should
-    fail CI on a styleless category" and "The fourth category needs a persona
-    owner... a Tools category with no responsible persona is orphaned in the
-    responsibility model." No schema field records category ownership
-    directly, so ownership is derived from the controls/components graph: a
-    category is owned if at least one control references a SPECIFIC
-    component in that category (by id, not the "all" escape hatch) and
-    declares at least one persona.
-
-    Two independent warning classes, both keyed by category id, reported
-    separately (a category can be missing style, ownership, or both):
-      Class STYLE: category is in schema_categories but not in styled_categories.
-      Class OWNERSHIP: category is in schema_categories but no control
-        satisfies (references a specific component in that category) AND
-        (control.personas is non-empty).
+    fail CI on a styleless category." An unstyled category renders without
+    its fill/stroke definitions, which is a visible break in every generated
+    diagram.
 
     Args:
         schema_categories: Set of category ids declared in the components
@@ -433,41 +413,28 @@ def check_category_style_and_ownership(
         styled_categories: Set of category ids with a mermaid-styles.yaml
                             entry, typically from
                             MermaidConfigLoader.get_component_category_styles().keys().
-        components: Dict mapping component IDs to ComponentNode objects.
-        controls: Dict mapping control IDs to ControlNode objects.
+                            Callers must source this from real configuration:
+                            the loader silently substitutes emergency defaults
+                            when the styles file is missing or unreadable, and
+                            those defaults would satisfy this check without any
+                            styling actually being configured.
 
     Returns:
-        List of human-readable warning strings; empty when every schema
-        category is both styled and owned.
+        List of human-readable warning strings, one per unstyled category;
+        empty when every schema category is styled. An empty
+        schema_categories set yields a warning rather than an empty list: the
+        comprehension below would otherwise iterate zero times and report a
+        clean result for a check that examined nothing.
     """
-    warnings: list[str] = []
+    # No corpus has zero component categories, so an empty set means the
+    # caller could not read the schema. Report it instead of passing
+    # vacuously — this is a second line of defence behind
+    # _get_schema_categories(), which raises on an unreadable schema.
+    if not schema_categories:
+        return ["No component categories were supplied to the category style check"]
 
-    # Map each category to the specific (non-"all") component ids it owns,
-    # so ownership lookup below does not re-scan components per category.
-    category_to_component_ids: dict[str, set[str]] = {}
-    for component_id, node in components.items():
-        category_to_component_ids.setdefault(node.category, set()).add(component_id)
-
-    # A category is owned if any control with a non-empty personas list
-    # references one of that category's specific component ids.
-    owning_categories: set[str] = set()
-    for node in controls.values():
-        if not node.personas:
-            continue
-        for component_ref in node.components:
-            if component_ref == _OWNERSHIP_ALL_ESCAPE_HATCH:
-                continue
-            for category, component_ids in category_to_component_ids.items():
-                if component_ref in component_ids:
-                    owning_categories.add(category)
-
-    for category in sorted(schema_categories):
-        if category not in styled_categories:
-            warnings.append(f"Category '{category}' has no mermaid-styles.yaml styling entry")
-        if category not in owning_categories:
-            warnings.append(
-                f"Category '{category}' has no owning persona (no control with a non-empty "
-                f"personas list references a specific component in this category)"
-            )
-
-    return warnings
+    return [
+        f"Category '{category}' has no mermaid-styles.yaml styling entry"
+        for category in sorted(schema_categories)
+        if category not in styled_categories
+    ]

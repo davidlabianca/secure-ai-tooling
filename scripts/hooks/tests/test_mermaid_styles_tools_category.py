@@ -2,16 +2,16 @@
 """
 Tests for ADR-030 D1 mermaid-styles.yaml / ComponentGraph consumer wiring.
 
-ADR-030 Consequences: "mermaid-styles.yaml needs a componentsTools style or
+ADR-030 Consequences: "mermaid-styles.yaml needs a componentsExternalTools style or
 the new category renders unstyled in generated diagrams" and "The
 ComponentGraph hardcoded-category handling is a hard blocker... Graph
-generation will not pick up componentsTools until that code is fixed."
+generation will not pick up componentsExternalTools until that code is fixed."
 
 Two independent surfaces are exercised here:
 
 1. risk-map/schemas/mermaid-styles.schema.json declares
    sharedElements.componentCategories with additionalProperties: false and a
-   required list naming the 3 existing categories. Adding a componentsTools
+   required list naming the 3 existing categories. Adding a componentsExternalTools
    entry to mermaid-styles.yaml WITHOUT first widening this schema's
    properties/required list fails check-jsonschema — a second, independently
    discoverable "schema forgot the consumer" gap distinct from
@@ -22,15 +22,15 @@ Two independent surfaces are exercised here:
 
 2. ComponentGraph (riskmap_validator.graphing.component_graph), exercised via
    MermaidConfigLoader against the LIVE mermaid-styles.yaml on disk: a
-   component in category=componentsTools must render with both a
-   `style componentsTools ...` line and a `subgraph componentsTools` block.
-   Verified 2026-07-17: ComponentGraph does not crash on a 4th category (it
-   renders the subgraph structure generically); an unstyled category would be
+   component in category=componentsExternalTools must render with both a
+   `style componentsExternalTools ...` line and a `subgraph componentsExternalTools` block.
+   ComponentGraph does not crash on a 4th category (it renders the subgraph
+   structure generically); an unstyled category would be
    silently dropped from styling (not from structure) because the "Node
    style definitions" loop only iterates
    config_loader.get_component_category_styles(). These tests pin that the
    STYLE line specifically appears now that mermaid-styles.yaml carries a
-   componentsTools entry.
+   componentsExternalTools entry.
 """
 
 import json
@@ -77,14 +77,14 @@ def component_categories_schema(mermaid_styles_schema: dict) -> dict:
 
 
 # ============================================================================
-# mermaid-styles.schema.json — componentCategories must allow componentsTools
+# mermaid-styles.schema.json — componentCategories must allow componentsExternalTools
 # ============================================================================
 
 
 class TestMermaidStylesSchemaAllowsComponentsTools:
     """
     sharedElements.componentCategories has additionalProperties: false; a
-    componentsTools key in mermaid-styles.yaml is REJECTED by check-jsonschema
+    componentsExternalTools key in mermaid-styles.yaml is REJECTED by check-jsonschema
     unless this schema's properties (and, for parity with the 3 existing
     entries, required) list also names it.
     """
@@ -93,47 +93,47 @@ class TestMermaidStylesSchemaAllowsComponentsTools:
         """
         Given: sharedElements.componentCategories.properties
         When: its keys are inspected
-        Then: 'componentsTools' is present
+        Then: 'componentsExternalTools' is present
 
-        Without this, additionalProperties: false rejects any componentsTools
+        Without this, additionalProperties: false rejects any componentsExternalTools
         entry a content author adds to mermaid-styles.yaml, even though the
         entry is exactly what ADR-030 asks for.
         """
         properties = component_categories_schema.get("properties", {})
-        assert "componentsTools" in properties, (
-            f"Expected 'componentsTools' in sharedElements.componentCategories.properties "
+        assert "componentsExternalTools" in properties, (
+            f"Expected 'componentsExternalTools' in sharedElements.componentCategories.properties "
             f"(mermaid-styles.schema.json); got keys: {sorted(properties.keys())}"
         )
 
     def test_componentstools_property_refs_componentcategory_definition(self, component_categories_schema: dict):
         """
-        Given: sharedElements.componentCategories.properties.componentsTools
+        Given: sharedElements.componentCategories.properties.componentsExternalTools
         When: its shape is inspected
         Then: it $refs the shared componentCategory definition, consistent
               with componentsInfrastructure/componentsApplication/componentsModel
         """
         properties = component_categories_schema.get("properties", {})
-        if "componentsTools" not in properties:
-            pytest.fail("componentsTools property not declared; cannot check its shape")
-        assert properties["componentsTools"].get("$ref") == "#/definitions/componentCategory", (
-            f"Expected componentsTools to $ref '#/definitions/componentCategory' like the "
-            f"other 3 category entries; got: {properties['componentsTools']}"
+        if "componentsExternalTools" not in properties:
+            pytest.fail("componentsExternalTools property not declared; cannot check its shape")
+        assert properties["componentsExternalTools"].get("$ref") == "#/definitions/componentCategory", (
+            f"Expected componentsExternalTools to $ref '#/definitions/componentCategory' like the "
+            f"other 3 category entries; got: {properties['componentsExternalTools']}"
         )
 
     def test_componentstools_in_required_list(self, component_categories_schema: dict):
         """
         Given: sharedElements.componentCategories.required
         When: its members are inspected
-        Then: 'componentsTools' is present, matching the existing pattern where
+        Then: 'componentsExternalTools' is present, matching the existing pattern where
               componentsInfrastructure/componentsApplication/componentsModel are
               all required (componentsData is the one pre-existing exception —
-              declared in properties but not required; componentsTools is a
+              declared in properties but not required; componentsExternalTools is a
               genuine 4th top-level category and should follow the required
               3, not the legacy exception)
         """
         required = component_categories_schema.get("required", [])
-        assert "componentsTools" in required, (
-            f"Expected 'componentsTools' in sharedElements.componentCategories.required "
+        assert "componentsExternalTools" in required, (
+            f"Expected 'componentsExternalTools' in sharedElements.componentCategories.required "
             f"(ADR-030 D1: an unstyled top-level category should fail schema validation, "
             f"not silently render unstyled); got: {required}"
         )
@@ -145,33 +145,33 @@ class TestMermaidStylesSchemaAllowsComponentsTools:
 
 
 class TestMermaidStylesYamlHasComponentsToolsEntry:
-    """The live mermaid-styles.yaml must carry a componentsTools style entry."""
+    """The live mermaid-styles.yaml must carry a componentsExternalTools style entry."""
 
     def test_componentstools_entry_present(self, mermaid_styles_yaml: dict):
         """
         Given: the live mermaid-styles.yaml
         When: sharedElements.componentCategories is inspected
-        Then: 'componentsTools' is a key
+        Then: 'componentsExternalTools' is a key
         """
         categories = mermaid_styles_yaml.get("sharedElements", {}).get("componentCategories", {})
-        assert "componentsTools" in categories, (
-            f"Expected 'componentsTools' in sharedElements.componentCategories "
+        assert "componentsExternalTools" in categories, (
+            f"Expected 'componentsExternalTools' in sharedElements.componentCategories "
             f"(mermaid-styles.yaml); got keys: {sorted(categories.keys())}"
         )
 
     def test_componentstools_entry_has_required_style_fields(self, mermaid_styles_yaml: dict):
         """
-        Given: the componentsTools style entry
+        Given: the componentsExternalTools style entry
         When: its fields are inspected
         Then: fill, stroke, and strokeWidth are all present (required by the
               componentCategory schema definition)
         """
         categories = mermaid_styles_yaml.get("sharedElements", {}).get("componentCategories", {})
-        if "componentsTools" not in categories:
-            pytest.fail("componentsTools style entry not present; cannot check its fields")
-        entry = categories["componentsTools"]
+        if "componentsExternalTools" not in categories:
+            pytest.fail("componentsExternalTools style entry not present; cannot check its fields")
+        entry = categories["componentsExternalTools"]
         for field in ("fill", "stroke", "strokeWidth"):
-            assert field in entry, f"Expected '{field}' in componentsTools style entry; got: {entry}"
+            assert field in entry, f"Expected '{field}' in componentsExternalTools style entry; got: {entry}"
 
     def test_live_mermaid_styles_yaml_passes_check_jsonschema(self):
         """
@@ -179,7 +179,7 @@ class TestMermaidStylesYamlHasComponentsToolsEntry:
         When: check-jsonschema validates the yaml against the schema
         Then: exit code 0
 
-        The atomic-pairing guard for this consumer: a componentsTools entry
+        The atomic-pairing guard for this consumer: a componentsExternalTools entry
         added to the yaml without the matching schema property addition (or
         vice versa) fails this check.
         """
@@ -214,20 +214,20 @@ class TestLoaderSeesComponentsToolsOnLiveCorpus:
     MermaidConfigLoader and the schema-category helper, exercised against the
     REAL files on disk (not synthetic tmp fixtures) — the same live-corpus
     pattern used by TestMissingCategoryWarnings.test_live_corpus_produces_zero_warnings
-    in test_mermaid_config_loader.py, scoped specifically to componentsTools.
+    in test_mermaid_config_loader.py, scoped specifically to componentsExternalTools.
     """
 
     def test_schema_categories_includes_componentstools(self):
         """
         Given: the live components.schema.json category.id enum
         When: read directly
-        Then: 'componentsTools' is a member
+        Then: 'componentsExternalTools' is a member
         """
         with open(_COMPONENTS_SCHEMA, encoding="utf-8") as fh:
             schema = json.load(fh)
         schema_categories = set(schema["definitions"]["category"]["properties"]["id"]["enum"])
-        assert "componentsTools" in schema_categories, (
-            f"Expected 'componentsTools' in the live components.schema.json category "
+        assert "componentsExternalTools" in schema_categories, (
+            f"Expected 'componentsExternalTools' in the live components.schema.json category "
             f"enum; got: {schema_categories}"
         )
 
@@ -235,12 +235,12 @@ class TestLoaderSeesComponentsToolsOnLiveCorpus:
         """
         Given: MermaidConfigLoader pointed at the live mermaid-styles.yaml
         When: get_component_category_styles() is called
-        Then: 'componentsTools' is a key in the returned dict
+        Then: 'componentsExternalTools' is a key in the returned dict
         """
         loader = MermaidConfigLoader(_MERMAID_STYLES_YAML)
         styles = loader.get_component_category_styles()
-        assert "componentsTools" in styles, (
-            f"Expected 'componentsTools' in live get_component_category_styles(); "
+        assert "componentsExternalTools" in styles, (
+            f"Expected 'componentsExternalTools' in live get_component_category_styles(); "
             f"got keys: {sorted(styles.keys())}"
         )
 
@@ -249,14 +249,14 @@ class TestLoaderSeesComponentsToolsOnLiveCorpus:
         Given: the live components.schema.json category enum and the live
                mermaid-styles.yaml
         When: get_missing_category_warnings() is called with the live schema
-              categories (now including componentsTools)
-        Then: returns [] — componentsTools has a styling entry, same as the
+              categories (now including componentsExternalTools)
+        Then: returns [] — componentsExternalTools has a styling entry, same as the
               other 3 categories
 
-        This is a componentsTools-scoped variant of the pre-existing
+        This is a componentsExternalTools-scoped variant of the pre-existing
         TestMissingCategoryWarnings.test_live_corpus_produces_zero_warnings in
         test_mermaid_config_loader.py (ADR-022 D6a); that test will ALSO start
-        failing once components.schema.json gains componentsTools, for the
+        failing once components.schema.json gains componentsExternalTools, for the
         same underlying reason, until mermaid-styles.yaml is updated in the
         same commit.
         """
@@ -284,18 +284,18 @@ class TestComponentGraphRendersComponentsToolsStyled:
     def test_componentstools_subgraph_and_style_both_render(self):
         """
         Given: a synthetic component set with one member in
-               category=componentsTools, subcategory=componentsToolCore, and
+               category=componentsExternalTools, subcategory=componentsToolDataPlane, and
                ComponentGraph built with the default (live) config loader
         When: to_mermaid() is called
-        Then: the output contains BOTH a 'subgraph componentsTools' block AND
-              a 'style componentsTools' line
+        Then: the output contains BOTH a 'subgraph componentsExternalTools' block AND
+              a 'style componentsExternalTools' line
 
         The subgraph line renders regardless (ComponentGraph's category
         grouping is generic); the style line depends on the "Node style
         definitions" loop in ComponentGraph.build_graph, which iterates
         config_loader.get_component_category_styles() — this is the concrete
         form of ADR-030's "renders unstyled" consequence that the
-        componentsTools mermaid-styles.yaml entry closes.
+        componentsExternalTools mermaid-styles.yaml entry closes.
         """
         components = {
             "compA": ComponentNode(
@@ -303,8 +303,8 @@ class TestComponentGraphRendersComponentsToolsStyled:
             ),
             "compB": ComponentNode(
                 title="B",
-                category="componentsTools",
-                subcategory="componentsToolCore",
+                category="componentsExternalTools",
+                subcategory="componentsToolDataPlane",
                 to_edges=[],
                 from_edges=["compA"],
             ),
@@ -318,12 +318,12 @@ class TestComponentGraphRendersComponentsToolsStyled:
         graph = ComponentGraph(forward_map, components, config_loader=loader)
         output = graph.to_mermaid()
 
-        assert "subgraph componentsTools" in output, (
-            f"Expected a 'subgraph componentsTools' block in ComponentGraph output; got:\n{output}"
+        assert "subgraph componentsExternalTools" in output, (
+            f"Expected a 'subgraph componentsExternalTools' block in ComponentGraph output; got:\n{output}"
         )
-        assert "style componentsTools" in output, (
-            f"Expected a 'style componentsTools' line in ComponentGraph output "
-            f"(ADR-030: 'mermaid-styles.yaml needs a componentsTools style or the new "
+        assert "style componentsExternalTools" in output, (
+            f"Expected a 'style componentsExternalTools' line in ComponentGraph output "
+            f"(ADR-030: 'mermaid-styles.yaml needs a componentsExternalTools style or the new "
             f"category renders unstyled'); got:\n{output}"
         )
 
@@ -345,9 +345,9 @@ Total Tests: 10
 - TestComponentGraphRendersComponentsToolsStyled (1): subgraph AND style line
   both render via the live default loader
 
-componentsTools has a mermaid-styles.yaml styling entry and a matching
-schema allowance (ADR-030 D1, closing the "renders unstyled" consequence);
-all 10 tests are green:
+componentsExternalTools has a mermaid-styles.yaml styling entry and a matching
+schema allowance (ADR-030 D1, closing the "renders unstyled" consequence).
+What each test pins:
 - TestMermaidStylesSchemaAllowsComponentsTools (all 3)
 - TestMermaidStylesYamlHasComponentsToolsEntry.test_componentstools_entry_present
 - TestMermaidStylesYamlHasComponentsToolsEntry.test_componentstools_entry_has_required_style_fields

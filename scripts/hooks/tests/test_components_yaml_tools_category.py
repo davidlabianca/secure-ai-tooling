@@ -1,17 +1,17 @@
 #!/usr/bin/env python3
 """
-Tests for the ADR-030 D1 componentsTools category landing in components.yaml.
+Tests for the ADR-030 D1 componentsExternalTools category landing in components.yaml.
 
 ADR-030 D1 (docs/adr/030-agentic-component-model.md) adds a fourth top-level
-category, componentsTools, a peer of componentsInfrastructure/componentsModel/
+category, componentsExternalTools, a peer of componentsInfrastructure/componentsModel/
 componentsApplication, collecting tool-and-tool-authorization components. It
 carries two subcategories:
 
-  - componentsToolControls (tool control plane)
-  - componentsToolCore (tool data plane) — includes the existing componentTools
+  - componentsToolControlPlane (tool control plane)
+  - componentsToolDataPlane (tool data plane) — includes the existing componentTools
 
 The existing componentTools entry is recategorized OUT of componentsModel /
-componentsOrchestration INTO componentsTools / componentsToolCore (D1: "the
+componentsOrchestration INTO componentsExternalTools / componentsToolDataPlane (D1: "the
 existing componentTools (recategorized out of componentsModel) together with
 the tool components the decomposition introduces").
 
@@ -22,10 +22,10 @@ test_components_schema_tools_category.py and the extended
 TestPairingConstraintBehavior in test_components_mappings_field.py.
 
 components.yaml now:
-  1. declares a componentsTools entry (title + subcategory: [componentsToolControls,
-     componentsToolCore]) in the categories: block, and
-  2. has componentTools' category set to componentsTools and its subcategory
-     set to componentsToolCore (moved from componentsModel /
+  1. declares a componentsExternalTools entry (title + subcategory: [componentsToolControlPlane,
+     componentsToolDataPlane]) in the categories: block, and
+  2. has componentTools' category set to componentsExternalTools and its subcategory
+     set to componentsToolDataPlane (moved from componentsModel /
      componentsOrchestration).
 """
 
@@ -61,84 +61,84 @@ def components_by_id(components_data: dict) -> dict[str, dict]:
 
 
 # ============================================================================
-# categories: block — new componentsTools category + subcategories
+# categories: block — new componentsExternalTools category + subcategories
 # ============================================================================
 
 
 class TestCategoriesBlockDeclaresComponentsTools:
-    """The file-level categories: block must declare componentsTools per D1."""
+    """The file-level categories: block must declare componentsExternalTools per D1."""
 
     def test_componentstools_category_present(self, categories_by_id: dict[str, dict]):
         """
         Given: the live categories: block
         When: category ids are inspected
-        Then: 'componentsTools' is present as a top-level category
+        Then: 'componentsExternalTools' is present as a top-level category
         """
-        assert "componentsTools" in categories_by_id, (
-            "Expected a top-level 'componentsTools' category in components.yaml "
+        assert "componentsExternalTools" in categories_by_id, (
+            "Expected a top-level 'componentsExternalTools' category in components.yaml "
             "categories: block (ADR-030 D1). Not found; got top-level categories: "
             f"{sorted(categories_by_id.keys())}"
         )
 
     def test_componentstools_has_nonempty_title(self, categories_by_id: dict[str, dict]):
         """
-        Given: the componentsTools category entry
+        Given: the componentsExternalTools category entry
         When: its 'title' field is inspected
         Then: it is a non-empty string
         """
-        if "componentsTools" not in categories_by_id:
-            pytest.fail("componentsTools category not present; cannot check title")
-        title = categories_by_id["componentsTools"].get("title")
+        if "componentsExternalTools" not in categories_by_id:
+            pytest.fail("componentsExternalTools category not present; cannot check title")
+        title = categories_by_id["componentsExternalTools"].get("title")
         assert isinstance(title, str) and title.strip(), (
-            f"Expected non-empty 'title' on componentsTools category; got: {title!r}"
+            f"Expected non-empty 'title' on componentsExternalTools category; got: {title!r}"
         )
 
     def test_componentstools_has_description(self, categories_by_id: dict[str, dict]):
         """
-        Given: the componentsTools category entry
+        Given: the componentsExternalTools category entry
         When: its 'description' field is inspected
         Then: it is present (matches the pattern of the other 3 top-level categories,
               all of which carry a description per riskmap.schema.json prose-strict)
         """
-        if "componentsTools" not in categories_by_id:
-            pytest.fail("componentsTools category not present; cannot check description")
-        assert categories_by_id["componentsTools"].get("description"), (
-            "Expected a non-empty 'description' on the componentsTools category, "
+        if "componentsExternalTools" not in categories_by_id:
+            pytest.fail("componentsExternalTools category not present; cannot check description")
+        assert categories_by_id["componentsExternalTools"].get("description"), (
+            "Expected a non-empty 'description' on the componentsExternalTools category, "
             "consistent with componentsInfrastructure/componentsModel/componentsApplication."
         )
 
     def test_componentstools_declares_exactly_two_subcategories(self, categories_by_id: dict[str, dict]):
         """
-        Given: the componentsTools category entry
+        Given: the componentsExternalTools category entry
         When: its nested subcategory: list is inspected
         Then: it declares exactly 2 subcategories per D1
-              ('componentsToolControls' and 'componentsToolCore')
+              ('componentsToolControlPlane' and 'componentsToolDataPlane')
         """
-        if "componentsTools" not in categories_by_id:
-            pytest.fail("componentsTools category not present; cannot check subcategories")
-        subcats = categories_by_id["componentsTools"].get("subcategory", [])
+        if "componentsExternalTools" not in categories_by_id:
+            pytest.fail("componentsExternalTools category not present; cannot check subcategories")
+        subcats = categories_by_id["componentsExternalTools"].get("subcategory", [])
         subcat_ids = {s.get("id") for s in subcats if isinstance(s, dict)}
-        assert subcat_ids == {"componentsToolControls", "componentsToolCore"}, (
-            f"Expected exactly {{'componentsToolControls', 'componentsToolCore'}} nested "
-            f"under componentsTools per ADR-030 D1; got: {subcat_ids}"
+        assert subcat_ids == {"componentsToolControlPlane", "componentsToolDataPlane"}, (
+            f"Expected exactly {{'componentsToolControlPlane', 'componentsToolDataPlane'}} nested "
+            f"under componentsExternalTools per ADR-030 D1; got: {subcat_ids}"
         )
 
-    @pytest.mark.parametrize("subcategory_id", ["componentsToolControls", "componentsToolCore"])
+    @pytest.mark.parametrize("subcategory_id", ["componentsToolControlPlane", "componentsToolDataPlane"])
     def test_subcategory_has_nonempty_title(self, categories_by_id: dict[str, dict], subcategory_id: str):
         """
-        Given: a componentsTools subcategory entry
+        Given: a componentsExternalTools subcategory entry
         When: its 'title' field is inspected
         Then: it is a non-empty string
         """
-        if "componentsTools" not in categories_by_id:
-            pytest.fail("componentsTools category not present; cannot check subcategory titles")
+        if "componentsExternalTools" not in categories_by_id:
+            pytest.fail("componentsExternalTools category not present; cannot check subcategory titles")
         subcats = {
             s.get("id"): s
-            for s in categories_by_id["componentsTools"].get("subcategory", [])
+            for s in categories_by_id["componentsExternalTools"].get("subcategory", [])
             if isinstance(s, dict)
         }
         if subcategory_id not in subcats:
-            pytest.fail(f"{subcategory_id} not declared under componentsTools")
+            pytest.fail(f"{subcategory_id} not declared under componentsExternalTools")
         title = subcats[subcategory_id].get("title")
         assert isinstance(title, str) and title.strip(), (
             f"Expected non-empty 'title' on {subcategory_id}; got: {title!r}"
@@ -153,8 +153,8 @@ class TestCategoriesBlockDeclaresComponentsTools:
 class TestComponentToolsRecategorized:
     """
     The existing componentTools entry must move out of componentsModel /
-    componentsOrchestration into componentsTools / componentsToolCore (D1:
-    componentsToolCore lists componentToolServer, componentTools,
+    componentsOrchestration into componentsExternalTools / componentsToolDataPlane (D1:
+    componentsToolDataPlane lists componentToolServer, componentTools,
     componentToolInputHandling, componentToolOutputHandling).
     """
 
@@ -173,13 +173,13 @@ class TestComponentToolsRecategorized:
         """
         Given: the componentTools component entry
         When: its 'category' field is inspected
-        Then: it is 'componentsTools' (moved out of componentsModel per D1)
+        Then: it is 'componentsExternalTools' (moved out of componentsModel per D1)
         """
         if "componentTools" not in components_by_id:
             pytest.fail("componentTools component not present; cannot check category")
         category = components_by_id["componentTools"].get("category")
-        assert category == "componentsTools", (
-            f"Expected componentTools.category == 'componentsTools' (ADR-030 D1 "
+        assert category == "componentsExternalTools", (
+            f"Expected componentTools.category == 'componentsExternalTools' (ADR-030 D1 "
             f"recategorization out of componentsModel); got: {category!r}"
         )
 
@@ -187,17 +187,17 @@ class TestComponentToolsRecategorized:
         """
         Given: the componentTools component entry
         When: its 'subcategory' field is inspected
-        Then: it is 'componentsToolCore' — D1 explicitly lists componentTools as a
-              componentsToolCore (tool data plane) member, distinct from
-              componentsToolControls (tool control plane: the PEP/proxy/prompt-
+        Then: it is 'componentsToolDataPlane' — D1 explicitly lists componentTools as a
+              componentsToolDataPlane (tool data plane) member, distinct from
+              componentsToolControlPlane (tool control plane: the PEP/proxy/prompt-
               template components the decomposition introduces later)
         """
         if "componentTools" not in components_by_id:
             pytest.fail("componentTools component not present; cannot check subcategory")
         subcategory = components_by_id["componentTools"].get("subcategory")
-        assert subcategory == "componentsToolCore", (
-            f"Expected componentTools.subcategory == 'componentsToolCore' per ADR-030 D1 "
-            f"('componentsToolCore (the tool data plane) — componentToolServer, "
+        assert subcategory == "componentsToolDataPlane", (
+            f"Expected componentTools.subcategory == 'componentsToolDataPlane' per ADR-030 D1 "
+            f"('componentsToolDataPlane (the tool data plane) — componentToolServer, "
             f"componentTools, componentToolInputHandling, componentToolOutputHandling'); "
             f"got: {subcategory!r}"
         )
@@ -239,7 +239,7 @@ class TestRegistriesStayInInfrastructure:
     """
     D1: 'Registries (componentModelRegistry, componentToolRegistry) stay in
     Infrastructure — they are not tools.' Forward guard against an
-    over-eager recategorization sweeping registries into componentsTools
+    over-eager recategorization sweeping registries into componentsExternalTools
     along with componentTools.
     """
 
@@ -254,7 +254,7 @@ class TestRegistriesStayInInfrastructure:
             pytest.fail(f"{registry_id} component not present; cannot check category")
         category = components_by_id[registry_id].get("category")
         assert category == "componentsInfrastructure", (
-            f"D1 explicitly excludes registries from componentsTools ('they are not "
+            f"D1 explicitly excludes registries from componentsExternalTools ('they are not "
             f"tools'); expected {registry_id}.category == 'componentsInfrastructure', "
             f"got: {category!r}"
         )
@@ -281,11 +281,11 @@ class TestLiveCorpusValidatesAfterRecategorization:
         When: check-jsonschema validates the yaml against the schema
         Then: exit code 0
 
-        RED until the schema (category/subcategory enum + allOf) and the yaml
-        (categories: block + componentTools recategorization) land together;
-        a partial edit (yaml without schema, or vice versa) fails this check,
-        which is the intended atomicity guard (ADR-030 Consequences: "The
-        schema and YAML must change together atomically").
+        The schema (category/subcategory enum + allOf) and the yaml
+        (categories: block + componentTools recategorization) must stay in
+        step: a partial edit (yaml without schema, or vice versa) fails this
+        check, which is the intended atomicity guard (ADR-030 Consequences:
+        "The schema and YAML must change together atomically").
         """
         import subprocess
 
@@ -311,7 +311,7 @@ class TestLiveCorpusValidatesAfterRecategorization:
 
 
 # ============================================================================
-# Category/subcategory nesting check picks up componentsTools cleanly
+# Category/subcategory nesting check picks up componentsExternalTools cleanly
 # ============================================================================
 
 
@@ -319,8 +319,8 @@ class TestNestingCheckCoversComponentsTools:
     """
     check_category_subcategory_nesting (ADR-018 D6, riskmap_validator.validator)
     reads the categories: block to build its nesting map. Once D1 lands, it
-    must recognize componentsTools -> {componentsToolControls, componentsToolCore}
-    as valid nesting so componentTools (now in componentsToolCore) is not
+    must recognize componentsExternalTools -> {componentsToolControlPlane, componentsToolDataPlane}
+    as valid nesting so componentTools (now in componentsToolDataPlane) is not
     flagged as a mismatch.
     """
 
@@ -329,8 +329,8 @@ class TestNestingCheckCoversComponentsTools:
         Given: the live components.yaml, parsed into ComponentNode objects and
                a category_to_subcategories map derived from its categories: block
         When: check_category_subcategory_nesting() is called
-        Then: 0 warnings — componentTools' (componentsTools,
-              componentsToolCore) pairing is recognized as valid nesting
+        Then: 0 warnings — componentTools' (componentsExternalTools,
+              componentsToolDataPlane) pairing is recognized as valid nesting
 
         This test parses the live corpus, so it is a regression guard on the
         live componentTools pairing plus a drift guard: if the categories:
@@ -396,7 +396,7 @@ Total Tests: 15
 - TestCategoriesBlockDeclaresComponentsTools (6): category present, title,
   description, exactly-2-subcategories, per-subcategory titles (parametrized x2)
 - TestComponentToolsRecategorized (4): entry still exists, category ==
-  componentsTools, subcategory == componentsToolCore, edges untouched
+  componentsExternalTools, subcategory == componentsToolDataPlane, edges untouched
 - TestRegistriesStayInInfrastructure (2, parametrized): componentModelRegistry
   and componentToolRegistry remain componentsInfrastructure
 - TestLiveCorpusValidatesAfterRecategorization (1): atomic schema+yaml pairing
@@ -404,20 +404,20 @@ Total Tests: 15
 - TestNestingCheckCoversComponentsTools (2): aggregate zero-warning regression
   guard + componentTools-specific nesting pin
 
-componentTools is recategorized into componentsTools/componentsToolCore and
-the categories: block declares componentsTools with its two subcategories
-(ADR-030 D1); all 15 tests are green:
-- TestCategoriesBlockDeclaresComponentsTools (6) — componentsTools category
+componentTools is recategorized into componentsExternalTools/componentsToolDataPlane and
+the categories: block declares componentsExternalTools with its two subcategories
+(ADR-030 D1). What each test pins:
+- TestCategoriesBlockDeclaresComponentsTools (6) — componentsExternalTools category
   present in the categories: block with both subcategories
 - TestComponentToolsRecategorized.test_componenttools_category_is_componentstools
   and test_componenttools_subcategory_is_componentstoolcore — componentTools
-  is category=componentsTools, subcategory=componentsToolCore
+  is category=componentsExternalTools, subcategory=componentsToolDataPlane
 - TestComponentToolsRecategorized.test_componenttools_entry_exists
 - TestComponentToolsRecategorized.test_componenttools_edges_unchanged_by_recategorization
 - TestRegistriesStayInInfrastructure (both parametrized cases) — recategorization
   is scoped to componentTools only
 - TestLiveCorpusValidatesAfterRecategorization — componentTools' new
-  componentsTools/componentsToolCore pairing is schema-valid (ADR-030 atomic
+  componentsExternalTools/componentsToolDataPlane pairing is schema-valid (ADR-030 atomic
   schema+yaml pairing)
 - TestNestingCheckCoversComponentsTools (both) — componentTools' category/
   subcategory and the categories: block agree
