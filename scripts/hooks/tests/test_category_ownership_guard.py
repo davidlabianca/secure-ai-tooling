@@ -87,6 +87,8 @@ Test structure
 2. TestCLIWiring — subprocess end-to-end tests against validate_riskmap.py.
 """
 
+import json
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -366,14 +368,32 @@ class TestCheckCategoryStyleAndOwnership:
         assert "componentsNoStyle" in combined, f"Expected componentsNoStyle warning; got: {result}"
         assert "componentsNoOwner" in combined, f"Expected componentsNoOwner warning; got: {result}"
 
-    def test_empty_schema_categories_returns_empty_list(self, ownership_fn):
+    def test_empty_schema_categories_is_a_failure_not_a_pass(self, ownership_fn):
         """
         Given: schema_categories = set()
         When: check_category_style_and_ownership() is called
-        Then: returns [] (nothing to check)
+        Then: returns a warning — an empty category set is never a clean result
+
+        There is no corpus in which zero component categories is correct, so
+        an empty schema_categories set means the caller failed to read the
+        schema. Returning [] there makes the guard report success while
+        checking nothing: the loop over schema_categories iterates zero times,
+        so no warning can ever be produced no matter how broken the corpus is.
+        Every category-specific assertion in this class would still pass
+        against an implementation that had been silently reduced to a no-op.
+        The caller (_get_schema_categories) fails loud on an unreadable
+        schema; this is the second, independent layer of that contract, so a
+        future caller that reintroduces a degrade-to-empty path cannot
+        resurrect the vacuous pass.
         """
         result = ownership_fn(set(), set(), {}, {})
-        assert result == [], f"Expected empty list for empty schema_categories; got: {result}"
+        assert len(result) == 1, (
+            f"Expected exactly 1 warning for an empty schema category set — a vacuous "
+            f"pass is the failure mode this guard exists to prevent; got: {result}"
+        )
+        assert "categor" in result[0].lower(), (
+            f"Expected the warning to name the empty category set; got: {result[0]!r}"
+        )
 
     def test_return_type_is_list_of_str(self, ownership_fn, make_component):
         """
@@ -434,15 +454,62 @@ def _write_corpus(
     components: dict[str, Any],
     controls: dict[str, Any],
     mermaid_styles: dict[str, Any],
+    write_schema: bool = True,
 ) -> Path:
-    """Write a 4-file synthetic corpus: components/controls/risks/mermaid-styles."""
+    """Write a synthetic corpus: components/controls/risks/mermaid-styles + schema.
+
+    The schema stub's category enum is derived from the components fixture's
+    own `categories:` block, so the corpus is self-describing: the CLI reads
+    the category enum from this corpus's schema (cwd-relative, like every
+    other input), not from the repo the test module happens to live in.
+
+    Set write_schema=False to exercise the schema-unavailable path.
+    """
     yaml_dir = base / "risk-map" / "yaml"
     yaml_dir.mkdir(parents=True, exist_ok=True)
     (yaml_dir / "components.yaml").write_text(yaml.dump(components), encoding="utf-8")
     (yaml_dir / "controls.yaml").write_text(yaml.dump(controls), encoding="utf-8")
     (yaml_dir / "risks.yaml").write_text(yaml.dump({"risks": []}), encoding="utf-8")
     (yaml_dir / "mermaid-styles.yaml").write_text(yaml.dump(mermaid_styles), encoding="utf-8")
+    if write_schema:
+        category_ids = [entry["id"] for entry in components.get("categories", [])]
+        _write_components_schema_stub(base, category_ids)
     return base
+
+
+def _components_schema_stub(category_ids: list[str]) -> dict[str, Any]:
+    """Build the minimal components.schema.json shape _get_schema_categories() reads."""
+    return {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "definitions": {"category": {"properties": {"id": {"enum": sorted(category_ids)}}}},
+    }
+
+
+def _write_components_schema_stub(base: Path, category_ids: list[str]) -> Path:
+    """Write a components.schema.json stub under base/risk-map/schemas/."""
+    schemas_dir = base / "risk-map" / "schemas"
+    schemas_dir.mkdir(parents=True, exist_ok=True)
+    schema_path = schemas_dir / "components.schema.json"
+    schema_path.write_text(json.dumps(_components_schema_stub(category_ids)), encoding="utf-8")
+    return schema_path
+
+
+def _flatten_module(base: Path) -> Path:
+    """Reproduce validation.yml's flattened module layout under `base`.
+
+    .github/workflows/validation.yml copies validate_riskmap.py to the repo
+    root and riskmap_validator/* into a sibling riskmap_validator/ package, so
+    in CI graph_utils.py sits two directory levels shallower than it does in
+    the source tree. Returns the path to the flattened entry point.
+    """
+    entry = base / "validate_riskmap.py"
+    shutil.copy(_SCRIPT, entry)
+    shutil.copytree(
+        _SCRIPT.parent / "riskmap_validator",
+        base / "riskmap_validator",
+        ignore=shutil.ignore_patterns("__pycache__"),
+    )
+    return entry
 
 
 def _run(cwd: Path, *extra_args: str) -> subprocess.CompletedProcess:
@@ -726,6 +793,290 @@ class TestCLIWiring:
         result = _run(_REPO_ROOT, "--block")
         assert result.returncode == 0, (
             f"Expected exit 0 with --block on live corpus; got {result.returncode}\n"
+            f"stdout: {result.stdout}\nstderr: {result.stderr}"
+        )
+
+
+# ===========================================================================
+# 3. Schema-category resolution — riskmap_validator.graphing.graph_utils
+# ===========================================================================
+#
+# The guard's schema_categories input is the one input that was NOT resolved
+# the way components/controls/mermaid-styles are. Resolving it against the
+# module's own location instead of cwd makes the guard silently vacuous
+# anywhere the module tree is relocated — most importantly under CI's
+# flattened layout — and a swallowed exception hid that. These tests pin both
+# halves: cwd-relative resolution, and loud failure when the schema cannot be
+# read.
+
+
+@pytest.fixture
+def graph_utils_module():
+    """Yield graph_utils with its module-level schema-category cache cleared.
+
+    _schema_categories_cache is a module-level global that survives across
+    tests in a session. Clearing it on both sides keeps cwd-sensitive cases
+    from leaking a previously resolved category set into each other, or into
+    unrelated modules that construct graphs.
+    """
+    from riskmap_validator.graphing import graph_utils
+
+    graph_utils.clear_schema_categories_cache()
+    yield graph_utils
+    graph_utils.clear_schema_categories_cache()
+
+
+class TestSchemaCategoryResolution:
+    """_get_schema_categories() resolves cwd-relatively and fails loud."""
+
+    def test_resolves_schema_relative_to_cwd(self, tmp_path, monkeypatch, graph_utils_module):
+        """
+        Given: a cwd containing its own risk-map/schemas/components.schema.json
+        When: _get_schema_categories() is called
+        Then: the categories come from THAT schema, not the repo the module
+              happens to live in
+
+        This is the contract every other validator input already honours
+        (components, controls, mermaid-styles are all cwd-relative).
+        """
+        _write_components_schema_stub(tmp_path, ["componentsSynthetic"])
+        monkeypatch.chdir(tmp_path)
+
+        assert graph_utils_module._get_schema_categories() == {"componentsSynthetic"}, (
+            "Expected the category set to come from the schema under cwd; a set of real "
+            "repo category ids means resolution is still anchored to the module's own path."
+        )
+
+    def test_missing_schema_raises(self, tmp_path, monkeypatch, graph_utils_module):
+        """
+        Given: a cwd with no risk-map/schemas/components.schema.json
+        When: _get_schema_categories() is called
+        Then: it raises, naming the path it looked for
+
+        Returning an empty set here is what let the guard report success while
+        checking nothing.
+        """
+        monkeypatch.chdir(tmp_path)
+
+        with pytest.raises(RuntimeError) as excinfo:
+            graph_utils_module._get_schema_categories()
+        assert "components.schema.json" in str(excinfo.value), (
+            f"Expected the error to name the schema path it could not read; got: {excinfo.value}"
+        )
+
+    def test_malformed_schema_raises(self, tmp_path, monkeypatch, graph_utils_module):
+        """
+        Given: a components.schema.json that is not valid JSON
+        When: _get_schema_categories() is called
+        Then: it raises rather than degrading to an empty set
+        """
+        schemas_dir = tmp_path / "risk-map" / "schemas"
+        schemas_dir.mkdir(parents=True)
+        (schemas_dir / "components.schema.json").write_text("{not json", encoding="utf-8")
+        monkeypatch.chdir(tmp_path)
+
+        with pytest.raises(RuntimeError):
+            graph_utils_module._get_schema_categories()
+
+    def test_unexpected_schema_shape_raises(self, tmp_path, monkeypatch, graph_utils_module):
+        """
+        Given: valid JSON without definitions.category.properties.id.enum
+        When: _get_schema_categories() is called
+        Then: it raises — a restructured schema must break loudly, not
+              silently disable the guard
+        """
+        schemas_dir = tmp_path / "risk-map" / "schemas"
+        schemas_dir.mkdir(parents=True)
+        (schemas_dir / "components.schema.json").write_text(json.dumps({"definitions": {}}), encoding="utf-8")
+        monkeypatch.chdir(tmp_path)
+
+        with pytest.raises(RuntimeError):
+            graph_utils_module._get_schema_categories()
+
+    def test_empty_category_enum_raises(self, tmp_path, monkeypatch, graph_utils_module):
+        """
+        Given: a schema whose category id enum is empty
+        When: _get_schema_categories() is called
+        Then: it raises — an empty enum is indistinguishable from an
+              unreadable schema for this guard's purposes, and both make it
+              vacuous
+        """
+        _write_components_schema_stub(tmp_path, [])
+        monkeypatch.chdir(tmp_path)
+
+        with pytest.raises(RuntimeError):
+            graph_utils_module._get_schema_categories()
+
+    def test_failure_is_not_cached(self, tmp_path, monkeypatch, graph_utils_module):
+        """
+        Given: a first call that fails because no schema exists
+        When: the schema is then written and _get_schema_categories() is
+              called again
+        Then: the second call succeeds
+
+        A cached failure would make one bad cwd poison the rest of the
+        process.
+        """
+        monkeypatch.chdir(tmp_path)
+        with pytest.raises(RuntimeError):
+            graph_utils_module._get_schema_categories()
+
+        _write_components_schema_stub(tmp_path, ["componentsSynthetic"])
+        assert graph_utils_module._get_schema_categories() == {"componentsSynthetic"}
+
+    def test_successful_read_is_cached(self, tmp_path, monkeypatch, graph_utils_module):
+        """
+        Given: a successful first read
+        When: the schema file is deleted and the function is called again
+        Then: the cached set is returned (caching behaviour is preserved)
+        """
+        schema_path = _write_components_schema_stub(tmp_path, ["componentsSynthetic"])
+        monkeypatch.chdir(tmp_path)
+        first = graph_utils_module._get_schema_categories()
+
+        schema_path.unlink()
+        assert graph_utils_module._get_schema_categories() == first
+
+
+class TestFlattenedModuleLayout:
+    """
+    The guard survives .github/workflows/validation.yml's flattened layout.
+
+    That workflow copies validate_riskmap.py to the repo root and
+    riskmap_validator/* into a sibling package directory, then runs from the
+    repo root. graph_utils.py therefore sits two directory levels shallower
+    than in the source tree, so any path resolved by walking up from the
+    module lands outside the repo. cwd is the repo root in both layouts,
+    which is why cwd-relative resolution is the one that holds.
+    """
+
+    def _run_flattened(self, base: Path, *extra_args: str) -> subprocess.CompletedProcess:
+        entry = base / "validate_riskmap.py"
+        return subprocess.run(
+            [sys.executable, str(entry), "--force", "--allow-isolated", *extra_args],
+            capture_output=True,
+            text=True,
+            cwd=str(base),
+        )
+
+    def test_flattened_layout_detects_dirty_category(self, tmp_path):
+        """
+        Given: the flattened CI module layout over a style-dirty corpus
+        When: validate_riskmap.py --force --allow-isolated --block runs
+        Then: exit 1 and the dirty category is named
+
+        Exit 0 here means the guard resolved no categories and passed
+        vacuously — the exact CI failure mode this test exists for.
+        """
+        _write_corpus(
+            tmp_path, _THREE_CATEGORY_COMPONENTS, _THREE_CATEGORY_CONTROLS_ALL_OWNED, _MODEL_UNSTYLED_MERMAID
+        )
+        _flatten_module(tmp_path)
+
+        result = self._run_flattened(tmp_path, "--block")
+        assert result.returncode == 1, (
+            f"Expected exit 1 under the flattened CI layout on a style-dirty corpus; "
+            f"got {result.returncode} — the guard passed vacuously.\n"
+            f"stdout: {result.stdout}\nstderr: {result.stderr}"
+        )
+        combined = result.stdout + result.stderr
+        assert "componentsModel" in combined, (
+            f"Expected the dirty category to be named under the flattened layout; "
+            f"stdout: {result.stdout!r}\nstderr: {result.stderr!r}"
+        )
+
+    def test_flattened_layout_clean_corpus_exits_0(self, tmp_path):
+        """
+        Given: the flattened CI module layout over a clean corpus
+        When: validate_riskmap.py --force --allow-isolated --block runs
+        Then: exit 0 — the fix must not make the flattened layout fail outright
+        """
+        _write_corpus(
+            tmp_path, _THREE_CATEGORY_COMPONENTS, _THREE_CATEGORY_CONTROLS_ALL_OWNED, _FULLY_STYLED_MERMAID
+        )
+        _flatten_module(tmp_path)
+
+        result = self._run_flattened(tmp_path, "--block")
+        assert result.returncode == 0, (
+            f"Expected exit 0 under the flattened CI layout on a clean corpus; "
+            f"got {result.returncode}\nstdout: {result.stdout}\nstderr: {result.stderr}"
+        )
+
+
+class TestSchemaUnavailableFailsLoud:
+    """An unreadable schema must never render as a passing check."""
+
+    def test_missing_schema_does_not_print_success(self, tmp_path):
+        """
+        Given: a corpus that is clean by its own lights but has no
+               risk-map/schemas/components.schema.json
+        When: validate_riskmap.py --force --allow-isolated runs (no --block)
+        Then: stdout carries an explicit could-not-run error and NOT the
+              success checkmark
+
+        The pre-fix code swallowed the read error inside the helper, so even
+        the CLI's own "check skipped" handler never fired: the run printed an
+        unqualified success line for a check that had examined nothing.
+        """
+        _write_corpus(
+            tmp_path,
+            _THREE_CATEGORY_COMPONENTS,
+            _THREE_CATEGORY_CONTROLS_ALL_OWNED,
+            _FULLY_STYLED_MERMAID,
+            write_schema=False,
+        )
+        result = _run(tmp_path)
+        combined = result.stdout + result.stderr
+
+        assert "Category style/ownership check passed" not in combined, (
+            f"A check that could not read the schema must not report success;\n"
+            f"stdout: {result.stdout}\nstderr: {result.stderr}"
+        )
+        assert "Category style/ownership check could not run" in combined, (
+            f"Expected an explicit could-not-run error naming the failure;\n"
+            f"stdout: {result.stdout}\nstderr: {result.stderr}"
+        )
+
+    def test_missing_schema_with_block_exits_1(self, tmp_path):
+        """
+        Given: the same schema-less corpus
+        When: validate_riskmap.py --force --allow-isolated --block runs
+        Then: exit 1 — --block promotes this check's failures to errors, and a
+              check that cannot run has not passed
+        """
+        _write_corpus(
+            tmp_path,
+            _THREE_CATEGORY_COMPONENTS,
+            _THREE_CATEGORY_CONTROLS_ALL_OWNED,
+            _FULLY_STYLED_MERMAID,
+            write_schema=False,
+        )
+        result = _run(tmp_path, "--block")
+        assert result.returncode == 1, (
+            f"Expected exit 1 with --block when the schema cannot be read; "
+            f"got {result.returncode}\nstdout: {result.stdout}\nstderr: {result.stderr}"
+        )
+
+    def test_missing_schema_error_is_printed_under_quiet(self, tmp_path):
+        """
+        Given: the same schema-less corpus and --quiet
+        When: validate_riskmap.py --force --allow-isolated --quiet runs
+        Then: the could-not-run error is still printed
+
+        --quiet suppresses routine progress output; it must not suppress the
+        report that a guard did not run.
+        """
+        _write_corpus(
+            tmp_path,
+            _THREE_CATEGORY_COMPONENTS,
+            _THREE_CATEGORY_CONTROLS_ALL_OWNED,
+            _FULLY_STYLED_MERMAID,
+            write_schema=False,
+        )
+        result = _run(tmp_path, "--quiet")
+        combined = result.stdout + result.stderr
+        assert "Category style/ownership check could not run" in combined, (
+            f"Expected the could-not-run error even with --quiet;\n"
             f"stdout: {result.stdout}\nstderr: {result.stderr}"
         )
 
