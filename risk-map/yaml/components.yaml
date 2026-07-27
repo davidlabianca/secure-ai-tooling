@@ -162,7 +162,7 @@ categories:
             filters traffic crossing the application boundary. Agent components add
             autonomous reasoning and tool-use capabilities on top of this surface.
   - id: componentsExternalTools
-    title: Tools components
+    title: External tools components
     description:
       - >
         External tools are third-party services an AI system integrates with but does

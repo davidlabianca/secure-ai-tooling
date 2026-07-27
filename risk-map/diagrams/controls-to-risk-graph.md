@@ -165,7 +165,7 @@ graph LR
         componentReasoningCore[Agent Reasoning Core]
     end
 
-    subgraph componentsExternalTools ["Tools Components"]
+    subgraph componentsExternalTools ["External Tools Components"]
         componentTools[External Tools and Services]
     end
 
