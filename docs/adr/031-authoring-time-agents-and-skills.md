@@ -1,8 +1,9 @@
 # ADR-031: Authoring-time agents and skills for Risk Map content
 
-**Status:** Draft
+**Status:** Accepted
 **Date:** 2026-07-01
 **Authors:** Architect agent, with maintainer review
+**Conforms to:** [ADR-033](033-vendor-neutral-agent-skill-shipping.md) — the authoring corpus this ADR defines ships under ADR-033's vendor-neutral shipping standard and lifecycle.
 
 ---
 

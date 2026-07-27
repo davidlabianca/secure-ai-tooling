@@ -248,6 +248,39 @@ repos:
         pass_filenames: true
 
   # ---------------------------------------------------------------------------
+  # ADR-033 D2a/D5 vendor-neutrality check. Scoped to the two neutral-surface
+  # trees that ship in this repository — scripts/agents/** and
+  # scripts/skills/** — not the whole repo; scripts/skills/ does not exist yet,
+  # but the `files:` pattern activates automatically once it does. Flags
+  # harness-specific vendor/product/model names, invocation stage directions,
+  # and config paths in those two trees only.
+  # ---------------------------------------------------------------------------
+  - repo: local
+    hooks:
+      - id: validate-neutrality
+        name: 'validate: vendor-neutrality of agent/skill surfaces (ADR-033)'
+        language: system
+        entry: python3 scripts/hooks/precommit/validate_neutrality.py
+        files: ^scripts/(agents|skills)/
+        pass_filenames: true
+      # Re-scans the whole agent/skill corpus when the denylist/allowlist
+      # policy data or the validator logic itself changes, since neither is
+      # under scripts/(agents|skills)/ and so never triggers the hook above.
+      # pass_filenames: false so `main([])` self-discovers via
+      # discover_neutral_surface_files, which only walks scripts/agents/**
+      # and scripts/skills/** and therefore never reaches scripts/hooks/ —
+      # the data module is never scanned as content, only ever consumed as
+      # detection data, avoiding a self-trip on its own denylisted terms.
+      # Any future validator-consumed module must be added here too, not to
+      # the file-scoped hook above (see test_precommit_neutrality_config.py).
+      - id: validate-neutrality-policy
+        name: 'validate: re-scan agent/skill corpus when neutrality policy changes (ADR-033)'
+        language: system
+        entry: python3 scripts/hooks/precommit/validate_neutrality.py
+        files: ^scripts/hooks/precommit/(validate_neutrality|_neutrality_data)\.py$
+        pass_filenames: false
+
+  # ---------------------------------------------------------------------------
   # Prose authoring linters. Both consume the shared _prose_tokens.py tokenizer
   # and block on violations.
   # validate-yaml-prose-subset enforces ADR-017 D4 grammar rejections;
