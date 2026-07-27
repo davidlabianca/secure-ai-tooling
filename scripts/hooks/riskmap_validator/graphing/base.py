@@ -74,7 +74,7 @@ class BaseGraph:
         # Here the schema is advisory decoration, not an assertion: rendering a
         # graph must not depend on the schema being reachable from the current
         # working directory. Downgrade the failure to a warning rather than
-        # letting it abort generation. The category style/ownership guard in
+        # letting it abort generation. The category style guard in
         # validate_riskmap.py is the caller that treats it as an assertion.
         try:
             self.config_loader.emit_missing_category_warnings(_get_schema_categories())

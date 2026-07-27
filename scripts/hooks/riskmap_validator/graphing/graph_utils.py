@@ -17,7 +17,7 @@ class SchemaCategoriesUnavailableError(RuntimeError):
     """Raised when component category IDs cannot be read from the schema.
 
     Callers that use the category set as an assertion (the category
-    style/ownership guard) must surface this rather than proceed with an
+    style guard) must surface this rather than proceed with an
     empty set, which would make every category-keyed check iterate nothing
     and report success.
     """

@@ -690,7 +690,7 @@ def write_riskmap_corpus():
     definitions.category.properties.id.enum, derived by default from the
     components fixture's own `categories:` block. validate_riskmap.py resolves
     the schema cwd-relatively like every other input, so without this the
-    category style/ownership check has no categories to check. Deriving the
+    category style check has no categories to check. Deriving the
     enum from the corpus keeps synthetic corpora self-describing: a fixture
     declares the categories it means to exercise and nothing else, instead of
     having to enumerate whatever the real repo schema happens to contain.

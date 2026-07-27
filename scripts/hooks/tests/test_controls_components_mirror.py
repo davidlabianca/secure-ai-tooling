@@ -172,11 +172,11 @@ def _make_control(
 # isolated).
 #
 # One category is enough: write_riskmap_corpus derives this corpus's schema
-# category enum from the categories: block below, so the category
-# style/ownership check (ADR-030 D1) only ever asks about componentsInfrastructure
-# here. Style is not separately supplied: these corpora omit
-# mermaid-styles.yaml, so MermaidConfigLoader falls back to its emergency
-# defaults, which style every real category.
+# category enum from the categories: block below, so the category style check
+# (ADR-030 D1) only ever asks about componentsInfrastructure here. Style is not
+# separately supplied: these corpora omit mermaid-styles.yaml, so
+# MermaidConfigLoader falls back to its emergency defaults, which style every
+# real category.
 _MINIMAL_COMPONENTS: dict[str, Any] = {
     "components": [
         {
@@ -206,10 +206,6 @@ _MINIMAL_COMPONENTS: dict[str, Any] = {
 }
 
 # controls.yaml that references only IDs present in _MINIMAL_COMPONENTS.
-# personas is non-empty so this control also satisfies the category
-# style/ownership check (ADR-030 D1), which is orthogonal to the mirror check
-# under test but shares the --block exit path: a control naming a specific
-# (non-"all") component with a persona is what makes a category owned.
 _CLEAN_CONTROLS: dict[str, Any] = {
     "controls": [
         {
@@ -218,7 +214,7 @@ _CLEAN_CONTROLS: dict[str, Any] = {
             "category": "controlsModel",
             "components": ["componentAlpha", "componentBeta"],
             "risks": [],
-            "personas": ["personaModelProvider"],
+            "personas": [],
         }
     ]
 }
@@ -238,15 +234,10 @@ _DIRTY_CONTROLS: dict[str, Any] = {
 }
 
 # controls.yaml exercising the "all" escape hatch — must not trigger a mirror
-# warning. controlAll is the control under test and keeps the shape that
-# matters: components: ["all"] with personas: [].
-#
-# controlOwner is scaffolding for a different check. The category
-# style/ownership check (ADR-030 D1) deliberately does NOT accept "all" as
-# proof of ownership, so a corpus containing only controlAll has an
-# owner-less category and would exit 1 under --block for a reason unrelated
-# to the mirror check. controlOwner supplies that owner without touching
-# controlAll.
+# warning. This corpus deliberately contains nothing but the escape hatch:
+# every component reference in it is "all", which is the whole point of the
+# fixture. A second, specific-component control would make the corpus pass
+# for a reason other than the escape hatch being honoured.
 _ESCAPE_ALL_CONTROLS: dict[str, Any] = {
     "controls": [
         {
@@ -256,14 +247,6 @@ _ESCAPE_ALL_CONTROLS: dict[str, Any] = {
             "components": ["all"],
             "risks": [],
             "personas": [],
-        },
-        {
-            "id": "controlOwner",
-            "title": "Owner Control",
-            "category": "controlsModel",
-            "components": ["componentAlpha"],
-            "risks": [],
-            "personas": ["personaModelProvider"],
         },
     ]
 }

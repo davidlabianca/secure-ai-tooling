@@ -35,7 +35,7 @@ from riskmap_validator.graphing.graph_utils import _get_schema_categories
 from riskmap_validator.utils import get_staged_yaml_files, parse_controls_yaml, parse_risks_yaml
 from riskmap_validator.validator import (
     ComponentEdgeValidator,
-    check_category_style_and_ownership,
+    check_category_style_coverage,
     check_category_subcategory_nesting,
     check_controls_components_mirror,
     check_lifecycle_stage_order_uniqueness,
@@ -344,7 +344,7 @@ def main() -> None:
                 if not args.quiet:
                     print(f"   ⚠️  Category/subcategory nesting check skipped: {e}")
 
-        # Category style + persona ownership check (ADR-030 D1, Consequences).
+        # Category style check (ADR-030 D1, Consequences).
         # Runs regardless of whether the earlier checks found issues so all
         # warnings are visible before the exit decision below.
         #
@@ -355,33 +355,30 @@ def main() -> None:
         # never the reverse, so a category could exist in the schema without
         # ever being added to categories: block and still pass schema
         # validation. Sourcing from the corpus block would miss exactly that
-        # styleless/owner-less category — the failure mode this guard exists
-        # to catch (ADR-030 Consequences). The schema path itself is resolved
+        # styleless category — the failure mode this guard exists to catch
+        # (ADR-030 Consequences). The schema path itself is resolved
         # cwd-relatively, like every other input here.
-        if controls_path.exists() and components_path.exists() and validator.components:
+        if components_path.exists() and validator.components:
             try:
                 schema_categories = _get_schema_categories()
-                controls = parse_controls_yaml(controls_path)
                 styled_categories = set(MermaidConfigLoader().get_component_category_styles().keys())
-                ownership_warnings = check_category_style_and_ownership(
-                    schema_categories, styled_categories, validator.components, controls
-                )
-                if ownership_warnings:
+                style_warnings = check_category_style_coverage(schema_categories, styled_categories)
+                if style_warnings:
                     label = "❌" if args.block else "⚠️"
-                    print(f"   {label} Category style/ownership check found {len(ownership_warnings)} issue(s):")
-                    for warning in ownership_warnings:
+                    print(f"   {label} Category style check found {len(style_warnings)} issue(s):")
+                    for warning in style_warnings:
                         print(f"     - {warning}")
                     if args.block:
                         warn_block_triggered = True
                 elif not args.quiet:
-                    print("✅ Category style/ownership check passed")
+                    print("✅ Category style check passed")
             except SystemExit:
                 raise
             except Exception as e:
                 # Fail loud. A guard that could not run has not passed, so this
                 # prints even under --quiet and is promoted by --block like any
                 # other failure of this check.
-                print(f"   ❌ Category style/ownership check could not run: {e}")
+                print(f"   ❌ Category style check could not run: {e}")
                 if args.block:
                     warn_block_triggered = True
 

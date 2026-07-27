@@ -32,8 +32,8 @@ category — ComponentGraph/ControlGraph group components generically by
 whatever `.category` string is present, and yaml_to_markdown.py's table
 columns just read `.get("category", "")`. These tests are regression guards,
 not the tests that exercise componentsTools-specific new behavior; that
-coverage — the mermaid style entry and the ownership CI guard — lives in
-test_mermaid_styles_tools_category.py and test_category_ownership_guard.py
+coverage — the mermaid style entry and the category style CI guard — lives in
+test_mermaid_styles_tools_category.py and test_category_style_guard.py
 respectively. This module's job is to make sure that gap-closing work does
 not introduce a crash.
 """
@@ -352,7 +352,7 @@ are regression guards protecting the componentsTools consumer-wiring work
 (schema, yaml, mermaid-styles.yaml, the new CI guard — see
 test_components_schema_tools_category.py,
 test_components_yaml_tools_category.py, test_mermaid_styles_tools_category.py,
-test_category_ownership_guard.py for that coverage) from a future regression
+test_category_style_guard.py for that coverage) from a future regression
 introducing a crash.
 
 Out of scope (documented, not silently skipped): risk-map/svg/ generation

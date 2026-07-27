@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Tests for a new real-corpus CI guard: category styling + persona ownership.
+Tests for the real-corpus CI guard on component-category styling.
 
 ADR-030 (docs/adr/030-agentic-component-model.md), Consequences:
 
@@ -8,83 +8,52 @@ ADR-030 (docs/adr/030-agentic-component-model.md), Consequences:
   renders unstyled; a real-corpus guard should fail CI on a styleless
   category."
 
-  "The fourth category needs a persona owner. Per ADR-021, a Tools category
-  with no responsible persona is orphaned in the responsibility model;
-  persona mappings and the persona-site must place it."
+And "Migration sequencing" step 4 (Consumer wiring, fail-loud): a real-corpus
+guard so an unstyled category fails CI rather than rendering silently.
 
-And "Migration sequencing" step 4 (Consumer wiring, fail-loud): "...tests —
-including a real-corpus guard so an unstyled or owner-less category fails CI
-rather than rendering silently."
+An unstyled category is a real, observable break: every generated diagram
+renders it without its fill/stroke definitions.
 
-This is a NEW check — no equivalent exists today. The repo has no formal
-"persona owns a component category" schema field; no such relationship exists
-in personas.schema.json or components.schema.json.
-Ownership is therefore DERIVED from the existing controls↔components↔personas
-graph: a category is "owned" if at least one control (a) references a
-SPECIFIC component in that category — directly by id — AND (b) declares at
-least one persona. This is a conservative, defensible reading using only data
-that already exists; it requires no new schema field.
-
-The "all" escape hatch does NOT confer ownership. Permanent universal
-governance controls (controlRedTeaming, controlVulnerabilityManagement,
-controlThreatDetection, controlIncidentResponseManagement, ...) use
-components: ['all'] and carry non-empty personas; if 'all' counted toward
-ownership, every category — present and future, real or fictional — would be
-trivially "owned" by these controls regardless of whether it has any actual
-category-specific persona responsibility, making the ownership warning class
-structurally incapable of ever firing against the real corpus. This is
-distinct from check_controls_components_mirror's (ADR-020 D7) use of 'all' as
-an escape hatch: that check answers "is this control's component reference
-dangling?", where universality is correct semantics. Ownership answers a
-different question — "does a persona own this category specifically?" — and
-reusing the same escape hatch there would conflate referential validity with
-responsibility assignment.
-
-On the live corpus every category is both styled and owned this way, each via
-multiple controls that name specific (non-'all') components in the category
-with non-empty personas — not merely via the 'all' loophole. componentTools'
-controls (controlAgentPluginPermissions et al.) all declare non-empty personas
-(personaAgenticProvider, personaPlatformProvider, ...) and name componentTools
-directly (not via 'all'), so componentTools' recategorization into
-componentsTools per D1 inherits an owner "for free" through the SAME control
-mappings — no new content-authoring step is required for D1 to pass this
-guard, matching the ADR's own note that "the Agentic Platform /
-tool-provider persona is the candidate owner."
+Scope note — no ownership half
+------------------------------
+An earlier revision of this guard also derived a "persona owns this category"
+check from the controls/components graph, citing ADR-021. That requirement is
+not in ADR-021, which decides the opposite: personas deliberately do not
+participate in the per-category enums that risks and controls carry
+(ADR-021 line 50), and personas.yaml has no category partition at all
+(line 255). No schema field records category ownership because ADR-021 ruled
+one out, which is why the derived check was near-tautological — any control
+with any persona referencing any component in the category satisfied it. The
+ownership half and its tests were removed; the ADR text asserting it carries
+an erratum. Only the style half, which is well-founded, remains.
 
 Symbol contract
 ----------------
-Pure-function tests import `check_category_style_and_ownership` from
+Pure-function tests import `check_category_style_coverage` from
 `riskmap_validator.validator`, implemented with this signature:
 
-    check_category_style_and_ownership(
+    check_category_style_coverage(
         schema_categories: set[str],
         styled_categories: set[str],
-        components: dict[str, ComponentNode],
-        controls: dict[str, ControlNode],
     ) -> list[str]
 
-Two independent warning classes, both keyed by category id (do not conflate
-into one message per category — a category can be missing one, the other, or
-both, and CI output should let a reader triage them separately):
-
-  Class STYLE: `cat in schema_categories` and `cat not in styled_categories`.
-  Class OWNERSHIP: `cat in schema_categories` and no control satisfies
-    (references a component whose `.category == cat`, by id — the "all"
-    escape hatch does NOT count) AND (`control.personas` is non-empty).
-
-Returns a list of human-readable warning strings; empty when every schema
-category is both styled and owned. Order is not asserted by these tests.
+One warning per category in `schema_categories` that is absent from
+`styled_categories`. Returns a list of human-readable warning strings; empty
+when every schema category is styled. Order is not asserted by these tests.
 
 CLI wiring: validate_riskmap.py runs this as a warn-only check following the
 existing controls↔components-mirror / category-subcategory-nesting pattern
 (same --block promotion, same print-label convention). Tests below assert on
-a label containing "Category style" and "ownership" appearing in stdout —
-see TestCLIWiring for the exact substrings asserted.
+a label containing "Category style" appearing in stdout — see TestCLIWiring
+for the exact substrings asserted.
 
 Test structure
 --------------
-1. TestCheckCategoryStyleAndOwnership — pure-function tests.
+1. TestCheckCategoryStyleCoverage — pure-function tests.
 2. TestCLIWiring — subprocess end-to-end tests against validate_riskmap.py.
+3. TestSchemaCategoryResolution — cwd-relative schema-category resolution.
+4. TestFlattenedModuleLayout — the CI-flattened module layout.
+5. TestSchemaUnavailableFailsLoud — an unreadable schema is never a pass.
 """
 
 import json
@@ -100,23 +69,23 @@ import yaml
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 try:
-    from riskmap_validator.validator import check_category_style_and_ownership  # noqa: E402
+    from riskmap_validator.validator import check_category_style_coverage  # noqa: E402
 
-    _OWNERSHIP_IMPORT_ERROR: ImportError | None = None
+    _STYLE_IMPORT_ERROR: ImportError | None = None
 except ImportError as _e:
-    check_category_style_and_ownership = None  # type: ignore[assignment]
-    _OWNERSHIP_IMPORT_ERROR = _e
+    check_category_style_coverage = None  # type: ignore[assignment]
+    _STYLE_IMPORT_ERROR = _e
 
 _SCRIPT = Path(__file__).parent.parent / "validate_riskmap.py"
 _REPO_ROOT = Path(__file__).resolve().parent.parent.parent.parent
 
 
 @pytest.fixture
-def ownership_fn():
-    """Return check_category_style_and_ownership, or raise ImportError."""
-    if _OWNERSHIP_IMPORT_ERROR is not None:
-        raise _OWNERSHIP_IMPORT_ERROR
-    return check_category_style_and_ownership
+def style_fn():
+    """Return check_category_style_coverage, or raise ImportError."""
+    if _STYLE_IMPORT_ERROR is not None:
+        raise _STYLE_IMPORT_ERROR
+    return check_category_style_coverage
 
 
 # ===========================================================================
@@ -124,260 +93,66 @@ def ownership_fn():
 # ===========================================================================
 
 
-class TestCheckCategoryStyleAndOwnership:
-    """Pure-function tests for check_category_style_and_ownership()."""
+class TestCheckCategoryStyleCoverage:
+    """Pure-function tests for check_category_style_coverage()."""
 
-    def test_clean_all_styled_and_owned_returns_empty_list(self, ownership_fn, make_component):
+    def test_clean_all_styled_returns_empty_list(self, style_fn):
         """
-        Given: 1 category, styled, with a component referenced by a control
-               that declares a persona
-        When: check_category_style_and_ownership() is called
+        Given: one schema category that has a styling entry
+        When: check_category_style_coverage() is called
         Then: returns []
         """
-        components = {"compA": make_component("A", "componentsData")}
-        from riskmap_validator.models import ControlNode
-
-        controls = {
-            "ctrlA": ControlNode(
-                title="Ctrl A", category="controlsData", components=["compA"], risks=[], personas=["personaX"]
-            )
-        }
-        result = ownership_fn({"componentsData"}, {"componentsData"}, components, controls)
+        result = style_fn({"componentsData"}, {"componentsData"})
         assert result == [], f"Expected no warnings on clean input; got: {result}"
 
-    def test_missing_style_only_produces_style_warning(self, ownership_fn, make_component):
+    def test_missing_style_produces_warning_naming_category(self, style_fn):
         """
-        Given: a category that IS owned but has NO styling entry
-        When: check_category_style_and_ownership() is called
-        Then: exactly one warning naming the category, mentioning styling
+        Given: a schema category with no styling entry
+        When: check_category_style_coverage() is called
+        Then: exactly one warning naming the category and mentioning styling
         """
-        components = {"compA": make_component("A", "componentsData")}
-        from riskmap_validator.models import ControlNode
-
-        controls = {
-            "ctrlA": ControlNode(
-                title="Ctrl A", category="controlsData", components=["compA"], risks=[], personas=["personaX"]
-            )
-        }
-        result = ownership_fn({"componentsData"}, set(), components, controls)
-        assert len(result) == 1, f"Expected exactly 1 warning (style only); got: {result}"
+        result = style_fn({"componentsData"}, set())
+        assert len(result) == 1, f"Expected exactly 1 warning; got: {result}"
         assert "componentsData" in result[0]
         assert "styl" in result[0].lower(), f"Expected warning to mention styling; got: {result[0]!r}"
 
-    def test_missing_ownership_only_produces_ownership_warning(self, ownership_fn, make_component):
+    def test_extra_styled_categories_are_not_warned_about(self, style_fn):
         """
-        Given: a category that IS styled but has NO owning control (no
-               control references any of its components with a non-empty
-               personas list)
-        When: check_category_style_and_ownership() is called
-        Then: exactly one warning naming the category, mentioning
-              persona/owner
-        """
-        components = {"compA": make_component("A", "componentsData")}
-        controls: dict = {}
-        result = ownership_fn({"componentsData"}, {"componentsData"}, components, controls)
-        assert len(result) == 1, f"Expected exactly 1 warning (ownership only); got: {result}"
-        assert "componentsData" in result[0]
-        combined_lower = result[0].lower()
-        assert "persona" in combined_lower or "owner" in combined_lower, (
-            f"Expected warning to mention persona/ownership; got: {result[0]!r}"
-        )
+        Given: a styling config carrying a category the schema does not declare
+        When: check_category_style_coverage() is called
+        Then: returns [] — the direction is schema → styling only
 
-    def test_missing_both_produces_two_warnings(self, ownership_fn, make_component):
+        A styling entry the schema no longer enumerates is dead configuration,
+        not a rendering break, so it is out of this guard's scope.
         """
-        Given: a category with neither a style entry nor an owning control
-        When: check_category_style_and_ownership() is called
-        Then: 2 independent warnings — style is NOT conflated with ownership
-        """
-        components = {"compA": make_component("A", "componentsData")}
-        controls: dict = {}
-        result = ownership_fn({"componentsData"}, set(), components, controls)
-        assert len(result) == 2, (
-            f"Expected 2 independent warnings (style + ownership), not one conflated "
-            f"message; got {len(result)}: {result}"
-        )
+        result = style_fn({"componentsData"}, {"componentsData", "componentsRetired"})
+        assert result == [], f"Expected no warning for an extra styling entry; got: {result}"
 
-    def test_category_with_no_components_is_ownerless(self, ownership_fn):
+    def test_multiple_categories_evaluated_independently(self, style_fn):
         """
-        Given: a schema category with zero components assigned to it
-        When: check_category_style_and_ownership() is called
-        Then: an ownership warning fires (nothing to be owned via)
+        Given: three schema categories, one of them unstyled
+        When: check_category_style_coverage() is called
+        Then: exactly the unstyled one is named; the styled ones are not
         """
-        result = ownership_fn({"componentsEmpty"}, {"componentsEmpty"}, {}, {})
-        assert len(result) == 1
-        assert "componentsEmpty" in result[0]
-
-    def test_control_with_empty_personas_does_not_confer_ownership(self, ownership_fn, make_component):
-        """
-        Given: a control references the category's component but declares
-               personas=[] (no responsible persona)
-        When: check_category_style_and_ownership() is called
-        Then: an ownership warning still fires — a control mapping without a
-              persona does not establish ownership
-        """
-        components = {"compA": make_component("A", "componentsData")}
-        from riskmap_validator.models import ControlNode
-
-        controls = {
-            "ctrlA": ControlNode(
-                title="Ctrl A", category="controlsData", components=["compA"], risks=[], personas=[]
-            )
-        }
-        result = ownership_fn({"componentsData"}, {"componentsData"}, components, controls)
-        assert len(result) == 1, f"Expected ownership warning (empty personas); got: {result}"
-        assert "componentsData" in result[0]
-
-    def test_second_control_with_personas_rescues_ownership(self, ownership_fn, make_component):
-        """
-        Given: two controls reference the same component — one with
-               personas=[], one with personas=['personaX']
-        When: check_category_style_and_ownership() is called
-        Then: no ownership warning — at least ONE owning control is enough
-        """
-        components = {"compA": make_component("A", "componentsData")}
-        from riskmap_validator.models import ControlNode
-
-        controls = {
-            "ctrlBare": ControlNode(
-                title="Bare", category="controlsData", components=["compA"], risks=[], personas=[]
-            ),
-            "ctrlOwned": ControlNode(
-                title="Owned", category="controlsData", components=["compA"], risks=[], personas=["personaX"]
-            ),
-        }
-        result = ownership_fn({"componentsData"}, {"componentsData"}, components, controls)
-        assert result == [], f"Expected no warnings (one owning control is sufficient); got: {result}"
-
-    def test_all_escape_hatch_does_not_confer_ownership(self, ownership_fn, make_component):
-        """
-        Given: two categories, each with a component, and ONLY a control
-               with components=['all'] and a non-empty personas list — no
-               control names a specific component in either category
-        When: check_category_style_and_ownership() is called
-        Then: an ownership warning fires for BOTH categories — 'all' is a
-              universal governance escape hatch (see e.g. controlRedTeaming,
-              controlVulnerabilityManagement, controlThreatDetection,
-              controlIncidentResponseManagement in the live corpus, all
-              components=['all'] with non-empty personas) and must NOT count
-              toward category-specific ownership. Counting it would make the
-              ownership warning class structurally incapable of ever firing,
-              since a universal control satisfies it for every category,
-              present and future, regardless of real persona responsibility.
-              This is deliberately narrower than
-              check_controls_components_mirror (ADR-020 D7), which treats
-              'all' as a valid escape hatch for a different question (is this
-              control's component reference dangling?) where universality is
-              correct semantics; ownership answers "does a persona own this
-              category specifically?" and must not conflate the two.
-        """
-        components = {
-            "compA": make_component("A", "componentsData"),
-            "compB": make_component("B", "componentsAgent"),
-        }
-        from riskmap_validator.models import ControlNode
-
-        controls = {
-            "ctrlAll": ControlNode(
-                title="Universal",
-                category="controlsGovernance",
-                components=["all"],
-                risks=[],
-                personas=["personaX"],
-            )
-        }
-        result = ownership_fn(
-            {"componentsData", "componentsAgent"}, {"componentsData", "componentsAgent"}, components, controls
-        )
-        assert len(result) == 2, (
-            f"Expected an ownership warning for BOTH categories since 'all' does not "
-            f"confer category-specific ownership; got {len(result)}: {result}"
-        )
-        combined = " ".join(result)
-        assert "componentsData" in combined
-        assert "componentsAgent" in combined
-
-    def test_all_escape_hatch_skip_is_load_bearing_even_if_id_collides(self, ownership_fn, make_component):
-        """
-        Given: a component whose id happens to be the literal string 'all'
-               (impossible in the real corpus's closed id enum, but not
-               impossible for the pure function's own contract, which takes
-               plain dicts) plus a control referencing components=['all']
-               with a non-empty personas list
-        When: check_category_style_and_ownership() is called
-        Then: an ownership warning still fires for that component's category
-
-        Mutation guard. The sibling test above
-        (test_all_escape_hatch_does_not_confer_ownership) passes even
-        if validator.py's explicit `if component_ref ==
-        _OWNERSHIP_ALL_ESCAPE_HATCH: continue` skip is deleted, because the
-        real corpus never has a component literally named 'all' — the skip
-        was structurally redundant against real data, so that test could not
-        catch its removal. This test constructs the case the skip actually
-        guards against: an id collision between the escape hatch and a real
-        component id. Without the explicit skip, this control's 'all'
-        reference would incidentally match this component by id and the
-        ownership warning would wrongly disappear.
-        """
-        components = {"all": make_component("Literally Named All", "componentsData")}
-        from riskmap_validator.models import ControlNode
-
-        controls = {
-            "ctrlAll": ControlNode(
-                title="Universal",
-                category="controlsGovernance",
-                components=["all"],
-                risks=[],
-                personas=["personaX"],
-            )
-        }
-        result = ownership_fn({"componentsData"}, {"componentsData"}, components, controls)
-        assert len(result) == 1 and "componentsData" in result[0], (
-            f"Expected the ownership warning to still fire even though a real component id "
-            f"collides with the 'all' escape hatch string; got: {result}"
-        )
-
-    def test_multiple_categories_evaluated_independently(self, ownership_fn, make_component):
-        """
-        Given: 3 categories — one clean, one missing style, one missing
-               ownership
-        When: check_category_style_and_ownership() is called
-        Then: exactly the 2 dirty categories are named in the output; the
-              clean one is not mentioned
-        """
-        from riskmap_validator.models import ControlNode
-
-        components = {
-            "compClean": make_component("Clean", "componentsClean"),
-            "compNoStyle": make_component("NoStyle", "componentsNoStyle"),
-            "compNoOwner": make_component("NoOwner", "componentsNoOwner"),
-        }
-        controls = {
-            "ctrlClean": ControlNode(
-                title="Clean", category="controlsX", components=["compClean"], risks=[], personas=["personaX"]
-            ),
-            "ctrlNoStyle": ControlNode(
-                title="NoStyle", category="controlsX", components=["compNoStyle"], risks=[], personas=["personaX"]
-            ),
-        }
-        schema_categories = {"componentsClean", "componentsNoStyle", "componentsNoOwner"}
-        styled_categories = {"componentsClean", "componentsNoOwner"}
-        result = ownership_fn(schema_categories, styled_categories, components, controls)
+        schema_categories = {"componentsClean", "componentsAlsoClean", "componentsNoStyle"}
+        styled_categories = {"componentsClean", "componentsAlsoClean"}
+        result = style_fn(schema_categories, styled_categories)
 
         combined = " ".join(result)
-        assert "componentsClean" not in combined, f"Clean category should not be warned about; got: {result}"
         assert "componentsNoStyle" in combined, f"Expected componentsNoStyle warning; got: {result}"
-        assert "componentsNoOwner" in combined, f"Expected componentsNoOwner warning; got: {result}"
+        assert "componentsClean" not in combined, f"Styled category should not be warned about; got: {result}"
+        assert "componentsAlsoClean" not in combined, f"Styled category should not be warned about; got: {result}"
 
-    def test_empty_schema_categories_is_a_failure_not_a_pass(self, ownership_fn):
+    def test_empty_schema_categories_is_a_failure_not_a_pass(self, style_fn):
         """
         Given: schema_categories = set()
-        When: check_category_style_and_ownership() is called
+        When: check_category_style_coverage() is called
         Then: returns a warning — an empty category set is never a clean result
 
         There is no corpus in which zero component categories is correct, so
         an empty schema_categories set means the caller failed to read the
         schema. Returning [] there makes the guard report success while
-        checking nothing: the loop over schema_categories iterates zero times,
+        checking nothing: the per-category comprehension iterates zero times,
         so no warning can ever be produced no matter how broken the corpus is.
         Every category-specific assertion in this class would still pass
         against an implementation that had been silently reduced to a no-op.
@@ -386,7 +161,7 @@ class TestCheckCategoryStyleAndOwnership:
         future caller that reintroduces a degrade-to-empty path cannot
         resurrect the vacuous pass.
         """
-        result = ownership_fn(set(), set(), {}, {})
+        result = style_fn(set(), set())
         assert len(result) == 1, (
             f"Expected exactly 1 warning for an empty schema category set — a vacuous "
             f"pass is the failure mode this guard exists to prevent; got: {result}"
@@ -395,40 +170,32 @@ class TestCheckCategoryStyleAndOwnership:
             f"Expected the warning to name the empty category set; got: {result[0]!r}"
         )
 
-    def test_return_type_is_list_of_str(self, ownership_fn, make_component):
+    def test_return_type_is_list_of_str(self, style_fn):
         """
         Given: a dirty input
-        When: check_category_style_and_ownership() is called
+        When: check_category_style_coverage() is called
         Then: returns a list, and every element is a str
         """
-        components = {"compA": make_component("A", "componentsData")}
-        result = ownership_fn({"componentsData"}, set(), components, {})
+        result = style_fn({"componentsData"}, set())
         assert isinstance(result, list)
         assert all(isinstance(w, str) for w in result)
 
-    def test_live_corpus_today_all_three_categories_clean(self, ownership_fn):
+    def test_live_corpus_every_category_is_styled(self, style_fn):
         """
-        Given: the REAL components.schema.json category enum, the REAL
-               mermaid-styles.yaml styled-category keys, and the REAL
-               components.yaml / controls.yaml parsed
-        When: check_category_style_and_ownership() is called
-        Then: returns [] — every category in the schema enum is both styled
-              and owned
+        Given: the REAL components.schema.json category enum and the REAL
+               mermaid-styles.yaml styled-category keys
+        When: check_category_style_coverage() is called
+        Then: returns [] — every category in the schema enum is styled
 
-        Forward guard: the inputs are all read from the live corpus, so a
+        Forward guard: both inputs are read from the live corpus, so a
         category added to the schema enum is picked up automatically — no
         edit to this test is needed — and it continues to assert [] as the
         CI guard's steady state.
         """
-        import json
-
         from riskmap_validator.graphing.graph_utils import MermaidConfigLoader
-        from riskmap_validator.utils import parse_components_yaml, parse_controls_yaml
 
         schema_path = _REPO_ROOT / "risk-map" / "schemas" / "components.schema.json"
         styles_path = _REPO_ROOT / "risk-map" / "yaml" / "mermaid-styles.yaml"
-        components_path = _REPO_ROOT / "risk-map" / "yaml" / "components.yaml"
-        controls_path = _REPO_ROOT / "risk-map" / "yaml" / "controls.yaml"
 
         with open(schema_path, encoding="utf-8") as fh:
             schema = json.load(fh)
@@ -437,10 +204,7 @@ class TestCheckCategoryStyleAndOwnership:
         loader = MermaidConfigLoader(styles_path)
         styled_categories = set(loader.get_component_category_styles().keys())
 
-        components = parse_components_yaml(components_path)
-        controls = parse_controls_yaml(controls_path)
-
-        result = ownership_fn(schema_categories, styled_categories, components, controls)
+        result = style_fn(schema_categories, styled_categories)
         assert result == [], f"Expected 0 warnings on the live corpus; got {len(result)}: {result}"
 
 
@@ -523,19 +287,17 @@ def _run(cwd: Path, *extra_args: str) -> subprocess.CompletedProcess:
 
 # Minimal components covering 4 top-level categories, exercising the CLI over
 # more than one category at a time. _write_corpus derives this corpus's schema
-# category enum from the categories: block below, so all 4 must be styled and
-# owned or a fixture trips a warning unrelated to the scenario under test.
-# compTools/ctrlTools and componentsTools' mermaid-styles entry
-# (_FULLY_STYLED_MERMAID) keep that 4th category clean in every fixture so the
-# dirty-corpus tests below stay focused on the one category they intend to
-# exercise (componentsModel).
+# category enum from the categories: block below, so all 4 must be styled or a
+# fixture trips a warning unrelated to the scenario under test. The dirty
+# styles fixture below unstyles exactly one category (componentsModel) so the
+# scenario stays isolated.
 #
 # No edges needed — CLI tests always pass --allow-isolated. Each component
 # declares a subcategory nested consistently under its category in the
 # categories: block below, so the pre-existing category/subcategory nesting
-# check (ADR-018 D6) stays silent and only this module's ownership/style
-# check produces output.
-_THREE_CATEGORY_COMPONENTS: dict[str, Any] = {
+# check (ADR-018 D6) stays silent and only this module's style check produces
+# output.
+_FOUR_CATEGORY_COMPONENTS: dict[str, Any] = {
     "components": [
         {
             "id": "compInfra",
@@ -590,9 +352,10 @@ _THREE_CATEGORY_COMPONENTS: dict[str, Any] = {
     ],
 }
 
-# Controls giving every one of the 4 categories (3 REAL pre-ADR-030 + the
-# componentsTools bystander) an owning persona.
-_THREE_CATEGORY_CONTROLS_ALL_OWNED: dict[str, Any] = {
+# Controls referencing only components present above, so the
+# controls↔components mirror check (ADR-020 D7) stays silent and only the
+# style check produces output.
+_FOUR_CATEGORY_CONTROLS: dict[str, Any] = {
     "controls": [
         {
             "id": "ctrlInfra",
@@ -629,19 +392,8 @@ _THREE_CATEGORY_CONTROLS_ALL_OWNED: dict[str, Any] = {
     ]
 }
 
-# Same as above but componentsModel has no owning control (personas omitted
-# entirely for that category). componentsTools stays owned (index 3 kept)
-# since it is a bystander category, not the scenario under test.
-_THREE_CATEGORY_CONTROLS_MODEL_UNOWNED: dict[str, Any] = {
-    "controls": [
-        _THREE_CATEGORY_CONTROLS_ALL_OWNED["controls"][0],
-        _THREE_CATEGORY_CONTROLS_ALL_OWNED["controls"][2],
-        _THREE_CATEGORY_CONTROLS_ALL_OWNED["controls"][3],
-    ]
-}
-
-# Styles all 4 real schema categories so the schema-sourced ownership/style
-# check has no unrelated bystander warnings to report.
+# Styles all 4 real schema categories so the schema-sourced style check has no
+# unrelated bystander warnings to report.
 _FULLY_STYLED_MERMAID: dict[str, Any] = {
     "version": "1.0.0",
     "foundation": {"colors": {}, "strokeWidths": {}, "strokePatterns": {}},
@@ -688,51 +440,30 @@ class TestCLIWiring:
 
     def test_dirty_style_with_block_exits_1(self, tmp_path):
         """
-        Given: synthetic corpus, all 4 real schema categories owned, but
-               componentsModel missing its mermaid-styles.yaml entry
+        Given: synthetic corpus with componentsModel missing its
+               mermaid-styles.yaml entry
         When: validate_riskmap.py --force --allow-isolated --block runs
         Then: exit 1 (style warning promoted to error)
         """
-        _write_corpus(
-            tmp_path, _THREE_CATEGORY_COMPONENTS, _THREE_CATEGORY_CONTROLS_ALL_OWNED, _MODEL_UNSTYLED_MERMAID
-        )
+        _write_corpus(tmp_path, _FOUR_CATEGORY_COMPONENTS, _FOUR_CATEGORY_CONTROLS, _MODEL_UNSTYLED_MERMAID)
         result = _run(tmp_path, "--block")
         assert result.returncode == 1, (
             f"Expected exit 1 with --block on style-dirty corpus; got {result.returncode}\n"
             f"stdout: {result.stdout}\nstderr: {result.stderr}"
         )
 
-    def test_dirty_ownership_with_block_exits_1(self, tmp_path):
-        """
-        Given: synthetic corpus, all 4 real schema categories styled, but
-               componentsModel has no owning control (no control with
-               personas references a componentsModel component)
-        When: validate_riskmap.py --force --allow-isolated --block runs
-        Then: exit 1 (ownership warning promoted to error)
-        """
-        _write_corpus(
-            tmp_path, _THREE_CATEGORY_COMPONENTS, _THREE_CATEGORY_CONTROLS_MODEL_UNOWNED, _FULLY_STYLED_MERMAID
-        )
-        result = _run(tmp_path, "--block")
-        assert result.returncode == 1, (
-            f"Expected exit 1 with --block on ownership-dirty corpus; got {result.returncode}\n"
-            f"stdout: {result.stdout}\nstderr: {result.stderr}"
-        )
-
     def test_clean_corpus_with_block_exits_0(self, tmp_path):
         """
-        Given: synthetic corpus, all 4 real schema categories styled AND owned
+        Given: synthetic corpus with all 4 real schema categories styled
         When: validate_riskmap.py --force --allow-isolated --block runs
         Then: exit 0
 
         Weak signal in isolation (a no-op check would also exit 0 here), but
-        a necessary regression companion to the two dirty tests above — see
+        a necessary regression companion to the dirty tests above — see
         test_category_subcategory_nesting.py for the same acknowledged
         pattern.
         """
-        _write_corpus(
-            tmp_path, _THREE_CATEGORY_COMPONENTS, _THREE_CATEGORY_CONTROLS_ALL_OWNED, _FULLY_STYLED_MERMAID
-        )
+        _write_corpus(tmp_path, _FOUR_CATEGORY_COMPONENTS, _FOUR_CATEGORY_CONTROLS, _FULLY_STYLED_MERMAID)
         result = _run(tmp_path, "--block")
         assert result.returncode == 0, (
             f"Expected exit 0 with --block on clean corpus; got {result.returncode}\n"
@@ -750,9 +481,7 @@ class TestCLIWiring:
         confirms the CLI actually prints the dirty category, not just that
         the exit code happens to match.
         """
-        _write_corpus(
-            tmp_path, _THREE_CATEGORY_COMPONENTS, _THREE_CATEGORY_CONTROLS_ALL_OWNED, _MODEL_UNSTYLED_MERMAID
-        )
+        _write_corpus(tmp_path, _FOUR_CATEGORY_COMPONENTS, _FOUR_CATEGORY_CONTROLS, _MODEL_UNSTYLED_MERMAID)
         result = _run(tmp_path)
         assert result.returncode == 0, (
             f"Expected exit 0 without --block; got {result.returncode}\n"
@@ -780,10 +509,8 @@ class TestCLIWiring:
         """
         Given: actual repo as cwd, --block
         When: validate_riskmap.py --force --allow-isolated --block runs
-        Then: exit 0 — every live category is styled and owned, which is the
-              guard's steady state (componentsTools inherits ownership through
-              componentTools' existing controls, per this module's top-level
-              docstring)
+        Then: exit 0 — every live category is styled, which is the guard's
+              steady state
         """
         result = _run(_REPO_ROOT, "--block")
         assert result.returncode == 0, (
@@ -963,9 +690,7 @@ class TestFlattenedModuleLayout:
         Exit 0 here means the guard resolved no categories and passed
         vacuously — the exact CI failure mode this test exists for.
         """
-        _write_corpus(
-            tmp_path, _THREE_CATEGORY_COMPONENTS, _THREE_CATEGORY_CONTROLS_ALL_OWNED, _MODEL_UNSTYLED_MERMAID
-        )
+        _write_corpus(tmp_path, _FOUR_CATEGORY_COMPONENTS, _FOUR_CATEGORY_CONTROLS, _MODEL_UNSTYLED_MERMAID)
         _flatten_module(tmp_path)
 
         result = self._run_flattened(tmp_path, "--block")
@@ -986,9 +711,7 @@ class TestFlattenedModuleLayout:
         When: validate_riskmap.py --force --allow-isolated --block runs
         Then: exit 0 — the fix must not make the flattened layout fail outright
         """
-        _write_corpus(
-            tmp_path, _THREE_CATEGORY_COMPONENTS, _THREE_CATEGORY_CONTROLS_ALL_OWNED, _FULLY_STYLED_MERMAID
-        )
+        _write_corpus(tmp_path, _FOUR_CATEGORY_COMPONENTS, _FOUR_CATEGORY_CONTROLS, _FULLY_STYLED_MERMAID)
         _flatten_module(tmp_path)
 
         result = self._run_flattened(tmp_path, "--block")
@@ -1015,19 +738,19 @@ class TestSchemaUnavailableFailsLoud:
         """
         _write_corpus(
             tmp_path,
-            _THREE_CATEGORY_COMPONENTS,
-            _THREE_CATEGORY_CONTROLS_ALL_OWNED,
+            _FOUR_CATEGORY_COMPONENTS,
+            _FOUR_CATEGORY_CONTROLS,
             _FULLY_STYLED_MERMAID,
             write_schema=False,
         )
         result = _run(tmp_path)
         combined = result.stdout + result.stderr
 
-        assert "Category style/ownership check passed" not in combined, (
+        assert "Category style check passed" not in combined, (
             f"A check that could not read the schema must not report success;\n"
             f"stdout: {result.stdout}\nstderr: {result.stderr}"
         )
-        assert "Category style/ownership check could not run" in combined, (
+        assert "Category style check could not run" in combined, (
             f"Expected an explicit could-not-run error naming the failure;\n"
             f"stdout: {result.stdout}\nstderr: {result.stderr}"
         )
@@ -1041,8 +764,8 @@ class TestSchemaUnavailableFailsLoud:
         """
         _write_corpus(
             tmp_path,
-            _THREE_CATEGORY_COMPONENTS,
-            _THREE_CATEGORY_CONTROLS_ALL_OWNED,
+            _FOUR_CATEGORY_COMPONENTS,
+            _FOUR_CATEGORY_CONTROLS,
             _FULLY_STYLED_MERMAID,
             write_schema=False,
         )
@@ -1063,14 +786,14 @@ class TestSchemaUnavailableFailsLoud:
         """
         _write_corpus(
             tmp_path,
-            _THREE_CATEGORY_COMPONENTS,
-            _THREE_CATEGORY_CONTROLS_ALL_OWNED,
+            _FOUR_CATEGORY_COMPONENTS,
+            _FOUR_CATEGORY_CONTROLS,
             _FULLY_STYLED_MERMAID,
             write_schema=False,
         )
         result = _run(tmp_path, "--quiet")
         combined = result.stdout + result.stderr
-        assert "Category style/ownership check could not run" in combined, (
+        assert "Category style check could not run" in combined, (
             f"Expected the could-not-run error even with --quiet;\n"
             f"stdout: {result.stdout}\nstderr: {result.stderr}"
         )
@@ -1082,19 +805,16 @@ class TestSchemaUnavailableFailsLoud:
 """
 Test Summary
 ============
-TestCheckCategoryStyleAndOwnership (pure function): 12 tests
-- clean -> []; style-only warning; ownership-only warning; both independent;
-  no-components category is ownerless; empty-personas control does not confer
-  ownership; a second owning control rescues it; 'all' escape hatch does NOT
-  confer ownership on any category; multi-category independence; an empty
-  category set is a warning, not a pass; return-type contract; live-corpus
-  regression (all live categories clean).
+TestCheckCategoryStyleCoverage (pure function): 7 tests
+- clean -> []; missing style warns and names the category; an extra styling
+  entry the schema does not declare is not warned about; multi-category
+  independence; an empty category set is a warning, not a pass; return-type
+  contract; live-corpus regression (every live category styled).
 
-TestCLIWiring (subprocess): 6 tests
-- dirty style + --block -> exit 1; dirty ownership + --block -> exit 1;
-  clean + --block -> exit 0; dirty style without --block -> exit 0 + names
-  the category; live corpus no --block -> exit 0; live corpus + --block ->
-  exit 0.
+TestCLIWiring (subprocess): 5 tests
+- dirty style + --block -> exit 1; clean + --block -> exit 0; dirty style
+  without --block -> exit 0 + names the category; live corpus no --block ->
+  exit 0; live corpus + --block -> exit 0.
 
 TestSchemaCategoryResolution (unit): 7 tests
 - cwd-relative resolution; missing / malformed / restructured / empty-enum
@@ -1110,11 +830,11 @@ TestSchemaUnavailableFailsLoud (subprocess): 3 tests
 - no schema -> no success checkmark + an explicit could-not-run error;
   --block promotes it to exit 1; --quiet does not suppress it.
 
-check_category_style_and_ownership is implemented in riskmap_validator.validator
-and wired into validate_riskmap.py as a --block-gated warn-only check. The two
-CLI tests that only assert exit code
-(test_clean_corpus_with_block_exits_0, test_live_corpus_*_exits_0) are weak
-signals in isolation — an unwired or no-op check would also exit 0 — and are
-retained as regression companions to the dirty-corpus tests, which assert on
-the printed category name in addition to the exit code.
+check_category_style_coverage is implemented in riskmap_validator.validator
+and wired into validate_riskmap.py as a --block-gated warn-only check. The
+CLI tests that only assert exit code (test_clean_corpus_with_block_exits_0,
+test_live_corpus_*_exits_0) are weak signals in isolation — an unwired or
+no-op check would also exit 0 — and are retained as regression companions to
+the dirty-corpus tests, which assert on the printed category name in addition
+to the exit code.
 """
