@@ -217,7 +217,7 @@ class MermaidConfigLoader:
                         "strokeWidth": "2px",
                         "subgroupFill": "#f0e6e6",
                     },
-                    "componentsTools": {
+                    "componentsExternalTools": {
                         "fill": "#f3e6ff",
                         "stroke": "#333333",
                         "strokeWidth": "2px",

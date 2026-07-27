@@ -401,7 +401,7 @@ def check_category_style_coverage(
     """
     Check that every schema component category has a mermaid-styles entry.
 
-    Per ADR-030 Consequences: "mermaid-styles.yaml needs a componentsTools
+    Per ADR-030 Consequences: "mermaid-styles.yaml needs a componentsExternalTools
     style or the new category renders unstyled; a real-corpus guard should
     fail CI on a styleless category." An unstyled category renders without
     its fill/stroke definitions, which is a visible break in every generated

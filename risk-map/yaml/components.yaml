@@ -161,7 +161,7 @@ categories:
             The application that consumes the model and the input/output handling that
             filters traffic crossing the application boundary. Agent components add
             autonomous reasoning and tool-use capabilities on top of this surface.
-  - id: componentsTools
+  - id: componentsExternalTools
     title: Tools components
     description:
       - >
@@ -171,13 +171,13 @@ categories:
         components: the runtime tool services agents invoke, and the control-plane
         components that mediate and authorize that access.
     subcategory:
-      - id: componentsToolControls
+      - id: componentsToolControlPlane
         title: Tool control plane
         description:
           - >
             The policy-enforcement and authorization components that mediate access to
             external tools, distinct from the tool services themselves.
-      - id: componentsToolCore
+      - id: componentsToolDataPlane
         title: Tool data plane
         description:
           - >
@@ -538,8 +538,8 @@ components:
         invocation methods) is handled separately by {{componentToolRegistry}}; this
         component's scope is strictly the runtime tool services and their invocation
         surface.
-    category: componentsTools
-    subcategory: componentsToolCore
+    category: componentsExternalTools
+    subcategory: componentsToolDataPlane
     edges:
       to:
         - componentOrchestrationOutputHandling

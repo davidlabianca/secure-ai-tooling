@@ -429,7 +429,7 @@ class TestPerSourceRegenerationDeterminism:
 # D8 — tuple-selector placeholder: {{COMPONENT_CATEGORY_SUBCATEGORY}} renders
 #      the valid (category, subcategory) pairs derived from the
 #      categories[].subcategory[] nesting in components.yaml (eleven pairs as
-#      of ADR-030 D1's componentsTools category and D2's componentsIdentity
+#      of ADR-030 D1's componentsExternalTools category and D2's componentsIdentity
 #      subcategory), formatted as
 #      "<category-id>: <subcategory-id>" with ": " as delimiter.
 #      {{COMPONENT_SUBCATEGORIES}} is retired.
@@ -461,8 +461,8 @@ _EXPECTED_TUPLES: list[str] = [
     "componentsModel: componentsOrchestration",
     "componentsApplication: componentsAgent",
     "componentsApplication: componentsApplicationCore",
-    "componentsTools: componentsToolControls",
-    "componentsTools: componentsToolCore",
+    "componentsExternalTools: componentsToolControlPlane",
+    "componentsExternalTools: componentsToolDataPlane",
 ]
 
 # An example of an invalid pair — this category/subcategory crossing is not in
@@ -475,7 +475,7 @@ class TestTupleSelectorRendering:
     Asserts that {{COMPONENT_CATEGORY_SUBCATEGORY}} expands to exactly the
     eleven valid taxonomy tuples formatted as "<category-id>: <subcategory-id>",
     in taxonomy declaration order (ADR-026 D8; count includes ADR-030 D1's
-    componentsTools category and ADR-030 D2's componentsIdentity subcategory).
+    componentsExternalTools category and ADR-030 D2's componentsIdentity subcategory).
     """
 
     def test_component_category_subcategory_placeholder_is_registered(self, repo_root: Path) -> None:
@@ -535,7 +535,7 @@ class TestTupleSelectorRendering:
               each matching a tuple from _EXPECTED_TUPLES.
 
         ADR-026 D8: eleven valid pairings (eight legacy + two added by ADR-030
-        D1's componentsTools category + one added by ADR-030 D2's
+        D1's componentsExternalTools category + one added by ADR-030 D2's
         componentsIdentity subcategory), rendered as YAML-quoted strings so
         that GitHub's check-jsonschema accepts the dropdown options block.
         Options containing ': ' must be quoted; unquoted they parse as dicts

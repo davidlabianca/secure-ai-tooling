@@ -61,8 +61,8 @@ graph TD
         end
     end
 
-    subgraph componentsTools ["Tools Components"]
-        subgraph componentsToolCore ["Tool Core"]
+    subgraph componentsExternalTools ["Tools Components"]
+        subgraph componentsToolDataPlane ["Tool Data Plane"]
             componentTools[External Tools and Services]
         end
     end
@@ -112,5 +112,5 @@ graph TD
     style componentsInfrastructure fill:#e6f3e6,stroke:#333333,stroke-width:2px
     style componentsApplication fill:#e6f0ff,stroke:#333333,stroke-width:2px
     style componentsModel fill:#ffe6e6,stroke:#333333,stroke-width:2px
-    style componentsTools fill:#f3e6ff,stroke:#333333,stroke-width:2px
+    style componentsExternalTools fill:#f3e6ff,stroke:#333333,stroke-width:2px
 ```

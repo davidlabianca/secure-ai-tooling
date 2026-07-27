@@ -685,7 +685,7 @@ _REAL_COMPONENT_CATEGORIES: tuple[str, ...] = (
     "componentsInfrastructure",
     "componentsApplication",
     "componentsModel",
-    "componentsTools",
+    "componentsExternalTools",
 )
 
 

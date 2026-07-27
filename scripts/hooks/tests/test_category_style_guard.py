@@ -4,7 +4,7 @@ Tests for the real-corpus CI guard on component-category styling.
 
 ADR-030 (docs/adr/030-agentic-component-model.md), Consequences:
 
-  "mermaid-styles.yaml needs a componentsTools style or the new category
+  "mermaid-styles.yaml needs a componentsExternalTools style or the new category
   renders unstyled; a real-corpus guard should fail CI on a styleless
   category."
 
@@ -327,8 +327,8 @@ _FOUR_CATEGORY_COMPONENTS: dict[str, Any] = {
         {
             "id": "compTools",
             "title": "Tools",
-            "category": "componentsTools",
-            "subcategory": "componentsToolCore",
+            "category": "componentsExternalTools",
+            "subcategory": "componentsToolDataPlane",
             "edges": {},
         },
     ],
@@ -349,9 +349,9 @@ _FOUR_CATEGORY_COMPONENTS: dict[str, Any] = {
             "subcategory": [{"id": "componentsAgent", "title": "Agent"}],
         },
         {
-            "id": "componentsTools",
+            "id": "componentsExternalTools",
             "title": "Tools",
-            "subcategory": [{"id": "componentsToolCore", "title": "Tool Core"}],
+            "subcategory": [{"id": "componentsToolDataPlane", "title": "Tool Core"}],
         },
     ],
 }
@@ -405,7 +405,7 @@ _FULLY_STYLED_MERMAID: dict[str, Any] = build_mermaid_styles()
 # Same, but missing the componentsModel style entry — deliberately incomplete
 # against the schema, which is the failure this guard reports.
 _MODEL_UNSTYLED_MERMAID: dict[str, Any] = build_mermaid_styles(
-    ["componentsInfrastructure", "componentsApplication", "componentsTools"]
+    ["componentsInfrastructure", "componentsApplication", "componentsExternalTools"]
 )
 
 # A styles file that parses as YAML but is not a styles config at all. The
@@ -725,7 +725,7 @@ class TestLoaderFallbackDisclosure:
             "componentsInfrastructure",
             "componentsApplication",
             "componentsModel",
-            "componentsTools",
+            "componentsExternalTools",
         }
 
         assert real_categories <= styled, (
