@@ -152,7 +152,6 @@ graph TD
     componentIsolationRuntime --> componentToolHosting
     componentIsolationRuntime --> componentRuntimeHosting
     componentToolServer --> componentToolOutputHandling
-    componentToolServer --> componentAuthorizationPolicyEnforcementPoint
     componentToolServer --> componentTools
     componentToolServer --> componentSecureLogging
     componentAgentToolTransport --> componentAgentNetworkPolicyEnforcementPoint
@@ -177,7 +176,7 @@ graph TD
     componentRuntimeHosting --> componentModelServing
     componentRuntimeHosting --> componentApplication
     componentRuntimeHosting --> componentReasoningCore
-    componentToolInputHandling --> componentToolServer
+    componentToolInputHandling --> componentAuthorizationPolicyEnforcementPoint
     componentToolInputHandling --> componentSecureLogging
     componentToolOutputHandling --> componentToolNetworkPolicyEnforcementPoint
     componentToolOutputHandling --> componentSecureLogging
