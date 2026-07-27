@@ -79,6 +79,17 @@ def clear_schema_categories_cache() -> None:
     _schema_categories_cache = None
 
 
+class MermaidStylesUnavailableError(RuntimeError):
+    """Raised when styling must come from real config but does not.
+
+    MermaidConfigLoader answers every style lookup, falling back to
+    _get_emergency_defaults() when the configured file cannot be loaded. That
+    keeps graph rendering working, but callers that use the styling config as
+    an assertion (the category style guard) must distinguish the two and
+    surface this rather than accept the hardcoded defaults as configuration.
+    """
+
+
 class MermaidConfigLoader:
     """
     Loads Mermaid styling configuration from YAML files with caching and fallbacks.
@@ -632,6 +643,29 @@ class MermaidConfigLoader:
         if not self._loaded:
             self._load_config()
         return (self._config is not None, self._load_error)
+
+    def is_using_emergency_defaults(self) -> bool:
+        """
+        Report whether style lookups are being answered from hardcoded defaults.
+
+        Every getter on this class succeeds either way — _get_safe_value()
+        falls back to _get_emergency_defaults() when the configured file is
+        missing, unparseable, or missing required top-level keys — so a caller
+        cannot tell real configuration from the fallback by inspecting the
+        values it gets back. Rendering does not need to know (degrading is the
+        point); a guard asserting on the configured styling does, because the
+        defaults style every real category and would mask an absent or corrupt
+        styles file.
+
+        Triggers loading if not already attempted.
+
+        Returns:
+            True when the configured file could not be loaded and lookups are
+            served from _get_emergency_defaults(); False when real
+            configuration is in use.
+        """
+        loaded, _ = self.get_load_status()
+        return not loaded
 
 
 class UnionFind:

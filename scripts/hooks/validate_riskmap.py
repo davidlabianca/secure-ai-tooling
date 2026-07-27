@@ -31,7 +31,7 @@ import yaml
 # Configuration Constants
 from riskmap_validator.config import DEFAULT_COMPONENTS_FILE
 from riskmap_validator.graphing import ComponentGraph, ControlGraph, MermaidConfigLoader, RiskGraph
-from riskmap_validator.graphing.graph_utils import _get_schema_categories
+from riskmap_validator.graphing.graph_utils import MermaidStylesUnavailableError, _get_schema_categories
 from riskmap_validator.utils import get_staged_yaml_files, parse_controls_yaml, parse_risks_yaml
 from riskmap_validator.validator import (
     ComponentEdgeValidator,
@@ -361,7 +361,23 @@ def main() -> None:
         if components_path.exists() and validator.components:
             try:
                 schema_categories = _get_schema_categories()
-                styled_categories = set(MermaidConfigLoader().get_component_category_styles().keys())
+                styles_loader = MermaidConfigLoader()
+                # MermaidConfigLoader answers style lookups from
+                # _get_emergency_defaults() when mermaid-styles.yaml is missing
+                # or structurally invalid. That keeps graph *rendering* working
+                # — degrading rather than dying is the point of the defaults —
+                # but for this guard it is precisely the failure being checked
+                # for: the defaults carry an entry for every real category, so
+                # a deleted or corrupt styles file would otherwise read as a
+                # fully styled corpus. Rendering keeps the fallback; the guard
+                # refuses it.
+                if styles_loader.is_using_emergency_defaults():
+                    _, styles_error = styles_loader.get_load_status()
+                    raise MermaidStylesUnavailableError(
+                        f"styling is being served from hardcoded emergency defaults rather than "
+                        f"real configuration: {styles_error}"
+                    )
+                styled_categories = set(styles_loader.get_component_category_styles().keys())
                 style_warnings = check_category_style_coverage(schema_categories, styled_categories)
                 if style_warnings:
                     label = "❌" if args.block else "⚠️"
