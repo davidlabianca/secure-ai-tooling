@@ -68,6 +68,8 @@ import yaml
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
+from conftest import build_mermaid_styles, write_mermaid_styles  # noqa: E402
+
 try:
     from riskmap_validator.validator import check_category_style_coverage  # noqa: E402
 
@@ -217,7 +219,7 @@ def _write_corpus(
     base: Path,
     components: dict[str, Any],
     controls: dict[str, Any],
-    mermaid_styles: dict[str, Any],
+    mermaid_styles: dict[str, Any] | str | None,
     write_schema: bool = True,
 ) -> Path:
     """Write a synthetic corpus: components/controls/risks/mermaid-styles + schema.
@@ -227,6 +229,8 @@ def _write_corpus(
     the category enum from this corpus's schema (cwd-relative, like every
     other input), not from the repo the test module happens to live in.
 
+    mermaid_styles takes a dict (written as YAML), a str (written verbatim,
+    for corrupt-file cases) or None (no styles file at all).
     Set write_schema=False to exercise the schema-unavailable path.
     """
     yaml_dir = base / "risk-map" / "yaml"
@@ -234,7 +238,7 @@ def _write_corpus(
     (yaml_dir / "components.yaml").write_text(yaml.dump(components), encoding="utf-8")
     (yaml_dir / "controls.yaml").write_text(yaml.dump(controls), encoding="utf-8")
     (yaml_dir / "risks.yaml").write_text(yaml.dump({"risks": []}), encoding="utf-8")
-    (yaml_dir / "mermaid-styles.yaml").write_text(yaml.dump(mermaid_styles), encoding="utf-8")
+    write_mermaid_styles(yaml_dir, mermaid_styles)
     if write_schema:
         category_ids = [entry["id"] for entry in components.get("categories", [])]
         _write_components_schema_stub(base, category_ids)
@@ -393,38 +397,24 @@ _FOUR_CATEGORY_CONTROLS: dict[str, Any] = {
 }
 
 # Styles all 4 real schema categories so the schema-sourced style check has no
-# unrelated bystander warnings to report.
-_FULLY_STYLED_MERMAID: dict[str, Any] = {
-    "version": "1.0.0",
-    "foundation": {"colors": {}, "strokeWidths": {}, "strokePatterns": {}},
-    "sharedElements": {
-        "cssClasses": {"hidden": "display: none;", "allControl": "stroke:#000,stroke-width:1px"},
-        "componentCategories": {
-            "componentsInfrastructure": {"fill": "#e6f3e6", "stroke": "#333333", "strokeWidth": "2px"},
-            "componentsModel": {"fill": "#ffe6e6", "stroke": "#333333", "strokeWidth": "2px"},
-            "componentsApplication": {"fill": "#e6f0ff", "stroke": "#333333", "strokeWidth": "2px"},
-            "componentsTools": {"fill": "#fff3e6", "stroke": "#333333", "strokeWidth": "2px"},
-        },
-    },
-    "graphTypes": {
-        "component": {"direction": "TD", "flowchartConfig": {}},
-        "control": {"direction": "LR", "flowchartConfig": {}},
-        "risk": {"direction": "LR", "flowchartConfig": {}},
-    },
-}
+# unrelated bystander warnings to report. Built by the shared conftest helper
+# so this module's clean corpora carry a styles file that is valid against the
+# real mermaid-styles.schema.json rather than an ad-hoc stub.
+_FULLY_STYLED_MERMAID: dict[str, Any] = build_mermaid_styles()
 
-# Same, but missing the componentsModel style entry.
-_MODEL_UNSTYLED_MERMAID: dict[str, Any] = {
-    **_FULLY_STYLED_MERMAID,
-    "sharedElements": {
-        "cssClasses": _FULLY_STYLED_MERMAID["sharedElements"]["cssClasses"],
-        "componentCategories": {
-            "componentsInfrastructure": {"fill": "#e6f3e6", "stroke": "#333333", "strokeWidth": "2px"},
-            "componentsApplication": {"fill": "#e6f0ff", "stroke": "#333333", "strokeWidth": "2px"},
-            "componentsTools": {"fill": "#fff3e6", "stroke": "#333333", "strokeWidth": "2px"},
-        },
-    },
-}
+# Same, but missing the componentsModel style entry — deliberately incomplete
+# against the schema, which is the failure this guard reports.
+_MODEL_UNSTYLED_MERMAID: dict[str, Any] = build_mermaid_styles(
+    ["componentsInfrastructure", "componentsApplication", "componentsTools"]
+)
+
+# A styles file that parses as YAML but is not a styles config at all. The
+# loader's required-key validation rejects it, which is the "structurally
+# invalid" half of the fallback case.
+_STRUCTURALLY_INVALID_MERMAID_TEXT = "unexpected: shape\n"
+
+# A styles file that does not parse as YAML at all.
+_UNPARSEABLE_MERMAID_TEXT = "version: '1.0.0'\nfoundation: [unclosed\n"
 
 
 class TestCLIWiring:
@@ -517,6 +507,295 @@ class TestCLIWiring:
             f"Expected exit 0 with --block on live corpus; got {result.returncode}\n"
             f"stdout: {result.stdout}\nstderr: {result.stderr}"
         )
+
+    # -----------------------------------------------------------------------
+    # Styles-file fallback. MermaidConfigLoader substitutes
+    # _get_emergency_defaults() whenever mermaid-styles.yaml cannot be loaded,
+    # and those hardcoded defaults style every real category — so a deleted or
+    # unreadable styles file otherwise reads to this guard as a fully styled
+    # corpus and the run reports success. Deleting a *single* category's entry
+    # is caught; deleting or corrupting the whole file was not.
+    # -----------------------------------------------------------------------
+
+    def test_missing_styles_file_with_block_exits_1(self, tmp_path):
+        """
+        Given: a corpus with no risk-map/yaml/mermaid-styles.yaml at all
+        When: validate_riskmap.py --force --allow-isolated --block runs
+        Then: exit 1 — styling served from emergency defaults is not a pass
+        """
+        _write_corpus(tmp_path, _FOUR_CATEGORY_COMPONENTS, _FOUR_CATEGORY_CONTROLS, None)
+        result = _run(tmp_path, "--block")
+        assert result.returncode == 1, (
+            f"Expected exit 1 with --block when mermaid-styles.yaml is missing; "
+            f"got {result.returncode}\nstdout: {result.stdout}\nstderr: {result.stderr}"
+        )
+
+    def test_missing_styles_file_does_not_print_success(self, tmp_path):
+        """
+        Given: the same styles-less corpus, no --block
+        When: validate_riskmap.py --force --allow-isolated runs
+        Then: stdout carries an explicit could-not-run error and NOT the
+              success checkmark
+        """
+        _write_corpus(tmp_path, _FOUR_CATEGORY_COMPONENTS, _FOUR_CATEGORY_CONTROLS, None)
+        result = _run(tmp_path)
+        combined = result.stdout + result.stderr
+
+        assert "Category style check passed" not in combined, (
+            f"A check reading hardcoded fallback styles must not report success;\n"
+            f"stdout: {result.stdout}\nstderr: {result.stderr}"
+        )
+        assert "Category style check could not run" in combined, (
+            f"Expected an explicit could-not-run error naming the failure;\n"
+            f"stdout: {result.stdout}\nstderr: {result.stderr}"
+        )
+
+    def test_missing_styles_file_error_is_printed_under_quiet(self, tmp_path):
+        """
+        Given: the same styles-less corpus and --quiet
+        When: validate_riskmap.py --force --allow-isolated --quiet runs
+        Then: the could-not-run error is still printed
+
+        --quiet suppresses routine progress output; it must not suppress the
+        report that a guard did not run.
+        """
+        _write_corpus(tmp_path, _FOUR_CATEGORY_COMPONENTS, _FOUR_CATEGORY_CONTROLS, None)
+        result = _run(tmp_path, "--quiet")
+        combined = result.stdout + result.stderr
+        assert "Category style check could not run" in combined, (
+            f"Expected the could-not-run error even with --quiet;\n"
+            f"stdout: {result.stdout}\nstderr: {result.stderr}"
+        )
+
+    def test_structurally_invalid_styles_file_with_block_exits_1(self, tmp_path):
+        """
+        Given: a mermaid-styles.yaml that parses as YAML but lacks the
+               required top-level keys
+        When: validate_riskmap.py --force --allow-isolated --block runs
+        Then: exit 1 — the loader silently falls back here too
+
+        A present-but-wrong file is the harder case: the file exists, so a
+        guard that only checked for the path would be satisfied by it.
+        """
+        _write_corpus(
+            tmp_path,
+            _FOUR_CATEGORY_COMPONENTS,
+            _FOUR_CATEGORY_CONTROLS,
+            _STRUCTURALLY_INVALID_MERMAID_TEXT,
+        )
+        result = _run(tmp_path, "--block")
+        assert result.returncode == 1, (
+            f"Expected exit 1 with --block on a structurally invalid styles file; "
+            f"got {result.returncode}\nstdout: {result.stdout}\nstderr: {result.stderr}"
+        )
+
+    def test_unparseable_styles_file_with_block_exits_1(self, tmp_path):
+        """
+        Given: a mermaid-styles.yaml that is not valid YAML
+        When: validate_riskmap.py --force --allow-isolated --block runs
+        Then: exit 1
+        """
+        _write_corpus(
+            tmp_path,
+            _FOUR_CATEGORY_COMPONENTS,
+            _FOUR_CATEGORY_CONTROLS,
+            _UNPARSEABLE_MERMAID_TEXT,
+        )
+        result = _run(tmp_path, "--block")
+        assert result.returncode == 1, (
+            f"Expected exit 1 with --block on an unparseable styles file; "
+            f"got {result.returncode}\nstdout: {result.stdout}\nstderr: {result.stderr}"
+        )
+
+    def test_corrupt_styles_file_does_not_print_success(self, tmp_path):
+        """
+        Given: a structurally invalid styles file, no --block
+        When: validate_riskmap.py --force --allow-isolated runs
+        Then: stdout carries an explicit could-not-run error and NOT the
+              success checkmark
+        """
+        _write_corpus(
+            tmp_path,
+            _FOUR_CATEGORY_COMPONENTS,
+            _FOUR_CATEGORY_CONTROLS,
+            _STRUCTURALLY_INVALID_MERMAID_TEXT,
+        )
+        result = _run(tmp_path)
+        combined = result.stdout + result.stderr
+
+        assert "Category style check passed" not in combined, (
+            f"A check reading hardcoded fallback styles must not report success;\n"
+            f"stdout: {result.stdout}\nstderr: {result.stderr}"
+        )
+        assert "Category style check could not run" in combined, (
+            f"Expected an explicit could-not-run error naming the failure;\n"
+            f"stdout: {result.stdout}\nstderr: {result.stderr}"
+        )
+
+
+# ===========================================================================
+# 2b. Styles-loader fallback disclosure + the guard/rendering split
+# ===========================================================================
+
+
+class TestLoaderFallbackDisclosure:
+    """MermaidConfigLoader reports whether it is serving real config.
+
+    The guard needs this because every style lookup silently succeeds either
+    way: _get_safe_value() answers from _get_emergency_defaults() when the
+    configured file could not be loaded, and those defaults carry an entry for
+    every real category.
+    """
+
+    def test_real_config_is_not_fallback(self, tmp_path):
+        """
+        Given: a loader pointed at a valid styles file
+        When: is_using_emergency_defaults() is called
+        Then: False
+        """
+        from riskmap_validator.graphing.graph_utils import MermaidConfigLoader
+
+        styles_path = tmp_path / "mermaid-styles.yaml"
+        styles_path.write_text(yaml.dump(build_mermaid_styles()), encoding="utf-8")
+
+        assert MermaidConfigLoader(styles_path).is_using_emergency_defaults() is False
+
+    def test_live_styles_file_is_not_fallback(self):
+        """
+        Given: a loader pointed at the repo's real mermaid-styles.yaml
+        When: is_using_emergency_defaults() is called
+        Then: False — the steady state the guard asserts on the live corpus
+        """
+        from riskmap_validator.graphing.graph_utils import MermaidConfigLoader
+
+        styles_path = _REPO_ROOT / "risk-map" / "yaml" / "mermaid-styles.yaml"
+        assert MermaidConfigLoader(styles_path).is_using_emergency_defaults() is False
+
+    def test_missing_file_is_fallback(self, tmp_path):
+        """
+        Given: a loader pointed at a path that does not exist
+        When: is_using_emergency_defaults() is called
+        Then: True
+        """
+        from riskmap_validator.graphing.graph_utils import MermaidConfigLoader
+
+        assert MermaidConfigLoader(tmp_path / "absent.yaml").is_using_emergency_defaults() is True
+
+    def test_unparseable_file_is_fallback(self, tmp_path):
+        """
+        Given: a loader pointed at a file that is not valid YAML
+        When: is_using_emergency_defaults() is called
+        Then: True
+        """
+        from riskmap_validator.graphing.graph_utils import MermaidConfigLoader
+
+        styles_path = tmp_path / "mermaid-styles.yaml"
+        styles_path.write_text(_UNPARSEABLE_MERMAID_TEXT, encoding="utf-8")
+
+        assert MermaidConfigLoader(styles_path).is_using_emergency_defaults() is True
+
+    def test_structurally_invalid_file_is_fallback(self, tmp_path):
+        """
+        Given: a loader pointed at valid YAML missing the required top-level
+               keys
+        When: is_using_emergency_defaults() is called
+        Then: True
+        """
+        from riskmap_validator.graphing.graph_utils import MermaidConfigLoader
+
+        styles_path = tmp_path / "mermaid-styles.yaml"
+        styles_path.write_text(_STRUCTURALLY_INVALID_MERMAID_TEXT, encoding="utf-8")
+
+        assert MermaidConfigLoader(styles_path).is_using_emergency_defaults() is True
+
+    def test_fallback_still_serves_category_styles(self, tmp_path):
+        """
+        Given: a loader in fallback mode
+        When: get_component_category_styles() is called
+        Then: the emergency defaults are returned, styling every real category
+
+        This is the behaviour the guard must refuse and rendering must keep:
+        it is exactly why a missing styles file looked clean to the guard.
+        """
+        from riskmap_validator.graphing.graph_utils import MermaidConfigLoader
+
+        loader = MermaidConfigLoader(tmp_path / "absent.yaml")
+        styled = set(loader.get_component_category_styles().keys())
+        real_categories = {
+            "componentsInfrastructure",
+            "componentsApplication",
+            "componentsModel",
+            "componentsTools",
+        }
+
+        assert real_categories <= styled, (
+            f"Expected the emergency defaults to style every real category; got: {sorted(styled)}"
+        )
+
+
+class TestRenderingKeepsTheFallback:
+    """Only the guard treats fallback as a failure; rendering must not.
+
+    Emergency defaults exist so graph generation degrades rather than dies
+    when styling configuration is unavailable. Tightening the guard must not
+    leak into the renderer.
+    """
+
+    def test_component_graph_renders_without_a_styles_file(self, tmp_path):
+        """
+        Given: a ComponentGraph whose config loader points at a missing file
+        When: to_mermaid() is called
+        Then: it returns a non-empty graph rather than raising
+        """
+        from riskmap_validator.graphing import ComponentGraph
+        from riskmap_validator.graphing.graph_utils import MermaidConfigLoader
+        from riskmap_validator.models import ComponentNode
+
+        components = {
+            "compAlpha": ComponentNode(
+                title="Alpha",
+                category="componentsInfrastructure",
+                subcategory=None,
+                to_edges=["compBeta"],
+                from_edges=[],
+            ),
+            "compBeta": ComponentNode(
+                title="Beta",
+                category="componentsModel",
+                subcategory=None,
+                to_edges=[],
+                from_edges=["compAlpha"],
+            ),
+        }
+        graph = ComponentGraph({"compAlpha": ["compBeta"]}, components)
+        graph.config_loader = MermaidConfigLoader(tmp_path / "absent.yaml")
+
+        output = graph.to_mermaid()
+        assert output.strip(), "Expected rendering to degrade to emergency defaults, not produce nothing"
+
+
+class TestSharedStylesFixtureIsSchemaComplete:
+    """The synthetic corpora's styles fixture is valid against the real schema.
+
+    Synthetic corpora now carry a real styles file instead of leaning on the
+    loader's emergency defaults. "Real" has to mean schema-valid, or the
+    fixtures would only be as good as the loader's four required top-level
+    keys.
+    """
+
+    def test_build_mermaid_styles_validates_against_the_schema(self):
+        """
+        Given: build_mermaid_styles() with its default categories
+        When: validated against risk-map/schemas/mermaid-styles.schema.json
+        Then: it validates
+        """
+        import jsonschema
+
+        schema_path = _REPO_ROOT / "risk-map" / "schemas" / "mermaid-styles.schema.json"
+        with open(schema_path, encoding="utf-8") as fh:
+            schema = json.load(fh)
+
+        jsonschema.validate(instance=build_mermaid_styles(), schema=schema)
 
 
 # ===========================================================================
@@ -811,10 +1090,27 @@ TestCheckCategoryStyleCoverage (pure function): 7 tests
   independence; an empty category set is a warning, not a pass; return-type
   contract; live-corpus regression (every live category styled).
 
-TestCLIWiring (subprocess): 5 tests
+TestCLIWiring (subprocess): 11 tests
 - dirty style + --block -> exit 1; clean + --block -> exit 0; dirty style
   without --block -> exit 0 + names the category; live corpus no --block ->
-  exit 0; live corpus + --block -> exit 0.
+  exit 0; live corpus + --block -> exit 0; missing styles file + --block ->
+  exit 1, without --block -> could-not-run and no success line, and the error
+  survives --quiet; structurally invalid and unparseable styles files +
+  --block -> exit 1, and structurally invalid without --block -> could-not-run
+  and no success line.
+
+TestLoaderFallbackDisclosure (unit): 6 tests
+- a valid file and the live styles file are not fallback; missing,
+  unparseable and structurally invalid files are; fallback still serves a
+  style for every real category, which is why the guard has to ask.
+
+TestRenderingKeepsTheFallback (unit): 1 test
+- ComponentGraph still renders with no styles file — the guard's strictness
+  must not leak into the renderer.
+
+TestSharedStylesFixtureIsSchemaComplete (unit): 1 test
+- conftest.build_mermaid_styles() validates against the real
+  mermaid-styles.schema.json.
 
 TestSchemaCategoryResolution (unit): 7 tests
 - cwd-relative resolution; missing / malformed / restructured / empty-enum
