@@ -30,10 +30,12 @@ import yaml
 
 # Configuration Constants
 from riskmap_validator.config import DEFAULT_COMPONENTS_FILE
-from riskmap_validator.graphing import ComponentGraph, ControlGraph, RiskGraph
+from riskmap_validator.graphing import ComponentGraph, ControlGraph, MermaidConfigLoader, RiskGraph
+from riskmap_validator.graphing.graph_utils import _get_schema_categories
 from riskmap_validator.utils import get_staged_yaml_files, parse_controls_yaml, parse_risks_yaml
 from riskmap_validator.validator import (
     ComponentEdgeValidator,
+    check_category_style_and_ownership,
     check_category_subcategory_nesting,
     check_controls_components_mirror,
     check_lifecycle_stage_order_uniqueness,
@@ -341,6 +343,42 @@ def main() -> None:
             except Exception as e:
                 if not args.quiet:
                     print(f"   ⚠️  Category/subcategory nesting check skipped: {e}")
+
+        # Category style + persona ownership check (ADR-030 D1, Consequences).
+        # Runs regardless of whether the earlier checks found issues so all
+        # warnings are visible before the exit decision below.
+        #
+        # schema_categories is sourced from the repo-relative
+        # components.schema.json category.id enum via _get_schema_categories(),
+        # not the corpus's own components.yaml categories: block. Schema
+        # validation only enforces categories: block entries are a subset of
+        # the schema enum, never the reverse, so a category could exist in
+        # the schema without ever being added to categories: block and still
+        # pass schema validation. Sourcing from the corpus block would miss
+        # exactly that styleless/owner-less category — the failure mode this
+        # guard exists to catch (ADR-030 Consequences).
+        if controls_path.exists() and components_path.exists() and validator.components:
+            try:
+                schema_categories = _get_schema_categories()
+                controls = parse_controls_yaml(controls_path)
+                styled_categories = set(MermaidConfigLoader().get_component_category_styles().keys())
+                ownership_warnings = check_category_style_and_ownership(
+                    schema_categories, styled_categories, validator.components, controls
+                )
+                if ownership_warnings:
+                    label = "❌" if args.block else "⚠️"
+                    print(f"   {label} Category style/ownership check found {len(ownership_warnings)} issue(s):")
+                    for warning in ownership_warnings:
+                        print(f"     - {warning}")
+                    if args.block:
+                        warn_block_triggered = True
+                elif not args.quiet:
+                    print("✅ Category style/ownership check passed")
+            except SystemExit:
+                raise
+            except Exception as e:
+                if not args.quiet:
+                    print(f"   ⚠️  Category style/ownership check skipped: {e}")
 
         # Unified exit for warn-only checks — fires after both checks have printed.
         if warn_block_triggered:
