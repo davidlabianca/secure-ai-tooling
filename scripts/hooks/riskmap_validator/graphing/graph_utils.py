@@ -5,6 +5,7 @@ from typing import Any
 import yaml
 
 from ..config import DEFAULT_COMPONENTS_SCHEMA_FILE, DEFAULT_MERMAID_CONFIG_FILE
+from .decouple import AspectDecl, ConcernDecl, EmissionConfig
 
 # ---------------------------------------------------------------------------
 # Schema category helper
@@ -88,6 +89,21 @@ class MermaidStylesUnavailableError(RuntimeError):
     an assertion (the category style guard) must distinguish the two and
     surface this rather than accept the hardcoded defaults as configuration.
     """
+
+
+def _validated_edge(edge: Any) -> tuple[str, str]:
+    """
+    Validate one `emission.concerns[*].edges` entry as a 2-element `[src, tgt]` pair.
+
+    Raises `ValueError` on anything else (wrong-arity list/tuple, or a bare
+    string -- `tuple("componentA")` would otherwise silently succeed, producing
+    a per-character tuple rather than raising). The caller's existing
+    `except (KeyError, TypeError, ValueError)` degrades the whole `emission`
+    block to `flat` on this, matching the malformed-aspect-entry precedent.
+    """
+    if isinstance(edge, str) or not isinstance(edge, (list, tuple)) or len(edge) != 2:
+        raise ValueError(f"expected a 2-element [src, tgt] edge, got {edge!r}")
+    return tuple(edge)
 
 
 class MermaidConfigLoader:
@@ -229,6 +245,7 @@ class MermaidConfigLoader:
                 "component": {
                     "direction": "TD",
                     "flowchartConfig": {"nodeSpacing": 25, "rankSpacing": 30, "padding": 5, "wrappingWidth": 250},
+                    "emission": {"mode": "flat"},
                 },
                 "control": {
                     "direction": "LR",
@@ -516,6 +533,51 @@ class MermaidConfigLoader:
             preamble = []  # Ensure we always have a valid list
 
         return result, preamble
+
+    def get_emission_config(self) -> EmissionConfig:
+        """
+        Parse `graphTypes.component.emission` into an `EmissionConfig` (ADR-036 D3).
+
+        Phase 2/Phase 3 boundary (see `test_decouple_emitter.py` module docstring for
+        the full rationale): this is a minimal, functional accessor -- mode, aspects,
+        concerns, port_styles -- not the schema-validated, emergency-defaults-hardened
+        version Phase 3 (task 3.3) delivers. `mermaid-styles.yaml` has no `emission`
+        block yet, so in production today this always returns the flat default; that
+        is expected, not a bug.
+
+        Degrades to `EmissionConfig(mode="flat")` on any absent or malformed block --
+        missing block, missing/unknown `mode`, or a malformed `aspects`/`concerns`/
+        `portStyles` entry -- per D3's "missing or corrupt config never yields a
+        half-decoupled diagram."
+
+        Returns:
+            EmissionConfig: parsed config, or the flat default on any parse failure.
+        """
+        raw = self._get_safe_value("graphTypes", "component", "emission", default=None)
+        if not isinstance(raw, dict) or raw.get("mode") not in ("flat", "decoupled"):
+            return EmissionConfig(mode="flat")
+
+        try:
+            aspects = tuple(
+                AspectDecl(id=entry["id"], min_cross_in_degree=entry["minCrossInDegree"])
+                for entry in raw.get("aspects", [])
+            )
+            concerns = tuple(
+                ConcernDecl(
+                    label=entry["label"],
+                    edges=tuple(_validated_edge(edge) for edge in entry.get("edges", [])),
+                )
+                for entry in raw.get("concerns", [])
+            )
+            port_styles = raw.get("portStyles")
+            if port_styles is not None and not isinstance(port_styles, dict):
+                return EmissionConfig(mode="flat")
+        except (KeyError, TypeError, ValueError):
+            # Malformed aspect/concern entry (missing key, wrong shape) -- degrade to
+            # flat rather than propagate a parse error into graph generation.
+            return EmissionConfig(mode="flat")
+
+        return EmissionConfig(mode=raw["mode"], aspects=aspects, concerns=concerns, port_styles=port_styles)
 
     def get_control_edge_styles(self) -> dict:
         """
