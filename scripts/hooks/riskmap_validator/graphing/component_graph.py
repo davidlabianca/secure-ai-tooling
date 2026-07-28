@@ -20,7 +20,7 @@ import re
 
 from ..models import ComponentNode
 from .base import BaseGraph
-from .decouple import DecoupledPlan, PepWrapper, build_decoupled_plan, verify_plan
+from .decouple import DecoupledPlan, PepWrapper, apply_display_acronyms, build_decoupled_plan, verify_plan
 from .graph_utils import MermaidConfigLoader
 
 logger = logging.getLogger(__name__)
@@ -407,7 +407,8 @@ class ComponentGraph(BaseGraph):
         """
         if member_id in plan.pep_wrappers:
             return self._decoupled_pep_wrap_lines(plan.pep_wrappers[member_id], indent)
-        title = self.components[member_id].title
+        # ADR-036 D8: display-only substitution; component title data is untouched.
+        title = apply_display_acronyms(self.components[member_id].title)
         aspect_style = port_styles.get("aspectStyle")
         if aspect_style:
             for lifted in plan.lifted_aspects:
@@ -422,7 +423,8 @@ class ComponentGraph(BaseGraph):
         its own outlined enclosure, with dedicated `in`/`out` ports carrying the
         `pepport` class and the PEP node itself declared inside.
         """
-        title = self.components[wrapper.pep_id].title
+        # ADR-036 D8: display-only substitution; component title data is untouched.
+        title = apply_display_acronyms(self.components[wrapper.pep_id].title)
         inner = indent + "    "
         return [
             f'{indent}subgraph {wrapper.wrap_id} ["{title}"]',

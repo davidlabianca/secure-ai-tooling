@@ -65,6 +65,11 @@ Test Coverage
 11. Live-corpus inventory: `build_decoupled_plan()` against the real
     `risk-map/yaml/components.yaml`, asserting the plan §C numbers this suite's author
     independently re-derived from the corpus.
+12. ADR-036 D8 (display-layer acronym substitution, arm-label site): the real
+    "identity & authz" broadcast's 4 PEP-landing arm labels substitute to "PEP",
+    each keeping its own distinguishing prefix; the port ids computed from those
+    same targets stay byte-identical (the D8 hard invariant); a synthetic PDP+PEP
+    mixed channel proves the closed set doesn't generalize to PDP.
 
 Everything here is written against the *final* ADR-036 rules, not the bake-off
 prototypes reconciled away in the plan's §R ledger. In particular:
@@ -1448,6 +1453,207 @@ class TestLiveCorpusInventory:
         assert len(live_plan.band_links) == 4
 
 
+# ============================================================================
+# 12. ADR-036 D8: display-layer acronym substitution -- arm-label site
+# ("policy enforcement point" -> "PEP", case-insensitive) and its hard invariant
+# (port ids stay byte-identical). The node-title site
+# (`_decoupled_member_lines`/`_decoupled_pep_wrap_lines`) is covered in
+# test_decouple_emitter.py's own D8 section. Implemented in `decouple.py`; the
+# port-id assertions in the same tests staying byte-identical once D8 landed IS
+# the D8 hard invariant this suite pins.
+# ============================================================================
+
+
+class TestD8ArmLabelSubstitutionLiveCorpus:
+    """
+    Live-corpus proof of items 2, 3, and 6 using the real "identity & authz"
+    broadcast -- the corpus's own worked example of a multi-root broadcast whose
+    arms land at PEP-wrapped targets (quoted directly from ADR-036 D8's own
+    prose: "6 derived arm-label suffixes").
+
+    Port ids captured below were read directly off `build_decoupled_plan()`'s
+    output against the real corpus before this suite was written (not guessed).
+    `target_short_name()` always lowercases and space-joins (§E), so every arm
+    label already exercises item 3's lowercase-surround case (item 1's Title
+    Case case is exercised at the node-title site instead, since it is
+    title-derived, not id-derived).
+    """
+
+    @pytest.fixture(scope="class")
+    @classmethod
+    def live_corpus(cls, repo_root: Path):
+        components = parse_components_yaml(repo_root / "risk-map" / "yaml" / "components.yaml")
+        return components, _forward_map(components)
+
+    @pytest.fixture(scope="class")
+    @classmethod
+    def live_plan(cls, live_corpus):
+        components, forward_map = live_corpus
+        cfg = EmissionConfig(
+            mode="decoupled",
+            concerns=(
+                ConcernDecl(
+                    label="identity & authz",
+                    edges=(
+                        (
+                            "componentAuthorizationPolicyDecisionPoint",
+                            "componentAgentNetworkPolicyEnforcementPoint",
+                        ),
+                        (
+                            "componentAuthorizationPolicyDecisionPoint",
+                            "componentApplicationNetworkPolicyEnforcementPoint",
+                        ),
+                        (
+                            "componentAuthorizationPolicyDecisionPoint",
+                            "componentAuthorizationPolicyEnforcementPoint",
+                        ),
+                        ("componentAuthorizationPolicyDecisionPoint", "componentModelServing"),
+                        (
+                            "componentAuthorizationPolicyDecisionPoint",
+                            "componentToolNetworkPolicyEnforcementPoint",
+                        ),
+                        ("componentIdentityProvider", "componentAgentNetworkPolicyEnforcementPoint"),
+                        (
+                            "componentIdentityProvider",
+                            "componentApplicationNetworkPolicyEnforcementPoint",
+                        ),
+                        ("componentIdentityProvider", "componentFederationProxy"),
+                        ("componentIdentityProvider", "componentModelServing"),
+                        ("componentIdentityProvider", "componentToolNetworkPolicyEnforcementPoint"),
+                    ),
+                ),
+            ),
+        )
+        return build_decoupled_plan(forward_map, components, cfg)
+
+    def _arms_by_target(self, live_plan):
+        broadcast = next(b for b in live_plan.broadcasts if b.label == "identity & authz")
+        return {arm.target: arm for c in broadcast.channels for arm in c.arms}
+
+    def test_four_pep_landing_arm_labels_substitute_each_keeping_its_own_prefix(self, live_plan):
+        """
+        Item 2 (label half) + item 6: each of the 4 PEP-landing arms in this
+        broadcast gets its OWN correctly-prefixed substituted label -- not one
+        generic "PEP" losing "agent network"/"application network"/"authorization"/
+        "tool network".
+        """
+        arms = self._arms_by_target(live_plan)
+        expected_labels = {
+            "componentAgentNetworkPolicyEnforcementPoint": "identity & authz → agent network PEP",
+            "componentApplicationNetworkPolicyEnforcementPoint": "identity & authz → application network PEP",
+            "componentAuthorizationPolicyEnforcementPoint": "identity & authz → authorization PEP",
+            "componentToolNetworkPolicyEnforcementPoint": "identity & authz → tool network PEP",
+        }
+        for target, expected_label in expected_labels.items():
+            assert arms[target].label == expected_label, (
+                f"expected {target}'s arm label {expected_label!r}, got {arms[target].label!r}"
+            )
+
+    def test_pep_landing_arm_port_ids_are_byte_identical_to_todays_captured_values(self, live_plan):
+        """
+        The D8 hard invariant (ADR-036 D8, "The hard invariant" + Follow-up's
+        recommended self-check): `port_id` is computed from a SEPARATE
+        `target_short_name()` call than `arm_label` (`_build_arms`), so it must
+        stay byte-identical whether the label substitution is implemented or not.
+        These exact strings were captured directly from `build_decoupled_plan()`'s
+        output against the real corpus before this suite was written -- already
+        GREEN before D8 landed, and this test's job is to make sure it stayed
+        GREEN once D8 landed (a regression, not a new-behavior, assertion).
+        """
+        arms = self._arms_by_target(live_plan)
+        expected_port_ids = {
+            "componentAgentNetworkPolicyEnforcementPoint": (
+                "p_in_app_identity_authz_agent_network_policy_enforcement_point"
+            ),
+            "componentApplicationNetworkPolicyEnforcementPoint": (
+                "p_in_app_identity_authz_application_network_policy_enforcement_point"
+            ),
+            "componentAuthorizationPolicyEnforcementPoint": (
+                "p_in_tools_identity_authz_authorization_policy_enforcement_point"
+            ),
+            "componentToolNetworkPolicyEnforcementPoint": (
+                "p_in_tools_identity_authz_tool_network_policy_enforcement_point"
+            ),
+        }
+        for target, expected_port_id in expected_port_ids.items():
+            assert arms[target].port_id == expected_port_id, (
+                f"expected {target}'s port_id to stay byte-identical at {expected_port_id!r} "
+                f"(the D8 hard invariant), got {arms[target].port_id!r}"
+            )
+
+    def test_non_pep_arms_in_the_same_broadcast_are_unaffected(self, live_plan):
+        """
+        Regression scope guard: the same broadcast also lands at
+        `componentModelServing` (bare arm, no PEP phrase at all) and
+        `componentFederationProxy` (suffixed, but no PEP phrase either) -- neither
+        should ever change, proving the substitution is scoped to labels that
+        actually contain the phrase, not applied blanket across every arm in a
+        broadcast that happens to have SOME PEP-landing siblings.
+        """
+        arms = self._arms_by_target(live_plan)
+        assert arms["componentModelServing"].label == "identity & authz"
+        assert arms["componentFederationProxy"].label == "identity & authz → federation proxy"
+
+
+class TestD8PdpArmLabelNeverAbbreviated:
+    """
+    Item 4, arm-label form: 'policy decision point' -> 'PDP' was evaluated
+    alongside PEP and explicitly held out of the D8 set (ADR-036 D8: "its single
+    occurrence already fits the wrap target, so it has no measured justification").
+    This is the regression guard proving the closed, PEP-only set doesn't
+    accidentally generalize to a broader "Policy * Point" pattern: a PDP-named arm
+    target sits in the SAME multi-arm channel as a PEP-named one, so a naive regex
+    catching both would be caught red-handed by this fixture, side by side, in one
+    assertion.
+
+    The live corpus has no PDP-landing arm today (`componentAuthorizationPolicy
+    DecisionPoint` is only ever a broadcast SOURCE, never a channel target), so
+    this is a synthetic fixture -- the live-corpus PDP guard for the node-title
+    site lives in test_decouple_emitter.py's `TestD8PdpTitleGuardLiveCorpus`.
+    """
+
+    @pytest.fixture
+    def mixed_pdp_pep_plan(self):
+        components = {
+            "componentBroadcastSource": _node(
+                INFRA,
+                to_edges=[
+                    "componentAuthorizationPolicyDecisionPoint",
+                    "componentGatewayPolicyEnforcementPoint",
+                ],
+            ),
+            "componentAuthorizationPolicyDecisionPoint": _node(APP),
+            "componentGatewayPolicyEnforcementPoint": _node(APP),
+        }
+        cfg = EmissionConfig(
+            mode="decoupled",
+            concerns=(
+                ConcernDecl(
+                    label="test concern",
+                    edges=(
+                        ("componentBroadcastSource", "componentAuthorizationPolicyDecisionPoint"),
+                        ("componentBroadcastSource", "componentGatewayPolicyEnforcementPoint"),
+                    ),
+                ),
+            ),
+        )
+        return build_decoupled_plan(_forward_map(components), components, cfg)
+
+    def test_pdp_arm_label_stays_spelled_out_while_pep_arm_label_abbreviates(self, mixed_pdp_pep_plan):
+        channel = mixed_pdp_pep_plan.broadcasts[0].channels[0]
+        arms_by_target = {arm.target: arm for arm in channel.arms}
+        pdp_arm = arms_by_target["componentAuthorizationPolicyDecisionPoint"]
+        pep_arm = arms_by_target["componentGatewayPolicyEnforcementPoint"]
+
+        # PDP: unaffected -- explicitly held out of the D8 set (was already GREEN
+        # before D8 landed, stays GREEN now).
+        assert pdp_arm.label == "test concern → authorization policy decision point"
+        # PEP: substituted per D8 -- proves this fixture would genuinely catch a
+        # naive "Policy * Point" pattern that wrongly abbreviated both, since PDP
+        # is asserted unchanged in the SAME assertion pass.
+        assert pep_arm.label == "test concern → gateway PEP"
+
+
 """
 Test Summary
 ============
@@ -1477,6 +1683,17 @@ Coverage areas:
 - Live-corpus inventory (plan §C, independently re-verified numbers): 10 tests
   (includes one ADR-036 D1 regression guard pinning `band_links` to exactly the 4
   block entry/exit pairs, zero port-to-port chain links -- was RED, now GREEN).
+- ADR-036 D8 (display-layer acronym substitution, arm-label site): 4 tests across 2
+  classes. `TestD8ArmLabelSubstitutionLiveCorpus` -- the real "identity & authz"
+  broadcast's 4 PEP-landing arms substitute to "PEP", each keeping its own prefix
+  (1 test); the port ids computed from those same targets stay byte-identical
+  (1 GREEN-today regression pin, the D8 hard invariant); the broadcast's 2 non-PEP
+  arms are unaffected (1 GREEN-today scope guard). `TestD8PdpArmLabelNeverAbbreviated`
+  -- a synthetic PDP+PEP mixed channel, PDP unchanged/PEP substituted in the same
+  assertion pass (1 test). Node-title-site D8 coverage
+  (`_decoupled_member_lines`/`_decoupled_pep_wrap_lines`) lives in
+  test_decouple_emitter.py instead -- this file covers only `decouple.py`'s
+  `_build_arms`/`arm_label` site plus the port-id invariant.
 
 Notes for the code-reviewer (task 1.3):
 - No landing-selection test exists anywhere in this file (R1/R2/R4 checked).
