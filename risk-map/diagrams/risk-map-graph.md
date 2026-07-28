@@ -20,12 +20,19 @@ graph TD
             componentTrainingData[Training Data]
         end
         subgraph componentsDeployment ["Deployment"]
-            componentModelServing[Model Serving Infrastructure]
+            componentIsolationRuntime[Isolation Runtime Boundary]
             componentModelStorage[Model Storage]
+            componentRuntimeHosting[Runtime Hosting]
+            componentSecureLogging[Secure Logging]
+            componentToolHosting[Tool Hosting]
         end
         subgraph componentsRegistries ["Registries"]
             componentModelRegistry[Model Registry and Marketplace]
             componentToolRegistry[Tool Registry and Discovery]
+        end
+        subgraph componentsIdentity ["Identity"]
+            componentAuthorizationPolicyDecisionPoint[Authorization Policy Decision Point]
+            componentIdentityProvider[Identity Provider]
         end
     end
 
@@ -36,6 +43,7 @@ graph TD
             componentModelTrainingTuning[Training and Tuning]
         end
         subgraph componentsModelCore ["Model Core"]
+            componentModelServing[Model Serving Infrastructure]
             componentTheModel[The Model]
         end
         subgraph componentsOrchestration ["Orchestration"]
@@ -49,13 +57,18 @@ graph TD
     subgraph componentsApplication ["Application Components"]
         subgraph componentsApplicationCore ["Application Core"]
             componentApplication[Application]
+            componentApplicationConsentSurface[Application Consent Surface]
             componentApplicationInputHandling[Input Handling]
+            componentApplicationNetworkPolicyEnforcementPoint[Application Network Policy Enforcement Point]
             componentApplicationOutputHandling[Output Handling]
         end
         subgraph componentsAgent ["Agent"]
+            componentAgentConsentSurface[Agent Consent Elicitation Surface]
             componentAgentInputHandling[Input Handling]
+            componentAgentNetworkPolicyEnforcementPoint[Agent Network Policy Enforcement Point]
             componentAgentOutputHandling[Output Handling]
             componentAgentSystemInstruction[Agent System Instructions]
+            componentAgentToolTransport[Agent Tool Transport Channel]
             componentAgentUserQuery[Agent User Query]
             componentReasoningCore[Agent Reasoning Core]
         end
@@ -63,7 +76,16 @@ graph TD
 
     subgraph componentsExternalTools ["External Tools Components"]
         subgraph componentsToolInvocationPath ["Tool Invocation Path"]
+            componentExternalPromptTemplate[External Prompt Templates]
+            componentToolInputHandling[Tool Input Handling]
+            componentToolOutputHandling[Tool Output Handling]
+            componentToolServer[Tool Server]
             componentTools[External Tools and Services]
+        end
+        subgraph componentsToolNetworkControls ["Tool Network Controls"]
+            componentAuthorizationPolicyEnforcementPoint[Authorization Policy Enforcement Point]
+            componentFederationProxy[Authorization Federation Proxy]
+            componentToolNetworkPolicyEnforcementPoint[Tool Network Policy Enforcement Point]
         end
     end
 
@@ -76,37 +98,89 @@ graph TD
     componentModelEvaluation --> componentModelTrainingTuning
     componentModelTrainingTuning --> componentTheModel
     componentModelTrainingTuning --> componentModelRegistry
-    componentModelStorage --> componentTheModel
+    componentModelStorage --> componentModelServing
     componentModelServing --> componentTheModel
+    componentModelServing --> componentSecureLogging
+    componentModelServing --> componentApplicationNetworkPolicyEnforcementPoint
+    componentModelServing --> componentAgentNetworkPolicyEnforcementPoint
+    componentModelServing --> componentOrchestrationInputHandling
     componentModelRegistry --> componentModelServing
-    componentModelRegistry --> componentTheModel
     componentModelRegistry --> componentModelStorage
     componentTheModel --> componentModelEvaluation
-    componentTheModel --> componentAgentInputHandling
-    componentTheModel --> componentApplicationInputHandling
-    componentTheModel --> componentOrchestrationInputHandling
+    componentTheModel --> componentModelServing
     componentApplication --> componentApplicationOutputHandling
-    componentApplication --> componentAgentInputHandling
-    componentApplicationOutputHandling --> componentTheModel
+    componentApplication --> componentSecureLogging
+    componentApplicationOutputHandling --> componentApplicationNetworkPolicyEnforcementPoint
+    componentApplicationOutputHandling --> componentApplicationConsentSurface
+    componentApplicationOutputHandling --> componentSecureLogging
     componentApplicationInputHandling --> componentApplication
+    componentApplicationInputHandling --> componentSecureLogging
     componentReasoningCore --> componentAgentOutputHandling
-    componentReasoningCore --> componentOrchestrationInputHandling
-    componentOrchestrationOutputHandling --> componentReasoningCore
-    componentOrchestrationOutputHandling --> componentTheModel
-    componentOrchestrationInputHandling --> componentTools
+    componentReasoningCore --> componentSecureLogging
+    componentOrchestrationOutputHandling --> componentSecureLogging
+    componentOrchestrationOutputHandling --> componentModelServing
     componentOrchestrationInputHandling --> componentMemory
     componentOrchestrationInputHandling --> componentRAGContent
-    componentTools --> componentOrchestrationOutputHandling
+    componentOrchestrationInputHandling --> componentSecureLogging
+    componentOrchestrationInputHandling --> componentOrchestrationOutputHandling
+    componentTools --> componentToolServer
     componentTools --> componentToolRegistry
-    componentToolRegistry --> componentOrchestrationInputHandling
-    componentToolRegistry --> componentTools
+    componentTools --> componentSecureLogging
+    componentToolRegistry --> componentToolNetworkPolicyEnforcementPoint
     componentMemory --> componentOrchestrationOutputHandling
     componentRAGContent --> componentOrchestrationOutputHandling
     componentAgentUserQuery --> componentAgentInputHandling
     componentAgentSystemInstruction --> componentAgentInputHandling
     componentAgentInputHandling --> componentReasoningCore
-    componentAgentOutputHandling --> componentApplication
-    componentAgentOutputHandling --> componentTheModel
+    componentAgentInputHandling --> componentSecureLogging
+    componentAgentOutputHandling --> componentAgentConsentSurface
+    componentAgentOutputHandling --> componentAgentNetworkPolicyEnforcementPoint
+    componentAgentOutputHandling --> componentSecureLogging
+    componentIdentityProvider --> componentAuthorizationPolicyDecisionPoint
+    componentIdentityProvider --> componentFederationProxy
+    componentIdentityProvider --> componentToolNetworkPolicyEnforcementPoint
+    componentIdentityProvider --> componentAgentNetworkPolicyEnforcementPoint
+    componentIdentityProvider --> componentApplicationNetworkPolicyEnforcementPoint
+    componentIdentityProvider --> componentModelServing
+    componentAuthorizationPolicyDecisionPoint --> componentAuthorizationPolicyEnforcementPoint
+    componentAuthorizationPolicyDecisionPoint --> componentToolNetworkPolicyEnforcementPoint
+    componentAuthorizationPolicyDecisionPoint --> componentAgentNetworkPolicyEnforcementPoint
+    componentAuthorizationPolicyDecisionPoint --> componentApplicationNetworkPolicyEnforcementPoint
+    componentAuthorizationPolicyDecisionPoint --> componentModelServing
+    componentExternalPromptTemplate --> componentToolInputHandling
+    componentAgentConsentSurface --> componentAgentInputHandling
+    componentIsolationRuntime --> componentToolHosting
+    componentIsolationRuntime --> componentRuntimeHosting
+    componentToolServer --> componentToolOutputHandling
+    componentToolServer --> componentAuthorizationPolicyEnforcementPoint
+    componentToolServer --> componentTools
+    componentToolServer --> componentSecureLogging
+    componentAgentToolTransport --> componentAgentNetworkPolicyEnforcementPoint
+    componentAgentToolTransport --> componentToolNetworkPolicyEnforcementPoint
+    componentFederationProxy --> componentToolNetworkPolicyEnforcementPoint
+    componentAgentNetworkPolicyEnforcementPoint --> componentAgentInputHandling
+    componentAgentNetworkPolicyEnforcementPoint --> componentAgentToolTransport
+    componentAgentNetworkPolicyEnforcementPoint --> componentModelServing
+    componentAgentNetworkPolicyEnforcementPoint --> componentApplicationNetworkPolicyEnforcementPoint
+    componentAgentNetworkPolicyEnforcementPoint --> componentSecureLogging
+    componentAuthorizationPolicyEnforcementPoint --> componentToolServer
+    componentAuthorizationPolicyEnforcementPoint --> componentSecureLogging
+    componentToolNetworkPolicyEnforcementPoint --> componentAgentToolTransport
+    componentToolNetworkPolicyEnforcementPoint --> componentToolInputHandling
+    componentToolNetworkPolicyEnforcementPoint --> componentSecureLogging
+    componentApplicationConsentSurface --> componentApplicationInputHandling
+    componentApplicationNetworkPolicyEnforcementPoint --> componentApplicationInputHandling
+    componentApplicationNetworkPolicyEnforcementPoint --> componentModelServing
+    componentApplicationNetworkPolicyEnforcementPoint --> componentAgentNetworkPolicyEnforcementPoint
+    componentApplicationNetworkPolicyEnforcementPoint --> componentSecureLogging
+    componentToolHosting --> componentToolServer
+    componentRuntimeHosting --> componentModelServing
+    componentRuntimeHosting --> componentApplication
+    componentRuntimeHosting --> componentReasoningCore
+    componentToolInputHandling --> componentToolServer
+    componentToolInputHandling --> componentSecureLogging
+    componentToolOutputHandling --> componentToolNetworkPolicyEnforcementPoint
+    componentToolOutputHandling --> componentSecureLogging
 
 %% Node style definitions
     style componentsInfrastructure fill:#e6f3e6,stroke:#333333,stroke-width:2px
