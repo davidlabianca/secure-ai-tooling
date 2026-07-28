@@ -1,26 +1,26 @@
 #!/usr/bin/env python3
 """
-Tests for the ADR-030 D1 componentsTools category/subcategory schema enums.
+Tests for the ADR-030 D1 componentsExternalTools category/subcategory schema enums.
 
 ADR-030 D1 (docs/adr/030-agentic-component-model.md, "Schema impact"):
 
-  "category.id enum gains componentsTools (currently closed to three values
+  "category.id enum gains componentsExternalTools (currently closed to three values
   at components.schema.json:30); subcategory.id enum gains
-  componentsToolControls and componentsToolCore; a new componentsTools branch
+  componentsToolNetworkControls and componentsToolInvocationPath; a new componentsExternalTools branch
   is added to the allOf block (components.schema.json:147-158) permitting
   those two subcategories; the file-level categories: block gains the
   category and its subcategories."
 
 This module tests the enum-level surface of that change:
-  - definitions/category/properties/id/enum gains 'componentsTools'
-  - definitions/subcategory/properties/id/enum gains 'componentsToolControls'
-    and 'componentsToolCore'
+  - definitions/category/properties/id/enum gains 'componentsExternalTools'
+  - definitions/subcategory/properties/id/enum gains 'componentsToolNetworkControls'
+    and 'componentsToolInvocationPath'
   - definitions/component/properties/id/enum is UNCHANGED (componentTools
     already exists there; D1 recategorizes, it does not rename)
 
-The allOf if/then behavioral contract (the new componentsTools branch
-restricting subcategory to exactly {componentsToolControls,
-componentsToolCore}) is covered by the extended TestSchemaContainsPairingConstraint
+The allOf if/then behavioral contract (the new componentsExternalTools branch
+restricting subcategory to exactly {componentsToolNetworkControls,
+componentsToolInvocationPath}) is covered by the extended TestSchemaContainsPairingConstraint
 and TestPairingConstraintBehavior classes in test_components_mappings_field.py
 (ADR-026 D10's existing pairing-constraint machinery), not duplicated here.
 
@@ -124,16 +124,16 @@ class TestSchemaMetaValidity:
 
 
 class TestCategoryIdEnumGainsComponentsTools:
-    """definitions/category/properties/id/enum must gain 'componentsTools'."""
+    """definitions/category/properties/id/enum must gain 'componentsExternalTools'."""
 
     def test_componentstools_in_category_enum(self, category_id_enum: list):
         """
         Given: definitions/category/properties/id/enum
         When: its members are inspected
-        Then: 'componentsTools' is present
+        Then: 'componentsExternalTools' is present
         """
-        assert "componentsTools" in category_id_enum, (
-            f"Expected 'componentsTools' in category.id enum (ADR-030 D1); got: {category_id_enum}"
+        assert "componentsExternalTools" in category_id_enum, (
+            f"Expected 'componentsExternalTools' in category.id enum (ADR-030 D1); got: {category_id_enum}"
         )
 
     def test_existing_three_categories_unchanged(self, category_id_enum: list):
@@ -153,14 +153,14 @@ class TestCategoryIdEnumGainsComponentsTools:
         """
         Given: definitions/category/properties/id/enum
         When: its length is checked
-        Then: it has exactly 4 members (3 existing + componentsTools)
+        Then: it has exactly 4 members (3 existing + componentsExternalTools)
 
         Pins the enum to exactly the D1 target set so a stray typo'd category
         id (e.g. a copy-paste duplicate) is caught, not just presence checks.
         """
         assert len(category_id_enum) == 4, (
             f"Expected exactly 4 category ids after ADR-030 D1 (3 existing + "
-            f"componentsTools); got {len(category_id_enum)}: {category_id_enum}"
+            f"componentsExternalTools); got {len(category_id_enum)}: {category_id_enum}"
         )
 
 
@@ -172,7 +172,7 @@ class TestCategoryIdEnumGainsComponentsTools:
 class TestSubcategoryIdEnumGainsToolSubcategories:
     """definitions/subcategory/properties/id/enum must gain the 2 new ids."""
 
-    @pytest.mark.parametrize("subcategory_id", ["componentsToolControls", "componentsToolCore"])
+    @pytest.mark.parametrize("subcategory_id", ["componentsToolNetworkControls", "componentsToolInvocationPath"])
     def test_new_subcategory_in_enum(self, subcategory_id_enum: list, subcategory_id: str):
         """
         Given: definitions/subcategory/properties/id/enum
@@ -215,7 +215,7 @@ class TestSubcategoryIdEnumGainsToolSubcategories:
         """
         assert len(subcategory_id_enum) >= 10, (
             f"Expected at least 10 subcategory ids after ADR-030 D1 (8 existing + "
-            f"componentsToolControls + componentsToolCore); got "
+            f"componentsToolNetworkControls + componentsToolInvocationPath); got "
             f"{len(subcategory_id_enum)}: {subcategory_id_enum}"
         )
 
@@ -299,12 +299,12 @@ Total Tests: 10
 - TestComponentIdEnumUnaffectedByD1 (2): componentTools still present,
   net-new tool component ids NOT yet present (scope boundary)
 
-componentsTools lands in components.schema.json's category.id and
-subcategory.id enums (ADR-030 D1); all 10 tests are green:
+componentsExternalTools lands in components.schema.json's category.id and
+subcategory.id enums (ADR-030 D1). What each test pins:
 - TestCategoryIdEnumGainsComponentsTools.test_componentstools_in_category_enum
 - TestCategoryIdEnumGainsComponentsTools.test_category_enum_has_exactly_four_members
-- TestSubcategoryIdEnumGainsToolSubcategories.test_new_subcategory_in_enum[componentsToolControls]
-- TestSubcategoryIdEnumGainsToolSubcategories.test_new_subcategory_in_enum[componentsToolCore]
+- TestSubcategoryIdEnumGainsToolSubcategories.test_new_subcategory_in_enum[componentsToolNetworkControls]
+- TestSubcategoryIdEnumGainsToolSubcategories.test_new_subcategory_in_enum[componentsToolInvocationPath]
 - TestSubcategoryIdEnumGainsToolSubcategories.test_subcategory_enum_has_at_least_ten_members
 
 Forward guards (unaffected by D1's scope, regression protection):

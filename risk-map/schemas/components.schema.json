@@ -27,7 +27,7 @@
       "properties": {
         "id": {
           "type": "string",
-          "enum": ["componentsInfrastructure", "componentsModel", "componentsApplication", "componentsTools"]
+          "enum": ["componentsInfrastructure", "componentsModel", "componentsApplication", "componentsExternalTools"]
         },
         "title": { "type": "string" },
         "subcategory": {
@@ -53,8 +53,8 @@
             "componentsModelCore",
             "componentsApplicationCore",
             "componentsRegistries",
-            "componentsToolControls",
-            "componentsToolCore",
+            "componentsToolNetworkControls",
+            "componentsToolInvocationPath",
             "componentsIdentity"
           ]
         },
@@ -164,8 +164,8 @@
           "then": { "properties": { "subcategory": { "enum": ["componentsAgent", "componentsApplicationCore"] } } }
         },
         {
-          "if": { "properties": { "category": { "const": "componentsTools" } } },
-          "then": { "properties": { "subcategory": { "enum": ["componentsToolControls", "componentsToolCore"] } } }
+          "if": { "properties": { "category": { "const": "componentsExternalTools" } } },
+          "then": { "properties": { "subcategory": { "enum": ["componentsToolNetworkControls", "componentsToolInvocationPath"] } } }
         }
       ]
     },

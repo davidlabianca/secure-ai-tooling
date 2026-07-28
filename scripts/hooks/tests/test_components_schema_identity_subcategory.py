@@ -147,8 +147,8 @@ class TestSubcategoryIdEnumGainsIdentity:
             "componentsModelCore",
             "componentsApplicationCore",
             "componentsRegistries",
-            "componentsToolControls",
-            "componentsToolCore",
+            "componentsToolNetworkControls",
+            "componentsToolInvocationPath",
         }
         missing = existing_ids - set(subcategory_id_enum)
         assert not missing, f"D2 is additive; expected pre-existing subcategory ids to remain. Missing: {missing}"

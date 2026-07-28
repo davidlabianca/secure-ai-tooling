@@ -1956,7 +1956,7 @@ class TestClosedEnumClosureContract:
 
         ADR-026 D3 + Amendment D8. Supersedes the retired test that compared
         options to the flat subcategory schema enum. Count is 11 (eight legacy
-        pairs + two added by ADR-030 D1's componentsTools category + one added
+        pairs + two added by ADR-030 D1's componentsExternalTools category + one added
         by ADR-030 D2's componentsIdentity subcategory).
         """
         import sys
@@ -1977,8 +1977,8 @@ class TestClosedEnumClosureContract:
             "componentsModel: componentsOrchestration",
             "componentsApplication: componentsAgent",
             "componentsApplication: componentsApplicationCore",
-            "componentsTools: componentsToolControls",
-            "componentsTools: componentsToolCore",
+            "componentsExternalTools: componentsToolNetworkControls",
+            "componentsExternalTools: componentsToolInvocationPath",
         ]
 
         gen = IssueTemplateGenerator(repo_root)

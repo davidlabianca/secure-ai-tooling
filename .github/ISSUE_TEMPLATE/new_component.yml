@@ -67,8 +67,8 @@ body:
         - "componentsModel: componentsOrchestration"
         - "componentsApplication: componentsAgent"
         - "componentsApplication: componentsApplicationCore"
-        - "componentsTools: componentsToolControls"
-        - "componentsTools: componentsToolCore"
+        - "componentsExternalTools: componentsToolNetworkControls"
+        - "componentsExternalTools: componentsToolInvocationPath"
     validations:
       required: true
 

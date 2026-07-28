@@ -161,8 +161,8 @@ categories:
             The application that consumes the model and the input/output handling that
             filters traffic crossing the application boundary. Agent components add
             autonomous reasoning and tool-use capabilities on top of this surface.
-  - id: componentsTools
-    title: Tools components
+  - id: componentsExternalTools
+    title: External tools components
     description:
       - >
         External tools are third-party services an AI system integrates with but does
@@ -171,19 +171,21 @@ categories:
         components: the runtime tool services agents invoke, and the control-plane
         components that mediate and authorize that access.
     subcategory:
-      - id: componentsToolControls
-        title: Tool control plane
+      - id: componentsToolNetworkControls
+        title: Tool network controls
         description:
           - >
-            The policy-enforcement and authorization components that mediate access to
-            external tools, distinct from the tool services themselves.
-      - id: componentsToolCore
-        title: Tool data plane
+            The connection-layer enforcement that admits or denies traffic reaching
+            external tools. It sits outside the content and action layers, wrapping the
+            invocation path rather than standing on it.
+      - id: componentsToolInvocationPath
+        title: Tool invocation path
         description:
           - >
-            The runtime tool services an agent invokes and their request/response
-            handling, distinct from the control-plane components that authorize access
-            to them.
+            The request path that carries an invocation from validated input through
+            authorization to the external services themselves, together with the
+            primitives those services expose — executable tools, retrievable resources,
+            and provider-supplied prompt templates — and the responses returned along it.
 components:
   - id: componentDataSources
     title: Data Sources
@@ -538,8 +540,8 @@ components:
         invocation methods) is handled separately by {{componentToolRegistry}}; this
         component's scope is strictly the runtime tool services and their invocation
         surface.
-    category: componentsTools
-    subcategory: componentsToolCore
+    category: componentsExternalTools
+    subcategory: componentsToolInvocationPath
     edges:
       to:
         - componentOrchestrationOutputHandling
