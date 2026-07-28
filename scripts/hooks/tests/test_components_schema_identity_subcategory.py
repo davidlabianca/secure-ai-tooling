@@ -236,9 +236,7 @@ componentsIdentity lands in components.schema.json's subcategory.id enum
 and the componentsInfrastructure allOf branch (ADR-030 D2); no top-level
 category, no mermaid-styles impact (category-scoped only).
 
-Retired 2026-07-21 (feature/mcp-components): TestComponentIdEnumUnaffectedByD2
-(a scope-boundary guard asserting the identity component ids were NOT YET
-present) was removed -- those ids have now landed for real. See this file's
-git history for the original test, which documented its own intended
-obsolescence ("not a prohibition forever").
+A scope-boundary guard once asserted that the identity component ids were not
+yet present, and was removed when they landed. It documented its own intended
+obsolescence -- it pinned a boundary at a moment in time, not a prohibition.
 """

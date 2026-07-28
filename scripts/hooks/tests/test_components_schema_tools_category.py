@@ -281,8 +281,8 @@ Forward guards (unaffected by D1's scope, regression protection):
 - TestSchemaMetaValidity, existing-unchanged checks, TestComponentIdEnumUnaffectedByD1
   (componentTools presence in the component.id enum is untouched by D1's scope)
 
-Retired 2026-07-21 (feature/mcp-components): the scope-boundary guard
-asserting net-new tool component ids were NOT YET present was removed --
-those ids have now landed for real (see this file's git history for the
-original test, which documented its own intended obsolescence).
+A scope-boundary guard once asserted that the net-new tool component ids were
+not yet present, and was removed when they landed. It documented its own
+intended obsolescence -- it pinned a boundary at a moment in time, not a
+prohibition.
 """
