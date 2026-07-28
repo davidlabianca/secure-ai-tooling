@@ -258,6 +258,7 @@ from riskmap_validator.graphing.decouple import (  # noqa: E402
     DecoupledPlan,
     EmissionConfig,
     build_decoupled_plan,
+    verify_plan,
 )
 from riskmap_validator.models import ComponentNode  # noqa: E402
 from riskmap_validator.utils import parse_components_yaml  # noqa: E402
@@ -3766,6 +3767,133 @@ class TestD8AspectMarkerTitleSubstitution:
         )
 
 
+# ----------------------------------------------------------------------------
+# ADR-036 D9: consult-class channel landing, emitted-text half. The transform-level
+# assertions live in test_decouple_transform.py; this section proves the landing
+# reaches `_decoupled_edges()`'s `{arm.port_id} --> {arm.landing_id}` line, and --
+# using the full 12-concern live registry that only this file carries -- that the
+# four data-class arms landing on a wrapped PEP are NOT moved.
+#
+# Real corpus facts (read off `build_decoupled_plan()` against the live registry,
+# not assumed): exactly 8 arms land at a PEP-wrapped target. Four are consult-class
+# ("identity & authz" -> agent network, application network, authorization, and tool
+# network PEPs) and four are data-class ("tool calls" and "tool discovery", both to
+# the tool network PEP, plus "inference / serving"'s two arms to the agent and
+# application network PEPs).
+# ----------------------------------------------------------------------------
+
+
+class TestD9ConsultLandingLiveCorpusEmittedText:
+    """
+    The four-and-four split against the live registry, asserted on the emitted
+    Mermaid text rather than only on the IR -- a landing rule that stopped at the
+    dataclass would leave the drawn diagram unchanged, which is the whole point.
+    """
+
+    CONSULT_LANDINGS = {
+        "p_in_app_identity_authz_agent_network_policy_enforcement_point": (
+            "componentAgentNetworkPolicyEnforcementPoint"
+        ),
+        "p_in_app_identity_authz_application_network_policy_enforcement_point": (
+            "componentApplicationNetworkPolicyEnforcementPoint"
+        ),
+        "p_in_tools_identity_authz_authorization_policy_enforcement_point": (
+            "componentAuthorizationPolicyEnforcementPoint"
+        ),
+        "p_in_tools_identity_authz_tool_network_policy_enforcement_point": (
+            "componentToolNetworkPolicyEnforcementPoint"
+        ),
+    }
+
+    def _arms_by_concern_and_target(self, plan: DecoupledPlan) -> dict[tuple[str, str], object]:
+        return {
+            (channel.concern, arm.target): arm
+            for broadcast in plan.broadcasts
+            for channel in broadcast.channels
+            for arm in channel.arms
+        }
+
+    def test_four_consult_arms_are_drawn_into_the_component_not_the_in_port(self, repo_root: Path):
+        components, forward_map = _live_corpus(repo_root)
+        cfg = _live_emission_config()
+        plan = build_decoupled_plan(forward_map, components, cfg)
+        text = _make_graph(components, forward_map, cfg, repo_root)._emit_decoupled(plan)
+
+        for port_id, landing in self.CONSULT_LANDINGS.items():
+            assert f"    {port_id} --> {landing}" in text, (
+                f"expected consult arm {port_id} to be drawn into the component {landing}"
+            )
+            wrapper = plan.pep_wrappers[landing]
+            assert f"    {port_id} --> {wrapper.in_id}" not in text, (
+                f"consult arm {port_id} must no longer be drawn into {wrapper.in_id}"
+            )
+
+    def test_four_data_arms_to_wrapped_peps_still_land_on_the_in_port(self, repo_root: Path):
+        """
+        The unaffected half, named exhaustively: `tool calls`, `tool discovery`, and
+        both `inference / serving` arms genuinely traverse their gate, so each must
+        keep the D3 `_in` landing in both the IR and the emitted text.
+        """
+        components, forward_map = _live_corpus(repo_root)
+        cfg = _live_emission_config()
+        plan = build_decoupled_plan(forward_map, components, cfg)
+        text = _make_graph(components, forward_map, cfg, repo_root)._emit_decoupled(plan)
+        arms = self._arms_by_concern_and_target(plan)
+
+        data_arms = [
+            ("tool calls", "componentToolNetworkPolicyEnforcementPoint"),
+            ("tool discovery", "componentToolNetworkPolicyEnforcementPoint"),
+            ("inference / serving", "componentAgentNetworkPolicyEnforcementPoint"),
+            ("inference / serving", "componentApplicationNetworkPolicyEnforcementPoint"),
+        ]
+        for key in data_arms:
+            concern, target = key
+            arm = arms[key]
+            wrapper = plan.pep_wrappers[target]
+            assert arm.landing_id == wrapper.in_id, (
+                f"data-class arm ({concern} -> {target}) must keep its `_in` landing, got {arm.landing_id!r}"
+            )
+            assert f"    {arm.port_id} --> {wrapper.in_id}" in text
+
+    def test_exactly_four_wrapped_landings_moved_and_no_others(self, repo_root: Path):
+        """
+        Blast-radius pin: across the WHOLE live plan, the arms that land on a bare
+        wrapped-PEP component id are exactly the four consult-class ones. A rule that
+        over-applied (e.g. matching any concern mentioning identity, or any PDP-sourced
+        edge) would add entries here.
+        """
+        components, forward_map = _live_corpus(repo_root)
+        plan = build_decoupled_plan(forward_map, components, _live_emission_config())
+
+        moved = {
+            (channel.concern, arm.target)
+            for broadcast in plan.broadcasts
+            for channel in broadcast.channels
+            for arm in channel.arms
+            if arm.target in plan.pep_wrappers and arm.landing_id == arm.target
+        }
+        assert moved == {
+            ("identity & authz", "componentAgentNetworkPolicyEnforcementPoint"),
+            ("identity & authz", "componentApplicationNetworkPolicyEnforcementPoint"),
+            ("identity & authz", "componentAuthorizationPolicyEnforcementPoint"),
+            ("identity & authz", "componentToolNetworkPolicyEnforcementPoint"),
+        }
+
+    def test_self_check_and_byte_stability_survive_the_new_landing(self, repo_root: Path):
+        """
+        D9 claims it disturbs no D7 invariant. `_emit_decoupled()` re-asserts the full
+        acceptance rubric internally and raises on violation, so a clean double-run
+        that also passes `verify_plan()` is that claim under test.
+        """
+        components, forward_map = _live_corpus(repo_root)
+        cfg = _live_emission_config()
+        plan = build_decoupled_plan(forward_map, components, cfg)
+        verify_plan(plan, components)
+
+        graph = _make_graph(components, forward_map, cfg, repo_root)
+        assert graph._emit_decoupled(plan) == graph._emit_decoupled(plan)
+
+
 """
 Test Summary
 ============
@@ -3956,6 +4084,19 @@ test_decouple_transform.py's own D8 section):
   branch with a PEP-phrase title, since the live corpus's sole lifted aspect
   (`componentSecureLogging`) has none. A synthetic fixture that is both aspect-lifted
   and PEP-titled closes the gap. 1 test, originally RED, GREEN now.
+
+ADR-036 D9 (consult-class channel landing, emitted-text half):
+- `TestD9ConsultLandingLiveCorpusEmittedText` -- against the full 12-concern live
+  registry that only this file carries: the four consult-class arms are drawn into
+  their component ids and no longer into the wrapper's `_in` (RED before D9); the four
+  data-class arms landing on a wrapped PEP (`tool calls`, `tool discovery`, both
+  `inference / serving` arms) keep `_in` in both the IR and the text (GREEN-today
+  control); the set of arms landing on a bare wrapped component id is exactly those
+  four consult arms and nothing else (blast-radius pin, RED before D9); and the D7
+  self-check plus byte stability survive the new landing (GREEN-today trip-wire).
+  4 tests, 2 RED / 2 GREEN-today. The transform-level half lives in
+  test_decouple_transform.py, and the consult-set/shipped-registry coupling pin in
+  test_emission_config_schema.py.
 
 Total: 12 tests (originally 7 RED, 5 GREEN-today regression/sanity pins) across five
 classes; all 12 now pass against the landed D8 implementation. Before D8 landed, the

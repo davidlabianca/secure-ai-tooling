@@ -7,7 +7,8 @@ maps and the Mermaid emission pass. Classifies every `components.yaml` edge as:
 - an intra-cluster drawn edge (same `category` on both ends, D1),
 - a lifted aspect edge (a cross in-edge into a declared observability sink, D4), or
 - a channelled cross edge, grouped into channels/broadcasts by trust concern (D2, D5)
-  and split into one arm per distinct target (D6).
+  and split into one arm per distinct target (D6), landing on the target's PEP wrapper
+  `_in` port or, for a consult-class concern, on the target component itself (D9).
 
 No Mermaid strings are produced here -- that is the emission pass (Phase 2,
 `component_graph.py`). This module emits only the intermediate representation (IR)
@@ -57,6 +58,21 @@ _ROOT_SLUGS = {
 # Config-path fragments used in guard messages (plan §D message contract).
 ASPECTS_CONFIG_PATH = "graphTypes.component.emission.aspects"
 CONCERNS_CONFIG_PATH = "graphTypes.component.emission.concerns"
+
+# ADR-036 D9: closed, fixed-in-code set of consult-class concern labels. An arm
+# carrying one of these lands on its target component rather than on the target's
+# PEP wrapper `_in` port -- the enforcement point consumes a policy verdict or
+# identity attributes, it does not pass them through to a destination, so drawing
+# them into the inbound gate would read as a second request stream.
+#
+# Keyed on the concern label because `emission.concerns` already partitions cross
+# edges by exactly that judgment; no schema field is added. The label lives in
+# config and this set lives in code, so the two are pinned against each other by a
+# test over the shipped registry rather than by a runtime guard -- at transform time
+# a missing label is indistinguishable from a config that legitimately has no
+# consult-class concern (see ADR-036 D9). Growing this set past a couple of labels is
+# D9's trip-wire to promote it to a declared per-concern config field.
+CONSULT_CONCERN_LABELS = frozenset({"identity & authz"})
 
 _CAMEL_SPLIT_PATTERN = re.compile(r"(?<!^)(?=[A-Z])")
 
@@ -491,6 +507,10 @@ def _build_arms(
     src_root are otherwise invisible to each other's arm-count decision, so the caller
     (`_group_channels`) computes `multi_arm` from the union of targets across all
     channels sharing (tgt_root, concern) before calling this function.
+
+    `landing_id` is the only field the D9 consult classification touches: `port_id` and
+    `label` are computed from separate expressions below and stay byte-identical either
+    way, preserving D7's content-derived-id stability.
     """
     by_target: dict[str, list[tuple[str, str]]] = {}
     for src, tgt in edges:
@@ -499,6 +519,7 @@ def _build_arms(
     targets_sorted = sorted(by_target)
     root_abbrev = root_slug(tgt_root)
     concern_slug = slug(label)
+    is_consult = label in CONSULT_CONCERN_LABELS
 
     arms = []
     for target in targets_sorted:
@@ -516,7 +537,14 @@ def _build_arms(
             # can still collide with another concern's if the two labels slug identically.
             port_id = f"p_in_{root_abbrev}_{concern_slug}"
             arm_label = label
-        landing_id = pep_wrappers[target].in_id if target in pep_wrappers else target
+        # ADR-036 D9: a consult-class arm lands on the component itself even when the
+        # target is wrapped -- the wrapper's `_in` port is for traffic that traverses
+        # the gate. The PEP node is declared inside its wrap subgraph, so the arm still
+        # terminates visibly at the enforcement point, just not through its inbound gate.
+        if target in pep_wrappers and not is_consult:
+            landing_id = pep_wrappers[target].in_id
+        else:
+            landing_id = target
         arms.append(
             Arm(target=target, landing_id=landing_id, port_id=port_id, label=arm_label, edges=member_edges)
         )

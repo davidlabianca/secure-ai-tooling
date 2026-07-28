@@ -70,6 +70,12 @@ Test Coverage
     each keeping its own distinguishing prefix; the port ids computed from those
     same targets stay byte-identical (the D8 hard invariant); a synthetic PDP+PEP
     mixed channel proves the closed set doesn't generalize to PDP.
+13. ADR-036 D9 (consult-class channel landing): a consult-class arm lands on its
+    target's component id even when the target is PEP-wrapped, while a data-class
+    arm to the same wrapped target keeps its `_in` landing; port ids and labels are
+    unchanged by the classification. Covered synthetically (one target, two
+    concerns, side by side, plus near-miss labels pinning exact-match) and against
+    the live corpus's four wrapped `identity & authz` targets.
 
 Everything here is written against the *final* ADR-036 rules, not the bake-off
 prototypes reconciled away in the plan's §R ledger. In particular:
@@ -1654,10 +1660,284 @@ class TestD8PdpArmLabelNeverAbbreviated:
         assert pep_arm.label == "test concern → gateway PEP"
 
 
+# ============================================================================
+# 13. ADR-036 D9: consult-class channel landing. An arm whose concern is in the
+# emitter's closed consult-class set lands on the target's COMPONENT id even when
+# the target is PEP-wrapped; every other arm keeps D3's `_in`-port landing. The
+# rule touches `Arm.landing_id` only -- `port_id` and `label` are computed from
+# separate expressions and must stay byte-identical either way.
+# ============================================================================
+
+
+class TestD9ConsultVsDataLandingSideBySide:
+    """
+    The discriminating fixture: ONE PEP-wrapped target reached by FOUR channels
+    that differ only in concern -- one consult-class, one plainly data-class, and
+    two near-miss labels chosen to break a substring/regex classifier in each
+    direction. A landing rule that ignored the concern (never retargeting, or
+    always retargeting) fails one half of every assertion pass below, side by side;
+    a rule that matched loosely fails the near-miss test.
+
+    `identity & authz` is used as the consult-class label because it is the
+    emitter's declared consult-class concern; the data-class partner labels are
+    arbitrary, which is the point (everything not in the closed set is data).
+    """
+
+    @pytest.fixture
+    def two_concern_plan(self):
+        components = {
+            "componentConsultSource": _node(INFRA, to_edges=["componentAppGatePolicyEnforcementPoint"]),
+            "componentDataSource": _node(MODEL, to_edges=["componentAppGatePolicyEnforcementPoint"]),
+            # Near-miss sources: their labels sit on either side of a containment
+            # relation with the consult label (see the near-miss test's docstring).
+            "componentSupersetSource": _node(INFRA, to_edges=["componentAppGatePolicyEnforcementPoint"]),
+            "componentSubsetSource": _node(MODEL, to_edges=["componentAppGatePolicyEnforcementPoint"]),
+            "componentAppGatePolicyEnforcementPoint": _node(APP),
+        }
+        cfg = EmissionConfig(
+            mode="decoupled",
+            concerns=(
+                ConcernDecl(
+                    label="identity & authz",
+                    edges=(("componentConsultSource", "componentAppGatePolicyEnforcementPoint"),),
+                ),
+                ConcernDecl(
+                    label="request flow",
+                    edges=(("componentDataSource", "componentAppGatePolicyEnforcementPoint"),),
+                ),
+                ConcernDecl(
+                    label="identity & authz posture",
+                    edges=(("componentSupersetSource", "componentAppGatePolicyEnforcementPoint"),),
+                ),
+                ConcernDecl(
+                    label="authz",
+                    edges=(("componentSubsetSource", "componentAppGatePolicyEnforcementPoint"),),
+                ),
+            ),
+        )
+        return build_decoupled_plan(_forward_map(components), components, cfg)
+
+    def _arm_for(self, plan, concern: str):
+        return next(
+            arm
+            for broadcast in plan.broadcasts
+            for channel in broadcast.channels
+            if channel.concern == concern
+            for arm in channel.arms
+        )
+
+    def test_consult_arm_lands_on_the_component_not_the_in_port(self, two_concern_plan):
+        """
+        Given: a consult-class channel landing at a PEP-wrapped node
+        Then: landing_id is the bare component id -- the verdict is consumed BY the
+        enforcement point, it does not traverse the gate to a destination (D9)
+        """
+        arm = self._arm_for(two_concern_plan, "identity & authz")
+        wrapper = two_concern_plan.pep_wrappers["componentAppGatePolicyEnforcementPoint"]
+        assert arm.target == "componentAppGatePolicyEnforcementPoint"
+        assert arm.landing_id == "componentAppGatePolicyEnforcementPoint"
+        assert arm.landing_id != wrapper.in_id
+
+    def test_data_arm_to_the_same_target_still_lands_on_the_in_port(self, two_concern_plan):
+        """
+        The control half: same wrapped target, non-consult concern. Proves D9 is
+        scoped to the consult set rather than having removed `_in` landing wholesale
+        (D3: traffic must visibly enter through the enforcement point).
+        """
+        arm = self._arm_for(two_concern_plan, "request flow")
+        wrapper = two_concern_plan.pep_wrappers["componentAppGatePolicyEnforcementPoint"]
+        assert arm.target == "componentAppGatePolicyEnforcementPoint"
+        assert arm.landing_id == wrapper.in_id
+
+    def test_near_miss_labels_are_data_class_in_both_containment_directions(self, two_concern_plan):
+        """
+        D9 specifies a closed SET of labels, matched exactly -- not a substring,
+        prefix, or regex test. Two near-miss labels pin that in both directions,
+        since a loose classifier fails in only one of them:
+
+          - "identity & authz posture" CONTAINS the consult label, so a
+            `CONSULT_LABEL in label` mutant would wrongly route it as consult;
+          - "authz" is CONTAINED BY the consult label, so a `label in CONSULT_LABEL`
+            (or a bare "authz" keyword) mutant would do the same.
+
+        Both must land on `_in` like any other data-class concern. Without this
+        test the exact-match discipline rests on reading the implementation rather
+        than on an assertion, since the two original labels in this fixture share
+        no substring relation at all.
+        """
+        wrapper = two_concern_plan.pep_wrappers["componentAppGatePolicyEnforcementPoint"]
+        for label in ("identity & authz posture", "authz"):
+            arm = self._arm_for(two_concern_plan, label)
+            assert arm.target == "componentAppGatePolicyEnforcementPoint"
+            assert arm.landing_id == wrapper.in_id, (
+                f"near-miss label {label!r} is not in the closed consult set and must "
+                f"keep its `_in` landing; got {arm.landing_id!r}"
+            )
+
+    def test_port_id_and_label_are_identical_across_the_two_classes(self, two_concern_plan):
+        """
+        D9's stated invariant: the classification changes the landing site only.
+        Both arms name the same single target, so both are bare (D6 single-arm) and
+        their id/label grammar must be indistinguishable -- only `landing_id` differs.
+        """
+        consult = self._arm_for(two_concern_plan, "identity & authz")
+        data = self._arm_for(two_concern_plan, "request flow")
+        assert consult.port_id == "p_in_app_identity_authz"
+        assert data.port_id == "p_in_app_request_flow"
+        assert consult.label == "identity & authz"
+        assert data.label == "request flow"
+
+
+class TestD9ConsultLandingScope:
+    def test_consult_arm_to_an_unwrapped_target_is_unchanged(self):
+        """
+        D9 only ever removes an `_in` retarget; a consult arm landing at a node that
+        was never wrapped already lands on the component id and must stay there.
+        """
+        components = {
+            "componentConsultSource": _node(INFRA, to_edges=["componentAppPlainNode"]),
+            "componentAppPlainNode": _node(APP),
+        }
+        cfg = EmissionConfig(
+            mode="decoupled",
+            concerns=(
+                ConcernDecl(
+                    label="identity & authz",
+                    edges=(("componentConsultSource", "componentAppPlainNode"),),
+                ),
+            ),
+        )
+        plan = build_decoupled_plan(_forward_map(components), components, cfg)
+        arm = plan.broadcasts[0].channels[0].arms[0]
+        assert "componentAppPlainNode" not in plan.pep_wrappers
+        assert arm.landing_id == "componentAppPlainNode"
+
+    def test_intra_edges_into_a_wrapped_pep_still_retarget_through_the_in_port(self):
+        """
+        Scope guard: D9 is a CHANNEL-landing rule. The separate intra-edge
+        wrap->retarget path (`_process_intra_edges`, D1) is untouched, so an
+        intra edge into a wrapped PEP still enters through `_in` regardless of any
+        concern label -- concerns only ever apply to cross edges.
+        """
+        components = {
+            "componentAppNeighbour": _node(APP, to_edges=["componentAppGatePolicyEnforcementPoint"]),
+            "componentAppGatePolicyEnforcementPoint": _node(APP),
+        }
+        cfg = EmissionConfig(mode="decoupled")
+        plan = build_decoupled_plan(_forward_map(components), components, cfg)
+        wrapper = plan.pep_wrappers["componentAppGatePolicyEnforcementPoint"]
+        assert ("componentAppNeighbour", wrapper.in_id) in plan.drawn_intra_edges
+
+
+class TestD9ConsultLandingLiveCorpus:
+    """
+    The live-corpus half: against the real `emission.concerns` registry, exactly the
+    four `identity & authz` arms that target a PEP-wrapped node move to their
+    component ids, and the two that do not target a wrapper are untouched.
+
+    Reuses the same 10-edge `identity & authz` registry entry as
+    `TestD8ArmLabelSubstitutionLiveCorpus`; the four wrapped targets among its ten
+    edges were read off `build_decoupled_plan()` against the real corpus, not assumed.
+    """
+
+    @pytest.fixture(scope="class")
+    @classmethod
+    def live_plan(cls, repo_root: Path):
+        components = parse_components_yaml(repo_root / "risk-map" / "yaml" / "components.yaml")
+        cfg = EmissionConfig(
+            mode="decoupled",
+            concerns=(
+                ConcernDecl(
+                    label="identity & authz",
+                    edges=(
+                        (
+                            "componentAuthorizationPolicyDecisionPoint",
+                            "componentAgentNetworkPolicyEnforcementPoint",
+                        ),
+                        (
+                            "componentAuthorizationPolicyDecisionPoint",
+                            "componentApplicationNetworkPolicyEnforcementPoint",
+                        ),
+                        (
+                            "componentAuthorizationPolicyDecisionPoint",
+                            "componentAuthorizationPolicyEnforcementPoint",
+                        ),
+                        ("componentAuthorizationPolicyDecisionPoint", "componentModelServing"),
+                        (
+                            "componentAuthorizationPolicyDecisionPoint",
+                            "componentToolNetworkPolicyEnforcementPoint",
+                        ),
+                        ("componentIdentityProvider", "componentAgentNetworkPolicyEnforcementPoint"),
+                        (
+                            "componentIdentityProvider",
+                            "componentApplicationNetworkPolicyEnforcementPoint",
+                        ),
+                        ("componentIdentityProvider", "componentFederationProxy"),
+                        ("componentIdentityProvider", "componentModelServing"),
+                        (
+                            "componentIdentityProvider",
+                            "componentToolNetworkPolicyEnforcementPoint",
+                        ),
+                    ),
+                ),
+            ),
+        )
+        return build_decoupled_plan(_forward_map(components), components, cfg)
+
+    def _arms_by_target(self, live_plan):
+        broadcast = next(b for b in live_plan.broadcasts if b.label == "identity & authz")
+        return {arm.target: arm for c in broadcast.channels for arm in c.arms}
+
+    def test_all_four_wrapped_consult_targets_land_on_their_component_ids(self, live_plan):
+        arms = self._arms_by_target(live_plan)
+        wrapped_targets = [
+            "componentAgentNetworkPolicyEnforcementPoint",
+            "componentApplicationNetworkPolicyEnforcementPoint",
+            "componentAuthorizationPolicyEnforcementPoint",
+            "componentToolNetworkPolicyEnforcementPoint",
+        ]
+        for target in wrapped_targets:
+            assert target in live_plan.pep_wrappers, f"{target} is expected to be PEP-wrapped"
+            assert arms[target].landing_id == target, (
+                f"expected {target}'s consult arm to land on the component id, got {arms[target].landing_id!r}"
+            )
+
+    def test_unwrapped_consult_arms_in_the_same_broadcast_are_unaffected(self, live_plan):
+        """`componentModelServing` and `componentFederationProxy` were never wrapped,
+        so their landings are the same before and after D9."""
+        arms = self._arms_by_target(live_plan)
+        assert arms["componentModelServing"].landing_id == "componentModelServing"
+        assert arms["componentFederationProxy"].landing_id == "componentFederationProxy"
+
+    def test_consult_arm_port_ids_stay_byte_identical(self, live_plan):
+        """
+        D9's landing-only invariant against the live corpus: these are the same four
+        port ids `TestD8ArmLabelSubstitutionLiveCorpus` pins, unchanged by the
+        landing reclassification (D7 content-derived id stability).
+        """
+        arms = self._arms_by_target(live_plan)
+        expected_port_ids = {
+            "componentAgentNetworkPolicyEnforcementPoint": (
+                "p_in_app_identity_authz_agent_network_policy_enforcement_point"
+            ),
+            "componentApplicationNetworkPolicyEnforcementPoint": (
+                "p_in_app_identity_authz_application_network_policy_enforcement_point"
+            ),
+            "componentAuthorizationPolicyEnforcementPoint": (
+                "p_in_tools_identity_authz_authorization_policy_enforcement_point"
+            ),
+            "componentToolNetworkPolicyEnforcementPoint": (
+                "p_in_tools_identity_authz_tool_network_policy_enforcement_point"
+            ),
+        }
+        for target, expected_port_id in expected_port_ids.items():
+            assert arms[target].port_id == expected_port_id
+
+
 """
 Test Summary
 ============
-Total test functions: 66 (across 17 test classes + 3 pytest fixtures used as synthetic
+Total test functions: 75 (across 20 test classes + 3 pytest fixtures used as synthetic
 corpora)
 
 Coverage areas:
@@ -1694,6 +1974,20 @@ Coverage areas:
   (`_decoupled_member_lines`/`_decoupled_pep_wrap_lines`) lives in
   test_decouple_emitter.py instead -- this file covers only `decouple.py`'s
   `_build_arms`/`arm_label` site plus the port-id invariant.
+- ADR-036 D9 (consult-class channel landing): 9 tests across 3 classes.
+  `TestD9ConsultVsDataLandingSideBySide` -- one PEP-wrapped target, four channels
+  differing only in concern, so a rule that ignored the concern in either direction
+  fails half of every pass (4 tests, including the port-id/label invariant and a
+  near-miss-label pair that kills a substring classifier in both containment
+  directions -- both mutants were run and confirmed killed).
+  `TestD9ConsultLandingScope` -- a consult arm to an unwrapped target is unchanged,
+  and the separate intra-edge wrap->retarget path is untouched (2 tests).
+  `TestD9ConsultLandingLiveCorpus` -- the real registry's four wrapped
+  `identity & authz` targets land on their component ids, its two unwrapped arms are
+  unaffected, and the four port ids stay byte-identical (3 tests). The data-class
+  half against the live corpus (`tool calls`, `tool discovery`, both
+  `inference / serving` arms staying on `_in`) lives in test_decouple_emitter.py,
+  which already has the full 12-concern live registry.
 
 Notes for the code-reviewer (task 1.3):
 - No landing-selection test exists anywhere in this file (R1/R2/R4 checked).

@@ -700,3 +700,59 @@ class TestRealConfigValidates:
             f"The live mermaid-styles.yaml must validate against the live schema.\n"
             f"stdout: {result.stdout}\nstderr: {result.stderr}"
         )
+
+
+# ============================================================================
+# 3. ADR-036 D9 -- the consult-set / shipped-registry coupling pin
+# ============================================================================
+
+
+class TestD9ConsultConcernsArePinnedToTheShippedRegistry:
+    """
+    D9 keys consult-class landing on concern *labels* declared in code
+    (`decouple.CONSULT_CONCERN_LABELS`) but assigned to edges in
+    `mermaid-styles.yaml`'s `emission.concerns`. A rename on either side silently
+    reverts every consult arm to a `_in` landing.
+
+    D9 places this check here rather than in `check_emission_drift()` on purpose:
+    at transform time the emitter cannot tell a config that legitimately declares
+    no consult-class concern (every reduced or synthetic config in the suite) from
+    one whose consult concern was renamed, so a runtime warning would fire on
+    inputs that are not drifting. The invariant only holds against the one registry
+    that is supposed to carry the label, which is what this test reads.
+    """
+
+    def test_every_consult_label_is_declared_in_the_live_concerns_registry(self, risk_map_yaml_dir: Path):
+        from riskmap_validator.graphing.decouple import CONSULT_CONCERN_LABELS
+
+        with open(risk_map_yaml_dir / "mermaid-styles.yaml", encoding="utf-8") as fh:
+            doc = yaml.safe_load(fh)
+
+        concerns = doc["graphTypes"]["component"]["emission"]["concerns"]
+        declared_labels = {entry.get("label") for entry in concerns}
+
+        missing = sorted(set(CONSULT_CONCERN_LABELS) - declared_labels)
+        assert not missing, (
+            f"ADR-036 D9: consult-class label(s) {missing} are declared in "
+            f"decouple.CONSULT_CONCERN_LABELS but no longer appear in the live "
+            f"emission.concerns registry. Either the config label was renamed (restore "
+            f"it, or update the emitter set to match) -- otherwise every consult arm "
+            f"silently reverts to landing on a PEP wrapper's `_in` port. "
+            f"Declared labels: {sorted(declared_labels)}"
+        )
+
+    def test_the_consult_set_is_non_empty_and_closed(self):
+        """
+        D9 describes a *closed* set, small enough that growth is a reviewed edit and a
+        trip-wire to promote it into config. This pins both ends: an empty set would
+        make the rule dead code and pass the coupling test above vacuously; an
+        unbounded one is the condition D9 says should trigger the promotion instead.
+        """
+        from riskmap_validator.graphing.decouple import CONSULT_CONCERN_LABELS
+
+        assert CONSULT_CONCERN_LABELS, "the consult-class set must not be empty (D9 would be dead code)"
+        assert len(CONSULT_CONCERN_LABELS) <= 2, (
+            "ADR-036 D9's trip-wire: growing the consult-class set past a couple of labels "
+            "is the signal to promote it to a declared per-concern config field rather than "
+            "extending the fixed constant"
+        )
