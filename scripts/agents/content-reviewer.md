@@ -95,7 +95,7 @@ If provided, use them to supplement (not override) the embedded schema awareness
 - Required: `id`, `title`, `description`, `category`
 - Relationships: mapped to controls that mitigate them
 - Personas: parties **impacted by** the risk (who bears the consequences). `personaEndUser` appears on most risks. `personaGovernance` is NOT used on risks (it appears exclusively on controls).
-- Categories (enum in `risks.schema.json`): `risksSupplyChainAndDevelopment`, `risksDeploymentAndInfrastructure`, `risksRuntimeInputSecurity`, `risksRuntimeDataSecurity`, `risksRuntimeOutputSecurity`
+- Categories: enum in `risks.schema.json`'s `category` definition; consult the schema rather than inferring
 - May include framework references: MITRE ATLAS, NIST AI RMF, OWASP Top 10 for LLM
 
 **Controls** (`controls.yaml`):
@@ -109,7 +109,7 @@ If provided, use them to supplement (not override) the embedded schema awareness
 
 - Required: `id`, `title`, `description`, `category`
 - Relationships: `to` and `from` edges (bidirectional, validated by external tooling)
-- Categories: `componentsData`, `componentsInfrastructure`, `componentsModel`, `componentsApplication`
+- Categories: category enum + conditional category/subcategory constraint in `components.schema.json`, mirrored in the `categories:` block of `components.yaml`; consult those rather than inferring (a category only accepts specific subcategories, and a subcategory is not itself a category)
 
 **Personas** (`personas.yaml`):
 
