@@ -188,6 +188,34 @@ task that added this section for the full writeup):
     flags a matched `<src> --> p_out_...` line when its port is a KNOWN egress port id,
     so an edge to a nonexistent/typo'd port is silently skipped rather than flagged,
     contradicting the check's own docstring.
+
+Phase 3b addition (ADR-036 D3/D4 revision, R9, task 3b.1 -- "Aspect visual
+marker"): a maintainer render comparison
+against the reference mockup found the fully-out-of-scope R9 reading left
+`componentSecureLogging` visually unremarkable in the rendered SVG. Narrowed back
+in: a lifted aspect node now carries the `aspectStyle` class and a second label
+line stating its live lifted in-edge count.
+31. `TestAspectVisualMarker` -- the aspect marker's node-declaration grammar
+    (synthetic fixture, controlled count), the live corpus (`componentSecureLogging`,
+    17 lifted edges), the count genuinely tracking `len(LiftedAspect.edges)` per
+    fixture (two fixtures, same aspect id, different counts) rather than a fixed
+    string, `classDef aspectStyle` presence, and the M1-style zero-lifted-aspects
+    degenerate case (no orphaned `:::aspectStyle` usage).
+
+Review follow-up (two-reviewer gap pass on `TestAspectVisualMarker`/
+`TestPortStylesAspectStyleKey`, closed before Phase 3b implementation):
+32. `TestAspectVisualMarker.
+    test_two_simultaneously_lifted_aspects_each_carry_their_own_independent_count`
+    (gap 1) -- TWO distinct aspects lift in the SAME plan/emission with different
+    counts (3, 5); closes the gap that every other test in the class lifts only
+    one aspect at a time, so a positional-lookup bug (`lifted_aspects[0]` instead
+    of matching by `aspect_id`) would otherwise pass unnoticed.
+33. `TestAspectVisualMarker.
+    test_aspect_lifted_but_aspectstyle_not_configured_falls_back_to_plain_node`
+    (gap 2) -- pins the previously-undefined "lifted aspect, unconfigured
+    `aspectStyle`" contract: gate the entire marker (class + count line) on
+    `aspectStyle` being configured; degrade to the ordinary unmarked node
+    otherwise. Design decision documented in the class docstring.
 """
 
 import dataclasses
@@ -680,6 +708,91 @@ def _degenerate_components() -> dict[str, ComponentNode]:
 
 def _degenerate_cfg() -> EmissionConfig:
     return EmissionConfig(mode="decoupled", port_styles=PLACEHOLDER_PORT_STYLES)
+
+
+# Phase 3b (ADR-036 D3/D4 revision, R9): `PLACEHOLDER_PORT_STYLES` plus the
+# `aspectStyle` key -- kept as a SEPARATE dict rather than adding the key onto
+# `PLACEHOLDER_PORT_STYLES` itself, since `TestStyleClassDefPassthrough` and
+# `_live_emission_config()` (below) depend on that dict's exact pre-revision
+# 3-key content; a 4th key there would be silently absorbed by every test using
+# `in text` containment checks but is not this task's job to introduce.
+PLACEHOLDER_PORT_STYLES_WITH_ASPECT = {
+    **PLACEHOLDER_PORT_STYLES,
+    "aspectStyle": "fill:#fdf6e3,stroke:#b58900,stroke-width:1.5px,stroke-dasharray:4 3",
+}
+
+
+def _live_emission_config_with_aspect_style() -> EmissionConfig:
+    """`_live_emission_config()` plus `port_styles=PLACEHOLDER_PORT_STYLES_WITH_ASPECT`.
+
+    A separate helper rather than a mutation of `_live_emission_config()` itself,
+    for the same isolation reason as `PLACEHOLDER_PORT_STYLES_WITH_ASPECT` above.
+    """
+    return dataclasses.replace(_live_emission_config(), port_styles=PLACEHOLDER_PORT_STYLES_WITH_ASPECT)
+
+
+def _aspect_marker_components(source_count: int) -> dict[str, ComponentNode]:
+    """
+    Phase 3b fixture: a single INFRA sink (`componentAspectSink`, out-degree 0,
+    subcategory=None so the D4 block-orphan guard never triggers) with exactly
+    `source_count` cross in-edges from MODEL/APP sources, and no other edges --
+    isolates the aspect marker's live-derived count from every other transform
+    concern (single lifted aspect, zero broadcasts, zero intra edges). Title is
+    fixed ("Test Node" via `_node()`), so the marker's first label line is
+    identical across every `source_count` value, keeping the count the ONLY
+    thing that varies between two calls with different `source_count`.
+    """
+    components: dict[str, ComponentNode] = {"componentAspectSink": _node(INFRA, to_edges=[])}
+    for i in range(source_count):
+        category = MODEL if i % 2 == 0 else APP
+        components[f"componentAspectSrc{i}"] = _node(category, to_edges=["componentAspectSink"])
+    return components
+
+
+def _aspect_marker_cfg(source_count: int) -> EmissionConfig:
+    """`minCrossInDegree` set exactly to `source_count` -- the D4 guard is `<`, so equality qualifies."""
+    return EmissionConfig(
+        mode="decoupled",
+        aspects=(AspectDecl(id="componentAspectSink", min_cross_in_degree=source_count),),
+        port_styles=PLACEHOLDER_PORT_STYLES_WITH_ASPECT,
+    )
+
+
+def _two_aspect_marker_components() -> dict[str, ComponentNode]:
+    """
+    Gap-1 fixture (two simultaneously-lifted aspects): TWO distinct INFRA sinks
+    (`componentAspectSinkX`/`componentAspectSinkY`, both out-degree 0,
+    subcategory=None) with DIFFERENT, fixed lifted-edge counts -- X gets 3 cross
+    in-edges, Y gets 5 -- from MODEL/APP sources, mirroring
+    `_aspect_marker_components()`'s single-sink shape but doubled, so both nodes
+    coexist in the SAME plan/emission. Distinct sink ids (not a repeated call to
+    `_aspect_marker_components()`, which always uses the single id
+    `componentAspectSink`) are required for two lifted aspects to appear together
+    at all.
+    """
+    components: dict[str, ComponentNode] = {
+        "componentAspectSinkX": _node(INFRA, to_edges=[]),
+        "componentAspectSinkY": _node(INFRA, to_edges=[]),
+    }
+    for i in range(3):
+        category = MODEL if i % 2 == 0 else APP
+        components[f"componentAspectSrcX{i}"] = _node(category, to_edges=["componentAspectSinkX"])
+    for i in range(5):
+        category = MODEL if i % 2 == 0 else APP
+        components[f"componentAspectSrcY{i}"] = _node(category, to_edges=["componentAspectSinkY"])
+    return components
+
+
+def _two_aspect_marker_cfg() -> EmissionConfig:
+    """Both `componentAspectSinkX` (3 sources) and `componentAspectSinkY` (5 sources) qualify to lift."""
+    return EmissionConfig(
+        mode="decoupled",
+        aspects=(
+            AspectDecl(id="componentAspectSinkX", min_cross_in_degree=3),
+            AspectDecl(id="componentAspectSinkY", min_cross_in_degree=5),
+        ),
+        port_styles=PLACEHOLDER_PORT_STYLES_WITH_ASPECT,
+    )
 
 
 # ============================================================================
@@ -2756,6 +2869,316 @@ class TestDegenerateEmptyPlans:
         assert "classDef pepport" in text
         assert ":::port" not in text, "no node should carry an orphaned :::port usage"
         assert ":::pepport" not in text, "no node should carry an orphaned :::pepport usage"
+
+
+# ----------------------------------------------------------------------------
+# Phase 3b (ADR-036 D3/D4 revision, R9): aspect visual marker.
+# ----------------------------------------------------------------------------
+
+
+class TestAspectVisualMarker:
+    """
+    A lifted aspect node carries the `aspectStyle` class and a second label line
+    stating its live lifted in-edge count (ADR-036 D3/D4, R9 revision, task 3b.1).
+    Implemented at `component_graph.py:412-417` (`_decoupled_member_lines()`).
+    Before that landed, every member (including a lifted aspect) was declared with
+    the same plain `<id>[<title>]` line as an ordinary node, so this class's tests
+    were content-mismatch RED, not an AttributeError -- `_emit_decoupled()` itself
+    already existed (Phase 2). This suite is retained as the regression pin.
+
+    Grammar choice (judgment call, flagged for code-reviewer confirmation): this
+    repo's committed `.mermaid`/`.md` diagrams have no existing multi-line node
+    label to match (checked: no `<br/>` or literal `\\n` convention appears
+    anywhere under `risk-map/diagrams/` or `risk-map/svg/`), so there is no
+    established local precedent to reuse. This suite pins Mermaid's own standard
+    flowchart line-break token, `<br/>`, as the separator between the title line
+    and the count line -- the same token Mermaid's own documentation and the
+    wider flowchart ecosystem use for a multi-line node label, and, unlike a
+    literal `\\n`, one that does not require switching the node's `[...]` grammar
+    from unquoted to quoted. The marker therefore reuses the EXISTING unquoted
+    `<id>[<title>]` grammar `TestPortAndComponentNodeDeclarations.
+    test_ordinary_component_node_declared_with_flat_title_convention` already
+    pins for ordinary nodes, with two additions layered on top: the `<br/>`
+    line break plus the count line, and the `:::aspectStyle` class suffix -- the
+    same `:::<className>` suffix grammar `:::port`/`:::pepport` already use
+    (`TestPortAndComponentNodeDeclarations`, `TestPepWrapperRendering`).
+
+    Count-line wording (`"N writes lifted"`) is quoted directly from ADR-036 D4's
+    own illustrative text ("e.g. '17 writes lifted'"), pinned here as the exact,
+    generic (non-aspect-specific) wording -- ADR-036 declares no per-aspect label
+    template and the corpus has exactly one aspect candidate today, so "writes
+    lifted" is treated as this ADR's fixed phrasing rather than something derived
+    from `componentSecureLogging`'s specific semantics.
+
+    Two-simultaneous-lift coverage (review gap 1): every test above lifts exactly
+    ONE aspect. D4 explicitly anticipates "a future second sink" being
+    deliberately admitted, and none of the above would catch a
+    `_decoupled_member_lines()` bug that looked up `plan.lifted_aspects[0]` by
+    position instead of matching `member_id` against `LiftedAspect.aspect_id` --
+    such a bug would mislabel every aspect node after the first with the wrong
+    count, yet pass every test above (each has only one lifted aspect, so
+    `[0]` and "the matching entry" are indistinguishable). See
+    `test_two_simultaneously_lifted_aspects_each_carry_their_own_independent_count`
+    below, which lifts two aspects with different counts (3 and 5) in the same
+    plan and asserts each node carries only its own count.
+
+    Design decision (review gap 2): what happens when a lifted aspect exists but
+    `emission.portStyles` has no `aspectStyle` key at all (e.g. the pre-existing
+    3-key `PLACEHOLDER_PORT_STYLES` fixture used throughout Phase 2's tests)? Two
+    divergent implementations both pass every OTHER test in this class: (a) emit
+    `:::aspectStyle` usage unconditionally, even with no matching `classDef`
+    (silently unstyled in a real render), or (b) gate the ENTIRE marker -- both
+    the class suffix and the "N writes lifted" second label line -- on
+    `aspectStyle` actually being configured, falling back to the plain, unmarked
+    `id[title]` node used before this feature existed.
+
+    DECISION: (b). This matches the established `port`/`pepport` precedent
+    already in this codebase -- `_decoupled_classdefs`'s own docstring says those
+    classDefs are "emitted whenever the config supplies the corresponding
+    style", and the M1 `TestDegenerateEmptyPlans` guard above already forbids an
+    orphaned `:::port`/`:::pepport` class USAGE when the config doesn't back it.
+    Option (a) would create exactly that same orphaned-class-usage shape for
+    `aspectStyle`, just triggered by config absence rather than plan absence --
+    the same failure mode under a different cause, which this repo's
+    config-driven-features-degrade-gracefully convention (see also
+    `TestFlatModeRegression`'s missing-config-never-half-decoupled precedent)
+    rules out. `plan.lifted_aspects` membership and the D4 exclusion from drawn
+    edges are UNAFFECTED by this decision -- an aspect with unconfigured styling
+    is still correctly lifted and still correctly absent from
+    `_decoupled_edges`; only its rendered PRESENTATION degrades to an ordinary
+    node. See
+    `test_aspect_lifted_but_aspectstyle_not_configured_falls_back_to_plain_node`
+    below.
+
+    S6 self-check consequence of this decision: S6 (`_check_s6_style_classdef_
+    presence`) must NOT gain a clause requiring `aspectStyle`'s presence merely
+    because an aspect was lifted -- doing so would contradict graceful
+    degradation by turning a config omission that this class's decision treats
+    as a legitimate (if plainer) rendering into a hard emission failure. This is
+    consistent with (not a change to) the existing S6 contract: S6 already
+    requires `classDef port`/`classDef pepport` only when the PLAN actually
+    draws a port/PEP wrapper that needs them (`_check_s6_style_classdef_
+    presence`'s own docstring: "only when the plan actually draws ports/PEP
+    wrappers"), never merely because a style COULD have been used; `aspectStyle`
+    follows the identical shape, one level further -- absence degrades the
+    OUTPUT instead of raising, so S6 has nothing to check either way. No
+    existing S6 test (`test_s6_missing_pepport_classdef_raises`) needs to
+    change; it does not exercise `aspectStyle` at all.
+    """
+
+    def test_synthetic_fixture_known_count_declares_node_with_class_and_two_line_label(self, repo_root: Path):
+        """
+        Controlled count (3), NOT the live corpus's real count -- a real check on
+        the exact label text, isolated from whatever `componentSecureLogging`'s
+        current cross in-degree happens to be.
+        """
+        components = _aspect_marker_components(3)
+        forward_map = _forward_map(components)
+        cfg = _aspect_marker_cfg(3)
+        plan = build_decoupled_plan(forward_map, components, cfg)
+        assert len(plan.lifted_aspects[0].edges) == 3, "sanity: this fixture's controlled lifted-edge count"
+        graph = _make_graph(components, forward_map, cfg, repo_root)
+
+        text = graph._emit_decoupled(plan)  # was RED: content mismatch, not AttributeError; now GREEN
+
+        expected = "componentAspectSink[Test Node<br/>3 writes lifted]:::aspectStyle"
+        assert expected in text, f"expected aspect marker node declaration {expected!r}; got:\n{text}"
+
+    def test_live_corpus_secure_logging_carries_marker_with_the_real_seventeen_count(self, repo_root: Path):
+        """
+        The live corpus, not a synthetic fixture: `componentSecureLogging` must
+        carry the marker with its real, current lifted in-edge count. Pins the
+        literal "17" alongside the programmatically-derived count (mirroring
+        `test_undrawn_hop_list_matches_adr_d6_mockup_literally`'s pattern of
+        cross-checking a derived string against a literal one) so a change to the
+        live corpus that silently altered this count would fail loudly here
+        rather than only in the derived assertion.
+        """
+        components, forward_map = _live_corpus(repo_root)
+        cfg = _live_emission_config_with_aspect_style()
+        plan = build_decoupled_plan(forward_map, components, cfg)
+        graph = _make_graph(components, forward_map, cfg, repo_root)
+
+        lifted = plan.lifted_aspects[0]
+        assert lifted.aspect_id == "componentSecureLogging"
+        assert len(lifted.edges) == 17, (
+            "expected the live corpus's current componentSecureLogging lifted count (ADR-036 D4's "
+            "own stated example); if this fails because the corpus genuinely changed, update this "
+            "pin -- it is not a hardcoded emitter expectation, it is the current real count"
+        )
+
+        text = graph._emit_decoupled(plan)
+
+        title = components["componentSecureLogging"].title
+        expected_derived = f"componentSecureLogging[{title}<br/>{len(lifted.edges)} writes lifted]:::aspectStyle"
+        expected_literal = "componentSecureLogging[Secure Logging<br/>17 writes lifted]:::aspectStyle"
+        assert expected_derived == expected_literal, "sanity: the derived and literal strings must agree"
+        assert expected_literal in text, f"expected live-corpus aspect marker {expected_literal!r}; got:\n{text}"
+
+    def test_count_tracks_each_fixtures_own_lifted_edges_not_a_hardcoded_string(self, repo_root: Path):
+        """
+        Two independent fixtures, the SAME aspect id (`componentAspectSink`), two
+        DIFFERENT lifted-edge counts (3 and 5). If the emitted count were a fixed
+        string anywhere in the emitter rather than read from `LiftedAspect.edges`
+        at emission time, either both fixtures would emit the same count, or one
+        would emit the other's -- this test fails either way; it only passes if
+        each fixture's own build independently reflects its own actual count.
+        """
+        for count in (3, 5):
+            components = _aspect_marker_components(count)
+            forward_map = _forward_map(components)
+            cfg = _aspect_marker_cfg(count)
+            plan = build_decoupled_plan(forward_map, components, cfg)
+            assert len(plan.lifted_aspects[0].edges) == count
+            graph = _make_graph(components, forward_map, cfg, repo_root)
+
+            text = graph._emit_decoupled(plan)
+
+            expected = f"componentAspectSink[Test Node<br/>{count} writes lifted]:::aspectStyle"
+            assert expected in text, f"expected count={count} reflected in the marker label; got:\n{text}"
+
+            other_count = 5 if count == 3 else 3
+            leaked = f"componentAspectSink[Test Node<br/>{other_count} writes lifted]:::aspectStyle"
+            assert leaked not in text, (
+                f"fixture with count={count} must not also emit the OTHER fixture's count "
+                f"({other_count}) -- {leaked!r} unexpectedly present; got:\n{text}"
+            )
+
+    def test_classdef_aspectstyle_present_when_a_lifted_aspect_exists(self, repo_root: Path):
+        """Mirrors `TestStyleClassDefPassthrough.
+        test_port_and_pepport_classdefs_present_with_configured_strings` for the new class."""
+        components = _aspect_marker_components(3)
+        forward_map = _forward_map(components)
+        cfg = _aspect_marker_cfg(3)
+        plan = build_decoupled_plan(forward_map, components, cfg)
+        graph = _make_graph(components, forward_map, cfg, repo_root)
+
+        text = graph._emit_decoupled(plan)
+
+        expected = f"classDef aspectStyle {PLACEHOLDER_PORT_STYLES_WITH_ASPECT['aspectStyle']}"
+        assert expected in text, f"expected {expected!r} in emitted text; got:\n{text}"
+
+    def test_no_orphaned_aspectstyle_usage_when_zero_lifted_aspects(self, repo_root: Path):
+        """
+        M1-class degenerate-plan guard, extended to `aspectStyle` (mirrors
+        `TestDegenerateEmptyPlans.
+        test_emission_succeeds_with_no_header_lines_and_no_orphaned_port_classes`
+        exactly): `classDef aspectStyle` is config-driven and position-fixed, the
+        same as `classDef port`/`classDef pepport` (`_decoupled_classdefs`'s own
+        docstring: "emitted whenever the config supplies the corresponding style,
+        independent of whether this particular plan uses" it) -- so it is
+        expected to still be emitted here even though this plan lifts nothing.
+        What must NOT happen, mirroring the M1 guard's port/pepport assertions,
+        is an orphaned `:::aspectStyle` USAGE on any node.
+        """
+        components = _degenerate_components()
+        forward_map = _forward_map(components)
+        cfg = EmissionConfig(mode="decoupled", port_styles=PLACEHOLDER_PORT_STYLES_WITH_ASPECT)
+        plan = build_decoupled_plan(forward_map, components, cfg)
+        assert plan.lifted_aspects == []
+        graph = _make_graph(components, forward_map, cfg, repo_root)
+
+        text = graph._emit_decoupled(plan)  # must not raise
+
+        expected_classdef = f"classDef aspectStyle {PLACEHOLDER_PORT_STYLES_WITH_ASPECT['aspectStyle']}"
+        assert expected_classdef in text, f"expected {expected_classdef!r} in emitted text; got:\n{text}"
+        assert ":::aspectStyle" not in text, "no node should carry an orphaned :::aspectStyle usage"
+
+    def test_two_simultaneously_lifted_aspects_each_carry_their_own_independent_count(self, repo_root: Path):
+        """
+        Review gap 1: the emission-layer sibling of `test_decouple_transform.py::
+        TestAspectCandidacy.
+        test_two_aspects_lift_simultaneously_each_with_independent_edge_count` --
+        same two-independent-sinks shape, exercised through `_emit_decoupled()`
+        instead of the raw IR. Two distinct aspect ids (`componentAspectSinkX`,
+        `componentAspectSinkY`) lift in the SAME plan/emission with DIFFERENT
+        lifted-edge counts (3 and 5).
+
+        Unlike `test_count_tracks_each_fixtures_own_lifted_edges_not_a_hardcoded_
+        string` above (which loops over two SEQUENTIAL, INDEPENDENT plan/emission
+        builds, one per count), this test builds ONE plan containing BOTH lifted
+        aspects at once. A `_decoupled_member_lines()` bug that read
+        `plan.lifted_aspects[0]` by position instead of matching `member_id`
+        against `LiftedAspect.aspect_id` would pass the sequential test (each of
+        its two builds has exactly one lifted aspect, so `[0]` is always correct
+        there) while silently giving sink Y sink X's count (or an
+        IndexError/wrong-node mismatch) here -- this is the one test in this class
+        where that class of bug is visible.
+        """
+        components = _two_aspect_marker_components()
+        forward_map = _forward_map(components)
+        cfg = _two_aspect_marker_cfg()
+        plan = build_decoupled_plan(forward_map, components, cfg)
+        assert len(plan.lifted_aspects) == 2, "sanity: this fixture's two independent aspects must both lift"
+        by_id = {la.aspect_id: la for la in plan.lifted_aspects}
+        assert len(by_id["componentAspectSinkX"].edges) == 3, "sanity: sink X's controlled lifted-edge count"
+        assert len(by_id["componentAspectSinkY"].edges) == 5, "sanity: sink Y's controlled lifted-edge count"
+        graph = _make_graph(components, forward_map, cfg, repo_root)
+
+        text = graph._emit_decoupled(plan)  # was RED: content mismatch, not AttributeError; now GREEN
+
+        expected_x = "componentAspectSinkX[Test Node<br/>3 writes lifted]:::aspectStyle"
+        expected_y = "componentAspectSinkY[Test Node<br/>5 writes lifted]:::aspectStyle"
+        assert expected_x in text, f"expected sink X's own marker {expected_x!r}; got:\n{text}"
+        assert expected_y in text, f"expected sink Y's own marker {expected_y!r}; got:\n{text}"
+
+        leaked_x_as_y = "componentAspectSinkY[Test Node<br/>3 writes lifted]:::aspectStyle"
+        leaked_y_as_x = "componentAspectSinkX[Test Node<br/>5 writes lifted]:::aspectStyle"
+        assert leaked_x_as_y not in text, f"sink Y must not carry sink X's count -- got:\n{text}"
+        assert leaked_y_as_x not in text, f"sink X must not carry sink Y's count -- got:\n{text}"
+
+    def test_aspect_lifted_but_aspectstyle_not_configured_falls_back_to_plain_node(self, repo_root: Path):
+        """
+        Review gap 2 -- see this class's docstring "Design decision (review gap
+        2)" section for the full contract writeup. Config carries an aspect
+        declaration that genuinely qualifies for lift (`min_cross_in_degree`
+        exactly matches the fixture's 3 sources, reusing `_aspect_marker_
+        components(3)`/its matching threshold), but `port_styles` is the
+        pre-revision, 3-key `PLACEHOLDER_PORT_STYLES` fixture -- no `aspectStyle`
+        key at all.
+
+        DECISION (pinned here): the marker is gated entirely on `aspectStyle`
+        being configured. With it absent, the lifted aspect node falls back to
+        the ordinary, unmarked `id[title]` declaration -- no `:::aspectStyle`
+        class usage anywhere, no "N writes lifted" label text, no orphaned
+        `classDef aspectStyle` line (there is nothing to be orphaned FROM, since
+        the config never supplied the style string in the first place). The
+        aspect is still genuinely lifted at the IR level (`plan.lifted_aspects`
+        still has the entry) -- only its rendered presentation degrades.
+
+        RED/GREEN character: GREEN, but not tautologically so -- the pre-3b
+        `_decoupled_member_lines()` declared every member, lifted aspect or not,
+        with the same plain `id[title]` line unconditionally, which happened to
+        already be this test's expected outcome for THIS specific config. The
+        now-landed 3b implementation gates the marker on `aspectStyle` being
+        configured, so this exact config (aspectStyle unconfigured) still produces
+        the plain fallback line -- this test stays GREEN by design, exercising the
+        decision for real: an implementation that emitted `:::aspectStyle`
+        unconditionally (option (a), rejected above) would turn this test RED,
+        the same role `TestFlatModeRegression`'s byte-identical baseline test
+        plays for the flat path.
+        """
+        components = _aspect_marker_components(3)
+        forward_map = _forward_map(components)
+        # Same aspect declaration as `_aspect_marker_cfg(3)`, but with the
+        # pre-revision 3-key `PLACEHOLDER_PORT_STYLES` (no `aspectStyle`) swapped
+        # in for `port_styles` -- isolates "aspectStyle unconfigured" from "aspect
+        # not lifted" (the aspect still qualifies; only its styling is missing).
+        cfg = dataclasses.replace(_aspect_marker_cfg(3), port_styles=PLACEHOLDER_PORT_STYLES)
+        plan = build_decoupled_plan(forward_map, components, cfg)
+        assert len(plan.lifted_aspects) == 1, "sanity: the aspect must still lift despite unconfigured styling"
+        graph = _make_graph(components, forward_map, cfg, repo_root)
+
+        text = graph._emit_decoupled(plan)  # must not raise
+
+        assert ":::aspectStyle" not in text, "no node should carry an unstyled :::aspectStyle usage"
+        assert "writes lifted" not in text, "no count label should appear without aspectStyle configured"
+        assert "classDef aspectStyle" not in text, "no classDef line for a style that was never configured"
+        expected_plain = "componentAspectSink[Test Node]"
+        assert expected_plain in text, (
+            f"expected the lifted aspect to fall back to the ordinary, unmarked node "
+            f"declaration {expected_plain!r}; got:\n{text}"
+        )
 
 
 # ----------------------------------------------------------------------------

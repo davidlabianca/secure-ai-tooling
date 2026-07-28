@@ -563,6 +563,57 @@ class TestAspectCandidacy:
         lifted_ids = {la.aspect_id for la in plan.lifted_aspects}
         assert lifted_ids == {"componentAspectSinkA"}
 
+    def test_two_aspects_lift_simultaneously_each_with_independent_edge_count(self):
+        """
+        Given: two distinct, independently-candidate aspects -- each individually
+        configured with its own threshold, each with a DIFFERENT cross in-degree,
+        BOTH satisfying their own threshold (unlike
+        test_per_entry_min_cross_in_degree_is_independent_per_aspect above, which
+        has one lift and one refusal)
+        When: build_decoupled_plan runs
+        Then: both are lifted -- plan.lifted_aspects has exactly 2 entries -- and
+        each aspect's `edges` reflects ONLY its own sources, proving no
+        cross-contamination between two simultaneously-successful lifts (ADR-036
+        D4 explicitly anticipates "a future second sink" being deliberately
+        admitted; this closes the gap that no existing test builds a plan with two
+        successful lifts at once)
+        """
+        components = {}
+        for i in range(6):
+            components[f"componentModelSourceA{i}"] = _node(MODEL, to_edges=["componentAspectSinkA"])
+        for i in range(12):
+            components[f"componentModelSourceB{i}"] = _node(MODEL, to_edges=["componentAspectSinkB"])
+        components["componentAspectSinkA"] = _node(INFRA, subcategory="componentsBlockX")
+        components["componentAspectSinkB"] = _node(INFRA, subcategory="componentsBlockX")
+        components["componentInfraFeeder"] = _node(
+            INFRA, to_edges=["componentAspectSinkA", "componentAspectSinkB"], subcategory="componentsBlockX"
+        )
+        # componentInfraFeeder's edges to both sinks are themselves intra, so the
+        # block keeps intra activity regardless of which/how-many aspects lift --
+        # isolates D4 candidacy from G-O1 (block-orphan guard).
+        cfg = EmissionConfig(
+            mode="decoupled",
+            aspects=(
+                AspectDecl(id="componentAspectSinkA", min_cross_in_degree=5),  # 6 >= 5: lifts
+                AspectDecl(id="componentAspectSinkB", min_cross_in_degree=10),  # 12 >= 10: lifts
+            ),
+        )
+        plan = build_decoupled_plan(_forward_map(components), components, cfg)
+
+        assert len(plan.lifted_aspects) == 2
+        by_id = {la.aspect_id: la for la in plan.lifted_aspects}
+        assert set(by_id) == {"componentAspectSinkA", "componentAspectSinkB"}
+
+        assert len(by_id["componentAspectSinkA"].edges) == 6
+        assert {src for src, _tgt in by_id["componentAspectSinkA"].edges} == {
+            f"componentModelSourceA{i}" for i in range(6)
+        }
+
+        assert len(by_id["componentAspectSinkB"].edges) == 12
+        assert {src for src, _tgt in by_id["componentAspectSinkB"].edges} == {
+            f"componentModelSourceB{i}" for i in range(12)
+        }
+
     def test_fan_out_source_never_qualifies_regardless_of_cross_degree(self):
         """
         Given: a fan-out source (high cross out-degree, zero cross in-degree) that is
@@ -1400,7 +1451,7 @@ class TestLiveCorpusInventory:
 """
 Test Summary
 ============
-Total test functions: 65 (across 17 test classes + 3 pytest fixtures used as synthetic
+Total test functions: 66 (across 17 test classes + 3 pytest fixtures used as synthetic
 corpora)
 
 Coverage areas:
@@ -1408,8 +1459,9 @@ Coverage areas:
   exact-literal per §E, including both ADR-quoted slug() examples.
 - ADR D6 worked-example reproduction (port ids + arm labels, literal strings): 6 tests.
 - Partition + basic pipeline (fixture a): 5 tests.
-- Aspect candidacy (D4): 6 tests (sink test, threshold boundary x3, per-entry
-  independence, source-exclusion).
+- Aspect candidacy (D4): 7 tests (sink test, threshold boundary x3, per-entry
+  independence (one lift/one refusal), two-simultaneous-lift independence,
+  source-exclusion).
 - Concern resolution: 4 tests (covered, uncovered+fallback, double-covered, order
   independence).
 - Channel/broadcast keying: 2 tests (anti-fusion, broadcast merge across target roots).
