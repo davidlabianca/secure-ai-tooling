@@ -1092,10 +1092,10 @@ components:
         discovered, and invoked. It is distinct from the {{componentTools}} it fronts:
         rather than being the underlying service, the tool server stands between the agent
         and those services, authenticating callers, presenting downstream credentials,
-        and delegating to downstream services on behalf of multiple users. That delegation
-        proceeds only once {{componentAuthorizationPolicyEnforcementPoint}} returns an
-        allow verdict on the invocation; the enforcement point authorizes, but this
-        component is the one that actually reaches {{componentTools}}.
+        and delegating to downstream services on behalf of multiple users. Invocations
+        reach it only after {{componentAuthorizationPolicyEnforcementPoint}} has authorized
+        them and forwarded them on; the enforcement point authorizes, but this component
+        is the one that actually reaches {{componentTools}}.
       - >
         Its key distinction is deployment-dependent trust posture: an instance can range
         from a local subprocess sharing the host's user context to a multi-tenant remote
@@ -1137,12 +1137,10 @@ components:
     edges:
       to:
         - componentToolOutputHandling
-        - componentAuthorizationPolicyEnforcementPoint
         - componentTools
         - componentSecureLogging
       from:
         - componentTools
-        - componentToolInputHandling
         - componentToolHosting
         - componentAuthorizationPolicyEnforcementPoint
     externalReferences:
@@ -1384,15 +1382,15 @@ components:
         claims it submits — role, attributes, scope — come from {{componentIdentityProvider}}
         via a verified token or assertion, carried to the decision rather than re-derived
         here. It is distinct from the action surface it guards, such as {{componentTools}},
-        and from {{componentToolServer}}, which fronts that surface: this component only
-        returns an allow-or-deny verdict to {{componentToolServer}}, which then presents
-        downstream credentials and performs the actual delegation to {{componentTools}}
-        once authorized — the enforcement point does not itself reach the action surface.
-        Invocations reach this enforcement point as presented by {{componentToolServer}}
-        on the caller's behalf, in line rather than bypassed by a client-side path directly
-        into the action surface. Realizations vary — a sidecar policy engine, API-gateway
-        authorization, or an in-process authorization library — deployment attributes,
-        not the identity of the component.
+        and from {{componentToolServer}}, which fronts that surface: invocations reach
+        this component in flow from {{componentToolInputHandling}} once their content has
+        been validated, and it forwards them on or blocks them on the returned verdict
+        rather than handing a verdict back for another component to apply. The tool server
+        it forwards to is what presents downstream credentials and performs the actual
+        delegation to {{componentTools}}. Sitting ahead of that credential swap is what
+        keeps the authorized identity the caller's own rather than the standing downstream
+        credential the server presents. Realizations vary — a sidecar policy engine or
+        API-gateway authorization — deployment attributes, not the identity of the component.
       - >
         Its scope is the authorization of the action, not the network path. It governs
         *whether* a given identity may perform a specific operation on a specific resource
@@ -1401,11 +1399,11 @@ components:
         enforcement point admits the connection; this enforcement point authorizes the
         action carried over it.
     category: componentsExternalTools
-    subcategory: componentsToolNetworkControls
+    subcategory: componentsToolInvocationPath
     edges:
       from:
         - componentAuthorizationPolicyDecisionPoint
-        - componentToolServer
+        - componentToolInputHandling
       to:
         - componentToolServer
         - componentSecureLogging
@@ -1642,10 +1640,11 @@ components:
         models at the application, orchestration, and agent boundaries.
       - >
         It sits between the connection-layer admission performed by {{componentToolNetworkPolicyEnforcementPoint}},
-        which decides whether a request reaches the tool zone at all, and {{componentToolServer}},
-        which performs the served action. Its responsibility is the *content* of the admitted
-        request, not the connection: argument validation, schema and type checking, and
-        filtering of malformed or over-scoped invocations at the resource edge.
+        which decides whether a request reaches the tool zone at all, and {{componentAuthorizationPolicyEnforcementPoint}},
+        which decides whether the validated request may perform the action it names. Its
+        responsibility is the *content* of the admitted request, not the connection: argument
+        validation, schema and type checking, and filtering of malformed or over-scoped
+        invocations at the resource edge.
       - >
         The threats it answers are tool-request-shaped — argument injection and malformed
         or coerced invocations arriving at the tool boundary — which are distinct from
@@ -1656,7 +1655,7 @@ components:
     subcategory: componentsToolInvocationPath
     edges:
       to:
-        - componentToolServer
+        - componentAuthorizationPolicyEnforcementPoint
         - componentSecureLogging
       from:
         - componentToolNetworkPolicyEnforcementPoint
