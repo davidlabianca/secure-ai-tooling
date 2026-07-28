@@ -72,6 +72,78 @@ graphTypes:
       padding: 5 # Internal node padding
       wrappingWidth: 250 # Text wrapping width
     specialStyling: {} # No special styling for component graphs
+    # Decoupled-emission config (ADR-036 D3). mode: flat lands first with zero
+    # diagram churn; a later, separately-reviewable change flips this to
+    # 'decoupled' (with direction: 'LR') alongside a regenerated diagram, per
+    # the ADR's two-PR landing sequence (Follow-up).
+    emission:
+      mode: 'flat'
+      # Declared aspect (sink) components lifted out of the drawn graph (D4).
+      # componentSecureLogging is the sole candidate today: out-degree 0, live
+      # cross in-degree 17, well above the 10 threshold.
+      aspects:
+        - id: componentSecureLogging
+          minCrossInDegree: 10
+      # Cross-edge -> trust-concern-label registry (D5), keyed by explicit edge
+      # list. Covers all 26 unlifted cross edges exactly once (17 lifted + 26
+      # channelled = 43 cross edges total, as of this writing -- these counts
+      # drift with the corpus and are not normative; D7's guards catch drift).
+      concerns:
+        - label: 'model artifacts'
+          edges:
+            - [componentModelStorage, componentModelServing]
+            - [componentModelRegistry, componentModelServing]
+        - label: 'training data'
+          edges:
+            - [componentDataStorage, componentModelTrainingTuning]
+        - label: 'runtime hosting'
+          edges:
+            - [componentRuntimeHosting, componentModelServing]
+            - [componentRuntimeHosting, componentApplication]
+            - [componentRuntimeHosting, componentReasoningCore]
+        - label: 'tool hosting'
+          edges:
+            - [componentToolHosting, componentToolServer]
+        - label: 'tool discovery'
+          edges:
+            - [componentToolRegistry, componentToolNetworkPolicyEnforcementPoint]
+        - label: 'identity & authz'
+          edges:
+            - [componentAuthorizationPolicyDecisionPoint, componentAgentNetworkPolicyEnforcementPoint]
+            - [componentAuthorizationPolicyDecisionPoint, componentApplicationNetworkPolicyEnforcementPoint]
+            - [componentAuthorizationPolicyDecisionPoint, componentAuthorizationPolicyEnforcementPoint]
+            - [componentAuthorizationPolicyDecisionPoint, componentModelServing]
+            - [componentAuthorizationPolicyDecisionPoint, componentToolNetworkPolicyEnforcementPoint]
+            - [componentIdentityProvider, componentAgentNetworkPolicyEnforcementPoint]
+            - [componentIdentityProvider, componentApplicationNetworkPolicyEnforcementPoint]
+            - [componentIdentityProvider, componentFederationProxy]
+            - [componentIdentityProvider, componentModelServing]
+            - [componentIdentityProvider, componentToolNetworkPolicyEnforcementPoint]
+        - label: 'model publish'
+          edges:
+            - [componentModelTrainingTuning, componentModelRegistry]
+        - label: 'inference / serving'
+          edges:
+            - [componentModelServing, componentAgentNetworkPolicyEnforcementPoint]
+            - [componentModelServing, componentApplicationNetworkPolicyEnforcementPoint]
+        - label: 'tool calls'
+          edges:
+            - [componentAgentToolTransport, componentToolNetworkPolicyEnforcementPoint]
+        - label: 'app + agent egress'
+          edges:
+            - [componentAgentNetworkPolicyEnforcementPoint, componentModelServing]
+            - [componentApplicationNetworkPolicyEnforcementPoint, componentModelServing]
+        - label: 'tool registration'
+          edges:
+            - [componentTools, componentToolRegistry]
+        - label: 'tool results'
+          edges:
+            - [componentToolNetworkPolicyEnforcementPoint, componentAgentToolTransport]
+      # Style strings for decoupled-mode channel ports and PEP wrappers (D3).
+      portStyles:
+        port: 'fill:#fff5f5,stroke:#c0392b,stroke-width:1.5px,stroke-dasharray:4 3'
+        pepport: 'fill:#eef7ff,stroke:#2c3e83,stroke-width:1.5px,stroke-dasharray:4 3'
+        pepWrapOutline: 'fill:none,stroke:#2c3e83,stroke-width:2px,stroke-dasharray:2 2'
 
   # ControlGraph configuration
   control:
