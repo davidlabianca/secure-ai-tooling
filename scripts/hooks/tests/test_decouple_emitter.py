@@ -270,7 +270,7 @@ from riskmap_validator.utils import parse_components_yaml  # noqa: E402
 INFRA = "componentsInfrastructure"
 MODEL = "componentsModel"
 APP = "componentsApplication"
-TOOLS = "componentsTools"
+TOOLS = "componentsExternalTools"
 
 
 def _node(category: str, to_edges: list[str] | None = None, subcategory: str | None = None) -> ComponentNode:

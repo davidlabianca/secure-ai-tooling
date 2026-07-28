@@ -51,7 +51,7 @@ _ROOT_SLUGS = {
     "componentsInfrastructure": "infra",
     "componentsModel": "model",
     "componentsApplication": "app",
-    "componentsTools": "tools",
+    "componentsExternalTools": "tools",
 }
 
 # Config-path fragments used in guard messages (plan §D message contract).

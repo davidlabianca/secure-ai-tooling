@@ -126,7 +126,7 @@ def _forward_map(components: dict[str, ComponentNode]) -> dict[str, list[str]]:
 INFRA = "componentsInfrastructure"
 MODEL = "componentsModel"
 APP = "componentsApplication"
-TOOLS = "componentsTools"
+TOOLS = "componentsExternalTools"
 
 
 # ============================================================================
@@ -1363,12 +1363,18 @@ class TestLiveCorpusInventory:
         assert {c.tgt_root for c in broadcast.channels} == {MODEL, APP}
 
     def test_edge_conservation_matches_plan_derivation(self, live_plan):
-        """44 intra-drawn + 2*2 collapsed + 26 channelled + 17 lifted == 91 total edges."""
-        assert live_plan.intra_drawn_count == 44
+        """43 intra-drawn + 2*2 collapsed + 26 channelled + 17 lifted == 90 total edges.
+
+        The intra-drawn and total counts dropped by one when the authorization PEP
+        moved in-flow upstream of the tool server: two tool-tier edges were replaced
+        by one. Both replaced and replacement edges are intra-tools, so the cross-edge
+        split (26 channelled + 17 lifted) is unchanged.
+        """
+        assert live_plan.intra_drawn_count == 43
         assert live_plan.collapsed_pair_count == 2
         assert live_plan.channelled_count == 26
         assert live_plan.lifted_count == 17
-        assert live_plan.total_edges == 91
+        assert live_plan.total_edges == 90
         assert (
             live_plan.intra_drawn_count
             + 2 * live_plan.collapsed_pair_count

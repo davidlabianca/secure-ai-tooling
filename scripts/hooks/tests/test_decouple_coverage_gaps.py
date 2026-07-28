@@ -84,7 +84,7 @@ def _forward_map(components: dict[str, ComponentNode]) -> dict[str, list[str]]:
 INFRA = "componentsInfrastructure"
 MODEL = "componentsModel"
 APP = "componentsApplication"
-TOOLS = "componentsTools"
+TOOLS = "componentsExternalTools"
 
 
 # ============================================================================

@@ -69,6 +69,7 @@ and is incomplete", not blanket-suppress the emission-drift check whenever
 the registries happen to be sparse.
 """
 
+import json
 import shutil
 import subprocess
 import sys
@@ -121,8 +122,8 @@ _CLEAN_COMPONENTS: dict[str, Any] = {
         {
             "id": "compTools",
             "title": "Tools",
-            "category": "componentsTools",
-            "subcategory": "componentsToolCore",
+            "category": "componentsExternalTools",
+            "subcategory": "componentsToolDataPlane",
             "edges": {},
         },
     ],
@@ -143,9 +144,9 @@ _CLEAN_COMPONENTS: dict[str, Any] = {
             "subcategory": [{"id": "componentsAgent", "title": "Agent"}],
         },
         {
-            "id": "componentsTools",
+            "id": "componentsExternalTools",
             "title": "Tools",
-            "subcategory": [{"id": "componentsToolCore", "title": "Tool Core"}],
+            "subcategory": [{"id": "componentsToolDataPlane", "title": "Tool Data Plane"}],
         },
     ],
 }
@@ -196,7 +197,7 @@ _BASE_MERMAID: dict[str, Any] = {
             "componentsInfrastructure": {"fill": "#e6f3e6", "stroke": "#333333", "strokeWidth": "2px"},
             "componentsModel": {"fill": "#ffe6e6", "stroke": "#333333", "strokeWidth": "2px"},
             "componentsApplication": {"fill": "#e6f0ff", "stroke": "#333333", "strokeWidth": "2px"},
-            "componentsTools": {"fill": "#fff3e6", "stroke": "#333333", "strokeWidth": "2px"},
+            "componentsExternalTools": {"fill": "#fff3e6", "stroke": "#333333", "strokeWidth": "2px"},
         },
     },
     "graphTypes": {
@@ -233,6 +234,30 @@ _DIRTY_EMISSION_DECOUPLED: dict[str, Any] = {
 _CLEAN_EMISSION: dict[str, Any] = {"mode": "flat"}
 
 
+def _write_schema_stub(base: Path, components: dict[str, Any]) -> None:
+    """Write the components.schema.json stub the category style check reads.
+
+    validate_riskmap.py resolves the schema cwd-relatively like every other
+    input and fails loud when it is absent, so a synthetic corpus that omits it
+    fails the *style* check before the emission check under test is reached. The
+    enum is derived from the fixture's own `categories:` block, matching the
+    conftest `write_riskmap_corpus` convention: a fixture declares the
+    categories it exercises and nothing else.
+    """
+    schemas_dir = base / "risk-map" / "schemas"
+    schemas_dir.mkdir(parents=True, exist_ok=True)
+    enum = sorted(entry["id"] for entry in components.get("categories", []))
+    (schemas_dir / "components.schema.json").write_text(
+        json.dumps(
+            {
+                "$schema": "http://json-schema.org/draft-07/schema#",
+                "definitions": {"category": {"properties": {"id": {"enum": enum}}}},
+            }
+        ),
+        encoding="utf-8",
+    )
+
+
 def _write_corpus(base: Path, mermaid_styles: dict[str, Any]) -> Path:
     """Write the 4-file synthetic corpus (components/controls/risks/mermaid-styles)."""
     yaml_dir = base / "risk-map" / "yaml"
@@ -241,6 +266,7 @@ def _write_corpus(base: Path, mermaid_styles: dict[str, Any]) -> Path:
     (yaml_dir / "controls.yaml").write_text(yaml.dump(_CLEAN_CONTROLS), encoding="utf-8")
     (yaml_dir / "risks.yaml").write_text(yaml.dump({"risks": []}), encoding="utf-8")
     (yaml_dir / "mermaid-styles.yaml").write_text(yaml.dump(mermaid_styles), encoding="utf-8")
+    _write_schema_stub(base, _CLEAN_COMPONENTS)
     return base
 
 
@@ -440,6 +466,7 @@ def _write_corpus_with_controls(base: Path, controls: dict[str, Any], mermaid_st
     (yaml_dir / "controls.yaml").write_text(yaml.dump(controls), encoding="utf-8")
     (yaml_dir / "risks.yaml").write_text(yaml.dump({"risks": []}), encoding="utf-8")
     (yaml_dir / "mermaid-styles.yaml").write_text(yaml.dump(mermaid_styles), encoding="utf-8")
+    _write_schema_stub(base, _CLEAN_COMPONENTS)
     return base
 
 
@@ -853,8 +880,8 @@ _SPARSE_VALID_COMPONENTS: dict[str, Any] = {
         {
             "id": "compTools",
             "title": "Tools",
-            "category": "componentsTools",
-            "subcategory": "componentsToolCore",
+            "category": "componentsExternalTools",
+            "subcategory": "componentsToolDataPlane",
             "edges": {"to": [], "from": ["compInfra"]},
         },
     ],

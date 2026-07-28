@@ -25,6 +25,7 @@ module docstring for the same rationale).
 the RED phase before that landed and is retained as the regression pin.
 """
 
+import json
 import subprocess
 import sys
 from pathlib import Path
@@ -73,8 +74,8 @@ _COMPONENTS: dict[str, Any] = {
         {
             "id": "compTools",
             "title": "Tools",
-            "category": "componentsTools",
-            "subcategory": "componentsToolCore",
+            "category": "componentsExternalTools",
+            "subcategory": "componentsToolDataPlane",
             "edges": {},
         },
     ],
@@ -95,9 +96,9 @@ _COMPONENTS: dict[str, Any] = {
             "subcategory": [{"id": "componentsAgent", "title": "Agent"}],
         },
         {
-            "id": "componentsTools",
+            "id": "componentsExternalTools",
             "title": "Tools",
-            "subcategory": [{"id": "componentsToolCore", "title": "Tool Core"}],
+            "subcategory": [{"id": "componentsToolDataPlane", "title": "Tool Data Plane"}],
         },
     ],
 }
@@ -173,7 +174,7 @@ def _mermaid_styles(emission: dict[str, Any]) -> dict[str, Any]:
                 "componentsInfrastructure": {"fill": "#e6f3e6", "stroke": "#333333", "strokeWidth": "2px"},
                 "componentsModel": {"fill": "#ffe6e6", "stroke": "#333333", "strokeWidth": "2px"},
                 "componentsApplication": {"fill": "#e6f0ff", "stroke": "#333333", "strokeWidth": "2px"},
-                "componentsTools": {"fill": "#fff3e6", "stroke": "#333333", "strokeWidth": "2px"},
+                "componentsExternalTools": {"fill": "#fff3e6", "stroke": "#333333", "strokeWidth": "2px"},
             },
         },
         "graphTypes": {
@@ -192,6 +193,27 @@ def _write_corpus(base: Path, emission: dict[str, Any]) -> Path:
     (yaml_dir / "controls.yaml").write_text(yaml.dump(_CONTROLS), encoding="utf-8")
     (yaml_dir / "risks.yaml").write_text(yaml.dump({"risks": []}), encoding="utf-8")
     (yaml_dir / "mermaid-styles.yaml").write_text(yaml.dump(_mermaid_styles(emission)), encoding="utf-8")
+
+    # components.schema.json stub for the category style check, which resolves the
+    # schema cwd-relatively and fails loud when it is absent -- without it this
+    # corpus fails the style check before the emission mode under test is reached.
+    # Enum derived from the fixture's own categories, per conftest's
+    # write_riskmap_corpus convention.
+    schemas_dir = base / "risk-map" / "schemas"
+    schemas_dir.mkdir(parents=True, exist_ok=True)
+    (schemas_dir / "components.schema.json").write_text(
+        json.dumps(
+            {
+                "$schema": "http://json-schema.org/draft-07/schema#",
+                "definitions": {
+                    "category": {
+                        "properties": {"id": {"enum": sorted(e["id"] for e in _COMPONENTS.get("categories", []))}}
+                    }
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
     return base
 
 

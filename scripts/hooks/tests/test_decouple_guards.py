@@ -62,7 +62,7 @@ from riskmap_validator.models import ComponentNode  # noqa: E402
 INFRA = "componentsInfrastructure"
 MODEL = "componentsModel"
 APP = "componentsApplication"
-TOOLS = "componentsTools"
+TOOLS = "componentsExternalTools"
 
 ASPECTS_PATH = "graphTypes.component.emission.aspects"
 CONCERNS_PATH = "graphTypes.component.emission.concerns"
