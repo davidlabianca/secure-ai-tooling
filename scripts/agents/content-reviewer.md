@@ -88,6 +88,8 @@ If provided, use them to supplement (not override) the embedded schema awareness
 
 ## Schema Awareness
 
+This agent reads schema and corpus files directly via its own tool access when a check below says "consult the schema" or "consult the corpus" — that instruction does not depend on the caller pasting schema content into the prompt. The Input Contract's "caller may optionally provide schema files" above describes an inline convenience (skipping a tool call when the caller already has the file open), not a hard dependency the checks below assume.
+
 ### Content Types & Key Fields
 
 **Risks** (`risks.yaml`):
