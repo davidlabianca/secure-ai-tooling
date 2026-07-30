@@ -49,7 +49,7 @@ If a decision is about *how the Risk Map content model is shaped*, it belongs in
 | [031](031-authoring-time-agents-and-skills.md) | Authoring-time agents and skills for Risk Map content — creator + critic agents, classical-lexicon / mapping-selection / altitude-check / audit-framework-mappings skills | Accepted | 2026-07-01 |
 | [032](032-consumer-exploration-skills.md) | Read-only consumer exploration skill surface (explore-* skills) | Accepted | 2026-07-06 |
 | [033](033-vendor-neutral-agent-skill-shipping.md) | Vendor-neutral shipping and lifecycle for CoSAI agents and skills — canonical-only neutral cloneable artifacts, the neutrality contract (machine-checkable denylist + framework-authority allowlist), consumer adaptation, required neutrality check, develop/eval/expand lifecycle | Accepted | 2026-07-08 |
-| [034](034-corpus-change-landing-sequence.md) | Dependency-ordered landing sequence for risk-map corpus changes | Draft | 2026-07-09 |
+| [034](034-corpus-change-landing-sequence.md) | Dependency-ordered landing sequence for risk-map corpus changes | Accepted | 2026-07-09 |
 | [035](035-pinned-sources-manifest.md) | Pinned-sources manifest (`risk-map/yaml/sources.yaml`) for reproducible citation provenance — corpus-wide registry, disjoint-by-role sibling to `frameworks.yaml`, keep-and-flag fallback; implements ADR-031 D4 | Draft | 2026-07-22 |
 
 ## Conventions
