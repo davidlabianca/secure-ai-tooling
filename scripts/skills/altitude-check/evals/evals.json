@@ -110,6 +110,50 @@
         "Identifies the existing coarser components it belongs inside (e.g. componentAgentSystemInstruction / componentAgentInputHandling / componentReasoningCore)",
         "Recommends absorbing it as too fine-grained rather than adding a new component"
       ]
+    },
+    {
+      "id": 12,
+      "prompt": "Use ONLY the component list below to decide absorb/new/decompose — not the live risk-map/yaml/components.yaml, which changes over time (per ADR-033 Amendment 2026-07-30, this is a pinned eval fixture, not corpus content):\n\n- componentAgentReasoningCore — the agent's core reasoning/decision loop\n- componentAgentInputHandling — validates and normalizes input format/structure (encoding, schema, length) reaching the reasoning core; does not perform semantic or adversarial-content analysis\n- componentTools — external tools/services the agent invokes\n- componentRAGContent — retrieval-augmented-generation content store\n- componentModelServing — runtime that serves the model for inference\n- componentTrainingData — data used to train/fine-tune the model\n- componentEvalHarnessAndReporting — benchmark selection, running evals, scoring, and generating the report (one node covering three distinct loci)\n\nAltitude check: proposed component 'Prompt Injection Detection Filter' — sits between input handling and the reasoning core, scanning incoming content specifically for adversarial injection patterns before it reaches the reasoning core.",
+      "expected_output": "C1 — new at a de-sprawled band. Condition (1): it cannot cleanly absorb — componentAgentInputHandling validates/normalizes format, not adversarial content, a distinct locus; no other fixture entry is a candidate. Condition (2): reader-instructive — a control targeting injection-detection attaches here specifically, not generically to input handling. Both conditions clear, so this earns a new node rather than being folded into an existing one.",
+      "expectations": [
+        "Uses only the fixture list, not the live components.yaml, to ground the verdict",
+        "Concludes C1 clears both conditions and the outcome is new (not absorb, not decompose)",
+        "States it cannot absorb into componentAgentInputHandling because that component covers format validation, not adversarial-content detection",
+        "States naming it separately is reader-instructive because a control on injection detection attaches at a different point than generic input handling"
+      ]
+    },
+    {
+      "id": 13,
+      "prompt": "Use ONLY the component list below to decide absorb/new/decompose — not the live risk-map/yaml/components.yaml, which changes over time (per ADR-033 Amendment 2026-07-30, this is a pinned eval fixture, not corpus content):\n\n- componentAgentReasoningCore — the agent's core reasoning/decision loop\n- componentAgentInputHandling — validates and normalizes input format/structure (encoding, schema, length) reaching the reasoning core; does not perform semantic or adversarial-content analysis\n- componentTools — external tools/services the agent invokes\n- componentRAGContent — retrieval-augmented-generation content store\n- componentModelServing — runtime that serves the model for inference\n- componentTrainingData — data used to train/fine-tune the model\n- componentEvalHarnessAndReporting — benchmark selection, running evals, scoring, and generating the report (one node covering three distinct loci)\n\nAltitude check: proposed component 'Agent Memory Consolidation Step' — the process that periodically summarizes and folds prior conversation/episodic context into the agent's longer-term memory store, distinct from the reasoning core's per-turn processing.",
+      "expected_output": "C1 — new at a de-sprawled band. Condition (1): it cannot cleanly absorb — componentAgentReasoningCore handles per-turn inference, not periodic memory consolidation, and no other fixture entry is a candidate. Condition (2): reader-instructive — a control on memory-consolidation integrity (e.g. preventing a poisoned summary from persisting into long-term memory) attaches differently than one on the reasoning core itself, so naming this separately changes where that control attaches. Both conditions clear.",
+      "expectations": [
+        "Uses only the fixture list, not the live components.yaml, to ground the verdict",
+        "Concludes C1 clears both conditions and the outcome is new (not absorb, not decompose)",
+        "States it cannot absorb into componentAgentReasoningCore because that component is per-turn inference, not periodic memory consolidation",
+        "Explicitly addresses condition (2) (reader-instructive) rather than only condition (1), naming a control that would attach differently to memory consolidation than to the reasoning core"
+      ]
+    },
+    {
+      "id": 14,
+      "prompt": "Use ONLY the component list below to decide absorb/new/decompose — not the live risk-map/yaml/components.yaml, which changes over time (per ADR-033 Amendment 2026-07-30, this is a pinned eval fixture, not corpus content):\n\n- componentAgentReasoningCore — the agent's core reasoning/decision loop\n- componentAgentInputHandling — validates and normalizes input format/structure (encoding, schema, length) reaching the reasoning core; does not perform semantic or adversarial-content analysis\n- componentTools — external tools/services the agent invokes\n- componentRAGContent — retrieval-augmented-generation content store\n- componentModelServing — runtime that serves the model for inference\n- componentTrainingData — data used to train/fine-tune the model\n- componentEvalHarnessAndReporting — benchmark selection, running evals, scoring, and generating the report (one node covering three distinct loci)\n\nAltitude check: a contributor wants to attach a 'Benchmark Selection Bias' risk to componentEvalHarnessAndReporting. Should it absorb there, or does something else need to happen first?",
+      "expected_output": "C1 — decompose. componentEvalHarnessAndReporting bundles three distinct loci (benchmark selection, eval execution, report generation); a benchmark-selection-bias risk attaches specifically to the selection locus, not execution or reporting, so the existing fixture entry is itself not reader-instructive at its current grain. Recommend decomposing componentEvalHarnessAndReporting into its distinct loci (e.g. benchmark selection, eval execution, reporting) rather than absorbing yet another concern into the bundled node.",
+      "expectations": [
+        "Uses only the fixture list, not the live components.yaml, to ground the verdict",
+        "Concludes the outcome is decompose, not absorb and not new",
+        "Identifies that componentEvalHarnessAndReporting bundles three distinct loci (selection, execution, reporting)",
+        "Recommends decomposing the existing component rather than simply absorbing the new risk into it"
+      ]
+    },
+    {
+      "id": 15,
+      "prompt": "Use ONLY the component list below to decide absorb/new/decompose — not the live risk-map/yaml/components.yaml, which changes over time (per ADR-033 Amendment 2026-07-30, this is a pinned eval fixture, not corpus content):\n\n- componentAgentReasoningCore — the agent's core reasoning/decision loop\n- componentAgentInputHandling — validates and normalizes input format/structure (encoding, schema, length) reaching the reasoning core; does not perform semantic or adversarial-content analysis\n- componentTools — external tools/services the agent invokes\n- componentRAGContent — retrieval-augmented-generation content store\n- componentModelServing — runtime that serves the model for inference\n- componentTrainingData — data used to train/fine-tune the model\n- componentEvalHarnessAndReporting — benchmark selection, running evals, scoring, and generating the report (one node covering three distinct loci)\n\nAltitude check: separately, another contributor wants to attach a 'Report Falsification / Tampering' risk to componentEvalHarnessAndReporting. Same question: absorb, new, or decompose?",
+      "expected_output": "C1 — decompose, same underlying defect as the benchmark-selection case reached from a different angle: this confirms the decompose verdict is driven by componentEvalHarnessAndReporting's own grain problem (reachable from more than one direction), not a one-off artifact of how one case happened to be framed. Report falsification attaches to the reporting locus specifically, distinct from selection and execution — again showing the bundled node isn't reader-instructive. Recommend the same decomposition as case 14.",
+      "expectations": [
+        "Uses only the fixture list, not the live components.yaml, to ground the verdict",
+        "Concludes the outcome is decompose, not absorb and not new",
+        "Identifies that the report-falsification concern attaches to the reporting locus specifically, distinct from selection/execution",
+        "Recognizes this as the same grain defect as a benchmark-selection-style case, reachable from a different angle, not a one-off"
+      ]
     }
   ]
 }
