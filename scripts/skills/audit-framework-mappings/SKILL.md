@@ -23,14 +23,7 @@ For each entity with mappings, verify ALL of the following. Report pass/fail per
 
 ### Format and version compliance
 
-Mapping values are **version-pinned** (ADR-027): every value carries its framework's version token. Verify each value against the **canonical pinned pattern for its framework in the authoritative style guide** — read the patterns from the guide, do not restate them from memory (restating them here is how this check previously drifted stale). As of the current guide the pinned forms are, for example:
-
-- **MITRE ATLAS:** `AML.T####@5.0.1` / `AML.T####.###@5.0.1` (techniques), `AML.M####@5.0.1` (mitigations)
-- **NIST AI RMF:** subcategory-level, full function name, version-pinned — e.g. `MEASURE-2.3@1.0`, `GOVERN-6.2@1.0` (never the category alone, never an abbreviation like `MS-2.3`)
-- **STRIDE:** PascalCase, unversioned — `Spoofing`, `Tampering`, `Repudiation`, `InformationDisclosure`, `DenialOfService`, `ElevationOfPrivilege`
-- **OWASP Top 10 for LLM:** `LLM##:2025`
-- **ISO 22989:** the controlled role name, version-pinned `@2022`
-- **EU AI Act:** `Article ##@2024` / `Article ##(#)@2024`
+Mapping values are **version-pinned** (ADR-027): every value carries its framework's version token, except STRIDE, which is intentionally unversioned. Verify each value against the **canonical pinned pattern for its framework in the authoritative style guide** (`risk-map/docs/contributing/framework-mappings-style-guide.md`, "Identifier Enforcement" table) — read the patterns from the guide every time; do not restate them from memory or inline here. The guide is the single source for pattern and version-token conventions across every supported framework, including any framework registered after this skill was written — new frameworks are a recurring, actively-requested change (see open issues against `frameworks.yaml`), so nothing about the pinned-pattern set may live in two places.
 
 Flag any value whose form or version token does not match the guide's current pinned pattern.
 
@@ -49,8 +42,10 @@ Flag any value whose form or version token does not match the guide's current pi
 
 ### Term and identifier verification
 
-- [ ] **Verify identifiers exist in the source framework.** For MITRE ATLAS, confirm technique/mitigation IDs are real. For OWASP, confirm the category title matches. For ISO 22989, confirm role names match the standard's terminology.
-- [ ] **When proposing new mappings**, search the web to confirm the identifier is current and not deprecated or renamed in the latest version of the framework.
+Two distinct checks — do not conflate them. The first is structural and runs at whatever scope the audit is already covering; the second is a live, per-entity lookup that is never an automatic side effect of the first.
+
+- [ ] **Verify identifiers are well-formed against the style guide's patterns.** For MITRE ATLAS, technique/mitigation IDs match the pinned regex. For OWASP, the category title matches the guide. For ISO 22989, role names match the controlled vocabulary. This is a structural check — no live lookup — and applies at whatever scope the audit already covers, whole-corpus included, the same as the structural-compliance and selectivity checks above.
+- [ ] **Live-verify identifier currency (search the web)** when a specific identifier's currency is actually in question: proposing a new mapping value, or auditing a single **targeted** entity (per Scope) whose identifiers you are specifically confirming. This is a heavier, per-entity check. **It is not run automatically across every entry as a side effect of a whole-corpus audit** — a whole-corpus audit's job is the structural/selectivity/overlap sweep above, not a live web-search of every existing mapping in the file. If comprehensive liveness verification of the full corpus is genuinely wanted, invoke it as its own explicit, separately-requested pass — never as an implicit consequence of the routine audit.
 
 ## Coverage analysis (for whole-corpus scope only)
 

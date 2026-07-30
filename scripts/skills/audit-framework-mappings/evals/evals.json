@@ -92,6 +92,27 @@
         "Treats this as a structural (applicableTo) violation even though the identifier form is correct",
         "Grounds the applicability decision in the style guide's Framework Applicability table"
       ]
+    },
+    {
+      "id": 10,
+      "prompt": "Audit this control mapping: eu-ai-act: [Article 9]. Is it conformant?",
+      "expected_output": "Flags the missing version pin — ADR-027 requires Article 9@2024 — deferring to the style guide's pinned pattern.",
+      "expectations": [
+        "Flags that the value is missing its version pin (@2024) required by ADR-027",
+        "States the correct form is Article 9@2024",
+        "Reads the EU AI Act pinned pattern from the style guide rather than restating it from memory"
+      ]
+    },
+    {
+      "id": 11,
+      "prompt": "This is a targeted audit of a single control's mappings (not a whole-corpus sweep). Audit this mapping for identifier currency: mitre-atlas: [AML.T9999@5.0.1]. The value is well-formed — is it a real, current MITRE ATLAS identifier?",
+      "expected_output": "The value passes the structural/format check (well-formed AML.T####@5.0.1 pattern) but fails live verification: AML.T9999 is not a real or current MITRE ATLAS technique/mitigation id. Because this is a targeted single-entity audit, live web verification applies; recommends removing or correcting the mapping rather than accepting it on form alone.",
+      "expectations": [
+        "Confirms the value passes the structural/format check (correct AML.T####@5.0.1 pattern)",
+        "Live-verifies the identifier against the source framework and finds it does not exist / is not current",
+        "Does NOT accept the mapping as conformant merely because its form is well-pinned",
+        "Recognizes this as a targeted single-entity audit (per Scope) where live verification is expected, not a whole-corpus sweep that would skip it"
+      ]
     }
   ]
 }
