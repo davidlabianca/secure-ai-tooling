@@ -33,7 +33,7 @@ Apply each; report pass or adjust-with-fix.
 
 Apply each; report pass or adjust-with-fix.
 
-- **C1 — Absorb-or-decompose base test (both must hold to keep a new component).** (1) Can it absorb into an existing component (check `risk-map/yaml/components.yaml`)? (2) Would a reader still know *where* a control or risk applies at this grain? Outcomes: **absorb** into an existing component / **new at a de-sprawled band** / **decompose** an existing too-broad component.
+- **C1 — Absorb-or-decompose base test (both must hold to keep a new component).** (1) It **cannot** cleanly absorb into an existing component (check `risk-map/yaml/components.yaml`). (2) Naming it at this grain still tells a reader *where* a control or risk applies. Outcomes: **absorb** into an existing component (fails (1)) / **new at a de-sprawled band** (clears both) / **decompose** an existing too-broad component (the existing component itself fails to be reader-instructive at its current grain).
 - **C2 — Role, not product/protocol.** The component's identity is the role or locus it occupies; a specific product or protocol (a named framework, a vendor tool) is an attribute, not the identity. A protocol-named component invites sibling sprawl. Generalize, and keep the product only as an example. (Defer terminology to the classical-lexicon skill.)
 - **C3 — Reader-instructive.** A component earns its place only if naming it tells a reader *where* a control or risk attaches. If adding it does not change where anything attaches, it is too fine-grained — absorb it.
 
