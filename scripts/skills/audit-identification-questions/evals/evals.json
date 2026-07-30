@@ -73,6 +73,17 @@
         "States the style guide's ordering rule (most distinguishing activity first, boundary-clarifying questions last)",
         "Suggests reordering so the most distinguishing question leads and the boundary-clarifying question ends the list"
       ]
+    },
+    {
+      "id": 8,
+      "prompt": "Audit the example terms in this question: 'Do you orchestrate multi-agent workflows (e.g., LangGraph, AutoGPT-Prime, CrewAI)?'",
+      "expected_output": "LangGraph and CrewAI are real, established multi-agent orchestration frameworks with strong real-world usage; 'AutoGPT-Prime' does not correspond to any established framework, tool, or documented variant -- it is a fabricated/colloquial-sounding term. Flags AutoGPT-Prime specifically and does not flag LangGraph or CrewAI.",
+      "expectations": [
+        "Confirms LangGraph and CrewAI as established, real frameworks (does not flag them)",
+        "Flags 'AutoGPT-Prime' as not an established or verifiable term",
+        "States it searched for real-world usage rather than accepting the term on its plausible-sounding name alone",
+        "Does not accept the parenthetical as conformant just because two of the three terms are real"
+      ]
     }
   ]
 }

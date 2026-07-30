@@ -27,13 +27,13 @@ For each persona with `identificationQuestions`, verify ALL of the following. Re
 
 ### Structure
 
-- [ ] **Count 5-7**: Between 5 and 7 questions inclusive
+- [ ] **Count in range**: read the count bound from the style guide's Rule enforcement summary (`validate-identification-questions` hook) rather than restating the number here
 - [ ] **Yes/no answerable**: Every question can be answered with yes or no
 - [ ] **No embedded conditionals**: No nested conditions requiring evaluation before answering
 
 ### Framing
 
-- [ ] **Second-person, activity-focused**: Questions ask what *you* do — "Do you…", "Are you…", "Does your team…" — about the reader's activities. Avoid framings about a system/platform/product ("Is your system…", "Does your platform…") and third-person framings about other roles ("Do developers…").
+- [ ] **Second-person, activity-focused**: Questions ask what *you* do about the reader's own activities, using the approved second-person openers listed in the style guide's Rule enforcement summary. Avoid framings about a system/platform/product ("Is your system…", "Does your platform…") and third-person framings about other roles ("Do developers…").
 - [ ] **Activity-focused**: Questions describe what the reader does, not what their job title is or what their product is
 
 ### Scoping and boundaries
@@ -43,8 +43,9 @@ For each persona with `identificationQuestions`, verify ALL of the following. Re
 
 ### Examples and terminology
 
-- [ ] **Parenthetical examples**: Technical terms have parenthetical examples using `(e.g., item1, item2, item3)` format — NOT "such as" inline, NOT parenthetical without "e.g."
-- [ ] **Example list length**: Parenthetical lists have 2-4 items
+- [ ] **Parenthetical examples**: Technical terms have parenthetical examples using `(e.g., item1, item2, item3)` format — NOT "such as" inline
+- [ ] **`e.g.` not `i.e.`**: parentheticals signal an illustrative list, never an exhaustive one — read the exact rule from the style guide's Rule enforcement summary
+- [ ] **Example list length**: read the item-count bound from the style guide's Rule enforcement summary rather than restating it here
 - [ ] **"including" for scope expansion**: Used where the base term might be read too narrowly
 
 ### Ordering
