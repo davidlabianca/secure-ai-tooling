@@ -105,12 +105,13 @@
     },
     {
       "id": 11,
-      "prompt": "This is a targeted audit of a single control's mappings (not a whole-corpus sweep). Audit this mapping for identifier currency: mitre-atlas: [AML.T9999@5.0.1]. The value is well-formed — is it a real, current MITRE ATLAS identifier?",
-      "expected_output": "The value passes the structural/format check (well-formed AML.T####@5.0.1 pattern) but fails live verification: AML.T9999 is not a real or current MITRE ATLAS technique/mitigation id. Because this is a targeted single-entity audit, live web verification applies; recommends removing or correcting the mapping rather than accepting it on form alone.",
+      "prompt": "This is a targeted audit of a single control's mappings (not a whole-corpus sweep). Audit this mapping for identifier currency: mitre-atlas: [AML.M9999@5.0.1]. The value is well-formed and correctly a mitigation (not a technique) for a control — is it a real, current MITRE ATLAS identifier?",
+      "expected_output": "The value passes every structural check (well-formed AML.M####@5.0.1 pattern; correct mitigation-on-control class, no crossover) but fails live verification: MITRE ATLAS currently has only ~32 mitigations (AML.M0000 through roughly AML.M0031); AML.M9999 is far outside that range and does not exist. Because this is a targeted single-entity audit, live web verification applies; recommends removing or correcting the mapping rather than accepting it on form alone.",
       "expectations": [
-        "Confirms the value passes the structural/format check (correct AML.T####@5.0.1 pattern)",
+        "Confirms the value passes the structural/format check (correct AML.M####@5.0.1 pattern)",
+        "Confirms no technique/mitigation crossover (a mitigation is correct for a control) -- the case is designed so only live verification can fail it, not the structural crossover check",
         "Live-verifies the identifier against the source framework and finds it does not exist / is not current",
-        "Does NOT accept the mapping as conformant merely because its form is well-pinned",
+        "Does NOT accept the mapping as conformant merely because its form and class are correct",
         "Recognizes this as a targeted single-entity audit (per Scope) where live verification is expected, not a whole-corpus sweep that would skip it"
       ]
     }
