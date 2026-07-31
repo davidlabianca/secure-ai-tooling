@@ -68,6 +68,7 @@ The caller specifies output style via a format flag:
    - `components.yaml`
    - `personas.yaml`
    - `risk-map/yaml/archive/self-assessment-legacy.yaml` (reference only — archived per ADR-021 D6; not a review target)
+   - `docs/adr/` — the tooling/infrastructure ADR set, consulted whenever a corpus claim cites or should be checked against a specific decision (see ADR Citation Resolution below)
 
 **For `issue` mode:**
 
@@ -89,6 +90,10 @@ If provided, use them to supplement (not override) the embedded schema awareness
 ## Schema Awareness
 
 This agent reads schema and corpus files directly via its own tool access when a check below says "consult the schema" or "consult the corpus" — that instruction does not depend on the caller pasting schema content into the prompt. The Input Contract's "caller may optionally provide schema files" above describes an inline convenience (skipping a tool call when the caller already has the file open), not a hard dependency the checks below assume.
+
+### ADR Citation Resolution
+
+Corpus content, PR descriptions, and prior review findings sometimes cite a specific decision as `ADR-0NN DN` (e.g. `ADR-030 D5`). Cross-cutting rules are uniformly `D`-numbered across the ADR set — there is no separate `P` tier to disambiguate. Resolve every such citation before relying on it or repeating it in a finding: read `docs/adr/0NN-*.md` and find the `### DN.` heading; do not accept a paraphrase, a title, or an inference about what a decision says as a substitute for its actual text. A rule that a decision states applies "throughout" the document can still sit inside a sub-paragraph whose surrounding heading reads as being about something else entirely — the citation is only as good as the text it resolves to.
 
 ### Content Types & Key Fields
 
