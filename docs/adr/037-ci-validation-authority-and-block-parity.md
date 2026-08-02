@@ -42,7 +42,7 @@ The rule quantifies over pre-commit's **blocking** hooks, not over a fixed list 
 
 This settles the developer question directly. Contributors who have not installed hooks are fully covered, because nothing depends on their having done so. Hooks are an accelerator that moves a failure from minutes-after-push to seconds-before-commit; they are not load-bearing for correctness. "The hook may not be installed" stops being a caveat and becomes a statement about latency.
 
-The eight hooks the rule resolves to, and what it requires of each. The table lists the rule's *instances*, not the rule; it is expected to grow without this ADR changing.
+The twelve hooks the rule resolves to, and what it requires of each. The table lists the rule's *instances*, not the rule; it is expected to grow without this ADR changing.
 
 | pre-commit hook id | Validator | CI state before this decision | Required by D1 | Instance |
 |---|---|---|---|---|
@@ -53,6 +53,10 @@ The eight hooks the rule resolves to, and what it requires of each. The table li
 | `validate-mapping-purity` | `scripts/hooks/precommit/validate_mapping_purity.py` | not invoked | add the invocation | [D8](#d8-blocking-validators-that-take-no-flag-are-instances-not-exceptions) |
 | `validate-mapping-drift` | `scripts/hooks/precommit/validate_mapping_drift.py` | not invoked | add the invocation | D8 |
 | `validate-frameworks-versionid-purity` | `scripts/hooks/precommit/validate_versionid_purity.py` | not invoked | add the invocation | D8 |
+| `validate-all-yaml-on-master-schema-change` | `scripts/hooks/precommit/validate_all_schemas.py` | not invoked | add the invocation | D8 |
+| `validate-persona-site-build` | `scripts/hooks/precommit/validate_persona_site_build.py` | not invoked | add the invocation | D8 |
+| `validate-neutrality` | `scripts/hooks/precommit/validate_neutrality.py` | not invoked | add the invocation | D8 |
+| `validate-neutrality-policy` | `scripts/hooks/precommit/validate_neutrality.py` | not invoked | add the invocation | D8 |
 | `validate-prose-references` | `scripts/hooks/precommit/validate_prose_references.py` | not invoked | add the invocation | D7 |
 
 D3 carves the one exception, and it is an exception at the level of a specific *invocation* rather than of a validator: the validator D2 governs is also called for graph emission, and that call site does not take the flag.
@@ -137,7 +141,9 @@ Per ADR-025 D10, each new invocation is shown to fail on a deliberately injected
 
 ### D8. Blocking validators that take no flag are instances, not exceptions
 
-`validate-mapping-purity`, `validate-mapping-drift` and `validate-frameworks-versionid-purity` gain CI invocations on the same terms as D7's three.
+Six validators across seven hooks gain CI invocations on the same terms as D7's three: `validate-mapping-purity`, `validate-mapping-drift`, `validate-frameworks-versionid-purity`, `validate-all-yaml-on-master-schema-change`, `validate-persona-site-build`, and `validate_neutrality.py` under both of the hook ids that invoke it.
+
+**No carve-out for the fan-out hook.** `validate-all-yaml-on-master-schema-change` exists to widen scope after its trigger fires — one master-schema edit validates every yaml — and [ADR-005](005-pre-commit-framework.md) carves it out of the *trigger* invariant for that reason. That carve-out does not transfer here: this rule is about coverage, not triggers. CI's schema-validation job already checks the same nine pairs, but from a list transcribed into shell rather than derived, so a schema added tomorrow is covered by the hook and missed by CI until someone edits the array. That is the drift D7a already rules on — "a file the hook covers and the workflow omits is unchecked in CI while appearing checked" — and running the validator, which derives its own pairs, is the simplest form of complying with it.
 
 They are separated from D7 only because they were found by a different route and have a different cause. D7's three are invoked by pre-commit with `--block` and simply never wired to CI. These three are invoked with no flag at all — they have no warn-only tier, so a violation exits non-zero unconditionally — and D1 as first drafted quantified over `--block` hooks, which cannot see them. The gap was not that they were overlooked against the rule; it was that the rule could not reach them.
 
