@@ -77,7 +77,7 @@ graphTypes:
     # 'decoupled' (with direction: 'LR') alongside a regenerated diagram, per
     # the ADR's two-PR landing sequence (Follow-up).
     emission:
-      mode: 'flat'
+      mode: 'decoupled'
       # Declared aspect (sink) components lifted out of the drawn graph (D4).
       # componentSecureLogging is the sole candidate today: out-degree 0, live
       # cross in-degree 17, well above the 10 threshold.

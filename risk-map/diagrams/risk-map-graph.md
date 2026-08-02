@@ -7,183 +7,318 @@ config:
     nodePlacementStrategy: BRANDES_KOEPF
 ---
 
-graph TD
+graph LR
    %%{init: {'flowchart': {'nodeSpacing': 25, 'rankSpacing': 30, 'padding': 5, 'wrappingWidth': 250}}}%%
     classDef hidden display: none;
     classDef allControl stroke:#4285f4,stroke-width:2px,stroke-dasharray: 5 5
 
-    subgraph componentsInfrastructure ["Infrastructure Components"]
-        subgraph componentsData ["Data"]
-            componentDataFilteringAndProcessing[Data Filtering and Processing]
-            componentDataSources[Data Sources]
-            componentDataStorage[Data Storage Infrastructure]
-            componentTrainingData[Training Data]
+%% componentSecureLogging is a lifted aspect (D4) -- 17 cross in-edge(s) removed from the drawn graph, by source cluster:
+%%   componentsApplication (8): componentAgentInputHandling, componentAgentNetworkPolicyEnforcementPoint, componentAgentOutputHandling, componentApplication, componentApplicationInputHandling, componentApplicationNetworkPolicyEnforcementPoint, componentApplicationOutputHandling, componentReasoningCore
+%%   componentsExternalTools (6): componentAuthorizationPolicyEnforcementPoint, componentToolInputHandling, componentToolNetworkPolicyEnforcementPoint, componentToolOutputHandling, componentToolServer, componentTools
+%%   componentsModel (3): componentModelServing, componentOrchestrationInputHandling, componentOrchestrationOutputHandling
+
+%% app + agent egress ⇢ 1 — the port-to-port hops are documented here, never drawn:
+%%   p_out_app_app_agent_egress ⇢ p_in_model_app_agent_egress
+
+%% tool calls ⇢ 1 — the port-to-port hops are documented here, never drawn:
+%%   p_out_app_tool_calls ⇢ p_in_tools_tool_calls
+
+%% tool registration ⇢ 1 — the port-to-port hops are documented here, never drawn:
+%%   p_out_tools_tool_registration ⇢ p_in_infra_tool_registration
+
+%% tool results ⇢ 1 — the port-to-port hops are documented here, never drawn:
+%%   p_out_tools_tool_results ⇢ p_in_app_tool_results
+
+%% identity & authz ⇢ 6 — the port-to-port hops are documented here, never drawn:
+%%   p_out_infra_identity_authz ⇢ p_in_app_identity_authz_agent_network_policy_enforcement_point
+%%   p_out_infra_identity_authz ⇢ p_in_app_identity_authz_application_network_policy_enforcement_point
+%%   p_out_infra_identity_authz ⇢ p_in_tools_identity_authz_authorization_policy_enforcement_point
+%%   p_out_infra_identity_authz ⇢ p_in_tools_identity_authz_federation_proxy
+%%   p_out_infra_identity_authz ⇢ p_in_tools_identity_authz_tool_network_policy_enforcement_point
+%%   p_out_infra_identity_authz ⇢ p_in_model_identity_authz
+
+%% model artifacts ⇢ 1 — the port-to-port hops are documented here, never drawn:
+%%   p_out_infra_model_artifacts ⇢ p_in_model_model_artifacts
+
+%% runtime hosting ⇢ 3 — the port-to-port hops are documented here, never drawn:
+%%   p_out_infra_runtime_hosting ⇢ p_in_app_runtime_hosting_application
+%%   p_out_infra_runtime_hosting ⇢ p_in_app_runtime_hosting_reasoning_core
+%%   p_out_infra_runtime_hosting ⇢ p_in_model_runtime_hosting
+
+%% tool discovery ⇢ 1 — the port-to-port hops are documented here, never drawn:
+%%   p_out_infra_tool_discovery ⇢ p_in_tools_tool_discovery
+
+%% tool hosting ⇢ 1 — the port-to-port hops are documented here, never drawn:
+%%   p_out_infra_tool_hosting ⇢ p_in_tools_tool_hosting
+
+%% training data ⇢ 1 — the port-to-port hops are documented here, never drawn:
+%%   p_out_infra_training_data ⇢ p_in_model_training_data
+
+%% inference / serving ⇢ 2 — the port-to-port hops are documented here, never drawn:
+%%   p_out_model_inference_serving ⇢ p_in_app_inference_serving_agent_network_policy_enforcement_point
+%%   p_out_model_inference_serving ⇢ p_in_app_inference_serving_application_network_policy_enforcement_point
+
+%% model publish ⇢ 1 — the port-to-port hops are documented here, never drawn:
+%%   p_out_model_model_publish ⇢ p_in_infra_model_publish
+
+%% Reachability diagnostics (advisory only, D2/S8 -- never blocks emission):
+%%   reachability diagnostic (advisory only): channel componentsInfrastructure->componentsApplication concern='identity & authz' arms componentAgentNetworkPolicyEnforcementPoint and componentApplicationNetworkPolicyEnforcementPoint are mutually intra-reachable
+%%   reachability diagnostic (advisory only): channel componentsInfrastructure->componentsApplication concern='runtime hosting' arms componentApplication and componentReasoningCore are mutually intra-reachable
+%%   reachability diagnostic (advisory only): channel componentsInfrastructure->componentsExternalTools concern='identity & authz' arms componentAuthorizationPolicyEnforcementPoint and componentToolNetworkPolicyEnforcementPoint are mutually intra-reachable
+%%   reachability diagnostic (advisory only): channel componentsModel->componentsApplication concern='inference / serving' arms componentAgentNetworkPolicyEnforcementPoint and componentApplicationNetworkPolicyEnforcementPoint are mutually intra-reachable
+
+    classDef port fill:#fff5f5,stroke:#c0392b,stroke-width:1.5px,stroke-dasharray:4 3
+    classDef pepport fill:#eef7ff,stroke:#2c3e83,stroke-width:1.5px,stroke-dasharray:4 3
+    classDef aspectStyle fill:#fdf6e3,stroke:#b58900,stroke-width:1.5px,stroke-dasharray:4 3
+
+subgraph componentsApplication ["Application Components"]
+    subgraph componentsApplication_egress ["Egress"]
+        p_out_app_app_agent_egress["▸ app + agent egress  ⇢ 1"]:::port
+        p_out_app_tool_calls["▸ tool calls  ⇢ 1"]:::port
+    end
+    subgraph componentsApplication_ingress ["Ingress"]
+        p_in_app_tool_results["tool results ▸"]:::port
+        p_in_app_identity_authz_agent_network_policy_enforcement_point["identity & authz → agent network PEP ▸"]:::port
+        p_in_app_identity_authz_application_network_policy_enforcement_point["identity & authz → application network PEP ▸"]:::port
+        p_in_app_runtime_hosting_application["runtime hosting → application ▸"]:::port
+        p_in_app_runtime_hosting_reasoning_core["runtime hosting → reasoning core ▸"]:::port
+        p_in_app_inference_serving_agent_network_policy_enforcement_point["inference / serving → agent network PEP ▸"]:::port
+        p_in_app_inference_serving_application_network_policy_enforcement_point["inference / serving → application network PEP ▸"]:::port
+    end
+    subgraph componentsAgent ["Agent"]
+        componentAgentConsentSurface[Agent Consent Elicitation Surface]
+        componentAgentInputHandling[Input Handling]
+        subgraph agentNetworkPep_wrap ["Agent Network PEP"]
+            agentNetworkPep_in["in"]:::pepport
+            agentNetworkPep_out["out"]:::pepport
+            componentAgentNetworkPolicyEnforcementPoint[Agent Network PEP]
         end
-        subgraph componentsDeployment ["Deployment"]
-            componentIsolationRuntime[Isolation Runtime Boundary]
-            componentModelStorage[Model Storage]
-            componentRuntimeHosting[Runtime Hosting]
-            componentSecureLogging[Secure Logging]
-            componentToolHosting[Tool Hosting]
+        componentAgentOutputHandling[Output Handling]
+        componentAgentSystemInstruction[Agent System Instructions]
+        componentAgentToolTransport[Agent Tool Transport Channel]
+        componentAgentUserQuery[Agent User Query]
+        componentReasoningCore[Agent Reasoning Core]
+    end
+    subgraph componentsApplicationCore ["Application Core"]
+        componentApplication[Application]
+        componentApplicationConsentSurface[Application Consent Surface]
+        componentApplicationInputHandling[Input Handling]
+        subgraph applicationNetworkPep_wrap ["Application Network PEP"]
+            applicationNetworkPep_in["in"]:::pepport
+            applicationNetworkPep_out["out"]:::pepport
+            componentApplicationNetworkPolicyEnforcementPoint[Application Network PEP]
         end
-        subgraph componentsRegistries ["Registries"]
-            componentModelRegistry[Model Registry and Marketplace]
-            componentToolRegistry[Tool Registry and Discovery]
+        componentApplicationOutputHandling[Output Handling]
+    end
+end
+
+subgraph componentsExternalTools ["External Tools Components"]
+    subgraph componentsExternalTools_egress ["Egress"]
+        p_out_tools_tool_registration["▸ tool registration  ⇢ 1"]:::port
+        p_out_tools_tool_results["▸ tool results  ⇢ 1"]:::port
+    end
+    subgraph componentsExternalTools_ingress ["Ingress"]
+        p_in_tools_tool_calls["tool calls ▸"]:::port
+        p_in_tools_identity_authz_authorization_policy_enforcement_point["identity & authz → authorization PEP ▸"]:::port
+        p_in_tools_identity_authz_federation_proxy["identity & authz → federation proxy ▸"]:::port
+        p_in_tools_identity_authz_tool_network_policy_enforcement_point["identity & authz → tool network PEP ▸"]:::port
+        p_in_tools_tool_discovery["tool discovery ▸"]:::port
+        p_in_tools_tool_hosting["tool hosting ▸"]:::port
+    end
+    subgraph componentsToolInvocationPath ["Tool Invocation Path"]
+        subgraph authorizationPep_wrap ["Authorization PEP"]
+            authorizationPep_in["in"]:::pepport
+            authorizationPep_out["out"]:::pepport
+            componentAuthorizationPolicyEnforcementPoint[Authorization PEP]
         end
-        subgraph componentsIdentity ["Identity"]
-            componentAuthorizationPolicyDecisionPoint[Authorization Policy Decision Point]
-            componentIdentityProvider[Identity Provider]
+        componentExternalPromptTemplate[External Prompt Templates]
+        componentToolInputHandling[Tool Input Handling]
+        componentToolOutputHandling[Tool Output Handling]
+        componentToolServer[Tool Server]
+        componentTools[External Tools and Services]
+    end
+    subgraph componentsToolNetworkControls ["Tool Network Controls"]
+        componentFederationProxy[Authorization Federation Proxy]
+        subgraph toolNetworkPep_wrap ["Tool Network PEP"]
+            toolNetworkPep_in["in"]:::pepport
+            toolNetworkPep_out["out"]:::pepport
+            componentToolNetworkPolicyEnforcementPoint[Tool Network PEP]
         end
     end
+end
 
-    subgraph componentsModel ["Model Components"]
-        subgraph componentsModelTraining ["Model Training"]
-            componentModelEvaluation[Model Evaluation]
-            componentModelFrameworksAndCode[Model Frameworks and Code]
-            componentModelTrainingTuning[Training and Tuning]
-        end
-        subgraph componentsModelCore ["Model Core"]
-            componentModelServing[Model Serving Infrastructure]
-            componentTheModel[The Model]
-        end
-        subgraph componentsOrchestration ["Orchestration"]
-            componentMemory[Model Memory]
-            componentOrchestrationInputHandling[Input Handling]
-            componentOrchestrationOutputHandling[Output Handling]
-            componentRAGContent[Retrieval Augmented Generation & Content]
-        end
+subgraph componentsInfrastructure ["Infrastructure Components"]
+    subgraph componentsInfrastructure_egress ["Egress"]
+        p_out_infra_identity_authz["▸ identity & authz  ⇢ 6"]:::port
+        p_out_infra_model_artifacts["▸ model artifacts  ⇢ 1"]:::port
+        p_out_infra_runtime_hosting["▸ runtime hosting  ⇢ 3"]:::port
+        p_out_infra_tool_discovery["▸ tool discovery  ⇢ 1"]:::port
+        p_out_infra_tool_hosting["▸ tool hosting  ⇢ 1"]:::port
+        p_out_infra_training_data["▸ training data  ⇢ 1"]:::port
     end
-
-    subgraph componentsApplication ["Application Components"]
-        subgraph componentsApplicationCore ["Application Core"]
-            componentApplication[Application]
-            componentApplicationConsentSurface[Application Consent Surface]
-            componentApplicationInputHandling[Input Handling]
-            componentApplicationNetworkPolicyEnforcementPoint[Application Network Policy Enforcement Point]
-            componentApplicationOutputHandling[Output Handling]
-        end
-        subgraph componentsAgent ["Agent"]
-            componentAgentConsentSurface[Agent Consent Elicitation Surface]
-            componentAgentInputHandling[Input Handling]
-            componentAgentNetworkPolicyEnforcementPoint[Agent Network Policy Enforcement Point]
-            componentAgentOutputHandling[Output Handling]
-            componentAgentSystemInstruction[Agent System Instructions]
-            componentAgentToolTransport[Agent Tool Transport Channel]
-            componentAgentUserQuery[Agent User Query]
-            componentReasoningCore[Agent Reasoning Core]
-        end
+    subgraph componentsInfrastructure_ingress ["Ingress"]
+        p_in_infra_tool_registration["tool registration ▸"]:::port
+        p_in_infra_model_publish["model publish ▸"]:::port
     end
-
-    subgraph componentsExternalTools ["External Tools Components"]
-        subgraph componentsToolInvocationPath ["Tool Invocation Path"]
-            componentAuthorizationPolicyEnforcementPoint[Authorization Policy Enforcement Point]
-            componentExternalPromptTemplate[External Prompt Templates]
-            componentToolInputHandling[Tool Input Handling]
-            componentToolOutputHandling[Tool Output Handling]
-            componentToolServer[Tool Server]
-            componentTools[External Tools and Services]
-        end
-        subgraph componentsToolNetworkControls ["Tool Network Controls"]
-            componentFederationProxy[Authorization Federation Proxy]
-            componentToolNetworkPolicyEnforcementPoint[Tool Network Policy Enforcement Point]
-        end
+    subgraph componentsData ["Data"]
+        componentDataFilteringAndProcessing[Data Filtering and Processing]
+        componentDataSources[Data Sources]
+        componentDataStorage[Data Storage Infrastructure]
+        componentTrainingData[Training Data]
     end
+    subgraph componentsDeployment ["Deployment"]
+        componentIsolationRuntime[Isolation Runtime Boundary]
+        componentModelStorage[Model Storage]
+        componentRuntimeHosting[Runtime Hosting]
+        componentSecureLogging[Secure Logging<br/>17 writes lifted]:::aspectStyle
+        componentToolHosting[Tool Hosting]
+    end
+    subgraph componentsIdentity ["Identity"]
+        componentAuthorizationPolicyDecisionPoint[Authorization Policy Decision Point]
+        componentIdentityProvider[Identity Provider]
+    end
+    subgraph componentsRegistries ["Registries"]
+        componentModelRegistry[Model Registry and Marketplace]
+        componentToolRegistry[Tool Registry and Discovery]
+    end
+end
+
+subgraph componentsModel ["Model Components"]
+    subgraph componentsModel_egress ["Egress"]
+        p_out_model_inference_serving["▸ inference / serving  ⇢ 2"]:::port
+        p_out_model_model_publish["▸ model publish  ⇢ 1"]:::port
+    end
+    subgraph componentsModel_ingress ["Ingress"]
+        p_in_model_app_agent_egress["app + agent egress ▸"]:::port
+        p_in_model_identity_authz["identity & authz ▸"]:::port
+        p_in_model_model_artifacts["model artifacts ▸"]:::port
+        p_in_model_runtime_hosting["runtime hosting ▸"]:::port
+        p_in_model_training_data["training data ▸"]:::port
+    end
+    subgraph componentsModelCore ["Model Core"]
+        componentModelServing[Model Serving Infrastructure]
+        componentTheModel[The Model]
+    end
+    subgraph componentsModelTraining ["Model Training"]
+        componentModelEvaluation[Model Evaluation]
+        componentModelFrameworksAndCode[Model Frameworks and Code]
+        componentModelTrainingTuning[Training and Tuning]
+    end
+    subgraph componentsOrchestration ["Orchestration"]
+        componentMemory[Model Memory]
+        componentOrchestrationInputHandling[Input Handling]
+        componentOrchestrationOutputHandling[Output Handling]
+        componentRAGContent[Retrieval Augmented Generation & Content]
+    end
+end
 
 
-    componentDataSources --> componentDataFilteringAndProcessing
-    componentDataFilteringAndProcessing --> componentTrainingData
-    componentTrainingData --> componentDataStorage
-    componentDataStorage --> componentModelTrainingTuning
-    componentModelFrameworksAndCode --> componentModelTrainingTuning
-    componentModelEvaluation --> componentModelTrainingTuning
-    componentModelTrainingTuning --> componentTheModel
-    componentModelTrainingTuning --> componentModelRegistry
-    componentModelStorage --> componentModelServing
-    componentModelServing --> componentTheModel
-    componentModelServing --> componentSecureLogging
-    componentModelServing --> componentApplicationNetworkPolicyEnforcementPoint
-    componentModelServing --> componentAgentNetworkPolicyEnforcementPoint
-    componentModelServing --> componentOrchestrationInputHandling
-    componentModelRegistry --> componentModelServing
-    componentModelRegistry --> componentModelStorage
-    componentTheModel --> componentModelEvaluation
-    componentTheModel --> componentModelServing
-    componentApplication --> componentApplicationOutputHandling
-    componentApplication --> componentSecureLogging
-    componentApplicationOutputHandling --> componentApplicationNetworkPolicyEnforcementPoint
-    componentApplicationOutputHandling --> componentApplicationConsentSurface
-    componentApplicationOutputHandling --> componentSecureLogging
-    componentApplicationInputHandling --> componentApplication
-    componentApplicationInputHandling --> componentSecureLogging
-    componentReasoningCore --> componentAgentOutputHandling
-    componentReasoningCore --> componentSecureLogging
-    componentOrchestrationOutputHandling --> componentSecureLogging
-    componentOrchestrationOutputHandling --> componentModelServing
-    componentOrchestrationInputHandling --> componentMemory
-    componentOrchestrationInputHandling --> componentRAGContent
-    componentOrchestrationInputHandling --> componentSecureLogging
-    componentOrchestrationInputHandling --> componentOrchestrationOutputHandling
-    componentTools --> componentToolServer
-    componentTools --> componentToolRegistry
-    componentTools --> componentSecureLogging
-    componentToolRegistry --> componentToolNetworkPolicyEnforcementPoint
-    componentMemory --> componentOrchestrationOutputHandling
-    componentRAGContent --> componentOrchestrationOutputHandling
-    componentAgentUserQuery --> componentAgentInputHandling
-    componentAgentSystemInstruction --> componentAgentInputHandling
-    componentAgentInputHandling --> componentReasoningCore
-    componentAgentInputHandling --> componentSecureLogging
-    componentAgentOutputHandling --> componentAgentConsentSurface
-    componentAgentOutputHandling --> componentAgentNetworkPolicyEnforcementPoint
-    componentAgentOutputHandling --> componentSecureLogging
-    componentIdentityProvider --> componentAuthorizationPolicyDecisionPoint
-    componentIdentityProvider --> componentFederationProxy
-    componentIdentityProvider --> componentToolNetworkPolicyEnforcementPoint
-    componentIdentityProvider --> componentAgentNetworkPolicyEnforcementPoint
-    componentIdentityProvider --> componentApplicationNetworkPolicyEnforcementPoint
-    componentIdentityProvider --> componentModelServing
-    componentAuthorizationPolicyDecisionPoint --> componentAuthorizationPolicyEnforcementPoint
-    componentAuthorizationPolicyDecisionPoint --> componentToolNetworkPolicyEnforcementPoint
-    componentAuthorizationPolicyDecisionPoint --> componentAgentNetworkPolicyEnforcementPoint
-    componentAuthorizationPolicyDecisionPoint --> componentApplicationNetworkPolicyEnforcementPoint
-    componentAuthorizationPolicyDecisionPoint --> componentModelServing
-    componentExternalPromptTemplate --> componentToolInputHandling
     componentAgentConsentSurface --> componentAgentInputHandling
-    componentIsolationRuntime --> componentToolHosting
-    componentIsolationRuntime --> componentRuntimeHosting
-    componentToolServer --> componentToolOutputHandling
-    componentToolServer --> componentTools
-    componentToolServer --> componentSecureLogging
-    componentAgentToolTransport --> componentAgentNetworkPolicyEnforcementPoint
-    componentAgentToolTransport --> componentToolNetworkPolicyEnforcementPoint
-    componentFederationProxy --> componentToolNetworkPolicyEnforcementPoint
-    componentAgentNetworkPolicyEnforcementPoint --> componentAgentInputHandling
-    componentAgentNetworkPolicyEnforcementPoint --> componentAgentToolTransport
-    componentAgentNetworkPolicyEnforcementPoint --> componentModelServing
-    componentAgentNetworkPolicyEnforcementPoint --> componentApplicationNetworkPolicyEnforcementPoint
-    componentAgentNetworkPolicyEnforcementPoint --> componentSecureLogging
-    componentAuthorizationPolicyEnforcementPoint --> componentToolServer
-    componentAuthorizationPolicyEnforcementPoint --> componentSecureLogging
-    componentToolNetworkPolicyEnforcementPoint --> componentAgentToolTransport
-    componentToolNetworkPolicyEnforcementPoint --> componentToolInputHandling
-    componentToolNetworkPolicyEnforcementPoint --> componentSecureLogging
+    componentAgentInputHandling --> componentReasoningCore
+    agentNetworkPep_out --> componentAgentInputHandling
+    agentNetworkPep_out --> componentAgentToolTransport
+    agentNetworkPep_out --> applicationNetworkPep_in
+    componentAgentOutputHandling --> componentAgentConsentSurface
+    componentAgentOutputHandling --> agentNetworkPep_in
+    componentAgentSystemInstruction --> componentAgentInputHandling
+    componentAgentToolTransport --> agentNetworkPep_in
+    componentAgentUserQuery --> componentAgentInputHandling
+    componentApplication --> componentApplicationOutputHandling
     componentApplicationConsentSurface --> componentApplicationInputHandling
-    componentApplicationNetworkPolicyEnforcementPoint --> componentApplicationInputHandling
-    componentApplicationNetworkPolicyEnforcementPoint --> componentModelServing
-    componentApplicationNetworkPolicyEnforcementPoint --> componentAgentNetworkPolicyEnforcementPoint
-    componentApplicationNetworkPolicyEnforcementPoint --> componentSecureLogging
-    componentToolHosting --> componentToolServer
-    componentRuntimeHosting --> componentModelServing
-    componentRuntimeHosting --> componentApplication
-    componentRuntimeHosting --> componentReasoningCore
-    componentToolInputHandling --> componentAuthorizationPolicyEnforcementPoint
-    componentToolInputHandling --> componentSecureLogging
-    componentToolOutputHandling --> componentToolNetworkPolicyEnforcementPoint
-    componentToolOutputHandling --> componentSecureLogging
+    componentApplicationInputHandling --> componentApplication
+    applicationNetworkPep_out --> agentNetworkPep_in
+    applicationNetworkPep_out --> componentApplicationInputHandling
+    componentApplicationOutputHandling --> componentApplicationConsentSurface
+    componentApplicationOutputHandling --> applicationNetworkPep_in
+    authorizationPep_out --> componentToolServer
+    componentDataFilteringAndProcessing --> componentTrainingData
+    componentDataSources --> componentDataFilteringAndProcessing
+    componentExternalPromptTemplate --> componentToolInputHandling
+    componentFederationProxy --> toolNetworkPep_in
+    componentIdentityProvider --> componentAuthorizationPolicyDecisionPoint
+    componentIsolationRuntime --> componentRuntimeHosting
+    componentIsolationRuntime --> componentToolHosting
+    componentMemory --> componentOrchestrationOutputHandling
+    componentModelEvaluation --> componentModelTrainingTuning
+    componentModelFrameworksAndCode --> componentModelTrainingTuning
+    componentModelRegistry --> componentModelStorage
+    componentModelServing --> componentOrchestrationInputHandling
+    componentModelTrainingTuning --> componentTheModel
+    componentOrchestrationInputHandling --> componentMemory
+    componentOrchestrationInputHandling --> componentOrchestrationOutputHandling
+    componentOrchestrationInputHandling --> componentRAGContent
+    componentOrchestrationOutputHandling --> componentModelServing
+    componentRAGContent --> componentOrchestrationOutputHandling
+    componentReasoningCore --> componentAgentOutputHandling
+    componentTheModel --> componentModelEvaluation
+    componentToolInputHandling --> authorizationPep_in
+    toolNetworkPep_out --> componentToolInputHandling
+    componentToolOutputHandling --> toolNetworkPep_in
+    componentToolServer --> componentToolOutputHandling
+    componentTrainingData --> componentDataStorage
+    componentModelServing <--> componentTheModel
+    componentToolServer <--> componentTools
+    agentNetworkPep_in --> componentAgentNetworkPolicyEnforcementPoint --> agentNetworkPep_out
+    applicationNetworkPep_in --> componentApplicationNetworkPolicyEnforcementPoint --> applicationNetworkPep_out
+    authorizationPep_in --> componentAuthorizationPolicyEnforcementPoint --> authorizationPep_out
+    toolNetworkPep_in --> componentToolNetworkPolicyEnforcementPoint --> toolNetworkPep_out
+
+    agentNetworkPep_out --> p_out_app_app_agent_egress
+    applicationNetworkPep_out --> p_out_app_app_agent_egress
+    p_in_model_app_agent_egress --> componentModelServing
+    componentAgentToolTransport --> p_out_app_tool_calls
+    p_in_tools_tool_calls --> toolNetworkPep_in
+    componentTools --> p_out_tools_tool_registration
+    p_in_infra_tool_registration --> componentToolRegistry
+    toolNetworkPep_out --> p_out_tools_tool_results
+    p_in_app_tool_results --> componentAgentToolTransport
+    componentAuthorizationPolicyDecisionPoint --> p_out_infra_identity_authz
+    componentIdentityProvider --> p_out_infra_identity_authz
+    p_in_app_identity_authz_agent_network_policy_enforcement_point --> componentAgentNetworkPolicyEnforcementPoint
+    p_in_app_identity_authz_application_network_policy_enforcement_point --> componentApplicationNetworkPolicyEnforcementPoint
+    p_in_tools_identity_authz_authorization_policy_enforcement_point --> componentAuthorizationPolicyEnforcementPoint
+    p_in_tools_identity_authz_federation_proxy --> componentFederationProxy
+    p_in_tools_identity_authz_tool_network_policy_enforcement_point --> componentToolNetworkPolicyEnforcementPoint
+    p_in_model_identity_authz --> componentModelServing
+    componentModelRegistry --> p_out_infra_model_artifacts
+    componentModelStorage --> p_out_infra_model_artifacts
+    p_in_model_model_artifacts --> componentModelServing
+    componentRuntimeHosting --> p_out_infra_runtime_hosting
+    p_in_app_runtime_hosting_application --> componentApplication
+    p_in_app_runtime_hosting_reasoning_core --> componentReasoningCore
+    p_in_model_runtime_hosting --> componentModelServing
+    componentToolRegistry --> p_out_infra_tool_discovery
+    p_in_tools_tool_discovery --> toolNetworkPep_in
+    componentToolHosting --> p_out_infra_tool_hosting
+    p_in_tools_tool_hosting --> componentToolServer
+    componentDataStorage --> p_out_infra_training_data
+    p_in_model_training_data --> componentModelTrainingTuning
+    componentModelServing --> p_out_model_inference_serving
+    p_in_app_inference_serving_agent_network_policy_enforcement_point --> agentNetworkPep_in
+    p_in_app_inference_serving_application_network_policy_enforcement_point --> applicationNetworkPep_in
+    componentModelTrainingTuning --> p_out_model_model_publish
+    p_in_infra_model_publish --> componentModelRegistry
+
+    componentAgentInputHandling ~~~ componentAgentOutputHandling
+    componentApplicationInputHandling ~~~ componentApplicationOutputHandling
+    componentToolInputHandling ~~~ componentToolOutputHandling
+    componentOrchestrationInputHandling ~~~ componentOrchestrationOutputHandling
 
 %% Node style definitions
     style componentsInfrastructure fill:#e6f3e6,stroke:#333333,stroke-width:2px
     style componentsApplication fill:#e6f0ff,stroke:#333333,stroke-width:2px
     style componentsModel fill:#ffe6e6,stroke:#333333,stroke-width:2px
     style componentsExternalTools fill:#f3e6ff,stroke:#333333,stroke-width:2px
+    style componentsApplication_egress fill:none,stroke:none
+    style componentsExternalTools_egress fill:none,stroke:none
+    style componentsInfrastructure_egress fill:none,stroke:none
+    style componentsModel_egress fill:none,stroke:none
+    style componentsApplication_ingress fill:none,stroke:none
+    style componentsExternalTools_ingress fill:none,stroke:none
+    style componentsInfrastructure_ingress fill:none,stroke:none
+    style componentsModel_ingress fill:none,stroke:none
+    style agentNetworkPep_wrap fill:none,stroke:#2c3e83,stroke-width:2px,stroke-dasharray:2 2
+    style applicationNetworkPep_wrap fill:none,stroke:#2c3e83,stroke-width:2px,stroke-dasharray:2 2
+    style authorizationPep_wrap fill:none,stroke:#2c3e83,stroke-width:2px,stroke-dasharray:2 2
+    style toolNetworkPep_wrap fill:none,stroke:#2c3e83,stroke-width:2px,stroke-dasharray:2 2
 ```
