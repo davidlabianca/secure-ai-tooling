@@ -31,16 +31,18 @@ For risk-map validation the divergence ran the *other* direction, and inverted t
 
 We adopt the corollary ADR-025 D9 left unstated, in two parts:
 
-1. **Coverage.** Every validator that `.pre-commit-config.yaml` invokes with `--block` has a CI invocation that also passes `--block`, over at least the inputs the hook would see.
+1. **Coverage.** Every validator `.pre-commit-config.yaml` invokes as a **blocking hook** has a CI invocation of at least the same strictness, over at least the inputs the hook would see. A hook is blocking if a violation makes it exit non-zero — whether that is unconditional, or requires `--block`.
 2. **Monotonicity.** For any validator invoked from both surfaces, the CI invocation is at least as strict as the pre-commit invocation. Where the two differ, CI is stricter, never laxer.
 
 Coverage is prior to monotonicity, and stating it separately is the point. Monotonicity alone is satisfied *vacuously* by a validator CI never runs — an empty flag set is trivially a superset of nothing — which is the mechanism by which three blocking checks came to live only on contributor machines. A rule that quantifies over the intersection of the two surfaces cannot see a validator missing from one of them.
 
-The rule quantifies over pre-commit's `--block` hooks, not over a fixed list of validators. A hook added to `.pre-commit-config.yaml` with `--block` is governed on arrival; it does not need an amendment here to be covered, and it does not land until its CI invocation lands with it.
+The rule quantifies over pre-commit's **blocking** hooks, not over a fixed list of validators, and not over the `--block` flag. A hook added to `.pre-commit-config.yaml` that can fail a commit is governed on arrival; it does not need an amendment here to be covered, and it does not land until its CI invocation lands with it.
+
+**The quantifier is deliberately blocking-ness rather than the flag**, because keying on the flag reproduces one surface lower the exact defect stated above. `--block` marks a validator with a *warn-only tier to promote*; a validator with no such tier blocks unconditionally and never takes the flag. A rule ranging over flag-bearing hooks cannot see those, and three of them — `validate-mapping-purity`, `validate-mapping-drift`, `validate-frameworks-versionid-purity` — are today invoked by no workflow at all, for the same reason and with the same consequence: a contributor who has not installed hooks can land a violation with an all-green CI. They are instances of this rule, not exceptions to it.
 
 This settles the developer question directly. Contributors who have not installed hooks are fully covered, because nothing depends on their having done so. Hooks are an accelerator that moves a failure from minutes-after-push to seconds-before-commit; they are not load-bearing for correctness. "The hook may not be installed" stops being a caveat and becomes a statement about latency.
 
-The five hooks the rule resolves to, and what it requires of each. The table lists the rule's *instances*, not the rule; it is expected to grow without this ADR changing.
+The eight hooks the rule resolves to, and what it requires of each. The table lists the rule's *instances*, not the rule; it is expected to grow without this ADR changing.
 
 | pre-commit hook id | Validator | CI state before this decision | Required by D1 | Instance |
 |---|---|---|---|---|
@@ -48,6 +50,9 @@ The five hooks the rule resolves to, and what it requires of each. The table lis
 | `validate-framework-references` | `scripts/hooks/validate_framework_references.py` | invoked without `--block` | add the flag | [D4](#d4-the-validate_framework_referencespy-parity-gap-closes-in-this-decision) |
 | `validate-identification-questions` | `scripts/hooks/precommit/validate_identification_questions.py` | not invoked | add the invocation | [D7](#d7-the-three-uncovered-validators-gain-ci-invocations) |
 | `validate-yaml-prose-subset` | `scripts/hooks/precommit/validate_yaml_prose_subset.py` | not invoked | add the invocation | D7 |
+| `validate-mapping-purity` | `scripts/hooks/precommit/validate_mapping_purity.py` | not invoked | add the invocation | [D8](#d8-blocking-validators-that-take-no-flag-are-instances-not-exceptions) |
+| `validate-mapping-drift` | `scripts/hooks/precommit/validate_mapping_drift.py` | not invoked | add the invocation | D8 |
+| `validate-frameworks-versionid-purity` | `scripts/hooks/precommit/validate_versionid_purity.py` | not invoked | add the invocation | D8 |
 | `validate-prose-references` | `scripts/hooks/precommit/validate_prose_references.py` | not invoked | add the invocation | D7 |
 
 D3 carves the one exception, and it is an exception at the level of a specific *invocation* rather than of a validator: the validator D2 governs is also called for graph emission, and that call site does not take the flag.
@@ -129,6 +134,18 @@ This does not reopen D5. D5 leaves the five existing copy-to-root steps in place
 Per ADR-025 D10, each new invocation is shown to fail on a deliberately injected violation before it is accepted as covering anything. A green job is evidence of nothing until the red case has been observed, and D7b describes two specific ways these particular validators go green while inspecting an empty set.
 
 **On the size of the change, which is not established.** Unlike D2 and D4, D7 carries no measured claim that the corpus is already clean. These three checks have never gated anything, so whatever findings they hold have accumulated unobserved; the flip is either clean or a cleanup job, and which one it is is not known from the ADR. The implementation measures each validator's finding count against the corpus before the invocation is made blocking, and reports it. D1 is then satisfied either by a clean flip or by a cleanup that precedes the flip — not by weakening the flag, and not by landing the invocation warn-only to soak.
+
+### D8. Blocking validators that take no flag are instances, not exceptions
+
+`validate-mapping-purity`, `validate-mapping-drift` and `validate-frameworks-versionid-purity` gain CI invocations on the same terms as D7's three.
+
+They are separated from D7 only because they were found by a different route and have a different cause. D7's three are invoked by pre-commit with `--block` and simply never wired to CI. These three are invoked with no flag at all — they have no warn-only tier, so a violation exits non-zero unconditionally — and D1 as first drafted quantified over `--block` hooks, which cannot see them. The gap was not that they were overlooked against the rule; it was that the rule could not reach them.
+
+That is the same defect D1 records one surface lower: a rule quantifying over the intersection of two surfaces cannot see a validator missing from one of them. Keying the quantifier on a *flag* rather than on *blocking-ness* re-introduced it, and left three blocking checks living only on contributor machines — the precise condition D1 exists to end. D1's coverage clause now ranges over blocking hooks; these three follow from it rather than being carved in by name.
+
+D7a, D7b and D7c apply unchanged: inputs constructed explicitly rather than transcribed, invoked in place rather than through the copy-to-root arrangement, and non-vacuity demonstrated per validator before the invocation is accepted as covering anything.
+
+**Strictness.** None of the three takes a strictness flag today. If one later grows a warn-only tier and a `--block` to promote it, D1's monotonicity clause governs the CI invocation from that point; no amendment here is required.
 
 ## Alternatives Considered
 
