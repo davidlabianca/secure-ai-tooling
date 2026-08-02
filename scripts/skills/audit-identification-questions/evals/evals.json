@@ -84,6 +84,30 @@
         "States it searched for real-world usage rather than accepting the term on its plausible-sounding name alone",
         "Does not accept the parenthetical as conformant just because two of the three terms are real"
       ]
+    },
+    {
+      "id": 9,
+      "prompt": "Audit this identification question: 'Do you want to make sure your AI models are properly secured against unauthorized access?'",
+      "note": "Leading-question anti-pattern with a mechanically valid opener. 'Do you' is a hook-approved second-person opener, and the question is yes/no answerable -- structure and Framing checks pass. This isolates the editorial leading-question detection from the opener/structure hooks: the question nudges toward 'yes' (nobody would admit to not wanting security) rather than identifying a concrete activity the reader either does or does not perform.",
+      "expected_output": "Flags the question as leading -- it nudges the reader toward 'yes' via a value judgment ('want to make sure ... properly secured') rather than asking about a concrete activity. Notes that structure/opener checks pass (this is not a third-person or count violation) but the editorial neutrality check fails. Suggests a rewrite that asks about a specific activity instead (e.g., what the reader actually does for model access control).",
+      "expectations": [
+        "Flags the question as a leading question that nudges toward 'yes'",
+        "Identifies this as the style guide's leading-questions anti-pattern, not a structural violation",
+        "Notes the mechanical checks (second-person opener, yes/no answerable) pass on their own, so this is caught by editorial judgment, not the hook",
+        "Suggests a rewrite framed around a concrete, neutral activity rather than a value judgment"
+      ]
+    },
+    {
+      "id": 10,
+      "prompt": "Audit this identification question: 'Do you train models using GPU clusters in the cloud?'",
+      "note": "Binary question with an embedded assumption -- the style guide's own worked anti-pattern example, used directly so the case is traceable to its source.",
+      "expected_output": "Flags 'GPU clusters in the cloud' as an implementation-detail assumption that is not part of the persona boundary -- it improperly excludes a valid actor who trains on-premises or with other hardware. Suggests dropping the hardware/location constraint (e.g., 'Do you train models?' or similar, scoped only by the activity that actually matters).",
+      "expectations": [
+        "Flags the 'GPU clusters in the cloud' clause as an embedded assumption/implementation detail",
+        "States this would incorrectly exclude a valid actor (on-premises or other-hardware training)",
+        "Identifies this as the style guide's binary-question-with-embedded-assumptions anti-pattern",
+        "Suggests removing the hardware/location constraint rather than just narrowing it"
+      ]
     }
   ]
 }

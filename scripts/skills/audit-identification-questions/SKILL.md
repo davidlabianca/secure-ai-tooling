@@ -43,10 +43,15 @@ For each persona with `identificationQuestions`, verify ALL of the following. Re
 
 ### Examples and terminology
 
-- [ ] **Parenthetical examples**: Technical terms have parenthetical examples using `(e.g., item1, item2, item3)` format — NOT "such as" inline
+- [ ] **Parenthetical examples where needed**: When a technical term may be unfamiliar or ambiguous, use parenthetical examples in `(e.g., item1, item2, item3)` format — NOT "such as" inline
 - [ ] **`e.g.` not `i.e.`**: parentheticals signal an illustrative list, never an exhaustive one — read the exact rule from the style guide's Rule enforcement summary
 - [ ] **Example list length**: read the item-count bound from the style guide's Rule enforcement summary rather than restating it here
 - [ ] **"including" for scope expansion**: Used where the base term might be read too narrowly
+
+### Neutrality and assumptions
+
+- [ ] **No embedded assumptions**: Do not constrain an activity with implementation details that are not part of the persona boundary (e.g. "GPU clusters in the cloud" excludes an on-premises or other-hardware actor who should still answer yes).
+- [ ] **Neutral wording**: Questions do not lead or nudge the reader toward answering "yes."
 
 ### Ordering
 
