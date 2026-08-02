@@ -209,7 +209,12 @@ repos:
         name: 'risk-map: component edge consistency'
         language: system
         entry: python3 scripts/hooks/validate_riskmap.py --block
-        files: ^risk-map/yaml/(components|controls|risks)\.yaml$
+        # ADR-005 trigger-set >= (scanned-content-set U oracle-set): the category
+        # style check reads two comparison oracles this hook never scans --
+        # components.schema.json for the category enum and mermaid-styles.yaml for
+        # the styles it is compared against. Editing either alone changes the
+        # verdict, so editing either alone must trigger the hook.
+        files: ^risk-map/(yaml/(components|controls|risks|mermaid-styles)\.yaml|schemas/components\.schema\.json)$
         pass_filenames: false
 
       - id: validate-control-risk-references

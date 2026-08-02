@@ -30,8 +30,8 @@ We adopt the component taxonomy described by D1–D8 below and land the componen
 
 A new **top-level** category `componentsExternalTools`, a fourth peer of `componentsInfrastructure`, `componentsModel`, and `componentsApplication`, collects the tool and tool-authorization components: the existing `componentTools` (recategorized out of `componentsModel`) together with the tool components the decomposition introduces. Top-level (a fourth peer tier, not a subcategory under an existing one) because tools are an **external trust domain** — third-party services the AI system integrates with but does not own — distinct in kind from the system's own infrastructure, model, and application tiers. (The components *inside* the tool zone are reached only via the agent path per D8; top-level reflects the external trust boundary, not a claim that tools wire into every layer.) It carries two subcategories:
 
-- **`componentsToolNetworkControls`** (the tool control plane) — `componentToolNetworkPolicyEnforcementPoint`, `componentAuthorizationPolicyEnforcementPoint`, `componentFederationProxy`, `componentExternalPromptTemplate`.
-- **`componentsToolInvocationPath`** (the tool data plane) — `componentToolServer`, `componentTools`, `componentToolInputHandling`, `componentToolOutputHandling`.
+- **`componentsToolNetworkControls`** (connection-layer enforcement, wrapping the invocation path) — `componentToolNetworkPolicyEnforcementPoint`, `componentAuthorizationPolicyEnforcementPoint`, `componentFederationProxy`, `componentExternalPromptTemplate`.
+- **`componentsToolInvocationPath`** (the request path itself and the primitives exposed along it) — `componentToolServer`, `componentTools`, `componentToolInputHandling`, `componentToolOutputHandling`.
 
 Registries (`componentModelRegistry`, `componentToolRegistry`) stay in Infrastructure — they are not tools.
 

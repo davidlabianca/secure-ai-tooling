@@ -660,10 +660,17 @@ _LOCAL_VALIDATOR_TRIGGER_COVERAGE: dict[str, set[str] | None] = {
     # is covered by the dedicated validate-lifecycle-stage hook below; the
     # default-mode belt-and-suspenders lifecycle check in validate_riskmap.py is
     # intentionally out of this hook's trigger contract.
+    # validate-component-edges: the category style check reads two comparison
+    # oracles it never scans -- components.schema.json (category enum, via
+    # _get_schema_categories) and mermaid-styles.yaml (the styles compared
+    # against it, via MermaidConfigLoader). Both are check-inputs under ADR-005
+    # and must appear in the trigger.
     "validate-component-edges": {
         "risk-map/yaml/components.yaml",
         "risk-map/yaml/controls.yaml",
         "risk-map/yaml/risks.yaml",
+        "risk-map/yaml/mermaid-styles.yaml",
+        "risk-map/schemas/components.schema.json",
     },
     # validate-control-risk-references: reads both YAMLs every run
     # (validate_control_risk_references.py:25-28).
