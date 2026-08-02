@@ -183,4 +183,4 @@ Because the standard is maintained externally and versions on its own cadence, c
 **Follow-up**
 
 - **Maintainer sign-off flips this amendment `Draft → Accepted`.**
-- `scripts/skills/README.md`'s roster entry for `audit-identification-questions` currently cites "(ADR-031 D5, ADR-021 D7)" — D5 is the Persona creator/critic sequencing section and does not admit this skill. Update the citation to point at this amendment's D7 once accepted.
+- `scripts/skills/README.md`'s roster entry for `audit-identification-questions` cited "(ADR-031 D5, ADR-021 D7)" — D5 is the Persona creator/critic sequencing section and does not admit this skill. Already corrected in the same commit as this amendment to cite ADR-021 D7 (responsibility) and this D7 (admission), rather than waiting on Accept.
