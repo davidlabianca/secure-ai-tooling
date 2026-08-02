@@ -98,16 +98,16 @@ Three later, Accepted-track decisions changed the surface that framing described
 - [ADR-033 D1](033-vendor-neutral-agent-skill-shipping.md) (the canonical-only shipping standard) fixed the canonical skill as the **single tracked form** and ruled out first-party per-harness wrappers in-repo.
 - The `draft-issue-comment` skill has since been promoted into `scripts/skills/` as a neutral canonical that **defers to** the [`issue-response-reviewer`](../../scripts/agents/issue-response-reviewer.md) agent (which composes `content-reviewer` in `issue` mode) — it applies that agent's spec and does not restate it.
 
-The promotion is coherent under the later ADRs — it is a canonical skill admitted under the general ADR-031-D5 / ADR-033-D1 skill-surface rules — but nothing in the ADR record reconciled it against ADR-008 §2's "not part of the canonical pattern" framing, which now reads stale for the *review-discipline* half of the flow. This amendment closes that gap.
+The promotion is coherent under the later ADRs, and — per [D7](#decision) below — is formally admitted to the shipped set by this amendment. Until D7, nothing in the ADR record reconciled it against ADR-008 §2's "not part of the canonical pattern" framing, which now reads stale for the *review-discipline* half of the flow, or provided the ADR-033 D6 admission a new skill requires. This amendment closes both gaps.
 
 ### Decision
 
-#### D4. The `draft-issue-comment` review discipline is a canonical skill; only its external side effects remain harness layering
+#### D4. The canonical skill owns the read-and-draft workflow; only publication remains harness layering
 
 The `draft-issue-comment` flow **splits** into two parts that the later ADRs place on opposite sides of the canonical boundary. The [§2](#decision) "not part of the canonical pattern" framing is superseded for the first part and retained for the second:
 
-- **The review discipline is a canonical skill.** Producing a structured maintainer review comment for a content-proposal issue — the discipline the flow carries — ships as the neutral canonical skill `scripts/skills/draft-issue-comment/` under [ADR-031 D5](031-authoring-time-agents-and-skills.md) (canonical skill home) and [ADR-033 D1](033-vendor-neutral-agent-skill-shipping.md) (canonical-only). This is the current governing classification; ADR-008 §2's "harness layering, not part of the canonical pattern" no longer describes this part.
-- **The external side effects remain harness layering.** [D3](#decision)'s routing boundary is unchanged: the canonical skill returns a local draft; it does not post to GitHub. A harness's live GitHub-fetch and post/write mechanics — the `gh`-CLI invocation, the write of the drafted comment — stay harness-specific and out of the tracked canonical, exactly as [D2](#decision) and [D3](#decision) require. ADR-008 §2's boundary governs *these* mechanics; it no longer governs the review discipline.
+- **The review discipline and the read-and-draft workflow are canonical.** Producing a structured maintainer review comment for a content-proposal issue — gathering the issue's context (the `gh issue view` / `gh api` read calls the workflow specifies), applying `issue-response-reviewer`'s review discipline, and writing the resulting draft to a local file — ships as the neutral canonical skill `scripts/skills/draft-issue-comment/` under [ADR-031 D5](031-authoring-time-agents-and-skills.md) (canonical skill home) and [ADR-033 D1](033-vendor-neutral-agent-skill-shipping.md) (canonical-only). The canonical `SKILL.md` names these concrete calls and the local file write directly (its steps 2 and 4) — they are **read-only calls against GitHub and a local, non-mutating write**, not an action with an external effect on a shared system. ADR-008 §2's "harness layering, not part of the canonical pattern" no longer describes any part of this read-and-draft workflow; the earlier framing in this amendment's first draft, which placed the `gh`-CLI read calls and the draft write outside the canonical, was itself wrong — those calls are exactly what the canonical `SKILL.md` specifies, not a harness-specific substitute for it.
+- **Publication remains harness layering.** [D3](#decision)'s routing boundary is unchanged in substance, narrowed to what actually varies by harness: the canonical skill returns a local draft; it does not post to GitHub or otherwise mutate a shared system. Posting the draft as an issue comment — an action with an external, hard-to-reverse effect on a system other than the contributor's own clone — is the harness/consumer's explicit, separately authorized action. ADR-008 §2's boundary governs *that* action; it no longer governs the read-only context-gathering or the local draft write.
 
 #### D5. The skill *defers to* the agent — this is ADR-006's canonical-and-defer relationship, not a re-canonicalization of the review logic
 
@@ -115,22 +115,36 @@ The canonical skill does **not** restate the review spec. It defers to the canon
 
 #### D6. This is the standing pattern for a promotion↔prior-ADR tension
 
-When a promotion into the shipped set (`scripts/agents/**`, `scripts/skills/**`) reclassifies an artifact that an earlier Accepted ADR framed under the pre-canonical-skill surface, the reconciliation is recorded — not left implicit. The standing form is a dated, in-file amendment to the earlier ADR that annotates the superseded framing and points to the governing later decision, preserving the original text (the instrument this amendment uses; cf. the [ADR-026 amendment precedent](026-issue-template-domain.md#amendment-2026-05-21-component-categorysubcategory-valid-tuple-selector)). The artifact still enters the shipped set under [ADR-033 D6](033-vendor-neutral-agent-skill-shipping.md)'s expansion rule (an ADR-level admission that records D1–D5 conformance and a portable eval); this amendment records the *reconciliation of the prior framing*, which is a separate act from admission.
+When a promotion into the shipped set (`scripts/agents/**`, `scripts/skills/**`) reclassifies an artifact that an earlier Accepted ADR framed under the pre-canonical-skill surface, the reconciliation is recorded — not left implicit. The standing form is a dated, in-file amendment to the earlier ADR that annotates the superseded framing and points to the governing later decision, preserving the original text (the instrument this amendment uses; cf. the [ADR-026 amendment precedent](026-issue-template-domain.md#amendment-2026-05-21-component-categorysubcategory-valid-tuple-selector)). Reconciling the prior framing and providing the ADR-033 D6 admission are conceptually separate acts — one explains why an earlier ADR's classification no longer holds, the other is the ADR-level decision a new skill needs to enter the shipped set — but nothing requires them to happen in different documents. This amendment performs both: this section is the reconciliation; [D7](#decision) below is the admission.
+
+#### D7. This amendment provides the ADR-033 D6 admission for `draft-issue-comment`
+
+[ADR-033 D6](033-vendor-neutral-agent-skill-shipping.md) requires a new skill to enter the shipped set by an ADR-level decision that records conformance to D1–D5 and confirms a portable eval ships with it — dropping files is explicitly insufficient. This section is that decision for `scripts/skills/draft-issue-comment/`:
+
+- **D1 (canonical-only, neutral, cloneable):** the skill ships only as its neutral canonical form at `scripts/skills/draft-issue-comment/SKILL.md`; no first-party harness wrapper is tracked in-repo.
+- **D2 (the neutrality contract):** the shipped file carries no denylisted harness- or vendor-specific tokens; the D5 neutrality check passes against it.
+- **D3 (consumer leverage):** the skill defers to `issue-response-reviewer` ([D5](#decision) above) rather than re-deriving the review logic, so a consumer adapts one thin, canonical caller instead of a restated review spec.
+- **D4 (shipping format):** ships in the Agent Skills open standard fixed by [ADR-031 D6](031-authoring-time-agents-and-skills.md), the same format as the four other authoring skills.
+- **D5 (a neutrality check is required):** the ADR-033 D5 check passes.
+- **Portable eval:** ships at `scripts/skills/draft-issue-comment/evals/evals.json`.
+
+`draft-issue-comment` is admitted to the shipped set as of this amendment's acceptance. This closes the question this amendment's first draft left open — see the struck Follow-up bullet below, preserved per the D6 annotation instrument rather than deleted.
 
 ### Consequences
 
 **Positive**
 
 - The ADR record now explicitly reconciles ADR-008 §2 with the canonical-skill surface. A future reader who reaches ADR-008's harness-layering framing is pointed to the governing later decision instead of being left to infer that ADR-031/033 override it.
-- The split is stated cleanly: review discipline is canonical (the skill), external side effects stay harness-specific (the routing boundary). D3's "canonicals return findings; callers perform side effects" rule is preserved intact, not weakened.
+- The split is stated cleanly: the read-and-draft workflow (context-gathering plus review discipline) is canonical; publication — the one action with an external, hard-to-reverse effect — stays harness-specific. D3's "canonicals return findings; callers perform side effects" rule is preserved intact, narrowed correctly to the action that actually mutates a shared system, not weakened.
 - The reconciliation instrument (D6) is now a stated pattern, so the next promotion that trips a prior-ADR framing has a recorded convention to follow rather than a case-by-case judgment call.
+- `draft-issue-comment` is formally admitted to the shipped set (D7), closing the ADR-033 D6 gap this amendment's first draft left open — there is no longer a skill in `scripts/skills/` operating without a recorded admission decision.
 
 **Negative**
 
 - ADR-008 §2 must now be read together with this amendment; the original clause remains in place (history is preserved) but is no longer the whole story for the `draft-issue-comment` example. The header "Superseded in part by" pointer mitigates this, but a reader who skims only §2 could miss the reconciliation.
-- The split between "canonical review discipline" and "harness-specific side effects" is a distinction that must be maintained per flow. A future skill that blurs the two — putting a side effect into the canonical — would violate D3 and reopen this boundary.
+- The split between "canonical read-and-draft workflow" and "harness-specific publication" is a distinction that must be maintained per flow. A future skill that performs an external, system-mutating action (posting, deleting, modifying shared state outside the contributor's own clone) from within the canonical would violate D3 and reopen this boundary; read-only fetches and local file writes do not.
 
 **Follow-up**
 
 - **Maintainer sign-off flips this amendment `Draft → Accepted`** and, at that point, the ADR-008 header pointer's "Draft" reference resolves to an Accepted amendment. The `Superseded in part by` header language is deliberately narrow (D1–D3 unchanged); confirm that scoping at Accept time.
-- **Admission of `draft-issue-comment` into the shipped set** under [ADR-033 D6](033-vendor-neutral-agent-skill-shipping.md) is a separate question from this reconciliation. The scope doc's open Q6 (whether to bless the skill by name in a skill-surface ADR, or leave it under the general ADR-031-D5 / ADR-033-D1 rules) is the maintainer's to decide; this amendment does not resolve it and does not depend on it.
+- ~~**Admission of `draft-issue-comment` into the shipped set** under [ADR-033 D6](033-vendor-neutral-agent-skill-shipping.md) is a separate question from this reconciliation. The scope doc's open Q6 (whether to bless the skill by name in a skill-surface ADR, or leave it under the general ADR-031-D5 / ADR-033-D1 rules) is the maintainer's to decide; this amendment does not resolve it and does not depend on it.~~ **Resolved by [D7](#decision) above** — this amendment now provides that admission directly, closing Q6 rather than deferring it.
