@@ -122,43 +122,23 @@ jobs:
       run: |
         echo "🔍 Running YAML schema validation..."
 
-        BASE_URI="file://$(pwd)/risk-map/schemas/"
-        YAML_BASE_DIR="risk-map/yaml"
-        SCHEMA_BASE_DIR="risk-map/schemas"
-        SOURCE_FILES=("controls" "components" "personas" "risks" "mermaid-styles" "frameworks" "lifecycle-stage" "impact-type" "actor-access")
-
-        validation_failed=false
-        validation_count=0
-
-        for target in "${SOURCE_FILES[@]}"; do
-          schema_file="${SCHEMA_BASE_DIR}/${target}.schema.json"
-          yaml_file="${YAML_BASE_DIR}/${target}.yaml"
-
-          if [[ -f "$yaml_file" && -f "$schema_file" ]]; then
-            echo "📄 Validating ${yaml_file} against ${schema_file}..."
-            validation_count=$((validation_count + 1))
-
-            if check-jsonschema --base-uri "$BASE_URI" --schemafile "$schema_file" "$yaml_file"; then
-              echo "✅ ${yaml_file} is valid"
-            else
-              echo "❌ ${yaml_file} validation failed"
-              validation_failed=true
-            fi
-          else
-            echo "⚠️  Skipping ${target}: missing files"
-          fi
-        done
-
+        # ADR-037 D8: the (schema, yaml) pairs are derived from
+        # validate_all_schemas.py's own pairing logic rather than transcribed
+        # into a shell array, which drifts the moment a schema is added
+        # without a matching array edit. The count is read the same way, so
+        # it cannot desync from what the validator actually checked.
+        validation_count=$(python3 -c "import sys; sys.path.insert(0, 'scripts/hooks/precommit'); import validate_all_schemas as v; print(len(v._find_pairs()))")
         echo "count=$validation_count" >> $GITHUB_OUTPUT
 
-        if [ "$validation_failed" = true ]; then
+        if python3 scripts/hooks/precommit/validate_all_schemas.py; then
+          echo "✅ All YAML schema validations passed"
+          echo "status=success" >> $GITHUB_OUTPUT
+        else
+          echo "❌ YAML schema validation failed"
           echo "::error::YAML schema validation failed"
           echo "status=failed" >> $GITHUB_OUTPUT
           exit 1
         fi
-
-        echo "✅ All YAML schema validations passed"
-        echo "status=success" >> $GITHUB_OUTPUT
 
   format-validation:
     runs-on: ubuntu-latest
@@ -454,10 +434,10 @@ jobs:
   #     invoked at their real scripts/hooks/precommit/ path, with no filenames.
   #   - each was measured clean against this corpus before being wired in.
   #
-  # validate-all-yaml-on-master-schema-change gets its own job here even though
-  # schema-validation already checks the same pairs, transcribed into
-  # SOURCE_FILES: that transcription is the drift D7a exists to name, and this
-  # job is the derived replacement for it.
+  # validate-all-yaml-on-master-schema-change has no job of its own here:
+  # schema-validation above already runs validate_all_schemas.py in place,
+  # which is this hook's validator, so a second invocation would be an
+  # unattributable duplicate rather than added coverage.
   # ---------------------------------------------------------------------------
   mapping-purity-validation:
     runs-on: ubuntu-latest
@@ -557,40 +537,6 @@ jobs:
         else
           echo "❌ Frameworks versionId purity validation failed"
           echo "::error::Frameworks versionId purity validation failed (ADR-027 D2b/D2c)"
-          echo "status=failed" >> $GITHUB_OUTPUT
-          exit 1
-        fi
-
-  master-schema-fanout-validation:
-    runs-on: ubuntu-latest
-    name: Master Schema Fan-out Validation
-    needs: setup
-    outputs:
-      master_schema_fanout_status: ${{ steps.validate-master-schema-fanout.outputs.status }}
-    steps:
-    - name: Checkout repository
-      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
-    - name: Set up Python
-      uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
-      with:
-        python-version: '3.14'
-        cache: 'pip'
-
-    - name: Install dependencies
-      run: pip install -r requirements.txt
-
-    - name: Run Master Schema Fan-out Validation
-      id: validate-master-schema-fanout
-      run: |
-        echo "🔍 Running master-schema fan-out validation..."
-
-        if python3 scripts/hooks/precommit/validate_all_schemas.py; then
-          echo "✅ Master schema fan-out validation completed successfully"
-          echo "status=success" >> $GITHUB_OUTPUT
-        else
-          echo "❌ Master schema fan-out validation failed"
-          echo "::error::Master schema fan-out validation failed"
           echo "status=failed" >> $GITHUB_OUTPUT
           exit 1
         fi
@@ -791,7 +737,7 @@ jobs:
   validation-summary:
     runs-on: ubuntu-latest
     name: Validation Summary
-    needs: [schema-validation, format-validation, component-edge-validation, control-risk-validation, framework-validation, identification-questions-validation, prose-subset-validation, prose-references-validation, mapping-purity-validation, mapping-drift-validation, versionid-purity-validation, master-schema-fanout-validation, persona-site-build-validation, neutrality-validation, neutrality-policy-validation, graph-validation]
+    needs: [schema-validation, format-validation, component-edge-validation, control-risk-validation, framework-validation, identification-questions-validation, prose-subset-validation, prose-references-validation, mapping-purity-validation, mapping-drift-validation, versionid-purity-validation, persona-site-build-validation, neutrality-validation, neutrality-policy-validation, graph-validation]
     if: always()
     steps:
     - name: Generate Summary
@@ -811,7 +757,6 @@ jobs:
         mapping_purity_result="${{ needs.mapping-purity-validation.result }}"
         mapping_drift_result="${{ needs.mapping-drift-validation.result }}"
         versionid_purity_result="${{ needs.versionid-purity-validation.result }}"
-        master_schema_fanout_result="${{ needs.master-schema-fanout-validation.result }}"
         persona_site_build_result="${{ needs.persona-site-build-validation.result }}"
         neutrality_result="${{ needs.neutrality-validation.result }}"
         neutrality_policy_result="${{ needs.neutrality-policy-validation.result }}"
@@ -900,13 +845,6 @@ jobs:
           echo "- ✅ **Frameworks versionId purity validation**: Passed" >> $GITHUB_STEP_SUMMARY
         else
           echo "- ❌ **Frameworks versionId purity validation**: $versionid_purity_result" >> $GITHUB_STEP_SUMMARY
-          overall_success=false
-        fi
-
-        if [ "$master_schema_fanout_result" = "success" ]; then
-          echo "- ✅ **Master schema fan-out validation**: Passed" >> $GITHUB_STEP_SUMMARY
-        else
-          echo "- ❌ **Master schema fan-out validation**: $master_schema_fanout_result" >> $GITHUB_STEP_SUMMARY
           overall_success=false
         fi
 
