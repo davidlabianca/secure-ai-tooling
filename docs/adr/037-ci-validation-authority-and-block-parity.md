@@ -42,7 +42,7 @@ The rule quantifies over pre-commit's **blocking** hooks, not over a fixed list 
 
 This settles the developer question directly. Contributors who have not installed hooks are fully covered, because nothing depends on their having done so. Hooks are an accelerator that moves a failure from minutes-after-push to seconds-before-commit; they are not load-bearing for correctness. "The hook may not be installed" stops being a caveat and becomes a statement about latency.
 
-The twelve hooks the rule resolves to, and what it requires of each. The table lists the rule's *instances*, not the rule; it is expected to grow without this ADR changing.
+The twelve hooks the rule resolves to, and what it requires of each. The table lists the rule's *instances*, not the rule; it is expected to grow without this ADR changing. It is a dated record of what the change consisted of, not the register the rule quantifies over — see [D9c](#d9c-d1s-instance-table-is-a-dated-record-not-the-register) in the 2026-08-04 addendum, which is where the register is defined.
 
 | pre-commit hook id | Validator | CI state before this decision | Required by D1 | Instance |
 |---|---|---|---|---|
@@ -61,7 +61,7 @@ The twelve hooks the rule resolves to, and what it requires of each. The table l
 
 D3 carves the one exception, and it is an exception at the level of a specific *invocation* rather than of a validator: the validator D2 governs is also called for graph emission, and that call site does not take the flag.
 
-*Testable requirement:* a config-level test parses `.pre-commit-config.yaml` and every workflow under `.github/workflows/`, and asserts both parts — (1) each hook entry passing `--block` has at least one workflow step invoking the same validator with `--block`; (2) for validators present on both surfaces, the CI strictness flags are a superset of the hook's. Part (1) must be written so that a validator absent from CI *fails*, not skips: the intersection-shaped form of this test passes on precisely the gap it exists to catch. Neither part needs subprocess execution.
+*Testable requirement:* a config-level test parses `.pre-commit-config.yaml` and every workflow under `.github/workflows/`, and asserts both parts over the **verdict-class hook entries** [D9a](#d9a-every-hook-entry-is-classified-and-the-classification-is-total) derives from the config — not over the entries passing `--block`, and not over the rows of the table above — (1) each such entry has at least one workflow step invoking the same validator at no lower strictness; (2) for validators present on both surfaces, the CI strictness flags are a superset of the hook's. Part (1) must be written so that a validator absent from CI *fails*, not skips: the intersection-shaped form of this test passes on precisely the gap it exists to catch. Neither part needs subprocess execution. This sentence originally scoped both parts to "each hook entry passing `--block`", which contradicted the rule stated two paragraphs above from the moment D8 was written; the 2026-08-04 addendum records the correction and what the stale scoping cost.
 
 ### D2. `--block` is added to the risk-map validation job
 
@@ -171,7 +171,7 @@ D7a, D7b and D7c apply unchanged: inputs constructed explicitly rather than tran
 - The merge decision no longer depends on a contributor's local configuration. What CI enforces is what the repository enforces.
 - Three checks that could previously fail only on a contributor's machine become repository-enforced (D7): identification-question structure, the YAML prose authoring subset ([ADR-017](017-yaml-prose-authoring-subset.md)), and prose reference integrity ([ADR-016](016-reference-strategy.md)). Those ADRs' contracts gain a gate that does not depend on local setup.
 - The warn-only tier becomes real. Controls↔components mirror drift and category/subcategory nesting violations can no longer reach `main` or `develop`.
-- The rule is general and quantifies over pre-commit's `--block` hooks rather than a fixed validator list, so the next validator that grows a strictness flag has a stated answer instead of a fresh debate, and any warn-only check added later is governed on arrival rather than needing its own decision.
+- The rule is general and quantifies over pre-commit's blocking hooks, derived from `.pre-commit-config.yaml` ([D9](#d9-the-governed-set-is-derived-from-pre-commit-configyaml-not-declared-in-d1s-table)), rather than a fixed validator list, so the next validator that grows a strictness flag has a stated answer instead of a fresh debate, and any warn-only check added later is governed on arrival rather than needing its own decision.
 - Schema-integrity axis: closes a path by which malformed cross-references between controls, components, risks, and personas could pass CI. The change strictly narrows what merges.
 - No new dependency, no new network fetch, no new workflow permission, and no new use of `secrets.*`. Supply-chain and workflow-exposure surface are unchanged.
 
@@ -194,3 +194,98 @@ D7a, D7b and D7c apply unchanged: inputs constructed explicitly rather than tran
 - Revisit the single `pre-commit run --all-files` CI job once the workflow-summary dependency on per-job outputs is addressed. Note that `--all-files` enumerates tracked files only, so a newly added file is invisible to it until first staged — a limitation to account for if that job is adopted as the verification surface.
 
 No follow-up is owed for the deprecated-personas terminal-state question. D4's gate holds under either resolution — retention or removal from the id enum — so it neither decides that question nor waits on it.
+
+## Addendum 2026-08-04: The governed set is derived from the config, not declared in D1's table
+
+**Status:** Draft (maintainer to flip to Accepted)
+
+Authored 2026-08-04 during review of [PR #470](https://github.com/cosai-oasis/secure-ai-tooling/pull/470), which carries this ADR and the implementation stacked on it. This addendum corrects a contradiction inside D1 and adds D9. It does not renumber D1–D8 — those numbers are cited across commit messages and PR titles — and it does not reset the ADR's status.
+
+### The contradiction
+
+D1 states its rule over blocking-ness:
+
+> The rule quantifies over pre-commit's **blocking** hooks, not over a fixed list of validators, and not over the `--block` flag.
+
+D1's *testable requirement*, four paragraphs later in the same decision, still scoped both parts to "each hook entry passing `--block`". That sentence was written before D8 existed and was not updated when D8 established blocking-ness as the quantifier. The implementation followed the testable requirement, so the governed set landed in two halves with two different sources of truth:
+
+- **The flagged half** derives from `.pre-commit-config.yaml`. `--block` appears in a hook's `entry:` or `args:`, a config-level parse finds it, and the hook acquires its coverage obligation on arrival. This half is what D1 describes.
+- **The flagless half** derives from *this document's own D1 instance table*. `ADR_GOVERNED_HOOK_IDS` is parsed out of the markdown table with a regex over backticked first cells; `UNFLAGGED_BLOCKING_HOOKS`, `SCOPED_UNFLAGGED_HOOK_IDS`, `FILE_ARGUMENT_BLOCK_HOOKS` and the workflow-`paths:` derivation `_governed_hook_input_paths` all flow from it. A validator is governed because a human wrote a row.
+
+Two mutations measured the difference. An adversarial pass added a real `repo: local` hook that blocks unconditionally — no `--block`, no warn-only tier — with a tracked content file, no CI invocation, no workflow `paths:` entry and no table row. The full suite passed, 179 tests green. The same hook carrying `--block` fails three. An earlier pass deleted a table row together with its CI job, its corpus probe and its `paths:` line: also green, with the parametrized case count falling from 170 to 161 and nothing asserting the governed set's size.
+
+This is the defect D8 itself diagnoses — *"a rule ranging over flag-bearing hooks cannot see those"* — reproduced one surface lower, over the table instead of over the flag.
+
+Three further consequences follow from keying the register on table rows, and all three were live before this branch:
+
+- **Third-party blocking hooks cannot be rows.** `check-jsonschema` blocks unconditionally and is declared ten times under one `id`, once per yaml/schema pair, so there is no per-entry id for a row to name. `check-metaschema` blocks and is a single entry. The test module reaches both by naming them in its own source instead — a second hand-maintained register, in a different file, with a different shape.
+- **Four repo-local hooks that block unconditionally have never been rows:** `validate-control-risk-references`, `validate-lifecycle-stage`, `validate-workflow-uses-pinning`, `validate-issue-templates`. Each appears to have a CI counterpart; none is governed by anything that would notice if it stopped having one.
+- **The ADR became a runtime input to the test suite.** `validate_python.yml` lists `docs/adr/037-ci-validation-authority-and-block-parity.md` in both `paths:` filters, because editing the table's rows changes what the suite asserts with no change to any workflow, script or config entry. Prose in an accepted decision record is not a good place for a value that decides what CI enforces.
+
+And the table's own caption already denies it this role: it "is expected to grow without this ADR changing". For the flagged half that is true. For the flagless half it is false — the table growing is the only thing that puts a hook in scope, and the table did grow, from eight rows to twelve, during review.
+
+### D9. The governed set is derived from `.pre-commit-config.yaml`, not declared in D1's table
+
+#### D9a. Every hook entry is classified, and the classification is total
+
+The candidate set is every hook entry in `.pre-commit-config.yaml` — every mapping under every `repos:` item, including entries from third-party repos and including repeated ids. Entries are keyed by `(id, name)`, not by `id`: `name` is unique per entry in this config and `id` is not, and keying on `id` alone is precisely why the ten `check-jsonschema` pairs could not be addressed at all.
+
+Each entry carries exactly one class, declared in a registry keyed on that pair. Two classes:
+
+- **verdict** — the hook's exit status is a finding about the tree. D1 governs it in full: a CI invocation of at least equal strictness, over at least the inputs the hook would see, with D7a, D7b and D7c binding how that invocation is built.
+- **mutation** — the hook can fail a commit only by writing to the tree. Its own exit status is 0 and the framework fails the run because the tree changed. Formatters and the Mode B auto-stage generators ([ADR-005](005-pre-commit-framework.md)) are this class. Running such a hook in CI with a strictness flag is not its counterpart; regenerating and comparing against the committed artefact is.
+
+An entry the registry does not classify **fails**, naming the entry and the two classes.
+
+**Why a classification and not a bare predicate.** Blocking-ness is a property of the validator's behaviour: a hook blocks if a violation makes it exit non-zero, and `.pre-commit-config.yaml` records an entry, its `args:` and its `pass_filenames`, not whether a violation exits 1. Every hook in this config can fail a commit, so a predicate reading the config alone resolves to "all of them" and distinguishes nothing. The classification is the part a human supplies. What the derivation supplies is that the human must supply it **for every entry**, at the moment the entry lands, in a diff that sits next to the hook — rather than for the entries someone remembered to transcribe into a markdown table in another directory.
+
+The registry is a sidecar rather than an inline key because pre-commit's config schema rejects unrecognized hook keys, so the class cannot be declared on the entry itself. The pattern is not new here: [ADR-005's 2026-05-08 addendum](005-pre-commit-framework.md#addendum-2026-05-08-hook-trigger-vs-read-set-invariant) already establishes a hook-keyed metadata table in the test suite (`_LOCAL_VALIDATOR_TRIGGER_COVERAGE`), chosen over parsing validator internals for the same reason. D9a adds the property that addendum's table does not have and does not need: totality against the config.
+
+**Failing closed, and what it costs.** An unclassified entry blocks the suite until someone adds one registry line with a one-clause reason. It does not block until CI is wired. Classification and coverage are separate assertions, and only the verdict class carries the coverage obligation — so the cheap remedy is available separately from the expensive one. That split is what makes failing closed affordable: a contributor adding a formatter pays a line; a contributor adding a validator pays the CI invocation D1 has required of them since it was written.
+
+#### D9b. The mutation class is closed; the verdict class is open
+
+The two classes are deliberately asymmetric. `verdict` carries the obligation, so an entry may join it with no amendment — that is D1's "governed on arrival", now true for both halves. `mutation` escapes the obligation, so its membership is fixed by this addendum, and a ninth member requires an amendment to it.
+
+Members at this date: `prettier-yaml`, `prettier-site-assets`, `ruff-format`, `regenerate-issue-templates`, `regenerate-frameworks-versionid`, `regenerate-graphs`, `regenerate-tables`, `regenerate-svgs`.
+
+This puts the cost where the risk is. Mislabelling a validator as `mutation` is the only way a blocking hook escapes coverage under D9, no static test can distinguish a mislabel from a correct label, and it is now the single edit that cannot be made without editing this document.
+
+#### D9c. D1's instance table is a dated record, not the register
+
+The table records the twelve instances the decision was taken over, on the date it was taken, together with each one's CI state before the decision and what D1 required of it. That fourth and fifth column is the record of what the change consisted of, which a register keyed on the current config cannot carry — which is why the table is kept rather than deleted. It confers no governance, and nothing derives scope from it.
+
+One assertion keeps it honest, in the direction that is cheap: every row must name a hook entry the config declares and the registry classifies `verdict`. A row naming a renamed or deleted hook fails, so the table cannot rot into a claim of coverage that no longer exists. The reverse direction — a blocking entry with no row — is deliberately **not** asserted. That is the state D9a makes safe, and asserting it would make every new validator an edit to this ADR, which is exactly what the table's caption disclaims.
+
+### Alternatives Considered
+
+- **Keep the table authoritative and add a bidirectional config-vs-table drift test.** Genuinely closes both measured mutations, and is the smallest change. Rejected on three counts: it makes landing any new blocking hook an edit to an accepted decision record, contradicting the caption's "expected to grow without this ADR changing"; it cannot express the ten `check-jsonschema` entries that share one id, so the third-party register stays hand-written in the test source regardless; and it entrenches the ADR as a runtime input to the test suite, keeping `docs/adr/037-*.md` in `validate_python.yml`'s `paths:` so that editing prose changes what CI enforces.
+- **Config-derived with the table deleted.** Rejected: D9c already removes the table's authority, so deleting it buys no enforcement, and it discards the before/after columns that are the record of what this change was. It is also churn in a document whose open PR and stacked branch cite its rows.
+- **Config-derived with a bare predicate and no classification** — treat every hook entry as verdict-class. Rejected: it sweeps the eight mutation entries into a coverage rule whose stated remedy is not their counterpart, and the result is either eight regeneration-and-diff jobs inside a strictness change or eight suppressions. Suppressions are a registry with less structure and no totality requirement.
+- **Declare the class in `.pre-commit-config.yaml` itself.** Not available: pre-commit's config schema rejects unknown hook keys, so an inline `class:` fails `pre-commit validate-config`. A structured comment convention (`# cosai-ci: verdict`) would parse, but is invisible to the framework's own validation and silently absent when someone copies an entry without its comment.
+- **Status quo plus a size pin on the governed set** — assert the parametrized case count. Rejected: it catches the deletion mutation and not the addition mutation, which is the more likely one and the one D1 exists to prevent. A count pinned to a literal also drifts to whatever the table says at the next intentional edit, which is the moment it stops meaning anything.
+
+### Consequences
+
+**Positive**
+
+- Both measured mutations fail. The added flagless hook fails classification before any coverage question is reached; the deleted row cannot shrink the governed set, because the set is the config's and the hook is still declared in it.
+- Third-party blocking hooks fall under the same derivation as repo-local ones. The hand-written `check-jsonschema` / `check-metaschema` names in the test source stop being a second register.
+- The ADR stops being a runtime input to the test suite. Once nothing derives scope from the table, `docs/adr/037-*.md` leaves `validate_python.yml`'s `paths:` filters, and prose edits stop changing what CI enforces.
+- Pre-commit-hook-safety axis: this is the rule that prevents a hook landing with no CI counterpart, and it is the surface a contributor's local state can otherwise decide. Deriving it from the config is what makes "governed on arrival" a property of adding the hook rather than of remembering the table.
+- No new dependency, no new workflow permission, no new use of `secrets.*`. Supply-chain and workflow-exposure surface are unchanged.
+
+**Negative**
+
+- The registry is still a declaration. D9 does not eliminate human declaration; it makes the declaration total, adjacent to the hook, and failing-closed. That is a weaker guarantee than "derived from behaviour", and it should not be described as a stronger one.
+- Classification is a judgement, and the permissive misclassification — labelling a validator `mutation` — is invisible to a static test. D9b raises its price to an ADR amendment rather than eliminating it.
+- Four verdict-class hooks that no table row ever named enter scope. Their CI counterparts appear to exist, but "at least the inputs the hook would see" is a measurement this addendum does not claim, in the same posture D7 takes on its own three.
+- The mutation class's own CI obligation is not decided here, so D9a's classification is total while D1's coverage clause reaches only the verdict class. Until that is closed, `mutation` is a class with a defined membership and an undefined obligation.
+- One more file must be kept current when a hook lands. The failure mode is loud rather than silent, which is the trade this addendum makes deliberately.
+
+**Follow-up**
+
+- Measure the four newly in-scope verdict hooks against D1's coverage clause rather than assuming their apparent counterparts satisfy it: `validate-control-risk-references` against `validation.yml`'s control-risk job; `validate-lifecycle-stage` against whether default-mode `validate_riskmap.py --force --block` meets the dedicated hook's contract per [ADR-005's 2026-05-08 addendum](005-pre-commit-framework.md#addendum-2026-05-08-hook-trigger-vs-read-set-invariant); `validate-workflow-uses-pinning` against `validate_workflows.yml`; `validate-issue-templates` against `validate-issue-templates.yml`. Where a counterpart is narrower than the hook's `files:` set, `scripts/tools/hook_file_list.py` is the derivation D7a already provides.
+- Decide the mutation class's CI obligation — a regenerate-and-diff job per entry, or an explicit statement that artefact drift is outside D1's scope. `validate_tables.yml` is the existing instance of the former; `prettier-site-assets` has no evident counterpart. This is the one clause D9 leaves open, and it is open by name rather than by omission.
+- Retire the hand-written third-party hook names in the test module once D9a's `(id, name)` enumeration covers the `check-jsonschema` pairs.
+- Remove `docs/adr/037-ci-validation-authority-and-block-parity.md` from `validate_python.yml`'s `paths:` filters and from the test module's derivation-source set once nothing derives scope from the table.
