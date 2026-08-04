@@ -188,6 +188,7 @@ synthetic-detector tests establish that the guard would catch a violation in
 both the literal and the variable-built form.
 """
 
+import ast
 import importlib.util
 import json
 import os
@@ -196,6 +197,7 @@ import shlex
 import shutil
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 from typing import Any, Callable, NamedTuple
 
@@ -2039,6 +2041,21 @@ def _iter_precommit_hooks():
 # this decision does not reach.
 _ADR_037_PATH = _REPO_ROOT / "docs" / "adr" / "037-ci-validation-authority-and-block-parity.md"
 
+# Files this module derives its own *expectations* from, as opposed to files
+# whose CI behaviour it inspects. `_ADR_037_PATH` is the one instance today:
+# `_adr_governed_hook_ids` parses it into ADR_GOVERNED_HOOK_IDS, which decides
+# which hooks TestUnflaggedBlockingCoverage, TestCIFileListsAreDerivedAndComplete
+# and this workflow-trigger derivation itself all quantify over. Editing only
+# the table's rows — adding or removing a governed hook — changes what every
+# test keyed on that set asserts, with no change to any workflow, script or
+# `.pre-commit-config.yaml` entry, so the source this module reads its own
+# rules from has to be a pytest-workflow trigger requirement in its own right.
+# A further such source (a second table this module comes to parse) belongs
+# here, not folded into `_workflow_dependencies`, which answers a narrower
+# question: what a *workflow's steps* execute, not what *this test module*
+# reads to build its own register.
+_DERIVATION_SOURCE_PATHS = frozenset({_ADR_037_PATH.relative_to(_REPO_ROOT).as_posix()})
+
 # A table cell holding exactly one backticked hook id. The header and separator
 # rows do not match, and neither does the `Validator` column (a path, and one
 # containing `/`).
@@ -2947,6 +2964,459 @@ class TestCIFileListsAreDerivedAndComplete:
 
 
 # ===========================================================================
+# 6b. D1 over third-party blocking hooks — not only the repo's own scripts
+# ===========================================================================
+#
+# ADR-037's D1 instance table (`ADR_GOVERNED_HOOK_IDS`, section 6) is the
+# register every other class in this module reads to decide which hooks D1
+# governs, and the table only names hooks whose `entry:` runs a local Python
+# script. `.pre-commit-config.yaml` also declares hooks from a third-party
+# repo — `check-jsonschema` and `check-metaschema`, from
+# python-jsonschema/check-jsonschema — and D1's own text does not carve those
+# out: "a validator ... invokes as a **blocking hook**" (docs/adr/037-
+# ci-validation-authority-and-block-parity.md, D1), and blocking is defined
+# there as "a violation makes it exit non-zero — whether that is unconditional,
+# or requires `--block`". Both third-party hooks are unconditionally blocking
+# by construction: check-jsonschema's entire purpose is to exit non-zero on a
+# schema violation, and no `.pre-commit-config.yaml` key changes that.
+#
+# A hook-id-keyed register cannot see this gap at all: `check-jsonschema` is
+# declared many times over (one entry per yaml/schema pair, section 6's own
+# `PRECOMMIT_HOOKS_BY_ID` comment records this), all sharing one `id`, so
+# there is no per-pair hook id for ADR-037's table to name even if it wanted
+# to. This section reads the pairs out of `.pre-commit-config.yaml`'s own
+# `args:` instead, the same derive-don't-transcribe rule as everywhere else in
+# this module.
+
+
+def _check_jsonschema_pairs() -> list[tuple[str, str, str]]:
+    """Return (hook name, schema path, yaml path) for every `check-jsonschema` entry.
+
+    Each entry pins one yaml/schema pair through `--schemafile <schema>` and a
+    trailing positional yaml path in `args:` — `pass_filenames: false` on every
+    one makes that positional the only place either path is recorded, per the
+    comment on the schema-validation block in `.pre-commit-config.yaml`.
+    Entries with no `--schemafile` (there are none today) are skipped rather
+    than crashing, so a future check-jsonschema hook shaped differently is
+    reported as unparseable by its own absence, not by an index error here.
+    """
+    pairs: list[tuple[str, str, str]] = []
+    for hook in PRECOMMIT_HOOKS_BY_ID.get("check-jsonschema", []):
+        args = [str(a) for a in hook.get("args") or []]
+        if "--schemafile" not in args:
+            continue
+        schema = args[args.index("--schemafile") + 1]
+        yaml_path = args[-1]
+        pairs.append((str(hook.get("name") or hook.get("id")), schema, yaml_path))
+    return pairs
+
+
+def _ci_schema_yaml_pairs() -> set[tuple[str, str]]:
+    """Return the (schema, yaml) pairs `validate_all_schemas.py`'s own pairing finds.
+
+    Run as a subprocess from the repository root, exactly the way
+    `validation.yml`'s schema-validation job invokes `_find_pairs()`
+    (`-c "import sys; sys.path.insert(0, 'scripts/hooks/precommit'); import
+    validate_all_schemas as v; ..."`), rather than imported in-process:
+    `_find_pairs()` globs relative to the process's current working directory,
+    and importing the module here would glob relative to pytest's own cwd
+    instead of the repository root CI actually runs it from.
+    """
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            "import sys, json\n"
+            "sys.path.insert(0, 'scripts/hooks/precommit')\n"
+            "import validate_all_schemas as v\n"
+            "print(json.dumps([[str(s), str(y)] for s, y in v._find_pairs()]))\n",
+        ],
+        cwd=str(_REPO_ROOT),
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    return {(schema, yaml_path) for schema, yaml_path in json.loads(result.stdout)}
+
+
+# Third-party CLI tools `.pre-commit-config.yaml` invokes directly, rather
+# than through a `python3 <script>.py` line `_python_invocations` can see.
+# `check-jsonschema` is the only one declared today: the repo at
+# `https://github.com/python-jsonschema/check-jsonschema` provides both the
+# `check-jsonschema` hook id (entry `check-jsonschema`) and the
+# `check-metaschema` hook id (entry `check-jsonschema --check-metaschema`) —
+# two hooks, one binary, distinguished by a flag rather than by command name.
+# Neither hook supports a strictness flag, so both block a commit
+# unconditionally the moment they run at all.
+THIRD_PARTY_BLOCKING_COMMANDS = frozenset({"check-jsonschema"})
+
+
+def _third_party_invocations(script_text: str, source: str, keep_substitutions: bool = False) -> list[Invocation]:
+    """Return every THIRD_PARTY_BLOCKING_COMMANDS execution in a shell script.
+
+    Structurally the same job `_python_invocations` does — line-by-line
+    variable expansion, then a simple-command split, so a step's own comments
+    and un-executed mentions (`echo "check-jsonschema failed"`) are excluded
+    the same way `_python_invocations`'s own docstring describes — matching on
+    THIRD_PARTY_BLOCKING_COMMANDS instead of a `.py` script or a `python*`
+    interpreter. Kept as a separate function rather than folded into
+    `_python_invocations`: that function has dozens of call sites across this
+    module, all of which assume "a Python execution", and widening its match
+    criteria would change what every one of them means.
+
+    `script` and `path` are both the matched command name — there is no script
+    *file* to distinguish path-on-the-command-line from basename the way a
+    `.py` invocation has.
+    """
+    env: dict[str, Any] = {}
+    substitutions: dict[str, str] = {}
+    found: list[Invocation] = []
+
+    for raw_line in script_text.splitlines():
+        stripped = raw_line.strip()
+        if not stripped or stripped.startswith("#"):
+            continue
+
+        assignment = _ASSIGN_RE.match(raw_line)
+        if assignment:
+            name, value = assignment.group(1), assignment.group(2).strip()
+            if "$(" in value or "`" in value:
+                if keep_substitutions:
+                    substitutions[name] = _substitution_command(value)
+                    env[name] = f"${{{name}}}"
+                else:
+                    env[name] = ""
+            elif value.startswith("(") and value.endswith(")"):
+                env[name] = [_expand(element, env) for element in _safe_split(value[1:-1])]
+            else:
+                parts = _safe_split(value)
+                env[name] = _expand(parts[0], env) if parts else ""
+            continue
+
+        tokens: list[str] = []
+        for token in _safe_split(stripped):
+            expansion = _expand(token, env)
+            tokens.extend(expansion.split())
+
+        for segment in _split_simple_commands(tokens):
+            while segment and (segment[0] in _LEADING_WORDS or _TOKEN_ASSIGN_RE.match(segment[0])):
+                segment = segment[1:]
+            if not segment:
+                continue
+            command, rest = segment[0], segment[1:]
+            if Path(command).name not in THIRD_PARTY_BLOCKING_COMMANDS:
+                continue
+            found.append(
+                Invocation(command, command, tuple(rest), source, stripped, tuple(sorted(substitutions.items())))
+            )
+
+    return found
+
+
+def _check_metaschema_steps() -> list["WorkflowStep"]:
+    """Return steps invoking `check-jsonschema --check-metaschema` as a real command.
+
+    Uses the structured `_third_party_invocations` parser rather than a raw
+    substring scan, so a step that keeps the flag only in a comment
+    (`# ... --check-metaschema ...`) while its executable command has been
+    replaced with something else — `if true; then` — is not read as covering
+    the hook. A comment mentioning a flag is not a command carrying it.
+    """
+    return [
+        step
+        for step in WORKFLOW_STEPS
+        if any(
+            "--check-metaschema" in invocation.argv
+            for invocation in _third_party_invocations(step.run, step.source, keep_substitutions=True)
+        )
+    ]
+
+
+def _ci_runs_check_metaschema() -> bool:
+    """True when some workflow step invokes check-jsonschema's metaschema mode.
+
+    `check-metaschema` is check-jsonschema's own pre-commit hook id for
+    `check-jsonschema --check-metaschema <files>` (verified against the
+    installed CLI's `--help`: `--check-metaschema` is the flag that switches
+    from validating instances to validating schema documents against their own
+    declared metaschema). Delegates to `_check_metaschema_steps`, the
+    structured derivation, rather than a raw substring scan of `step.run`: the
+    substring form reads a flag left behind in a comment the same as one on a
+    real command line, so a step whose actual command had been replaced with
+    something else (`if true; then # ... --check-metaschema ...`) still read
+    as covered.
+    """
+    return bool(_check_metaschema_steps())
+
+
+class TestThirdPartyBlockingHookCoverage:
+    """ADR-037 D1, applied to hooks pre-commit declares from a third-party repo.
+
+    Every other class in this module resolves "does CI cover this hook" to a
+    single workflow invocation it can run and inspect (sections 2, 6, 10).
+    Until 23a455b, there was no such invocation for either hook here: the
+    closest CI came was `validate_all_schemas.py`, itself a `check-jsonschema`
+    wrapper for a different trigger (the master schema changing) with its own,
+    narrower pairing logic — `check-jsonschema` proper covered nine pairs
+    (missing the archived one, see `test_every_check_jsonschema_pair_has_a_ci_counterpart`)
+    and `check-metaschema` had no counterpart at all. 23a455b closed both:
+    switching `_find_pairs()` to `rglob` folded the archive pair into the
+    pairing logic this class's tests already read, and a dedicated
+    `check-jsonschema --check-metaschema` step was added to the
+    schema-validation job. What these tests assert is therefore still the
+    weaker but real claim D1 makes — that CI's own pairing includes every
+    pair pre-commit blocks a commit on, and that some CI job performs the
+    equivalent of `check-metaschema` at all — kept as a standing guard now
+    that both hold, rather than as a report of the gap that used to exist.
+    """
+
+    def test_the_precommit_config_declares_both_third_party_hooks(self):
+        """
+        Given: `.pre-commit-config.yaml`
+        When: hooks are looked up by id
+        Then: at least one `check-jsonschema` entry and exactly one
+              `check-metaschema` entry are declared
+
+        Non-vacuity guard: both parametrizations below quantify over these.
+        """
+        assert PRECOMMIT_HOOKS_BY_ID.get("check-jsonschema"), (
+            "No `check-jsonschema` hook is declared. Either the schema-validation "
+            "block was removed from .pre-commit-config.yaml, or this test's "
+            "assumptions about how it declares hooks no longer hold."
+        )
+        metaschema_hooks = PRECOMMIT_HOOKS_BY_ID.get("check-metaschema") or []
+        assert len(metaschema_hooks) == 1, (
+            f"Expected exactly one `check-metaschema` hook, found {len(metaschema_hooks)}. "
+            "test_check_metaschema_has_a_ci_counterpart below assumes a single entry."
+        )
+
+    def test_every_check_jsonschema_pair_has_a_ci_counterpart(self):
+        """
+        Given: every (schema, yaml) pair a `check-jsonschema` hook blocks a
+               commit on
+        When: compared against the pairs `validate_all_schemas.py`'s own
+              pairing logic discovers over the real tracked corpus — the only
+              CI-side schema validation that exists
+        Then: every pre-commit pair is among them
+
+        `check-jsonschema` hooks are unconditionally blocking — no flag makes
+        a schema violation a warning — so D1's coverage clause reaches all of
+        them, not only the ones ADR-037's instance table happens to name.
+
+        Until 23a455b, `_find_pairs()` globbed `risk-map/schemas/*.schema.json`
+        non-recursively (`scripts/hooks/precommit/validate_all_schemas.py`),
+        so `risk-map/schemas/archive/self-assessment-legacy.schema.json` and
+        its yaml were outside it: the archive pair was validated by a blocking
+        pre-commit hook and by no CI job at all — pre-existing, not introduced
+        by this branch. 23a455b switched discovery to `rglob`, which is
+        correct independent of CI parity (the archive schema does `$ref`
+        `riskmap.schema.json`, so a master-schema change genuinely affects
+        it), and folding the archive pair into `_find_pairs()`'s own return
+        value is what gives it a CI counterpart here too, since this test
+        reads that same function. Kept as a standing guard against the pair
+        losing coverage again — e.g. a schema added under a directory
+        `_find_pairs()` stops recursing into.
+        """
+        pairs = _check_jsonschema_pairs()
+        assert pairs, (
+            "No (schema, yaml) pair was parsed out of any check-jsonschema hook's "
+            "`args:`. Non-vacuity guard — nothing below would be checked."
+        )
+        ci_pairs = _ci_schema_yaml_pairs()
+        missing = [
+            (name, schema, yaml_path) for name, schema, yaml_path in pairs if (schema, yaml_path) not in ci_pairs
+        ]
+        assert not missing, (
+            "These check-jsonschema pairs block a commit locally and are not among "
+            "the pairs validate_all_schemas.py's own pairing logic covers in CI:\n"
+            + "\n".join(f"  - {name}: schema={schema!r} yaml={yaml_path!r}" for name, schema, yaml_path in missing)
+            + f"\nCI pairs found: {sorted(ci_pairs)}\n"
+            "ADR-037 D1 requires a CI invocation for every blocking pre-commit hook, "
+            "not only the ones its own instance table names."
+        )
+
+    def test_check_metaschema_has_a_ci_counterpart(self):
+        """
+        Given: the `check-metaschema` hook, which blocks a commit whenever any
+               tracked `risk-map/schemas/*.schema.json` file is not itself a
+               structurally valid JSON Schema document
+        When: every workflow step is searched for the equivalent check
+              (`check-jsonschema --check-metaschema`)
+        Then: at least one is found
+
+        Until 23a455b, none was: `validate_all_schemas.py` validates yaml
+        against schema, never a schema document against its own declared
+        metaschema, and no workflow step named `--check-metaschema` at all —
+        a typo'd keyword or an invalid `$ref` in a `.schema.json` file, the
+        exact class of error this hook exists to catch at author time, could
+        reach main unopposed by CI, contributor-hook-installation state
+        deciding whether it was caught at all. 23a455b added a step to
+        `validation.yml`'s schema-validation job running
+        `check-jsonschema --check-metaschema` over the file list
+        `hook_file_list.py` derives from this hook's own `files:` pattern —
+        13 tracked schema files as of this writing. Kept as a standing guard
+        against that step being removed or narrowed.
+        """
+        hook = (PRECOMMIT_HOOKS_BY_ID.get("check-metaschema") or [None])[0]
+        if hook is None:
+            pytest.fail(
+                "No check-metaschema hook is declared; "
+                "test_the_precommit_config_declares_both_third_party_hooks reports this."
+            )
+        matched = _expected_hook_files(hook)
+        assert matched, (
+            "check-metaschema's own `files:` pattern matched no tracked file, so "
+            "there is nothing this hook would block a commit on. Non-vacuity guard — "
+            "the assertion below would otherwise pass on an empty corpus."
+        )
+        assert _ci_runs_check_metaschema(), (
+            f"check-metaschema blocks a commit whenever any of {len(matched)} tracked "
+            "schema files fails metaschema validation, and no workflow step under "
+            f"{_WORKFLOW_DIR} runs the equivalent `check-jsonschema --check-metaschema` "
+            "check. ADR-037 D1 requires a CI invocation for every blocking pre-commit "
+            "hook; this one has none."
+        )
+
+    def test_the_check_metaschema_detector_ignores_a_commented_out_invocation(self):
+        """
+        Given: a synthetic step whose only mention of `--check-metaschema` is
+               inside a comment, with the command that actually runs replaced
+               by something unrelated (`if true; then`)
+        When: `_third_party_invocations` parses its body
+        Then: no invocation carrying `--check-metaschema` is found
+
+        Reproduces mutation M9: replacing the real command with `if true;
+        then` while leaving `--check-metaschema` in a comment left the
+        previous raw-substring form of `_ci_runs_check_metaschema` reporting
+        the step as covered — a string search cannot distinguish a flag on a
+        comment line from one on a command line, and a step whose actual
+        command no longer runs `check-jsonschema` at all checks nothing.
+        `_check_metaschema_steps` (and `_ci_runs_check_metaschema`, which now
+        delegates to it) parse structurally instead, the same way
+        `_python_invocations` already does for the Python half of this
+        module, so a commented-out mention contributes nothing.
+        """
+        synthetic = WorkflowStep(
+            workflow="synthetic.yml",
+            job="synthetic",
+            label="synthetic",
+            run=(
+                "# mirrors the check-metaschema hook: check-jsonschema --check-metaschema\n"
+                "if true; then\n"
+                '  echo "ok"\n'
+                "fi\n"
+            ),
+            shell=None,
+            working_directory=None,
+            source="synthetic::commented-out-metaschema",
+        )
+        invocations = _third_party_invocations(synthetic.run, synthetic.source, keep_substitutions=True)
+        assert not any("--check-metaschema" in invocation.argv for invocation in invocations), (
+            "_third_party_invocations found a real invocation in a step whose only "
+            "mention of --check-metaschema is inside a comment. The detector regressed "
+            "to a substring scan, which cannot tell a comment from a command."
+        )
+
+    def test_check_metaschema_file_list_is_derived_not_transcribed(self):
+        """
+        Given: the CI step(s) running `check-jsonschema --check-metaschema`
+        When: the file list reaching that command's argv is traced back to the
+              command that built it, that command is executed, and its output
+              is compared against check-metaschema's own `files:` pattern
+              evaluated over the tracked corpus
+        Then: the step's file list is built from a command (not transcribed
+              literally into the step), and that command's output equals the
+              hook's own file set exactly
+
+        Reproduces mutation M10: transcribing the file list (one of thirteen
+        tracked schemas, hand-picked) in place of
+        `$(python3 scripts/tools/hook_file_list.py check-metaschema)` leaves
+        every other assertion in this class satisfied — the step still runs
+        `check-jsonschema --check-metaschema`, `_ci_runs_check_metaschema`
+        still reports it covered — while checking one schema file CI happens
+        to have listed instead of every schema check-metaschema's own `files:`
+        pattern selects. A schema added, renamed, or moved after the
+        transcription silently stops being checked.
+        """
+        steps = _check_metaschema_steps()
+        assert steps, "No check-metaschema step found; test_check_metaschema_has_a_ci_counterpart reports this."
+
+        hook = (PRECOMMIT_HOOKS_BY_ID.get("check-metaschema") or [None])[0]
+        expected = set(_expected_hook_files(hook)) if hook else set()
+        assert expected, (
+            "check-metaschema's own `files:` pattern matched no tracked file. Non-vacuity "
+            "guard — test_check_metaschema_has_a_ci_counterpart asserts the same thing."
+        )
+
+        for step in steps:
+            invocations = _third_party_invocations(step.run, step.source, keep_substitutions=True)
+            target = next(inv for inv in invocations if "--check-metaschema" in inv.argv)
+            referenced = {match.group(1) for token in target.argv if (match := _SUBST_TOKEN_RE.match(token))}
+            substitutions = [(name, command) for name, command in target.substitutions if name in referenced]
+            assert substitutions, (
+                f"{step.source}: check-jsonschema --check-metaschema is invoked with no "
+                f"variable-substitution file list on its command line (argv: "
+                f"{target.argv}). Either the list is transcribed literally (drifting "
+                "from check-metaschema's own `files:` pattern the moment a schema is "
+                "added, renamed, or archived) or it is empty (checking nothing)."
+            )
+            for name, command in substitutions:
+                result = _run_substitution(command, _REPO_ROOT)
+                assert result.returncode == 0, (
+                    f"{step.source}: the command building {name} ({command!r}) exited "
+                    f"{result.returncode}, so the step aborts under `bash -e` before the "
+                    f"check ever runs.\nstdout: {result.stdout!r}\nstderr: {result.stderr!r}"
+                )
+                resolved = set(result.stdout.split())
+                assert resolved == expected, (
+                    f"{step.source}: the file list check-jsonschema --check-metaschema "
+                    f"receives from {name} ({sorted(resolved)}) does not match "
+                    f"check-metaschema's own `files:` pattern evaluated over the tracked "
+                    f"corpus ({sorted(expected)}). A transcribed or truncated list drifts "
+                    "from the hook it is meant to mirror in the permissive direction."
+                )
+
+    def test_check_metaschema_step_is_not_exempted_from_failing_the_job(self):
+        """
+        Given: the CI step(s) running `check-jsonschema --check-metaschema`,
+               and their enclosing jobs
+        When: `continue-on-error:` and `if:` are inspected at both levels
+        Then: neither declares one
+
+        `check-metaschema` is not a member of GATE_STEPS — `_gate_steps` keys
+        on STRICTNESS_FLAGS and UNFLAGGED_BLOCKING_SCRIPTS, neither of which
+        this third-party invocation carries — so
+        `TestGateStepFailsTheJob::test_no_gate_step_is_exempted_from_failing_the_job`
+        never reaches it. Reproduces mutation M29: adding
+        `if: github.event_name == 'schedule'` and `continue-on-error: true` to
+        the step left every other assertion in this class satisfied on a
+        pull-request run, because the step simply does not execute — no
+        failure, no conspicuous absence, and no assertion elsewhere in this
+        module inspects these two keys for a step outside GATE_STEPS.
+        """
+        steps = _check_metaschema_steps()
+        assert steps, "No check-metaschema step found; test_check_metaschema_has_a_ci_counterpart reports this."
+
+        for step in steps:
+            exemptions: list[str] = []
+            if step.continue_on_error is not None:
+                exemptions.append(f"step `continue-on-error: {step.continue_on_error!r}`")
+            if step.job_continue_on_error is not None:
+                exemptions.append(f"job `continue-on-error: {step.job_continue_on_error!r}`")
+            if step.condition is not None:
+                exemptions.append(f"step `if: {step.condition!r}`")
+            if step.job_condition is not None:
+                exemptions.append(f"job `if: {step.job_condition!r}`")
+            assert not exemptions, (
+                f"{step.source} is exempted from failing the workflow: {exemptions}. "
+                "ADR-037 D1 requires a CI invocation of at least the same strictness as "
+                "the pre-commit hook it mirrors; a step that may not run at all, or that "
+                "may fail without failing its job, enforces nothing on a pull request "
+                "where the exemption applies."
+            )
+
+
+# ===========================================================================
 # 7. The gate step's own execution context
 # ===========================================================================
 #
@@ -3362,6 +3832,48 @@ def _workflow_data(name: str) -> dict[str, Any]:
     return yaml.safe_load((_WORKFLOW_DIR / name).read_text(encoding="utf-8"))
 
 
+def _declared_events(data: dict[str, Any]) -> set[str]:
+    """Return every event name a workflow's `on:` block declares.
+
+    `_trigger_filters` only returns events carrying a `paths:`/`paths-ignore:`
+    filter — by design, since an unfiltered event cannot be the cause of a
+    missed *path* trigger. It is silent on an event missing altogether, which
+    is exactly what `pull_request:` being deleted from a gate workflow looks
+    like: no filter is missing, because there is no event to have one.
+
+    Handles all three spellings GitHub accepts for `on:`: a bare event name
+    (which PyYAML 1.1 reads as the boolean `True` key), a list of event names,
+    and a mapping keyed by event name. A workflow missing `on:` entirely
+    declares no events.
+    """
+    triggers = data.get("on", data.get(True))
+    if isinstance(triggers, dict):
+        return {str(event) for event in triggers}
+    if isinstance(triggers, list):
+        return {str(event) for event in triggers}
+    if isinstance(triggers, str):
+        return {triggers}
+    return set()
+
+
+def _event_branches(data: dict[str, Any], event: str) -> list[str] | None:
+    """Return an event's declared `branches:` filter, or None if unrestricted.
+
+    None means the event fires against a pull request or push targeting any
+    base branch — GitHub's default when the key is absent — which is at least
+    as permissive as any explicit list and is therefore never itself a
+    coverage gap.
+    """
+    triggers = data.get("on", data.get(True))
+    if not isinstance(triggers, dict):
+        return None
+    config = triggers.get(event)
+    if not isinstance(config, dict):
+        return None
+    branches = config.get("branches")
+    return [str(branch) for branch in branches] if branches else None
+
+
 class TriggerFilter(NamedTuple):
     """One event's path filter, in whichever of the two spellings it uses.
 
@@ -3599,6 +4111,378 @@ def _reads_precommit_config(repo_relative_script: str) -> bool:
     return path.is_file() and _PRECOMMIT_CONFIG.name in path.read_text(encoding="utf-8")
 
 
+# ---------------------------------------------------------------------------
+# The corpus a gate's governed hooks scan, and the modules its scripts import
+# ---------------------------------------------------------------------------
+#
+# `_workflow_dependencies` above answers "what does this workflow execute or
+# copy". That is not the same question as "what does D1 require this workflow
+# to trigger on": a hook's own `files:` pattern names the *content* it exists
+# to check, which a script-execution scan never sees at all, and a validator's
+# local imports are read but never appear on any command line, so the same
+# scan misses them too. Both are additional trigger requirements, not a
+# rewrite of `_workflow_dependencies` — nothing else in this module attributes
+# a required trigger path to a hook's `files:` pattern or to an import graph,
+# and folding either into the shared helper would change what every other
+# test that calls it also requires.
+#
+# Reconciling a hook's `files:` regex against a workflow's `paths:` glob
+# symbolically is not attempted here: they are different pattern languages
+# (regex vs. a glob dialect with its own `**` semantics), and a translation
+# between them could pass while a real file either side would actually match
+# is missed. Both sides are instead evaluated against the same concrete
+# input — every file `git ls-files` tracks — which is exact for both:
+# `_expected_hook_files` (section 6) already evaluates a hook's `files:`/
+# `exclude:` regex over that corpus, and `_covered_by_every_event` already
+# evaluates a workflow's `paths:` glob over it. Sampling the tracked corpus
+# rather than enumerating it here is what keeps the comparison sound as the
+# corpus grows: a file added tomorrow under `scripts/agents/` is swept in by
+# `_expected_hook_files` with no edit to this module.
+
+
+def _governed_hook_input_paths(workflow_name: str) -> set[str]:
+    """Return the tracked files ADR-037's governed hooks select, for hooks this workflow runs.
+
+    A governed hook is in scope for a workflow only if the workflow actually
+    executes that hook's validator — matched on basename against
+    `_workflow_script_resolutions`, the same resolution `_workflow_dependencies`
+    uses. A hook whose script this workflow never runs contributes no
+    requirement to it.
+    """
+    executed_basenames = {Path(record.basename).name for record in _workflow_script_resolutions(workflow_name)}
+    paths: set[str] = set()
+    for hook_id in ADR_GOVERNED_HOOK_IDS:
+        hooks = PRECOMMIT_HOOKS_BY_ID.get(hook_id) or []
+        if len(hooks) != 1:
+            # test_the_governed_hooks_resolve_to_the_precommit_config reports
+            # a table row that does not resolve to exactly one hook; nothing
+            # here can be derived from it either.
+            continue
+        hook = hooks[0]
+        script = _hook_script(hook)
+        if script is not None and script not in executed_basenames:
+            continue
+        paths |= set(_expected_hook_files(hook))
+    return paths
+
+
+# Two sys.path roots are live in this codebase's `precommit/` validators: the
+# repository root (`import scripts.build_persona_site_data`,
+# `from scripts.hooks._sentinel_expansion import ...`) and `scripts/hooks/`
+# itself, added by each validator so `precommit.*` resolves whether it is
+# executed directly (pre-commit's `entry:`, CI's command line) or imported as
+# part of the `precommit` package (`import precommit._neutrality_data as
+# data`). Both are tried when resolving a dotted import name below; a name
+# that resolves under neither is not a local module — most commonly a
+# third-party package — and contributes no trigger requirement.
+_IMPORT_ROOTS = (_REPO_ROOT, _HOOKS_DIR)
+
+
+def _resolve_local_import(module_name: str) -> str | None:
+    """Resolve a dotted import name to a tracked repo-relative `.py` file, or None.
+
+    Tries both the plain-module reading (`precommit._prose_fields` ->
+    `precommit/_prose_fields.py`) and the package reading
+    (`precommit` -> `precommit/__init__.py`), because `from precommit import
+    _prose_fields` resolves `node.module` to `"precommit"` alone — the
+    submodule name lives in the import's `names`, not in `module_name` here —
+    and a bare `precommit` has no `.py` file of its own, only a package
+    directory with an `__init__.py`. `_local_import_closure` is what supplies
+    the submodule-qualified name as a second candidate for that shape; this
+    function only has to resolve whichever dotted name it is given.
+
+    Returns None for a name that does not resolve under either
+    `_IMPORT_ROOTS` entry to a file `git ls-files` tracks — including every
+    third-party package (`yaml`, `jsonschema`, ...), which has no repo-relative
+    path to add as a trigger requirement in the first place.
+    """
+    parts = module_name.split(".")
+    for root in _IMPORT_ROOTS:
+        for candidate in (root.joinpath(*parts).with_suffix(".py"), root.joinpath(*parts, "__init__.py")):
+            if candidate.is_file():
+                relative = candidate.resolve().relative_to(_REPO_ROOT).as_posix()
+                if relative in TRACKED_FILE_SET:
+                    return relative
+    return None
+
+
+def _resolve_relative_import(current: str, level: int, module: str | None, alias_names: list[str]) -> list[str]:
+    """Resolve a relative import (`node.level > 0`) to tracked repo-relative files.
+
+    `level` counts leading dots: `from . import x` is level 1 (the current
+    script's own package); `from .. import x` is level 2 (one package up); and
+    so on. `module`, when present, is the dotted name after the dots
+    (`from .foo import x` has `module="foo"`). When `module` is absent
+    (`from . import x`), each name in `alias_names` is itself a candidate
+    submodule of the resolved package — the same ambiguity
+    `_resolve_local_import`'s package/plain-module split handles for absolute
+    imports, reproduced here because a relative import's base is a directory,
+    not a name `_IMPORT_ROOTS` can look up directly.
+    """
+    base_dir = (_REPO_ROOT / current).parent
+    for _ in range(level - 1):
+        base_dir = base_dir.parent
+
+    def _candidates(parts: list[str]) -> list[Path]:
+        return [base_dir.joinpath(*parts).with_suffix(".py"), base_dir.joinpath(*parts, "__init__.py")]
+
+    resolved: list[str] = []
+    name_lists = [module.split(".")] if module else [[name] for name in alias_names]
+    for parts in name_lists:
+        for candidate in _candidates(parts):
+            if candidate.is_file():
+                relative = candidate.resolve().relative_to(_REPO_ROOT).as_posix()
+                if relative in TRACKED_FILE_SET:
+                    resolved.append(relative)
+                break
+    return resolved
+
+
+def _is_dynamic_local_import_call(node: ast.AST) -> bool:
+    """True for a call to `importlib.import_module` or `importlib.util.spec_from_file_location`.
+
+    Neither form appears as an `ast.Import`/`ast.ImportFrom` node, so
+    `_local_import_closure`'s walk cannot follow either no matter how it
+    handles those two node types. Detected structurally (an attribute chain
+    ending in one of the two names) rather than by a fixed dotted-name string,
+    so `import importlib.util as iu; iu.spec_from_file_location(...)` is still
+    caught.
+    """
+    if not isinstance(node, ast.Call):
+        return False
+    func = node.func
+    if isinstance(func, ast.Attribute):
+        return func.attr in {"import_module", "spec_from_file_location"}
+    return False
+
+
+def _local_import_closure(repo_relative_script: str) -> set[str]:
+    """Return every tracked local module a script imports, transitively.
+
+    Parsed with `ast` rather than executed, so a scanned module's own
+    import-time side effects (argument parsing, `sys.path` mutation) never
+    run. Only imports `_resolve_local_import`/`_resolve_relative_import`
+    resolve to a tracked file are followed; everything else — a third-party
+    package, a name shadowed by a package that happens to share a prefix — is
+    left alone rather than guessed at, because a false resolution would invent
+    a trigger requirement that does not exist.
+
+    Three import shapes are followed:
+
+      - `import a.b.c` and `from a.b import c` (`node.level == 0`): resolved
+        directly, and — because `from a.b import c` cannot be told apart from
+        `from a.b import c` where `c` is itself a submodule rather than an
+        attribute without trying both — `a.b.c` is also tried as a second
+        candidate per name in `node.names`.
+      - `from . import x` / `from .pkg import x` (`node.level > 0`): resolved
+        relative to the current script's own package via
+        `_resolve_relative_import`.
+
+    A dynamic import (`importlib.import_module(...)`,
+    `importlib.util.spec_from_file_location(...)`) is a fourth shape this walk
+    cannot follow at all — neither is an `ast.Import`/`ast.ImportFrom` node —
+    and is reported loudly via `pytest.fail` rather than silently resolving to
+    nothing, per the same reasoning `_workflow_dependencies` gives for an
+    unresolved script basename: a silently incomplete closure understates a
+    trigger requirement with nothing to say so.
+    """
+    closure: set[str] = set()
+    stack = [repo_relative_script]
+    while stack:
+        current = stack.pop()
+        path = _REPO_ROOT / current
+        if not path.is_file():
+            continue
+        tree = ast.parse(path.read_text(encoding="utf-8"), filename=current)
+        for node in ast.walk(tree):
+            if _is_dynamic_local_import_call(node):
+                pytest.fail(
+                    f"{current}: calls a dynamic import (importlib.import_module or "
+                    "importlib.util.spec_from_file_location) at "
+                    f"line {getattr(node, 'lineno', '?')}. `_local_import_closure` cannot "
+                    "follow either form — neither produces an ast.Import/ast.ImportFrom "
+                    "node — so any module it loads this way is invisible to the trigger "
+                    "requirement this closure builds. Resolve it by hand and extend this "
+                    "function, rather than let the closure silently omit it."
+                )
+            candidate_names: list[str] = []
+            if isinstance(node, ast.Import):
+                candidate_names = [alias.name for alias in node.names]
+            elif isinstance(node, ast.ImportFrom) and node.level == 0 and node.module:
+                # `node.module` alone covers `from a.b import c` where `c` is an
+                # attribute of `a.b`. `f"{node.module}.{alias.name}"` covers the
+                # submodule-import form `from a import b` (module="a",
+                # names=["b"]), which `node.module` alone cannot reach — `a` by
+                # itself resolves to the package's own `__init__.py`, not to `b`.
+                candidate_names = [node.module, *(f"{node.module}.{alias.name}" for alias in node.names)]
+            elif isinstance(node, ast.ImportFrom) and node.level > 0:
+                for resolved in _resolve_relative_import(
+                    current, node.level, node.module, [alias.name for alias in node.names]
+                ):
+                    if resolved != repo_relative_script and resolved not in closure:
+                        closure.add(resolved)
+                        stack.append(resolved)
+                continue
+            else:
+                continue
+            for module_name in candidate_names:
+                resolved = _resolve_local_import(module_name)
+                if resolved and resolved != repo_relative_script and resolved not in closure:
+                    closure.add(resolved)
+                    stack.append(resolved)
+    return closure
+
+
+def _executed_script_import_closure(workflow_name: str) -> set[str]:
+    """Return the local import closure of every script a workflow executes."""
+    closure: set[str] = set()
+    for record in _workflow_script_resolutions(workflow_name):
+        if record.path:
+            closure |= _local_import_closure(record.path)
+    return closure
+
+
+class TestLocalImportClosureResolvesAllImportForms:
+    """`_local_import_closure` has to see every import shape a validator can use.
+
+    ADR-037 D1's trigger requirement
+    (`TestWorkflowTriggerCoverage::test_gate_workflow_triggers_on_the_corpus_its_governed_hooks_scan`)
+    reads a validator's own local imports through this closure, so an import
+    shape the closure cannot follow is a trigger requirement nothing states —
+    silently, since a missing entry in a derived set produces no error, only a
+    smaller one.
+
+    Every case here is isolated from the real repository tree via
+    monkeypatched `_REPO_ROOT` / `_HOOKS_DIR` / `_IMPORT_ROOTS` /
+    `TRACKED_FILE_SET`, pointed at a small synthetic tree under `tmp_path`.
+    That is a deliberate choice, not a shortcut: today's real validators all
+    use the one import shape the closure already handled
+    (`from precommit._prose_fields import find_prose_fields`), so a case built
+    from the real corpus would prove nothing about the other shapes — the gap
+    this class exists to close is in a shape no current script uses yet (see
+    each test's own docstring for the mutation it reproduces).
+    """
+
+    def _sandbox_module(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+        """Point the closure's globals at an isolated `scripts/hooks/precommit/` tree.
+
+        Returns the `precommit/` directory, created empty, for the caller to
+        populate.
+        """
+        hooks_dir = tmp_path / "scripts" / "hooks"
+        precommit_dir = hooks_dir / "precommit"
+        precommit_dir.mkdir(parents=True)
+        module = sys.modules[__name__]
+        monkeypatch.setattr(module, "_REPO_ROOT", tmp_path)
+        monkeypatch.setattr(module, "_HOOKS_DIR", hooks_dir)
+        monkeypatch.setattr(module, "_IMPORT_ROOTS", (tmp_path, hooks_dir))
+        return precommit_dir
+
+    def _track(self, monkeypatch: pytest.MonkeyPatch, *relative_paths: str) -> None:
+        """Make the given repo-relative paths the whole tracked corpus for this test."""
+        monkeypatch.setattr(sys.modules[__name__], "TRACKED_FILE_SET", frozenset(relative_paths))
+
+    def test_package_form_import_is_followed(self, tmp_path, monkeypatch):
+        """
+        Given: a script importing `from precommit import _submodule` — the
+               package-import form, where the submodule name lives in
+               `node.names` rather than in `node.module`
+        When: `_local_import_closure` walks it
+        Then: the submodule's tracked path is in the closure
+
+        Reproduces mutation M28's realistic path: a validator first written to
+        import a precommit submodule this way never acquires a `paths:`
+        trigger requirement for it, because `node.module` resolves to
+        `"precommit"` alone — a package, not a file — and the previous form of
+        this resolver tried only that reading.
+        """
+        precommit_dir = self._sandbox_module(tmp_path, monkeypatch)
+        (precommit_dir / "__init__.py").write_text("", encoding="utf-8")
+        (precommit_dir / "_submodule.py").write_text("VALUE = 1\n", encoding="utf-8")
+        (precommit_dir / "validator.py").write_text("from precommit import _submodule\n", encoding="utf-8")
+
+        self._track(
+            monkeypatch,
+            "scripts/hooks/precommit/validator.py",
+            "scripts/hooks/precommit/__init__.py",
+            "scripts/hooks/precommit/_submodule.py",
+        )
+
+        closure = _local_import_closure("scripts/hooks/precommit/validator.py")
+        assert "scripts/hooks/precommit/_submodule.py" in closure, (
+            f"`from precommit import _submodule` was not followed. closure: {closure}"
+        )
+
+    def test_relative_import_with_a_module_is_followed(self, tmp_path, monkeypatch):
+        """
+        Given: a script importing `from ._submodule import VALUE` — a
+               level-1 relative import naming a module
+        When: `_local_import_closure` walks it
+        Then: the submodule's tracked path is in the closure
+
+        `node.module` alone (`"_submodule"`) means nothing without knowing
+        which directory it is relative to — `node.level` carries that, and
+        `_resolve_local_import`'s absolute-path lookup has no way to use it.
+        """
+        precommit_dir = self._sandbox_module(tmp_path, monkeypatch)
+        (precommit_dir / "_submodule.py").write_text("VALUE = 1\n", encoding="utf-8")
+        (precommit_dir / "validator.py").write_text("from ._submodule import VALUE\n", encoding="utf-8")
+
+        self._track(monkeypatch, "scripts/hooks/precommit/validator.py", "scripts/hooks/precommit/_submodule.py")
+
+        closure = _local_import_closure("scripts/hooks/precommit/validator.py")
+        assert "scripts/hooks/precommit/_submodule.py" in closure, (
+            f"`from ._submodule import VALUE` was not followed. closure: {closure}"
+        )
+
+    def test_bare_relative_package_import_is_followed(self, tmp_path, monkeypatch):
+        """
+        Given: a script importing `from . import _submodule` — a level-1
+               relative import with no `module`, where the submodule name is
+               one of `node.names` instead
+        When: `_local_import_closure` walks it
+        Then: the submodule's tracked path is in the closure
+
+        The relative counterpart of the package-form case above: with no
+        `module`, each name is itself a candidate submodule of the current
+        script's own package.
+        """
+        precommit_dir = self._sandbox_module(tmp_path, monkeypatch)
+        (precommit_dir / "_submodule.py").write_text("VALUE = 1\n", encoding="utf-8")
+        (precommit_dir / "validator.py").write_text("from . import _submodule\n", encoding="utf-8")
+
+        self._track(monkeypatch, "scripts/hooks/precommit/validator.py", "scripts/hooks/precommit/_submodule.py")
+
+        closure = _local_import_closure("scripts/hooks/precommit/validator.py")
+        assert "scripts/hooks/precommit/_submodule.py" in closure, (
+            f"`from . import _submodule` was not followed. closure: {closure}"
+        )
+
+    def test_dynamic_import_fails_loud_rather_than_resolving_to_nothing(self, tmp_path, monkeypatch):
+        """
+        Given: a script calling `importlib.import_module(...)` on a local
+               module name
+        When: `_local_import_closure` walks it
+        Then: it fails the test rather than silently omitting the module
+
+        A dynamic import produces no `ast.Import`/`ast.ImportFrom` node, so
+        the closure structurally cannot resolve what it loads no matter how
+        the two node-type branches are taught to read `node.module`/`.level`.
+        Per the same reasoning `_workflow_dependencies` gives for an
+        unresolved script basename, a shape this resolver cannot follow has to
+        say so loudly rather than understate the trigger requirement it is
+        building.
+        """
+        precommit_dir = self._sandbox_module(tmp_path, monkeypatch)
+        (precommit_dir / "validator.py").write_text(
+            'import importlib\nimportlib.import_module("precommit._submodule")\n', encoding="utf-8"
+        )
+        self._track(monkeypatch, "scripts/hooks/precommit/validator.py")
+
+        with pytest.raises(pytest.fail.Exception):
+            _local_import_closure("scripts/hooks/precommit/validator.py")
+
+
 GATE_WORKFLOWS = sorted({step.workflow for step in GATE_STEPS})
 
 
@@ -3737,6 +4621,92 @@ class TestWorkflowTriggerCoverage:
             "`_pytest_workflows` is what needs teaching, not this assertion."
         )
 
+    @pytest.mark.parametrize("workflow_name", sorted(set(GATE_WORKFLOWS) | set(PYTEST_WORKFLOWS)))
+    def test_workflow_declares_a_pull_request_trigger(self, workflow_name):
+        """
+        Given: a workflow carrying a D1 gate, or the workflow running the
+               pytest suite that guards D1
+        When: its declared events (`_declared_events`) are read
+        Then: `pull_request` is one of them
+
+        Every test above and below this one reasons about `paths:` filters —
+        whether the workflow re-runs on the *right* pull requests. None of
+        them can notice the workflow not running on pull requests *at all*:
+        `_trigger_filters` only reports events that carry a path filter, so an
+        event missing outright contributes nothing to look at, and a
+        `pull_request:` block deleted wholesale leaves every assertion above
+        with nothing to be wrong about. A `push`-only workflow runs after a
+        merge to the branch it targets, not on the pull request proposing
+        that merge — which is not a gate on the pull request at all.
+        """
+        events = _declared_events(_workflow_data(workflow_name))
+        assert "pull_request" in events, (
+            f"{workflow_name} declares no `pull_request` trigger (found: {sorted(events)}), "
+            "so it never runs on the pull request it exists to gate — only, if at all, "
+            "after a merge to a branch its `push:` trigger names."
+        )
+
+    def test_push_branches_are_found_for_at_least_one_gate_workflow(self):
+        """
+        Given: the same workflow set as the trigger test above
+        When: each workflow's `push` trigger is read for a `branches:` filter
+        Then: at least one declares one
+
+        Non-vacuity guard for
+        `test_pull_request_branch_scope_is_not_narrower_than_push`: that test
+        has nothing to compare against, and silently passes, for a workflow
+        whose `push` trigger names no branches at all — `validate_python.yml`
+        is exactly such a workflow today. Without this guard, a `push:`
+        section losing its `branches:` filter on every gate workflow at once
+        would empty the comparison and nothing would say so.
+        """
+        found = {
+            workflow_name: _event_branches(_workflow_data(workflow_name), "push")
+            for workflow_name in sorted(set(GATE_WORKFLOWS) | set(PYTEST_WORKFLOWS))
+        }
+        assert any(found.values()), (
+            "No gate or pytest workflow's `push` trigger names any `branches:`, so "
+            "test_pull_request_branch_scope_is_not_narrower_than_push has nothing to "
+            f"compare a `pull_request` filter against and would pass vacuously. Found: {found}"
+        )
+
+    @pytest.mark.parametrize("workflow_name", sorted(set(GATE_WORKFLOWS) | set(PYTEST_WORKFLOWS)))
+    def test_pull_request_branch_scope_is_not_narrower_than_push(self, workflow_name):
+        """
+        Given: a workflow declaring a `push` trigger with a `branches:` filter
+        When: its `pull_request` trigger's own `branches:` filter (if any) is
+              compared against it
+        Then: every branch the `push` trigger names is also matched by the
+              `pull_request` trigger
+
+        `push.branches` states which branches this workflow exists to
+        protect. Scoping `pull_request.branches` to a different, narrower, or
+        nonexistent set of branches — `branches: [nonexistent-branch]`, say —
+        leaves `pull_request` declared (so the test above stays green) while
+        making the gate unreachable for every pull request that actually
+        targets a protected branch. A `pull_request` trigger with no
+        `branches:` filter at all is unrestricted and therefore always covers
+        `push`'s branches; only a filter that is present and narrower is a gap.
+        """
+        data = _workflow_data(workflow_name)
+        push_branches = _event_branches(data, "push")
+        if not push_branches:
+            pytest.skip(
+                f"{workflow_name}'s push trigger names no branches to compare against; "
+                "test_push_branches_are_found_for_at_least_one_gate_workflow guards "
+                "against every case being skipped this way."
+            )
+        pr_branches = _event_branches(data, "pull_request")
+        if pr_branches is None:
+            return  # Unrestricted pull_request trigger already covers every push branch.
+        missing = sorted(set(push_branches) - set(pr_branches))
+        assert not missing, (
+            f"{workflow_name}'s pull_request trigger is scoped to {pr_branches}, which "
+            f"excludes {missing} — branches its own push trigger names. A pull request "
+            f"targeting {missing} never runs this workflow, even though a merge to it "
+            "does."
+        )
+
     @pytest.mark.parametrize("workflow_name", GATE_WORKFLOWS)
     def test_every_executed_script_resolves_to_one_tracked_file(self, workflow_name):
         """
@@ -3821,6 +4791,87 @@ class TestWorkflowTriggerCoverage:
             "A pull request touching any of these merges without this workflow running."
         )
 
+    @pytest.mark.parametrize("workflow_name", GATE_WORKFLOWS)
+    def test_gate_workflow_triggers_on_the_corpus_its_governed_hooks_scan(self, workflow_name):
+        """
+        Given: a workflow containing a D1 gate
+        When: its `paths:` filters are checked against (a) every tracked file
+              a governed hook this workflow runs would itself select via its
+              own `files:`/`exclude:` pattern, and (b) the local import
+              closure of every script the workflow executes
+        Then: every one is matched, for every filtered event
+
+        `test_gate_workflow_triggers_on_everything_that_defines_the_gate`
+        covers the workflow's own path, the scripts it executes or copies, and
+        the pre-commit config those scripts read. None of those is the
+        *content* a hook exists to check. D1 requires a CI invocation "over at
+        least the inputs the hook would see" (docs/adr/037-ci-validation-
+        authority-and-block-parity.md, D1) — that is a claim about the hook's
+        own `files:` pattern, and a workflow can trigger on every script it
+        runs while never triggering on the corpus those scripts were added to
+        scan.
+
+        The `validate-neutrality` hook was the sharpest instance: its
+        `files:` pattern is `^scripts/(agents|skills)/`, and until 42048c3
+        neither directory was a `paths:` entry, so a pull request adding a
+        denylisted term to an agent or skill file blocked locally, never
+        triggered this workflow, and reported green. `validate-neutrality-policy`
+        — the sibling hook that exists precisely to re-scan the corpus when
+        the denylist itself changes — had the same gap one level up: its own
+        `files:` pattern names `scripts/hooks/precommit/_neutrality_data.py`,
+        a module no script-execution scan reaches, because the workflow never
+        runs it directly — `validate_neutrality.py` only imports it.
+
+        That second half — a validator's own local imports — is what the
+        import-closure check adds. `_neutrality_data.py`, `_prose_fields.py`,
+        `framework_mapping.py` and `scripts/build_persona_site_data.py` were
+        each read by a validator this workflow runs and named on no command
+        line the script-resolution scan in the sibling test above can see.
+        42048c3 added all of the above — `scripts/agents/*.md`,
+        `scripts/skills/**`, and the four import-closure modules — to
+        `validation.yml`'s `paths:`. This test is kept as a standing guard: a
+        governed hook's `files:` pattern widening, or a validator gaining a
+        new local import, extends the corpus this test samples with no edit
+        here, and a `paths:` filter that stops covering it is caught the same
+        way the original gap was.
+
+        Precedent for stating this rule without an ADR: commit 0df8157 on this
+        branch already made the gate workflows trigger on the files that
+        *define* them; this is the other half of the same idea, applied to the
+        files a governed hook *reads*.
+        """
+        filters = _trigger_filters(_workflow_data(workflow_name))
+        assert filters, (
+            f"{workflow_name} declares no `paths:` or `paths-ignore:` filter on any "
+            "event, so it runs unconditionally and this rule does not apply. If that "
+            "changed deliberately, this test should be removed with the filter."
+        )
+
+        required = _governed_hook_input_paths(workflow_name) | _executed_script_import_closure(workflow_name)
+        assert required, (
+            f"No governed hook this workflow runs matched a tracked file, and none of "
+            f"the scripts it executes imports a local module. Non-vacuity guard for the "
+            f"assertion below — {workflow_name} would otherwise pass by quantifying "
+            "over nothing."
+        )
+
+        uncovered = {
+            path: missing for path in sorted(required) if (missing := _covered_by_every_event(workflow_name, path))
+        }
+        assert not uncovered, (
+            f"{workflow_name} carries a D1 gate but does not trigger on content a "
+            f"governed hook selects or a module its validator imports. Uncovered by "
+            f"`paths:`:\n"
+            + "\n".join(
+                f"  - {path}  (not matched for: {', '.join(events)})" for path, events in uncovered.items()
+            )
+            + f"\nDeclared filters: {[(f.event, f.kind, f.patterns) for f in filters]}\n"
+            "A pull request touching any of these merges without this workflow running, "
+            "which is the same silent failure "
+            "test_gate_workflow_triggers_on_everything_that_defines_the_gate reports for "
+            "the workflow's own scripts, one layer further from the command line."
+        )
+
     @pytest.mark.parametrize("workflow_name", PYTEST_WORKFLOWS)
     def test_pytest_workflow_triggers_on_the_files_the_suite_asserts_over(self, workflow_name):
         """
@@ -3838,11 +4889,26 @@ class TestWorkflowTriggerCoverage:
         Every guard in this module is absent from the one change it exists to
         catch: stripping `--block` from a job, deleting a job, or dropping a
         file-list expansion each pass CI silently.
+
+        The subject set is not only files this module inspects the *behaviour*
+        of — it also has to include files this module derives its own
+        *expectations* from. ADR-037's D1 instance table
+        (`docs/adr/037-ci-validation-authority-and-block-parity.md`) is the
+        governed-hook register `ADR_GOVERNED_HOOK_IDS` is parsed from; editing
+        only that table's rows changes what every test keyed on that set
+        asserts, with no change to any workflow, script or
+        `.pre-commit-config.yaml` entry for `validate_python.yml`'s own
+        `paths:` (`**.py`, `.pre-commit-config.yaml`, `requirements*.txt`,
+        `pyproject.toml`, `.github/workflows/**`) to catch. A pull request
+        editing only the ADR's instance table therefore runs no pytest at
+        all — the source this suite's governed set derives from is silent on
+        the one change that resizes the set.
         """
         # Derived from the constants this module reads, so a new subject file
         # becomes a requirement without an edit here.
         subjects = {path.relative_to(_REPO_ROOT).as_posix() for path in _workflow_files()}
         subjects.add(_PRECOMMIT_CONFIG.relative_to(_REPO_ROOT).as_posix())
+        subjects |= _DERIVATION_SOURCE_PATHS
         for gate_workflow in GATE_WORKFLOWS:
             subjects |= _workflow_dependencies(gate_workflow)
 
@@ -3948,6 +5014,17 @@ def _write_stub_interpreter(directory: Path) -> None:
         stub.chmod(0o755)
 
 
+# Top-level directories a real checkout has, derived from the tracked file
+# list every other section of this module already reads (TRACKED_FILES).
+# `_run_step_body` creates these, empty, inside its sandbox before running a
+# step's body — reproducing the layout a job's own "Checkout repository" step
+# leaves behind before any gate step runs. A step that branches on
+# `[ -d risk-map ]` (or any other top-level directory) ahead of its validator
+# then resolves that test the same way it would in CI, instead of against an
+# empty directory that could never take the branch a real checkout takes.
+_TOP_LEVEL_DIRECTORIES = frozenset(path.split("/", 1)[0] for path in TRACKED_FILES if "/" in path)
+
+
 def _run_step_body(
     step: WorkflowStep,
     sandbox: Path,
@@ -3961,9 +5038,24 @@ def _run_step_body(
     so the `>> $GITHUB_OUTPUT` appends succeed — left unset they would produce
     an ambiguous-redirect error and a non-zero exit for a reason that has
     nothing to do with the gate.
+
+    `sandbox` is made structurally checkout-shaped (`_TOP_LEVEL_DIRECTORIES`)
+    before the body runs, so a step that branches on repository state ahead of
+    its validator — `[ -d risk-map ]`, say — resolves that test the way it
+    would against a real checkout, not against whatever an empty directory
+    happens to produce. That is a property of the sandbox's layout, and the
+    shell can read it directly (`[ -d ... ]` is exactly such a read); no
+    side-channel is needed to recover it after the fact. GATE_STEPS carries no
+    step shaped this way today — TestGateStepFailsTheJob's structural guard
+    (`_repository_state_precedes_validator`) is what would catch one that
+    started being — so this function's job is limited to making the sandbox a
+    faithful stand-in for a checkout, not to second-guessing what the body
+    does with it.
     """
     bin_dir = sandbox / "bin"
     _write_stub_interpreter(bin_dir)
+    for name in _TOP_LEVEL_DIRECTORIES:
+        (sandbox / name).mkdir(parents=True, exist_ok=True)
     environment = {
         "PATH": f"{bin_dir}:{os.environ.get('PATH', '')}",
         "HOME": str(sandbox),
@@ -4007,6 +5099,50 @@ def _or_guarded_validator_lines(step: WorkflowStep) -> list[str]:
             if carries_validator and operator == "||":
                 guarded.append(stripped)
     return guarded
+
+
+# An `if` or `elif` whose condition is a `[ -d|-f|-e ... ]` test, or the
+# `test -d|-f|-e ...` spelling of the same thing. Matches the *shell keyword*
+# introducing the branch, not a bare `[ -d ... ]` appearing mid-body (e.g.
+# inside an already-taken branch), which is not a step shape D1 needs to be
+# suspicious of.
+_REPO_STATE_CONDITION_RE = re.compile(r"^\s*(?:if|elif)\s+(?:\[+\s*|test\s+)-[dfe]\s+\S+")
+
+
+def _repository_state_precedes_validator(step: WorkflowStep) -> bool:
+    """True when a repository-state test precedes this step's validator invocation.
+
+    "Precedes" means: an earlier `if`/`elif` line in the same shell body tests
+    for a top-level path's existence, before the line that invokes the step's
+    own validator (located the same way `_gate_steps` locates one — a
+    strictness flag, or a D8 flagless validator's basename). Once a job's
+    checkout step has run, a `[ -d risk-map ]` branch ahead of the validator
+    always wins — the directory it tests for exists unconditionally by then —
+    so the validator underneath an `elif` never executes and the job reports
+    success without it ever having run. See
+    `test_the_harness_reproduces_a_repository_state_bypass_faithfully` for why
+    a bare exit code alone cannot be trusted to reveal this.
+    """
+    lines = step.run.splitlines()
+    validator_index = None
+    for index, raw_line in enumerate(lines):
+        stripped = raw_line.strip()
+        if not stripped or stripped.startswith("#"):
+            continue
+        # `;`-joined tokens (`elif validator.py; then`) are split into simple
+        # commands first — a raw token-in-line check would miss the basename
+        # under a trailing `;` (`validator.py;` != `validator.py`).
+        for segment in _split_simple_commands(_safe_split(stripped)):
+            if STRICTNESS_FLAGS.intersection(segment) or any(
+                Path(token).name in UNFLAGGED_BLOCKING_SCRIPTS for token in segment
+            ):
+                validator_index = index
+                break
+        if validator_index is not None:
+            break
+    if validator_index is None:
+        return False
+    return any(_REPO_STATE_CONDITION_RE.match(raw_line) for raw_line in lines[:validator_index])
 
 
 class TestGateStepFailsTheJob:
@@ -4272,6 +5408,369 @@ class TestGateStepFailsTheJob:
             "keys are invisible to every command-line assertion in this module."
         )
 
+    def test_the_harness_reproduces_a_repository_state_bypass_faithfully(self):
+        """
+        Given: a synthetic step body that branches on whether a top-level
+               repository directory exists *before* it ever reaches the
+               validator — `if [ -d risk-map ]; then ...success... elif
+               <validator>; then ...`
+        When: the validator is stubbed to fail, and the body runs through
+              `_run_step_body`'s own sandbox (no directory created by the test)
+        Then: the step body exits 0 — the bypass happens, because
+              `_TOP_LEVEL_DIRECTORIES` already makes `risk-map` exist in the
+              sandbox by the time the body runs
+
+        This is not the assertion ADR-037 D1 needs held — it is proof that the
+        harness is honest about a step shaped this way, which is the
+        precondition for that assertion meaning anything. Before this test's
+        history (021cc3a), `_run_step_body` forced `result.returncode = 1`
+        whenever the stubbed validator was never invoked, which made this same
+        synthetic body report "correctly failed" no matter what the shell
+        actually did — the harness's own return code, not a property of the
+        step body, is what a prior version of this test asserted. A step
+        shaped like the one above is a real hazard precisely because a real
+        checkout's `risk-map` (present from the job's own "Checkout
+        repository" step before any gate step runs) makes the `if` branch win
+        unconditionally, so the validator underneath the `elif` never runs and
+        the job reports success. Asserting that here — rather than papering
+        over it — is what makes
+        `test_no_gate_step_lets_repository_state_bypass_its_validator` below a
+        meaningful guard: it has a true bypass to distinguish itself from, not
+        a harness that would have called both cases "failed".
+
+        No real gate step is shaped this way today — the hazard is proven here
+        with a synthetic body, the same non-vacuity discipline
+        `test_the_or_guard_detector_catches_a_flagless_validator` uses for
+        D8's flagless guard case above.
+        """
+        script = sorted(UNFLAGGED_BLOCKING_SCRIPTS)[0]
+        synthetic = WorkflowStep(
+            workflow="synthetic.yml",
+            job="synthetic",
+            label="synthetic",
+            run=(
+                "if [ -d risk-map ]; then\n"
+                '  echo "status=success" >> $GITHUB_OUTPUT\n'
+                f"elif python3 scripts/hooks/precommit/{script}; then\n"
+                '  echo "status=success" >> $GITHUB_OUTPUT\n'
+                "else\n"
+                '  echo "status=failed" >> $GITHUB_OUTPUT\n'
+                "  exit 1\n"
+                "fi\n"
+            ),
+            shell=None,
+            working_directory=None,
+            source="synthetic::repository-state-bypass",
+        )
+        with tempfile.TemporaryDirectory() as sandbox_dir:
+            result = _run_step_body(synthetic, Path(sandbox_dir), validator_exit=1, resolver_exit=0)
+        assert result.returncode == 0, (
+            f"{synthetic.source}: expected the repository-state branch to bypass the "
+            f"validator and exit 0 — `_TOP_LEVEL_DIRECTORIES` should have made "
+            f"`risk-map` exist in the sandbox before the body ran. Getting a non-zero "
+            "exit here means the sandbox is not checkout-shaped after all, which would "
+            "make this test, and the guard below it, unable to tell a real bypass from "
+            "a harness artefact.\n"
+            f"stdout: {result.stdout}\nstderr: {result.stderr}"
+        )
+
+    @pytest.mark.parametrize("step", GATE_STEPS, ids=_gate_step_ids())
+    def test_no_gate_step_lets_repository_state_bypass_its_validator(self, step):
+        """
+        Given: a gate step's shell body
+        When: it is scanned for an `if`/`elif` repository-state test
+              (`[ -d ... ]`, `[ -f ... ]`, `[ -e ... ]`, or the `test` spelling
+              of any of them) appearing before the line invoking this step's
+              own validator
+        Then: none is found
+
+        The structural companion to
+        `test_the_harness_reproduces_a_repository_state_bypass_faithfully`:
+        that test proves the harness would expose a step shaped this way, and
+        this one proves no real gate step is shaped that way today, in a form
+        that would notice the next one. A `[ -d risk-map ]` branch ahead of
+        the validator's own `if`/`elif` always wins once the job's checkout
+        step has run — the directory it tests for exists unconditionally by
+        then — so the validator underneath never executes and the job is
+        green with the finding neither found nor printed.
+        """
+        assert not _repository_state_precedes_validator(step), (
+            f"{step.source}: a repository-state test ([ -d ... ], [ -f ... ], or the "
+            "`test` spelling) appears before this step's own validator invocation. "
+            "Once this job's checkout step has run, the tested path exists "
+            "unconditionally, so that branch always wins and the validator underneath "
+            "never executes — the job reports success without the validator ever "
+            "having run."
+        )
+
+    def test_the_repository_state_bypass_detector_catches_a_synthetic_case(self):
+        """
+        Given: a synthetic step body shaped exactly like the one
+               `test_the_harness_reproduces_a_repository_state_bypass_faithfully`
+               proves the harness exposes
+        When: `_repository_state_precedes_validator` scans it
+        Then: it reports the bypass
+
+        Non-vacuous proof for
+        `test_no_gate_step_lets_repository_state_bypass_its_validator`: no real
+        gate step is shaped this way today, so every live parametrized case
+        the test above collects returns False for a reason that says nothing
+        about whether the detector actually works. This is the same
+        discipline `test_the_or_guard_detector_catches_a_flagless_validator`
+        applies to the `||`-guard detector.
+        """
+        script = sorted(UNFLAGGED_BLOCKING_SCRIPTS)[0]
+        synthetic = WorkflowStep(
+            workflow="synthetic.yml",
+            job="synthetic",
+            label="synthetic",
+            run=(
+                "if [ -d risk-map ]; then\n"
+                '  echo "status=success" >> $GITHUB_OUTPUT\n'
+                f"elif python3 scripts/hooks/precommit/{script}; then\n"
+                '  echo "status=success" >> $GITHUB_OUTPUT\n'
+                "else\n"
+                '  echo "status=failed" >> $GITHUB_OUTPUT\n'
+                "  exit 1\n"
+                "fi\n"
+            ),
+            shell=None,
+            working_directory=None,
+            source="synthetic::repository-state-bypass",
+        )
+        assert _repository_state_precedes_validator(synthetic), (
+            "_repository_state_precedes_validator found no bypass in a synthetic body "
+            "shaped exactly like the one the harness-fidelity test above proves is a "
+            "real hazard. The detector regressed to matching nothing, which is silent "
+            "on exactly the shape it exists to catch."
+        )
+
+
+# ===========================================================================
+# 9b. The aggregate gate — the summary job's own exit code
+# ===========================================================================
+#
+# TestGateStepFailsTheJob (section 9) establishes that each gate step's own
+# exit code fails its own job. Nothing there asks whether that job's result
+# then reaches the decision a pull request's merge actually depends on.
+# `validation-summary` runs `if: always()`, reads every other job's
+# `needs.<job>.result`, and is the only place in the workflow any of those
+# results is read at all — nothing consumes the `status` outputs individual
+# gate steps write. A gate job absent from the summary's `needs:`, or a
+# failing result the summary reads but does not act on, leaves the aggregate
+# gate green regardless of what the gate job itself did.
+
+
+def _summary_jobs(workflow_name: str) -> list[str]:
+    """Return job ids in a workflow whose `if:` is exactly `always()`.
+
+    That is the shape this repository's aggregate-gate jobs use — see
+    TestGateStepFailsTheJob's own class docstring, which names `if: always()`
+    on a summary job as a legitimate, load-bearing pattern: only a job that
+    always runs can observe every other job's result regardless of which one
+    failed. Derived rather than named, so a summary job renamed, or a second
+    one added, is picked up with no edit here.
+    """
+    data = _workflow_data(workflow_name)
+    return sorted(
+        job_id for job_id, job in (data.get("jobs") or {}).items() if str(job.get("if", "")).strip() == "always()"
+    )
+
+
+def _jobs_with_gate_steps(workflow_name: str) -> set[str]:
+    """Return the job ids in a workflow that contain at least one gate step."""
+    return {step.job for step in GATE_STEPS if step.workflow == workflow_name}
+
+
+# `${{ needs.<job>.result }}` and `${{ needs.<job>.outputs.<name> }}`, the two
+# `needs`-context expression shapes the summary jobs in this repository read.
+_NEEDS_RESULT_RE = re.compile(r"\$\{\{\s*needs\.([A-Za-z0-9_-]+)\.result\s*\}\}")
+_NEEDS_OUTPUT_RE = re.compile(r"\$\{\{\s*needs\.([A-Za-z0-9_-]+)\.outputs\.[A-Za-z0-9_-]+\s*\}\}")
+
+
+def _referenced_needs_jobs(run: str) -> set[str]:
+    """Return every job id a step's body reads through the `needs` context."""
+    return {match.group(1) for match in _NEEDS_RESULT_RE.finditer(run)} | {
+        match.group(1) for match in _NEEDS_OUTPUT_RE.finditer(run)
+    }
+
+
+def _render_needs_expressions(run: str, results: dict[str, str]) -> str:
+    """Substitute `${{ needs.<job>.result }}` / `.outputs.*` the way GitHub does before the shell runs.
+
+    GitHub evaluates every `${{ }}` expression before a runner's shell ever
+    sees a `run:` block. This reproduces that for the subset of context this
+    section's tests drive — a job's `result` and its `outputs.*` — so
+    `_run_step_body`'s "execute the raw shell verbatim" model stays valid for
+    a job that reads job-level context instead of invoking a validator. A job
+    id with no entry in `results` defaults to `"success"`, matching a control
+    run where nothing has failed; `outputs.*` references resolve to the empty
+    string, since no test in this section reads output content.
+    """
+    rendered = _NEEDS_RESULT_RE.sub(lambda match: results.get(match.group(1), "success"), run)
+    return _NEEDS_OUTPUT_RE.sub("", rendered)
+
+
+def _run_summary_step(run: str, sandbox: Path, results: dict[str, str]) -> subprocess.CompletedProcess:
+    """Execute a summary step's rendered body under GitHub's default shell."""
+    rendered = _render_needs_expressions(run, results)
+    environment = {
+        "PATH": os.environ.get("PATH", ""),
+        "HOME": str(sandbox),
+        "GITHUB_OUTPUT": str(sandbox / "github_output.txt"),
+        "GITHUB_STEP_SUMMARY": str(sandbox / "github_step_summary.txt"),
+    }
+    return subprocess.run(
+        ["bash", "-e", "-c", rendered], capture_output=True, text=True, cwd=str(sandbox), env=environment
+    )
+
+
+class TestAggregateGateReflectsEveryGateJob:
+    """The summary job is the only place any gate job's result is read.
+
+    ADR-037's gate steps fail their own job (section 9); that job's `result`
+    then has to reach the summary job unmodified, be read there for every gate
+    job, and force a non-zero exit whenever any of them is not `"success"` —
+    or the aggregate gate a pull request's merge check actually depends on can
+    be green while a gate job it lists is not.
+    """
+
+    def test_summary_jobs_are_found(self):
+        """Non-vacuity guard: the parametrized cases below quantify over this set."""
+        found = {workflow_name: _summary_jobs(workflow_name) for workflow_name in GATE_WORKFLOWS}
+        assert any(found.values()), (
+            f"No workflow among {GATE_WORKFLOWS} declares a job with `if: always()`. "
+            f"Found: {found}. Nothing below has an aggregate-gate job to check."
+        )
+
+    @pytest.mark.parametrize("workflow_name", GATE_WORKFLOWS)
+    def test_summary_job_needs_and_reads_every_gate_job(self, workflow_name):
+        """
+        Given: a workflow's `if: always()` job(s)
+        When: their `needs:` list, and the `needs.<job>.result` expressions in
+              their own steps, are compared against every job containing a
+              gate step
+        Then: every gate job is present in both
+
+        Reproduces mutation M13b: removing two gate jobs from `needs:` and
+        deleting their `if [ "$x_result" = "success" ]` branches leaves the
+        summary job's shell syntactically valid and every other assertion in
+        this module satisfied — the two removed jobs' own steps still run,
+        still fail on a real violation, and still write their own `status`
+        output, which nothing else reads either. The summary simply stops
+        asking about them.
+        """
+        summary_jobs = _summary_jobs(workflow_name)
+        if not summary_jobs:
+            pytest.skip(f"{workflow_name} declares no `if: always()` job.")
+        gate_jobs = _jobs_with_gate_steps(workflow_name)
+        assert gate_jobs, f"No gate step belongs to any job in {workflow_name}."
+
+        data = _workflow_data(workflow_name)
+        for job_id in summary_jobs:
+            declared_needs = set(data["jobs"][job_id].get("needs") or [])
+            missing_needs = gate_jobs - declared_needs
+            assert not missing_needs, (
+                f"{workflow_name}::{job_id}: `needs:` does not list {sorted(missing_needs)}, "
+                "each of which contains a gate step. A job absent from `needs:` cannot be "
+                "read through the `needs` context at all, and its result cannot delay or "
+                "gate this job."
+            )
+
+            referenced = {
+                job
+                for step in WORKFLOW_STEPS
+                if step.workflow == workflow_name and step.job == job_id
+                for job in _referenced_needs_jobs(step.run)
+            }
+            missing_reads = gate_jobs - referenced
+            assert not missing_reads, (
+                f"{workflow_name}::{job_id}: `needs:` lists {sorted(gate_jobs)}, but its "
+                f"own steps never read `needs.<job>.result` for {sorted(missing_reads)}. "
+                "A job listed in `needs:` but never read contributes nothing to the "
+                "aggregate result."
+            )
+
+    @pytest.mark.parametrize("workflow_name", GATE_WORKFLOWS)
+    def test_summary_job_fails_when_any_gate_job_does_not_succeed(self, workflow_name):
+        """
+        Given: an `if: always()` job's own shell body, rendered once per gate
+               job with every referenced job's result set to `"success"`
+               except that one gate job, set to `"failure"`
+        When: the rendered body runs under `bash -e`
+        Then: it exits non-zero
+
+        Reproduces mutation M14: deleting a single `overall_success=false`
+        line for one job leaves that job's `❌` line printed in the summary —
+        the `if [ "$x_result" = "success" ]` check still runs, still takes the
+        `else` branch, still echoes the failure — while the final
+        `if [ "$overall_success" = "true" ]` still reads `true` and the job
+        exits 0 regardless. `needs:` and every `needs.<job>.result` read stay
+        intact, so `test_summary_job_needs_and_reads_every_gate_job` above
+        cannot see this: the mutation is in what the job's shell *does* with a
+        value it already reads correctly, not in whether it reads it.
+        """
+        summary_jobs = _summary_jobs(workflow_name)
+        if not summary_jobs:
+            pytest.skip(f"{workflow_name} declares no `if: always()` job.")
+        gate_jobs = _jobs_with_gate_steps(workflow_name)
+        assert gate_jobs, f"No gate step belongs to any job in {workflow_name}."
+
+        for job_id in summary_jobs:
+            steps = [step for step in WORKFLOW_STEPS if step.workflow == workflow_name and step.job == job_id]
+            referenced = {job for step in steps for job in _referenced_needs_jobs(step.run)}
+            candidates = gate_jobs & referenced
+            assert candidates, (
+                f"{workflow_name}::{job_id}: none of its steps reads `needs.<job>.result` "
+                f"for any job containing a gate step ({sorted(gate_jobs)}). Non-vacuity "
+                "guard — the loop below would otherwise assert nothing."
+            )
+            for failing_job in sorted(candidates):
+                results = {job: ("failure" if job == failing_job else "success") for job in referenced}
+                outcome = 0
+                with tempfile.TemporaryDirectory() as sandbox_dir:
+                    sandbox = Path(sandbox_dir)
+                    for step in steps:
+                        result = _run_summary_step(step.run, sandbox, results)
+                        if result.returncode != 0:
+                            outcome = result.returncode
+                            break
+                assert outcome != 0, (
+                    f"{workflow_name}::{job_id}: rendering with only {failing_job!r} set to "
+                    "'failure' (every other referenced job 'success') still exits 0. "
+                    "The aggregate gate reports success while a gate job it lists did not."
+                )
+
+    def test_the_needs_expression_renderer_substitutes_a_failing_result(self):
+        """
+        Given: a minimal shell body reading `${{ needs.some-job.result }}`
+        When: `_render_needs_expressions` renders it with `some-job` set to
+              `"failure"` and the rendered body runs
+        Then: the shell sees the literal string `failure`
+
+        Non-vacuous proof that the substitution
+        `test_summary_job_fails_when_any_gate_job_does_not_succeed` depends on
+        actually happens — GitHub performs this rewrite before a runner's
+        shell ever starts, so nothing here can observe it working except by
+        rendering a body and running it.
+        """
+        rendered = _render_needs_expressions('echo "${{ needs.some-job.result }}"', {"some-job": "failure"})
+        with tempfile.TemporaryDirectory() as sandbox_dir:
+            sandbox = Path(sandbox_dir)
+            environment = {
+                "PATH": os.environ.get("PATH", ""),
+                "HOME": str(sandbox),
+                "GITHUB_OUTPUT": str(sandbox / "github_output.txt"),
+                "GITHUB_STEP_SUMMARY": str(sandbox / "github_step_summary.txt"),
+            }
+            result = subprocess.run(
+                ["bash", "-e", "-c", rendered], capture_output=True, text=True, cwd=str(sandbox), env=environment
+            )
+        assert result.stdout.strip() == "failure", (
+            "_render_needs_expressions did not substitute a literal 'failure' for "
+            f"needs.some-job.result. stdout: {result.stdout!r}"
+        )
+
 
 # ===========================================================================
 # 10. D8 — blocking validators that carry no strictness flag
@@ -4425,6 +5924,14 @@ def _mirror_checkout(base: Path) -> Path:
     the per-validator corpus writers, because what counts as content differs:
     for the mapping validators it is the four consumer files, and for the
     versionId validator it is `frameworks.yaml` itself.
+
+    Also a git repository, not just a directory tree shaped like one: a real
+    checkout has a `.git`, and `validate_all_schemas.py`'s `_find_pairs()`
+    reads `git ls-files` to discover its corpus, so a validator-under-test
+    that depends on the index needs one here too. `git init` alone can fail
+    silently from a caller's point of view (a bad `git`, a read-only `base`);
+    asserted immediately so that failure is attributed here, not surfaced
+    later as a confusing `git ls-files` error from inside a probe.
     """
     shutil.copytree(
         _REPO_ROOT / _MIRRORED_SOURCE_DIR,
@@ -4436,7 +5943,25 @@ def _mirror_checkout(base: Path) -> Path:
         target = base / relative
         target.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(_REPO_ROOT / relative, target)
+    subprocess.run(["git", "init", "-q"], cwd=str(base), check=True)
+    assert (base / ".git").is_dir(), f"git init did not create a repository at {base}"
     return base
+
+
+def _track_mirror(base: Path) -> None:
+    """Stage every file under `base` so `git ls-files` reflects the corpus as written.
+
+    Call after `probe.write_corpus(...)` mutates or adds files, not just after
+    `_mirror_checkout`: several probes (mapping purity, mapping drift, the
+    all-schemas and persona-site-build extra-file copies, the neutrality
+    self-scan probe file) write paths that don't exist until `write_corpus`
+    runs. A probe that adds a path is left untracked by a `git add` taken only
+    at `_mirror_checkout` time, and an untracked addition is invisible to
+    git-index-based discovery — silently under-scoping the corpus rather than
+    erroring, which is the failure mode this fixture change exists to close,
+    not reopen.
+    """
+    subprocess.run(["git", "add", "-A"], cwd=str(base), check=True)
 
 
 # --- per-validator corpora --------------------------------------------------
@@ -4713,6 +6238,92 @@ def _run_governed(script_path: Path, argv: list[str], cwd: Path) -> subprocess.C
     )
 
 
+# ---------------------------------------------------------------------------
+# Scope, for the flagless validators CI can narrow without ever going silent
+# ---------------------------------------------------------------------------
+#
+# `test_ci_invokes_every_unflagged_blocking_hook` establishes existence — a
+# workflow step invokes the validator at all — and
+# `TestUnflaggedValidatorsCatchInjectedViolations` establishes that the
+# invocation catches a violation *somewhere* in whatever it scans. Neither
+# establishes *how much* it scans. `validate_mapping_purity.py`,
+# `validate_mapping_drift.py` and `validate_versionid_purity.py` accept an
+# explicit, narrower file list even though `.pre-commit-config.yaml` invokes
+# each with `pass_filenames: false` (no file arguments at all): `nargs="*"`
+# for the first two, `--path` for the third. A CI step handing one of them a
+# single positional file instead of none passes both of the checks above —
+# the invocation still exists, and the corpus probe still poisons the one
+# file that survived the narrowing, because the probe was written to poison a
+# file these validators scan by default. D1 requires coverage "over at least
+# the inputs the hook would see" (docs/adr/037-...:34); for a hook invoked
+# with no file arguments, that is the validator's own default scope, not
+# whatever subset a CI step happens to pass.
+
+
+def _default_scan_scope(script_basename: str) -> list[str] | None:
+    """Return the repo-relative files a flagless file-taking validator scans by default.
+
+    Imported from the validator's own module — via `importlib`, the same
+    pattern `_neutrality_denylist_term` uses — rather than transcribed, so a
+    changed default file set is picked up with no edit here. Only
+    `validate_mapping_purity.py` and `validate_mapping_drift.py`
+    (`_DEFAULT_CONTENT_FILES`) and `validate_versionid_purity.py`
+    (`_DEFAULT_PATH`) declare one of these two names; the other three D8
+    validators self-discover their corpus with no scannable "default file
+    list" at all (`validate_all_schemas.py`, `validate_persona_site_build.py`,
+    and `validate_neutrality.py`'s self-scanning hook), and this returns None
+    for them — there is no narrower argument shape for CI to accidentally pass.
+    """
+    real_path = PRECOMMIT_VALIDATORS.get(script_basename)
+    if not real_path:
+        return None
+    module_name = f"_{script_basename}_scope_probe"
+    spec = importlib.util.spec_from_file_location(module_name, _REPO_ROOT / real_path)
+    module = importlib.util.module_from_spec(spec)
+    # Registered in sys.modules before exec: validate_neutrality.py declares a
+    # `@dataclass`, and dataclass field introspection looks its own module up
+    # by name in sys.modules, which raises if the module was never registered
+    # there. Popped again once loaded so this probe leaves no lasting entry.
+    sys.modules[module_name] = module
+    try:
+        spec.loader.exec_module(module)
+    finally:
+        sys.modules.pop(module_name, None)
+    if hasattr(module, "_DEFAULT_CONTENT_FILES"):
+        return sorted(Path(p).resolve().relative_to(_REPO_ROOT).as_posix() for p in module._DEFAULT_CONTENT_FILES)
+    if hasattr(module, "_DEFAULT_PATH"):
+        return [module._DEFAULT_PATH.as_posix()]
+    return None
+
+
+# hook id -> default scope, for the governed flagless hooks whose validator
+# exposes one. Computed once at import time — like UNFLAGGED_BLOCKING_SCRIPTS
+# and every other module-level derivation in this section — so a hook
+# entering or leaving this set is a property of the config and the
+# validator's own source, not of anything written here.
+SCOPED_UNFLAGGED_HOOK_IDS = sorted(
+    hook_id
+    for hook_id in UNFLAGGED_BLOCKING_HOOK_IDS
+    if _default_scan_scope(_unflagged_script(hook_id)) is not None
+)
+
+
+def _resolved_scan_scope(hook_id: str) -> list[str] | None:
+    """Return the files a governed flagless hook's single CI invocation actually scans.
+
+    None means "the invocation's own default applies" — a bare argv for the
+    `nargs="*"` pair, or no `--path` for the versionId validator — which is
+    exactly what `_default_scan_scope` names. A non-None result is whatever
+    narrower scope the invocation's own argv declares instead.
+    """
+    _, argv = _governed_ci_argv(hook_id)
+    if "--path" in argv:
+        index = argv.index("--path")
+        return [argv[index + 1]] if index + 1 < len(argv) else []
+    positionals = [token for token in argv if not token.startswith("-")]
+    return positionals or None
+
+
 class TestUnflaggedBlockingCoverage:
     """ADR-037 D8: a hook that blocks without a flag is a D1 instance.
 
@@ -4804,6 +6415,76 @@ class TestUnflaggedBlockingCoverage:
             f"contributor's local state.\nADR-037 D1 part 1 quantifies over blocking "
             f"hooks, not over flagged ones; D8 records these as instances of that rule "
             f"rather than exceptions to it."
+        )
+
+    def test_scoped_hooks_are_found(self):
+        """
+        Given: the governed flagless hooks
+        When: each is checked for a validator-declared default scope
+        Then: at least one is found
+
+        Non-vacuity guard for the parametrized test below. All three of
+        `validate_mapping_purity.py`, `validate_mapping_drift.py` and
+        `validate_versionid_purity.py` declare one today
+        (`SCOPED_UNFLAGGED_HOOK_IDS`); if none did, the scope test below would
+        collect no cases and pytest would report that as success.
+        """
+        assert SCOPED_UNFLAGGED_HOOK_IDS, (
+            "No governed flagless hook's validator exposes a default file scope "
+            "(`_DEFAULT_CONTENT_FILES` or `_DEFAULT_PATH`), so "
+            "test_the_ci_invocation_scans_the_hooks_whole_default_scope collects no "
+            "cases and its assertion is vacuous."
+        )
+
+    @pytest.mark.parametrize("hook_id", SCOPED_UNFLAGGED_HOOK_IDS)
+    def test_the_ci_invocation_scans_the_hooks_whole_default_scope(self, hook_id):
+        """
+        Given: a governed flagless hook whose validator, when invoked bare
+               (`.pre-commit-config.yaml`'s own `pass_filenames: false`),
+               falls back to a fixed default file scope of its own
+        When: the CI invocation's own resolved argv is compared to that
+              default
+        Then: the CI invocation scans the validator's whole default scope —
+              either by passing no positional/`--path` argument at all, or by
+              passing exactly the same files the default would
+
+        `test_ci_invokes_every_unflagged_blocking_hook` establishes the
+        invocation exists; `TestUnflaggedValidatorsCatchInjectedViolations`
+        establishes it catches a violation somewhere. Neither establishes how
+        much of the corpus it reads, and that gap survives mutation M-O: handing
+        `validate_mapping_purity.py` `risk-map/yaml/risks.yaml` as a single
+        positional argument instead of none is invisible to both — the
+        invocation still exists, and this module's own poison for that
+        validator (`_write_mapping_purity_corpus`) lands under `risks`, which
+        is exactly the one file a "keep only risks.yaml" narrowing leaves in
+        scope. Reading the probe's own target to choose a file that survives
+        the narrowing is a lookup against this module's source, not luck.
+
+        D1 requires coverage "over at least the inputs the hook would see"
+        (docs/adr/037-...:34); for a hook pre-commit invokes with
+        `pass_filenames: false`, that is always the validator's own default —
+        never a subset a particular CI step happens to name.
+        """
+        script = _unflagged_script(hook_id)
+        expected = _default_scan_scope(script)
+        if expected is None:
+            pytest.fail(
+                f"{hook_id}: no default scope was derivable for {script}; "
+                "test_scoped_hooks_are_found's non-vacuity guard should have excluded "
+                "this hook from SCOPED_UNFLAGGED_HOOK_IDS."
+            )
+        scanned = _resolved_scan_scope(hook_id)
+        actual = expected if scanned is None else sorted(scanned)
+        assert actual == expected, (
+            f"{hook_id}: the CI invocation of {script} scans {actual}, narrower than "
+            f"the validator's own default scope {expected}. `.pre-commit-config.yaml` "
+            f"invokes this hook with `pass_filenames: false` — no file arguments at "
+            f"all — so its own default scope is `.pre-commit-config.yaml`'s idea of "
+            f"'the inputs the hook would see' (ADR-037 D1). A CI step naming an "
+            f"explicit, narrower file list checks less than the hook it stands in for, "
+            f"and the coverage tests elsewhere in this module cannot see the gap: the "
+            f"invocation still exists, and the corpus probe still finds its own "
+            f"poison if the probe's target happens to survive the narrowing."
         )
 
 
@@ -4950,6 +6631,7 @@ class TestUnflaggedValidatorsCatchInjectedViolations:
 
         clean = _mirror_checkout(tmp_path / "clean")
         probe.write_corpus(clean, False)
+        _track_mirror(clean)
         clean_result = _run_governed(clean / _MIRRORED_SOURCE_DIR / script, argv, clean)
         assert clean_result.returncode == 0, (
             f"Harness precondition failed: {invocation.source} arguments {argv} exit "
@@ -4960,6 +6642,7 @@ class TestUnflaggedValidatorsCatchInjectedViolations:
 
         poisoned = _mirror_checkout(tmp_path / "poisoned")
         probe.write_corpus(poisoned, True)
+        _track_mirror(poisoned)
         poisoned_result = _run_governed(poisoned / _MIRRORED_SOURCE_DIR / script, argv, poisoned)
         output = poisoned_result.stdout + poisoned_result.stderr
         assert probe.marker in output, (
@@ -5041,6 +6724,7 @@ class TestUnflaggedValidatorsValidateTheCheckoutUnderTest:
 
         mirror = _mirror_checkout(tmp_path / "mirror")
         probe.write_corpus(mirror, True)
+        _track_mirror(mirror)
 
         inside = _run_governed(mirror / _MIRRORED_SOURCE_DIR / script, [], mirror)
         inside_output = inside.stdout + inside.stderr
@@ -5153,9 +6837,12 @@ class TestModuleInventory:
             "TestBlockFlagChangesBehaviour",
             "TestCIInvocationCatchesViolation",
             "TestCIFileListsAreDerivedAndComplete",
+            "TestThirdPartyBlockingHookCoverage",
+            "TestLocalImportClosureResolvesAllImportForms",
             "TestGateStepsRunFromRepositoryRoot",
             "TestWorkflowTriggerCoverage",
             "TestGateStepFailsTheJob",
+            "TestAggregateGateReflectsEveryGateJob",
             "TestUnflaggedBlockingCoverage",
             "TestUnflaggedValidatorsRunInPlace",
             "TestUnflaggedValidatorsCatchInjectedViolations",
@@ -5312,6 +6999,22 @@ class TestModuleInventory:
 #     invocation is correctly bare — the uniqueness assertion above would
 #     misread that bare invocation as unattributed without the exception.
 #
+# TestThirdPartyBlockingHookCoverage (6)
+#   — D1 applied to hooks pre-commit declares from a third-party repo rather
+#     than a local script: every check-jsonschema (schema, yaml) pair has a CI
+#     counterpart via validate_all_schemas.py's own pairing; check-metaschema
+#     has a CI counterpart at all; that counterpart is found structurally
+#     (`_third_party_invocations`, matching THIRD_PARTY_BLOCKING_COMMANDS) and
+#     not by a raw substring scan, so a flag left behind only in a comment
+#     while the real command is replaced does not read as coverage; its file
+#     list is built from a command that resolves to check-metaschema's own
+#     `files:` pattern exactly, not transcribed; and it carries no
+#     `continue-on-error:` or `if:` at either the step or job level. The last
+#     three guard a step outside GATE_STEPS — `_gate_steps` keys on
+#     STRICTNESS_FLAGS and UNFLAGGED_BLOCKING_SCRIPTS, neither of which a bare
+#     `check-jsonschema --check-metaschema` invocation carries — so
+#     TestGateStepFailsTheJob's structural guards never reach it.
+#
 # TestGateStepsRunFromRepositoryRoot (7)
 #   — GATE_STEPS is the union of steps invoking a `--block`-flagged validator
 #     and steps invoking one of ADR-037 D8's flagless governed validators
@@ -5328,7 +7031,7 @@ class TestModuleInventory:
 #     RED as committed: GATE_STEPS contains none of D8's validators yet, which
 #     TestUnflaggedBlockingCoverage records from the pre-commit side.
 #
-# TestWorkflowTriggerCoverage (2 + 1 + 1 + 1)
+# TestWorkflowTriggerCoverage (2 + 1 + 1 + 1 + 2 + 1 + 1 + 3)
 #   — a gate workflow triggers on its own definition, on every script its steps
 #     execute or copy into place, and on the pre-commit config those scripts
 #     read; every executed script resolves to exactly one tracked file, so no
@@ -5339,8 +7042,35 @@ class TestModuleInventory:
 #     other test in this module can observe. `paths-ignore` is modelled
 #     alongside `paths`, because a workflow switching spelling would otherwise
 #     read as "runs unconditionally" and pass every case vacuously.
+#     A prior gap in the same family: every one of the above assumes the gate
+#     workflow *runs* on a pull request, which none of them checks — they
+#     reason about `paths:` filters, and an event with no filter (because it
+#     has no event at all, `pull_request:` deleted wholesale) contributes
+#     nothing to look at. Three more tests close that: a gate or pytest
+#     workflow declares a `pull_request` trigger at all; at least one of them
+#     has a `push.branches` filter to compare against (non-vacuity guard); and
+#     a declared `pull_request.branches` filter is not narrower than the
+#     workflow's own `push.branches` — `branches: [nonexistent-branch]`
+#     satisfies "a filter exists" while covering nothing.
 #
-# TestGateStepFailsTheJob (3 + 5 x 5 gate steps, 2 of them skipped = 28)
+# TestLocalImportClosureResolvesAllImportForms (4)
+#   — the import-closure resolver `_governed_hook_input_paths`'s sibling half
+#     (`_executed_script_import_closure`) depends on has to follow every import
+#     shape a validator can use, not only the one today's validators happen to
+#     use. Isolated from the real repository tree via monkeypatched
+#     `_REPO_ROOT`/`_HOOKS_DIR`/`_IMPORT_ROOTS`/`TRACKED_FILE_SET`: the
+#     package-import form (`from precommit import _submodule`, where the
+#     submodule name lives in `node.names` rather than `node.module`), a
+#     relative import naming a module (`from ._submodule import x`), a bare
+#     relative package import (`from . import _submodule`), and a dynamic
+#     import (`importlib.import_module(...)`) failing loud rather than
+#     resolving to an incomplete closure silently. The first is the realistic
+#     path a coverage gap reopens through: a *new* helper first imported in
+#     package form never acquires a `paths:` requirement at all, no rewrite or
+#     deletion required.
+#
+# TestGateStepFailsTheJob (5 non-parametrized + 6 x 12 gate steps = 77; the
+# file-list-resolver case skips for the steps with no substitution to fail)
 #   — the step's own exit code, which nothing else here models. Each gate step's
 #     `run:` body is executed verbatim under `bash -e` with the interpreter
 #     stubbed: it exits 0 when the stub succeeds (the control), non-zero when
@@ -5360,6 +7090,35 @@ class TestModuleInventory:
 #     This is the section that separates "the validator found it" from "the job
 #     failed". Four one-line edits reach ADR-037 D7's rejected warn-only soak
 #     with every other assertion in this module still green.
+#     A fifth non-parametrized pair guards a shape none of the above can see: a
+#     step that branches on repository state (`[ -d risk-map ]`) *ahead* of its
+#     own validator. `_run_step_body`'s sandbox is made checkout-shaped
+#     (`_TOP_LEVEL_DIRECTORIES`) so such a branch resolves the way it would in
+#     CI — one test proves the harness is honest about the resulting bypass on
+#     a synthetic body, the other (parametrized over GATE_STEPS) proves no real
+#     gate step is shaped that way, with its own synthetic non-vacuity proof
+#     alongside it. Before 021cc3a's revert, a rescue in `_run_step_body`
+#     forced the return code whenever the stubbed validator was never invoked —
+#     backwards: it hid exactly the bypass a real checkout would produce,
+#     rather than exposing it.
+#
+# TestAggregateGateReflectsEveryGateJob (1 + 1 + 1 + 1)
+#   — the aggregate gate a pull request's merge decision actually depends on.
+#     `validation-summary` is the only place any gate job's `needs.<job>.result`
+#     is read at all (`if: always()` is what lets it observe every result
+#     regardless of which job failed); every job containing a gate step is
+#     both in its `needs:` and read by one of its `needs.<job>.result`
+#     expressions; and rendering its shell body with each gate job in turn set
+#     to `"failure"` (every other referenced job `"success"`) makes it exit
+#     non-zero. The render step (`_render_needs_expressions`) reproduces
+#     GitHub's own `${{ }}` evaluation ahead of the shell, proven against a
+#     minimal case by its own non-vacuity test. Two edits reach this section's
+#     rejected state with every test above it still green: dropping a job from
+#     `needs:` and deleting its result branch (`_summary_job_needs_and_reads_
+#     every_gate_job` catches this), or leaving the `needs:` entry and the read
+#     intact while deleting the one `overall_success=false` line that would
+#     have made that job's failure matter (`_summary_job_fails_when_any_gate_
+#     job_does_not_succeed` catches this).
 #
 # TestUnflaggedBlockingCoverage (1 + 6, parametrized over the derived set)
 #   — D8: the hooks ADR-037's D1 instance table names all resolve to the

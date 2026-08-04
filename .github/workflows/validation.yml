@@ -22,6 +22,19 @@ on:
       - 'scripts/hooks/precommit/validate_persona_site_build.py'
       - 'scripts/hooks/precommit/validate_neutrality.py'
       - 'scripts/tools/hook_file_list.py'
+      # ADR-037 D1: content the governed hooks above scan, and modules their
+      # validators import locally — not the validators themselves, which are
+      # already listed above. See test_gate_workflow_triggers_on_the_corpus_
+      # its_governed_hooks_scan in scripts/hooks/tests/test_ci_block_parity.py.
+      - 'scripts/agents/*.md'
+      - 'scripts/skills/**'
+      - 'scripts/build_persona_site_data.py'
+      - 'scripts/hooks/_sentinel_expansion.py'
+      - 'scripts/hooks/precommit/_linter_types.py'
+      - 'scripts/hooks/precommit/_neutrality_data.py'
+      - 'scripts/hooks/precommit/_prose_fields.py'
+      - 'scripts/hooks/precommit/_prose_tokens.py'
+      - 'scripts/hooks/precommit/framework_mapping.py'
   push:
     branches: [main, develop]
     paths:
@@ -43,6 +56,19 @@ on:
       - 'scripts/hooks/precommit/validate_persona_site_build.py'
       - 'scripts/hooks/precommit/validate_neutrality.py'
       - 'scripts/tools/hook_file_list.py'
+      # ADR-037 D1: content the governed hooks above scan, and modules their
+      # validators import locally — not the validators themselves, which are
+      # already listed above. See test_gate_workflow_triggers_on_the_corpus_
+      # its_governed_hooks_scan in scripts/hooks/tests/test_ci_block_parity.py.
+      - 'scripts/agents/*.md'
+      - 'scripts/skills/**'
+      - 'scripts/build_persona_site_data.py'
+      - 'scripts/hooks/_sentinel_expansion.py'
+      - 'scripts/hooks/precommit/_linter_types.py'
+      - 'scripts/hooks/precommit/_neutrality_data.py'
+      - 'scripts/hooks/precommit/_prose_fields.py'
+      - 'scripts/hooks/precommit/_prose_tokens.py'
+      - 'scripts/hooks/precommit/framework_mapping.py'
 
 permissions:
   contents: read
@@ -137,6 +163,27 @@ jobs:
           echo "❌ YAML schema validation failed"
           echo "::error::YAML schema validation failed"
           echo "status=failed" >> $GITHUB_OUTPUT
+          exit 1
+        fi
+
+    - name: Run Schema Metaschema Validation
+      id: validate-metaschema
+      run: |
+        echo "🔍 Running schema metaschema validation..."
+
+        # ADR-037 D1 (third-party hooks): mirrors the check-metaschema
+        # pre-commit hook, which blocks a commit whenever any tracked
+        # risk-map/schemas/*.schema.json file is not itself a structurally
+        # valid JSON Schema document. File list derived from the hook's own
+        # `files:` pattern (hook_file_list.py), not transcribed, same as the
+        # D7/D8 jobs below.
+        FILES=$(python3 scripts/tools/hook_file_list.py check-metaschema)
+
+        if check-jsonschema --check-metaschema ${FILES}; then
+          echo "✅ Schema metaschema validation completed successfully"
+        else
+          echo "❌ Schema metaschema validation failed"
+          echo "::error::Schema metaschema validation failed"
           exit 1
         fi
 
