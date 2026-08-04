@@ -25,7 +25,13 @@ _MASTER_SCHEMA_NAME = "riskmap.schema.json"
 
 
 def _tracked_paths() -> set[str]:
-    """Return every path tracked by git, relative to the repo root.
+    """Return every path tracked by git, relative to the current directory.
+
+    `git ls-files` reports paths relative to the cwd, not the repository root.
+    Both sides of the comparison in `_find_pairs` are cwd-relative and every
+    invocation context runs at the worktree root — pre-commit sets cwd there
+    even for a subdirectory commit — so the two agree today. A caller that
+    changed the cwd would need to account for it.
 
     `git ls-files` reads the index, not HEAD, so a schema/yaml pair a
     contributor has just `git add`ed is included even before it's committed

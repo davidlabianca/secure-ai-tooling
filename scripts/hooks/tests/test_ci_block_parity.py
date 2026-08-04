@@ -3051,6 +3051,40 @@ def _ci_schema_yaml_pairs() -> set[tuple[str, str]]:
 THIRD_PARTY_BLOCKING_COMMANDS = frozenset({"check-jsonschema"})
 
 
+def _strip_leading_words(segment: list[str]) -> list[str]:
+    """Drop shell keywords and variable assignments from the front of a simple command.
+
+    `if check-jsonschema ...; then` and `FOO=bar check-jsonschema ...` both put
+    a non-command token in `segment[0]`; this is what every caller below uses
+    to reach the actual command word instead of matching the keyword in front
+    of it.
+    """
+    trimmed = list(segment)
+    while trimmed and (trimmed[0] in _LEADING_WORDS or _TOKEN_ASSIGN_RE.match(trimmed[0])):
+        trimmed = trimmed[1:]
+    return trimmed
+
+
+def _segment_invokes_third_party_command(segment: list[str]) -> bool:
+    """True when a simple command's head, once leading words are stripped, is a
+    THIRD_PARTY_BLOCKING_COMMANDS member.
+
+    Per-segment sibling of `_third_party_invocations`, for callers that already
+    hold a split segment (from `_split_simple_commands`/`_segments_with_operators`)
+    and only need a yes/no answer rather than a full `Invocation` record —
+    the `||`-guard and repository-state-bypass detectors in section 9 use this
+    to extend their reach to third-party blocking commands, the same way they
+    already reach UNFLAGGED_BLOCKING_SCRIPTS.
+
+    Checked against the head only, never any token in the segment: `pip
+    install check-jsonschema` must read as an invocation of `pip`, not of
+    check-jsonschema itself — the package name there is an argument, never the
+    command word.
+    """
+    trimmed = _strip_leading_words(segment)
+    return bool(trimmed) and Path(trimmed[0]).name in THIRD_PARTY_BLOCKING_COMMANDS
+
+
 def _third_party_invocations(script_text: str, source: str, keep_substitutions: bool = False) -> list[Invocation]:
     """Return every THIRD_PARTY_BLOCKING_COMMANDS execution in a shell script.
 
@@ -3099,13 +3133,10 @@ def _third_party_invocations(script_text: str, source: str, keep_substitutions: 
             tokens.extend(expansion.split())
 
         for segment in _split_simple_commands(tokens):
-            while segment and (segment[0] in _LEADING_WORDS or _TOKEN_ASSIGN_RE.match(segment[0])):
-                segment = segment[1:]
-            if not segment:
+            trimmed = _strip_leading_words(segment)
+            if not trimmed or Path(trimmed[0]).name not in THIRD_PARTY_BLOCKING_COMMANDS:
                 continue
-            command, rest = segment[0], segment[1:]
-            if Path(command).name not in THIRD_PARTY_BLOCKING_COMMANDS:
-                continue
+            command, rest = trimmed[0], trimmed[1:]
             found.append(
                 Invocation(command, command, tuple(rest), source, stripped, tuple(sorted(substitutions.items())))
             )
@@ -3383,16 +3414,18 @@ class TestThirdPartyBlockingHookCoverage:
         When: `continue-on-error:` and `if:` are inspected at both levels
         Then: neither declares one
 
-        `check-metaschema` is not a member of GATE_STEPS — `_gate_steps` keys
-        on STRICTNESS_FLAGS and UNFLAGGED_BLOCKING_SCRIPTS, neither of which
-        this third-party invocation carries — so
+        `_gate_steps` now folds THIRD_PARTY_BLOCKING_COMMANDS invocations into
+        GATE_STEPS (section 2), so
         `TestGateStepFailsTheJob::test_no_gate_step_is_exempted_from_failing_the_job`
-        never reaches it. Reproduces mutation M29: adding
+        reaches this step too and this assertion is redundant with that one.
+        Kept anyway: it reproduces mutation M29 directly — adding
         `if: github.event_name == 'schedule'` and `continue-on-error: true` to
         the step left every other assertion in this class satisfied on a
         pull-request run, because the step simply does not execute — no
-        failure, no conspicuous absence, and no assertion elsewhere in this
-        module inspects these two keys for a step outside GATE_STEPS.
+        failure and no conspicuous absence — and this test is the one that
+        would have caught it back when check-metaschema sat outside GATE_STEPS.
+        A second, independent assertion of the same property costs little and
+        pins the historical gap by name.
         """
         steps = _check_metaschema_steps()
         assert steps, "No check-metaschema step found; test_check_metaschema_has_a_ci_counterpart reports this."
@@ -3528,13 +3561,25 @@ _ABORTING_SHELLS = frozenset({"bash"})
 def _gate_steps() -> list[WorkflowStep]:
     """Return steps that invoke a validator D1 makes CI's decision on.
 
-    Two disjoint ways a validator earns that: a strictness flag on the command
-    line (`--block`), or membership in D8's flagless set — a validator with no
-    warn-only tier, so it blocks unconditionally and carries no flag for the
-    first test to find. The flagless set is UNFLAGGED_BLOCKING_SCRIPTS, read
-    from ADR-037's own D1 instance table rather than listed here, so a hook
-    that joins that table with no strictness flag is a gate step with no edit
-    to this function.
+    Three disjoint ways a validator earns that: a strictness flag on a Python
+    command line (`--block`), membership in D8's flagless set — a Python
+    validator with no warn-only tier, so it blocks unconditionally and carries
+    no flag for the first test to find — or an invocation of one of
+    THIRD_PARTY_BLOCKING_COMMANDS, a hook `.pre-commit-config.yaml` declares
+    from a third-party repo rather than a local script; those also have no
+    warn-only tier and carry no flag, the same shape as D8's set but for a
+    command that is not a `.py` file `_python_invocations` can see. The
+    flagless Python set is UNFLAGGED_BLOCKING_SCRIPTS and the third-party set
+    is THIRD_PARTY_BLOCKING_COMMANDS, both read from ADR-037's own D1 instance
+    table rather than listed here, so a hook that joins either with no
+    strictness flag is a gate step with no edit to this function.
+
+    Folding the third-party arm in here — rather than leaving it a special
+    case TestThirdPartyBlockingHookCoverage polices on its own — is what gives
+    a `check-jsonschema`-shaped hook the same `||`-guard,
+    repository-state-bypass, and step-body-execution guarantees section 9
+    gives every Python gate step: those are properties of *any* step D1 makes
+    the decision on, not properties specific to a local script.
 
     Derived from the command line rather than from job names, so a gate moved
     into another job or workflow stays governed.
@@ -3542,10 +3587,12 @@ def _gate_steps() -> list[WorkflowStep]:
     gates: list[WorkflowStep] = []
     for step in WORKFLOW_STEPS:
         invocations = _python_invocations(step.run, step.source, keep_substitutions=True)
-        if any(
+        python_gate = any(
             STRICTNESS_FLAGS.intersection(inv.argv) or inv.script in UNFLAGGED_BLOCKING_SCRIPTS
             for inv in invocations
-        ):
+        )
+        third_party_gate = bool(_third_party_invocations(step.run, step.source))
+        if python_gate or third_party_gate:
             gates.append(step)
     return gates
 
@@ -3557,12 +3604,14 @@ class TestGateStepsRunFromRepositoryRoot:
     """Every D1 gate step runs at the repository root, in a shell that aborts.
 
     GATE_STEPS is the union `_gate_steps` derives: steps invoking a
-    `--block`-flagged validator, and steps invoking one of ADR-037 D8's
-    flagless governed validators (UNFLAGGED_BLOCKING_SCRIPTS). Both guards
-    below are properties of the step rather than of the command, so they apply
-    identically to either half of that union — a flagless validator's
-    execution context is exactly as load-bearing as a flagged one's, which is
-    the whole of D8's point.
+    `--block`-flagged validator, steps invoking one of ADR-037 D8's flagless
+    governed validators (UNFLAGGED_BLOCKING_SCRIPTS), and steps invoking a
+    THIRD_PARTY_BLOCKING_COMMANDS member directly. Both guards below are
+    properties of the step rather than of the command, so they apply
+    identically to every member of that union — a flagless or third-party
+    validator's execution context is exactly as load-bearing as a flagged
+    one's, which is the whole of D8's point and applies just as much to a hook
+    `.pre-commit-config.yaml` declares from a third-party repo.
 
     Both are currently satisfied by GitHub's defaults rather than by anything
     the workflow says. That is precisely why they need pinning: an edit that
@@ -3573,11 +3622,11 @@ class TestGateStepsRunFromRepositoryRoot:
     pinned are load-bearing — that the file list really does change with the
     working directory, and that `bash -e` really does abort on a failing
     substitution. Without them these would be prohibitions on things that might
-    not matter. Both are scoped to the flagged half: a flagless step builds no
-    file list from a command substitution (D8's validators resolve their own
-    corpus instead), so `_step_substitutions` finds nothing to run there,
-    exactly as it finds nothing today for a step with no `${FILES}`-shaped
-    token at all.
+    not matter. Both draw their commands from `_step_substitutions`, which is
+    empty for a D8 flagless step (those validators resolve their own corpus
+    instead of building a file list from a command) but non-empty for the
+    flagged five and for the check-metaschema step, whose resolver feeds its
+    third-party validator the same way a flagged step's does.
     """
 
     def test_gate_steps_are_found(self):
@@ -3801,9 +3850,22 @@ class TestGateStepsRunFromRepositoryRoot:
 
 
 def _step_substitutions(step: WorkflowStep) -> list[tuple[str, str]]:
-    """Return (variable, command) pairs for command substitutions a step's validator uses."""
+    """Return (variable, command) pairs for command substitutions a step's validator uses.
+
+    Scans both `_python_invocations` and `_third_party_invocations` — the
+    check-metaschema step's `FILES=$(python3 scripts/tools/hook_file_list.py
+    check-metaschema)` resolver feeds `check-jsonschema --check-metaschema
+    ${FILES}`, a THIRD_PARTY_BLOCKING_COMMANDS invocation the first scanner
+    cannot see (it only recognizes `.py` files and python interpreters), so a
+    Python-only scan here would leave that step's resolver-failure path
+    untested even though it is a GATE_STEPS member.
+    """
     pairs: list[tuple[str, str]] = []
-    for invocation in _python_invocations(step.run, step.source, keep_substitutions=True):
+    invocations = [
+        *_python_invocations(step.run, step.source, keep_substitutions=True),
+        *_third_party_invocations(step.run, step.source, keep_substitutions=True),
+    ]
+    for invocation in invocations:
         referenced = {match.group(1) for token in invocation.argv if (match := _SUBST_TOKEN_RE.match(token))}
         pairs.extend((name, command) for name, command in invocation.substitutions if name in referenced)
     return pairs
@@ -3863,6 +3925,15 @@ def _event_branches(data: dict[str, Any], event: str) -> list[str] | None:
     base branch — GitHub's default when the key is absent — which is at least
     as permissive as any explicit list and is therefore never itself a
     coverage gap.
+
+    This is the enumeration half only — "which branches does `push` name as
+    ones it protects" — and reads exactly the `branches:` key. It is
+    deliberately blind to `branches-ignore:`: an ignore-list names branches by
+    exclusion, not by enumeration, so there is no finite list to return for
+    it. `_event_reaches_branch` below is the reachability half, and is what a
+    caller needs to ask "would this *other* event's filter still fire for one
+    of these branches" — a question `branches-ignore:` can answer without
+    being enumerable.
     """
     triggers = data.get("on", data.get(True))
     if not isinstance(triggers, dict):
@@ -3872,6 +3943,61 @@ def _event_branches(data: dict[str, Any], event: str) -> list[str] | None:
         return None
     branches = config.get("branches")
     return [str(branch) for branch in branches] if branches else None
+
+
+def _event_reaches_branch(data: dict[str, Any], event: str, branch: str) -> bool:
+    """True when an event's branch filter would fire for `branch`.
+
+    GitHub accepts exactly one of `branches:` (an allow-list — the branch must
+    match a listed pattern) or `branches-ignore:` (a deny-list — the branch
+    must not match one) per event, never both on the same event. Absent
+    either, every branch is allowed, which is GitHub's default and at least as
+    permissive as any explicit filter.
+
+    `_event_branches` only ever reads `branches:`, so a `pull_request` trigger
+    rewritten as `branches-ignore: [main, develop]` reads back as `None` there
+    — "unrestricted" — when it is in fact restricted to exactly the branches
+    `push` does not name and is therefore unreachable for every branch `push`
+    protects. This function is what closes that: it answers the reachability
+    question directly, for both spellings, reusing `_filter_matches`'s glob
+    semantics (the same dialect GitHub documents for branch filters as for
+    `paths:`).
+    """
+    triggers = data.get("on", data.get(True))
+    if not isinstance(triggers, dict):
+        return True
+    config = triggers.get(event)
+    if not isinstance(config, dict):
+        return True
+    branches = config.get("branches")
+    branches_ignore = config.get("branches-ignore")
+    if branches:
+        return _filter_matches([str(b) for b in branches], branch)
+    if branches_ignore:
+        return not _filter_matches([str(b) for b in branches_ignore], branch)
+    return True
+
+
+# GitHub's default `pull_request` activity types
+# (https://docs.github.com/actions/using-workflows/events-that-trigger-workflows#pull_request).
+# A declared `types:` list REPLACES this default rather than extending it, so
+# a workflow scoped to types outside this set never runs during a pull
+# request's normal open-review-push lifecycle — `types: [closed]` is the
+# sharpest case: the trigger is declared, `branches:` may be unrestricted, and
+# the workflow still never produces a status check while the PR is open.
+_DEFAULT_PULL_REQUEST_TYPES = frozenset({"opened", "synchronize", "reopened"})
+
+
+def _event_types(data: dict[str, Any], event: str) -> list[str] | None:
+    """Return an event's declared `types:` filter, or None if GitHub's default applies."""
+    triggers = data.get("on", data.get(True))
+    if not isinstance(triggers, dict):
+        return None
+    config = triggers.get(event)
+    if not isinstance(config, dict):
+        return None
+    types = config.get("types")
+    return [str(t) for t in types] if types else None
 
 
 class TriggerFilter(NamedTuple):
@@ -4238,21 +4364,64 @@ def _resolve_relative_import(current: str, level: int, module: str | None, alias
     return resolved
 
 
-def _is_dynamic_local_import_call(node: ast.AST) -> bool:
-    """True for a call to `importlib.import_module` or `importlib.util.spec_from_file_location`.
+# Names a dynamic import can be reached under. `__import__` is Python's
+# builtin, callable under that name with no import statement at all; the
+# other two are `importlib`'s, and reaching either as a bare name (rather
+# than through an attribute chain) requires a `from importlib import
+# import_module` — with or without `as` — which `_dynamic_import_aliases`
+# resolves per file.
+_DYNAMIC_IMPORT_TARGETS = frozenset({"import_module", "spec_from_file_location"})
 
-    Neither form appears as an `ast.Import`/`ast.ImportFrom` node, so
+
+def _dynamic_import_aliases(tree: ast.AST) -> frozenset[str]:
+    """Return every bare name in `tree` that could invoke a dynamic import.
+
+    Always includes `__import__`: `__import__("precommit._prose_fields",
+    fromlist=[...])` calls the builtin directly, under no import statement at
+    all, and is exactly as capable of loading a module `ast.Import`/
+    `ast.ImportFrom` never sees as `importlib.import_module` is.
+
+    Also includes every name a `from importlib import import_module` (or
+    `from importlib.util import spec_from_file_location`) statement binds,
+    alias or not — `_is_dynamic_local_import_call`'s attribute-chain check
+    only recognizes the qualified spelling (`importlib.import_module(...)`),
+    and both `from importlib import import_module` (bare name, no `as`) and
+    `from importlib import import_module as im` (aliased) call it as a
+    `Name`, never an `Attribute`.
+    """
+    aliases = {"__import__"}
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ImportFrom):
+            for alias in node.names:
+                if alias.name in _DYNAMIC_IMPORT_TARGETS:
+                    aliases.add(alias.asname or alias.name)
+    return frozenset(aliases)
+
+
+def _is_dynamic_local_import_call(node: ast.AST, aliases: frozenset[str]) -> bool:
+    """True for a call to a dynamic-import function, by attribute or bare name.
+
+    Two call shapes, both producing no `ast.Import`/`ast.ImportFrom` node, so
     `_local_import_closure`'s walk cannot follow either no matter how it
-    handles those two node types. Detected structurally (an attribute chain
-    ending in one of the two names) rather than by a fixed dotted-name string,
-    so `import importlib.util as iu; iu.spec_from_file_location(...)` is still
-    caught.
+    handles those two node types:
+
+      - an attribute chain ending in `import_module` or
+        `spec_from_file_location` (`importlib.import_module(...)`,
+        `iu.spec_from_file_location(...)` after `import importlib.util as
+        iu`) — detected structurally, by attribute name, rather than by a
+        fixed dotted-name string, so the module alias does not matter;
+      - a bare `Name` call whose name is in `aliases`
+        (`_dynamic_import_aliases`) — `import_module(...)` after
+        `from importlib import import_module`, an aliased spelling of either
+        function, or `__import__(...)` directly.
     """
     if not isinstance(node, ast.Call):
         return False
     func = node.func
     if isinstance(func, ast.Attribute):
-        return func.attr in {"import_module", "spec_from_file_location"}
+        return func.attr in _DYNAMIC_IMPORT_TARGETS
+    if isinstance(func, ast.Name):
+        return func.id in aliases
     return False
 
 
@@ -4278,13 +4447,15 @@ def _local_import_closure(repo_relative_script: str) -> set[str]:
         relative to the current script's own package via
         `_resolve_relative_import`.
 
-    A dynamic import (`importlib.import_module(...)`,
-    `importlib.util.spec_from_file_location(...)`) is a fourth shape this walk
-    cannot follow at all — neither is an `ast.Import`/`ast.ImportFrom` node —
-    and is reported loudly via `pytest.fail` rather than silently resolving to
-    nothing, per the same reasoning `_workflow_dependencies` gives for an
-    unresolved script basename: a silently incomplete closure understates a
-    trigger requirement with nothing to say so.
+    A dynamic import — `importlib.import_module(...)`,
+    `importlib.util.spec_from_file_location(...)`, or `__import__(...)`, by
+    attribute chain, bare name, or alias (`_is_dynamic_local_import_call`) —
+    is a fourth shape this walk cannot follow at all: none of those calls
+    produces an `ast.Import`/`ast.ImportFrom` node, so it is reported loudly
+    via `pytest.fail` rather than silently resolving to nothing, per the same
+    reasoning `_workflow_dependencies` gives for an unresolved script
+    basename: a silently incomplete closure understates a trigger requirement
+    with nothing to say so.
     """
     closure: set[str] = set()
     stack = [repo_relative_script]
@@ -4294,16 +4465,18 @@ def _local_import_closure(repo_relative_script: str) -> set[str]:
         if not path.is_file():
             continue
         tree = ast.parse(path.read_text(encoding="utf-8"), filename=current)
+        dynamic_import_aliases = _dynamic_import_aliases(tree)
         for node in ast.walk(tree):
-            if _is_dynamic_local_import_call(node):
+            if _is_dynamic_local_import_call(node, dynamic_import_aliases):
                 pytest.fail(
-                    f"{current}: calls a dynamic import (importlib.import_module or "
-                    "importlib.util.spec_from_file_location) at "
-                    f"line {getattr(node, 'lineno', '?')}. `_local_import_closure` cannot "
-                    "follow either form — neither produces an ast.Import/ast.ImportFrom "
-                    "node — so any module it loads this way is invisible to the trigger "
-                    "requirement this closure builds. Resolve it by hand and extend this "
-                    "function, rather than let the closure silently omit it."
+                    f"{current}: calls a dynamic import (importlib.import_module, "
+                    "importlib.util.spec_from_file_location, or __import__, by attribute, "
+                    f"bare name, or alias) at line {getattr(node, 'lineno', '?')}. "
+                    "`_local_import_closure` cannot follow any of those forms — none "
+                    "produces an ast.Import/ast.ImportFrom node — so any module loaded "
+                    "this way is invisible to the trigger requirement this closure builds. "
+                    "Resolve it by hand and extend this function, rather than let the "
+                    "closure silently omit it."
                 )
             candidate_names: list[str] = []
             if isinstance(node, ast.Import):
@@ -4476,6 +4649,82 @@ class TestLocalImportClosureResolvesAllImportForms:
         precommit_dir = self._sandbox_module(tmp_path, monkeypatch)
         (precommit_dir / "validator.py").write_text(
             'import importlib\nimportlib.import_module("precommit._submodule")\n', encoding="utf-8"
+        )
+        self._track(monkeypatch, "scripts/hooks/precommit/validator.py")
+
+        with pytest.raises(pytest.fail.Exception):
+            _local_import_closure("scripts/hooks/precommit/validator.py")
+
+    def test_dunder_import_call_fails_loud_rather_than_resolving_to_nothing(self, tmp_path, monkeypatch):
+        """
+        Given: a script calling the builtin `__import__(...)` directly on a
+               local module name — no import statement of any kind precedes it
+        When: `_local_import_closure` walks it
+        Then: it fails the test rather than silently omitting the module
+
+        `__import__` needs no `import importlib` and produces no `ast.Call`
+        attribute chain for the attribute-based check to inspect — it is a
+        bare `Name` call from the moment Python starts. A detector matching
+        only `ast.Attribute` chains ending in `import_module`/
+        `spec_from_file_location` is structurally blind to this call no
+        matter how those two names are spelled or aliased.
+        """
+        precommit_dir = self._sandbox_module(tmp_path, monkeypatch)
+        (precommit_dir / "validator.py").write_text(
+            '__import__("precommit._submodule", fromlist=["_submodule"])\n', encoding="utf-8"
+        )
+        self._track(monkeypatch, "scripts/hooks/precommit/validator.py")
+
+        with pytest.raises(pytest.fail.Exception):
+            _local_import_closure("scripts/hooks/precommit/validator.py")
+
+    def test_unaliased_bare_name_import_module_fails_loud_rather_than_resolving_to_nothing(
+        self, tmp_path, monkeypatch
+    ):
+        """
+        Given: a script that writes `from importlib import import_module`
+               (no `as`) and then calls the bare name `import_module(...)`
+        When: `_local_import_closure` walks it
+        Then: it fails the test rather than silently omitting the module
+
+        This is the more idiomatic spelling of the dynamic-import form the
+        module's docstring claims to catch, and the one an attribute-only
+        detector (`func.attr in {...}`) cannot see at all: `import_module`
+        here is a bare `ast.Name`, never an `ast.Attribute`, because it was
+        imported directly rather than accessed off the `importlib` module
+        object. `_dynamic_import_aliases` is what recovers this — it reads
+        the `from importlib import import_module` statement itself to learn
+        that the bare name `import_module` means the same function the
+        attribute form already recognizes.
+        """
+        precommit_dir = self._sandbox_module(tmp_path, monkeypatch)
+        (precommit_dir / "validator.py").write_text(
+            'from importlib import import_module\nimport_module("precommit._submodule")\n', encoding="utf-8"
+        )
+        self._track(monkeypatch, "scripts/hooks/precommit/validator.py")
+
+        with pytest.raises(pytest.fail.Exception):
+            _local_import_closure("scripts/hooks/precommit/validator.py")
+
+    def test_aliased_bare_name_import_module_fails_loud_rather_than_resolving_to_nothing(
+        self, tmp_path, monkeypatch
+    ):
+        """
+        Given: a script that writes `from importlib import import_module as
+               im` and then calls the aliased bare name `im(...)`
+        When: `_local_import_closure` walks it
+        Then: it fails the test rather than silently omitting the module
+
+        The alias itself — `im`, not `import_module` — is what a detector
+        keyed on a fixed set of names (even one taught the bare-`Name` form)
+        would miss without reading the `from ... import ... as ...`
+        statement that binds it. `_dynamic_import_aliases` walks every
+        `ast.ImportFrom` in the file first, precisely so an alias earns the
+        same treatment as the name it renames.
+        """
+        precommit_dir = self._sandbox_module(tmp_path, monkeypatch)
+        (precommit_dir / "validator.py").write_text(
+            'from importlib import import_module as im\nim("precommit._submodule")\n', encoding="utf-8"
         )
         self._track(monkeypatch, "scripts/hooks/precommit/validator.py")
 
@@ -4674,19 +4923,26 @@ class TestWorkflowTriggerCoverage:
     def test_pull_request_branch_scope_is_not_narrower_than_push(self, workflow_name):
         """
         Given: a workflow declaring a `push` trigger with a `branches:` filter
-        When: its `pull_request` trigger's own `branches:` filter (if any) is
-              compared against it
-        Then: every branch the `push` trigger names is also matched by the
-              `pull_request` trigger
+        When: each of those branches is checked against the `pull_request`
+              trigger's own branch filter — `branches:` or `branches-ignore:`,
+              whichever it declares — via `_event_reaches_branch`
+        Then: every branch the `push` trigger names is reachable through
+              `pull_request` too
 
         `push.branches` states which branches this workflow exists to
-        protect. Scoping `pull_request.branches` to a different, narrower, or
-        nonexistent set of branches — `branches: [nonexistent-branch]`, say —
-        leaves `pull_request` declared (so the test above stays green) while
-        making the gate unreachable for every pull request that actually
-        targets a protected branch. A `pull_request` trigger with no
-        `branches:` filter at all is unrestricted and therefore always covers
-        `push`'s branches; only a filter that is present and narrower is a gap.
+        protect. Scoping `pull_request` to a different, narrower, or
+        nonexistent set of branches — `branches: [nonexistent-branch]`, or the
+        deny-list spelling `branches-ignore: [main, develop]` — leaves
+        `pull_request` declared (so the test above stays green) while making
+        the gate unreachable for every pull request that actually targets a
+        protected branch. `_event_reaches_branch` is checked directly, rather
+        than comparing `_event_branches`' two enumerated lists, because
+        `_event_branches` only ever reads `branches:` and reads a
+        `branches-ignore:` filter as `None` — "unrestricted" — which is
+        exactly backwards for a deny-list naming the protected branches
+        themselves. A `pull_request` trigger with no filter at all is
+        unrestricted and therefore always reaches every push branch; only a
+        filter that is present and excludes one is a gap.
         """
         data = _workflow_data(workflow_name)
         push_branches = _event_branches(data, "push")
@@ -4696,15 +4952,98 @@ class TestWorkflowTriggerCoverage:
                 "test_push_branches_are_found_for_at_least_one_gate_workflow guards "
                 "against every case being skipped this way."
             )
-        pr_branches = _event_branches(data, "pull_request")
-        if pr_branches is None:
-            return  # Unrestricted pull_request trigger already covers every push branch.
-        missing = sorted(set(push_branches) - set(pr_branches))
-        assert not missing, (
-            f"{workflow_name}'s pull_request trigger is scoped to {pr_branches}, which "
-            f"excludes {missing} — branches its own push trigger names. A pull request "
-            f"targeting {missing} never runs this workflow, even though a merge to it "
-            "does."
+        unreachable = [
+            branch for branch in push_branches if not _event_reaches_branch(data, "pull_request", branch)
+        ]
+        assert not unreachable, (
+            f"{workflow_name}'s pull_request trigger does not reach {unreachable} — "
+            "branches its own push trigger names as protected. A pull request "
+            f"targeting {unreachable} never runs this workflow, even though a merge to "
+            "it does."
+        )
+
+    def test_the_branch_reachability_detector_catches_a_branches_ignore_gap(self):
+        """
+        Given: a synthetic workflow declaring `push: branches: [main, develop]`
+               and `pull_request: branches-ignore: [main, develop]`
+        When: `_event_reaches_branch` checks `pull_request` against each of
+              `push`'s protected branches
+        Then: neither is reachable
+
+        No workflow in this repository uses `branches-ignore:` today, so
+        `test_pull_request_branch_scope_is_not_narrower_than_push` never
+        exercises that half of `_event_reaches_branch` against a live
+        workflow. This is the fidelity check that the reachability answer
+        would actually be `False` if one did — the same non-vacuity
+        discipline `TestGraphEmissionExclusion`'s synthetic-detector tests use
+        for a prohibition nothing live triggers.
+        """
+        data = {
+            "on": {
+                "push": {"branches": ["main", "develop"]},
+                "pull_request": {"branches-ignore": ["main", "develop"]},
+            }
+        }
+        for branch in ("main", "develop"):
+            assert not _event_reaches_branch(data, "pull_request", branch), (
+                f"_event_reaches_branch reported '{branch}' reachable through a "
+                "pull_request trigger that names it in branches-ignore. The detector "
+                "regressed to only reading branches:, which is silent on exactly the "
+                "deny-list spelling this test exists to catch."
+            )
+
+    @pytest.mark.parametrize("workflow_name", sorted(set(GATE_WORKFLOWS) | set(PYTEST_WORKFLOWS)))
+    def test_pull_request_types_reach_the_default_gating_lifecycle(self, workflow_name):
+        """
+        Given: a workflow carrying a D1 gate, or the pytest workflow guarding
+               it, and its `pull_request` trigger's `types:` filter (if any)
+        When: that filter is compared against GitHub's default pull_request
+              types
+        Then: it is absent (so GitHub's default applies) or intersects
+              {opened, synchronize, reopened}
+
+        A declared `types:` list REPLACES GitHub's default rather than
+        extending it. `types: [closed]` leaves `pull_request` declared (so
+        `test_workflow_declares_a_pull_request_trigger` stays green) and any
+        `branches:` filter unrestricted — but the workflow only runs once a
+        pull request is closed, never while it is open for review or while
+        commits are still being pushed to it. No status check is ever
+        produced during the part of the PR's life a merge decision is made
+        from, so the trigger exists on paper and gates nothing.
+        """
+        data = _workflow_data(workflow_name)
+        types = _event_types(data, "pull_request")
+        if types is None:
+            return  # No declared `types:`; GitHub's default (opened, synchronize, reopened) applies.
+        reachable = _DEFAULT_PULL_REQUEST_TYPES.intersection(types)
+        assert reachable, (
+            f"{workflow_name}'s pull_request trigger declares types={types}, none of "
+            f"which overlap GitHub's default gating lifecycle "
+            f"{sorted(_DEFAULT_PULL_REQUEST_TYPES)}. A declared types: list replaces "
+            "the default rather than extending it, so this workflow never runs while "
+            "the pull request it exists to gate is open."
+        )
+
+    def test_the_pull_request_types_detector_catches_a_closed_only_restriction(self):
+        """
+        Given: a synthetic workflow declaring `pull_request: types: [closed]`
+        When: `_event_types` is read and compared against
+              `_DEFAULT_PULL_REQUEST_TYPES`
+        Then: the two do not intersect
+
+        No workflow in this repository declares `types:` at all today, so
+        `test_pull_request_types_reach_the_default_gating_lifecycle` returns
+        early — "GitHub's default applies" — for every live case and never
+        exercises the mismatch branch. Same non-vacuity discipline as
+        `test_the_branch_reachability_detector_catches_a_branches_ignore_gap`.
+        """
+        data = {"on": {"pull_request": {"types": ["closed"]}}}
+        types = _event_types(data, "pull_request")
+        assert types == ["closed"], f"_event_types did not read the declared types: filter, got {types!r}"
+        assert not _DEFAULT_PULL_REQUEST_TYPES.intersection(types), (
+            "types=['closed'] should not overlap GitHub's default gating lifecycle "
+            f"{sorted(_DEFAULT_PULL_REQUEST_TYPES)}; the detector regressed to reporting "
+            "every types: filter as reachable."
         )
 
     @pytest.mark.parametrize("workflow_name", GATE_WORKFLOWS)
@@ -4963,16 +5302,17 @@ class TestWorkflowTriggerCoverage:
 
 
 def _write_stub_interpreter(directory: Path) -> None:
-    """Write a `python3` stub whose exit code is controlled by the environment.
+    """Write `python3`/`python` and THIRD_PARTY_BLOCKING_COMMANDS stubs.
 
-    The stub decides which role it is playing from the command line rather than
-    from a script name: an invocation is the gate's validator if it carries a
-    strictness flag, or — for ADR-037 D8's flagless governed validators, which
-    carry no flag at all — if one of its arguments' basenames is in
-    UNFLAGGED_BLOCKING_SCRIPTS. Anything else is the file-list resolver. Both
-    checks are derived (from STRICTNESS_FLAGS and from ADR-037's own D1
-    instance table), so the stub keeps working if the resolver is renamed, a
-    validator moves, or a further flagless validator is added to the table.
+    The `python3`/`python` stub decides which role it is playing from the
+    command line rather than from a script name: an invocation is the gate's
+    validator if it carries a strictness flag, or — for ADR-037 D8's flagless
+    governed validators, which carry no flag at all — if one of its
+    arguments' basenames is in UNFLAGGED_BLOCKING_SCRIPTS. Anything else is
+    the file-list resolver. Both checks are derived (from STRICTNESS_FLAGS and
+    from ADR-037's own D1 instance table), so the stub keeps working if the
+    resolver is renamed, a validator moves, or a further flagless validator is
+    added to the table.
 
     The second check matters because a flagless gate step's body has no
     resolver call to distinguish from: it is one invocation, carrying no flag,
@@ -4984,8 +5324,22 @@ def _write_stub_interpreter(directory: Path) -> None:
     The resolver arm prints one path-shaped token, because the step word-splits
     that output into the validator's argv and an empty expansion would exercise
     a different code path than the one under test.
+
+    Each name in THIRD_PARTY_BLOCKING_COMMANDS gets its own stub, controlled
+    by the same STUB_VALIDATOR_EXIT — a third-party blocking command has no
+    warn-only tier and takes no flag distinguishing "this is the check" from
+    anything else, so unlike the Python stub it never needs to answer as a
+    resolver. Without this, `_gate_steps`'s third-party arm (section 2) would
+    execute the real, unstubbed `check-jsonschema` from PATH — non-deterministic
+    with respect to the test's intent, since the harness's job is to control the
+    validator's outcome, not to depend on what a real schema-validation run does
+    against whatever happens to be on disk.
     """
     directory.mkdir(parents=True, exist_ok=True)
+    for name in THIRD_PARTY_BLOCKING_COMMANDS:
+        stub = directory / name
+        stub.write_text('#!/usr/bin/env bash\nexit "${STUB_VALIDATOR_EXIT:-0}"\n', encoding="utf-8")
+        stub.chmod(0o755)
     flags = " ".join(f'"{flag}"' for flag in sorted(STRICTNESS_FLAGS))
     scripts = " ".join(f'"{script}"' for script in sorted(UNFLAGGED_BLOCKING_SCRIPTS))
     body = (
@@ -5014,15 +5368,47 @@ def _write_stub_interpreter(directory: Path) -> None:
         stub.chmod(0o755)
 
 
-# Top-level directories a real checkout has, derived from the tracked file
-# list every other section of this module already reads (TRACKED_FILES).
-# `_run_step_body` creates these, empty, inside its sandbox before running a
-# step's body — reproducing the layout a job's own "Checkout repository" step
-# leaves behind before any gate step runs. A step that branches on
-# `[ -d risk-map ]` (or any other top-level directory) ahead of its validator
-# then resolves that test the same way it would in CI, instead of against an
-# empty directory that could never take the branch a real checkout takes.
-_TOP_LEVEL_DIRECTORIES = frozenset(path.split("/", 1)[0] for path in TRACKED_FILES if "/" in path)
+def _populate_checkout_shaped_sandbox(sandbox: Path) -> None:
+    """Copy every tracked file into `sandbox`, preserving content and mode.
+
+    Reproducing the *directory layout* of a checkout (a prior version of this
+    function created `_TOP_LEVEL_DIRECTORIES` as empty directories) is enough
+    to resolve `[ -d risk-map ]` the way a real checkout would, and not enough
+    for anything else: an empty sandbox makes `[ -s risk-map/yaml/risks.yaml
+    ]` false where a real checkout's non-empty tracked file makes it true, and
+    a placeholder file with default permissions makes `[ -x ... ]` false for
+    a script that is genuinely executable in the tree. Both are wrong answers
+    that read as "no bypass" for a step that has one.
+
+    Copying the tracked corpus itself — content via `shutil.copy2`, which also
+    preserves the executable bit — is what makes every single-letter
+    `test`/`[` unary operator (`-s`, `-r`, `-x`, `-L`, ...) resolve the way it
+    would against a real "Checkout repository" step, without this module
+    having to enumerate which operator a future gate step's condition might
+    use. This is the mechanism-level fix for a repository-state bypass: it is
+    not blind to a test operator or a chained (`&&`/`||`, no `if`/`elif`
+    keyword) form the way a text-pattern detector necessarily is, because it
+    makes the *shell itself* answer the question against a faithful
+    filesystem rather than asking this module to recognize the question's
+    shape in advance.
+    `_repository_state_precedes_validator`'s structural scan is kept as a
+    second, independent guard — it names the offending line without running
+    anything — but this sandbox is what makes the behavioural tests below it
+    (`test_gate_step_body_fails_when_its_validator_fails` in particular) able
+    to observe a bypass that scan does not yet recognize.
+
+    `git ls-files -s` (TRACKED_FILES's own source) reports no tracked symlink
+    in this repository today, so `copy2`'s default of following symlinks does
+    not misrepresent one; a tracked symlink would need `copy2(...,
+    follow_symlinks=False)` added here, not a new detector.
+    """
+    for relative in TRACKED_FILES:
+        source = _REPO_ROOT / relative
+        if not source.is_file():
+            continue
+        destination = sandbox / relative
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(source, destination)
 
 
 def _run_step_body(
@@ -5039,23 +5425,25 @@ def _run_step_body(
     an ambiguous-redirect error and a non-zero exit for a reason that has
     nothing to do with the gate.
 
-    `sandbox` is made structurally checkout-shaped (`_TOP_LEVEL_DIRECTORIES`)
+    `sandbox` is made checkout-shaped by `_populate_checkout_shaped_sandbox`
     before the body runs, so a step that branches on repository state ahead of
-    its validator — `[ -d risk-map ]`, say — resolves that test the way it
-    would against a real checkout, not against whatever an empty directory
-    happens to produce. That is a property of the sandbox's layout, and the
-    shell can read it directly (`[ -d ... ]` is exactly such a read); no
-    side-channel is needed to recover it after the fact. GATE_STEPS carries no
-    step shaped this way today — TestGateStepFailsTheJob's structural guard
-    (`_repository_state_precedes_validator`) is what would catch one that
-    started being — so this function's job is limited to making the sandbox a
-    faithful stand-in for a checkout, not to second-guessing what the body
-    does with it.
+    its validator — `[ -d risk-map ]`, `[ -s risk-map/yaml/risks.yaml ]`, or
+    any other single-letter `test`/`[` operator — resolves that test the way
+    it would against a real checkout, not against whatever an empty sandbox
+    happens to produce. That is a property of the sandbox's content, and the
+    shell can read it directly; no side-channel is needed to recover it after
+    the fact. GATE_STEPS carries no step shaped this way today —
+    TestGateStepFailsTheJob's structural guard
+    (`_repository_state_precedes_validator`) is what would name one that
+    started being, and this sandbox is what would make the behavioural tests
+    below fail on one even if its shape did not match that guard's pattern —
+    so this function's job is limited to making the sandbox a faithful
+    stand-in for a checkout, not to second-guessing what the body does with
+    it.
     """
     bin_dir = sandbox / "bin"
     _write_stub_interpreter(bin_dir)
-    for name in _TOP_LEVEL_DIRECTORIES:
-        (sandbox / name).mkdir(parents=True, exist_ok=True)
+    _populate_checkout_shaped_sandbox(sandbox)
     environment = {
         "PATH": f"{bin_dir}:{os.environ.get('PATH', '')}",
         "HOME": str(sandbox),
@@ -5081,11 +5469,13 @@ def _gate_step_ids() -> list[str]:
 def _or_guarded_validator_lines(step: WorkflowStep) -> list[str]:
     """Return lines in a step's body where the validator command is `||`-guarded.
 
-    "The validator command" is identified the same way `_gate_steps` identifies
-    a gate step: a simple command carrying a strictness flag, or one naming a
-    script in UNFLAGGED_BLOCKING_SCRIPTS (ADR-037 D8's flagless governed set).
-    Both are checked per segment, not per line, so a guard on an unrelated
-    command earlier on the same line is not mistaken for one on the validator.
+    "The validator command" is identified the same three ways `_gate_steps`
+    identifies a gate step: a simple command carrying a strictness flag, one
+    naming a script in UNFLAGGED_BLOCKING_SCRIPTS (ADR-037 D8's flagless
+    governed set), or one invoking a THIRD_PARTY_BLOCKING_COMMANDS member
+    directly (`_segment_invokes_third_party_command`). All three are checked
+    per segment, not per line, so a guard on an unrelated command earlier on
+    the same line is not mistaken for one on the validator.
     """
     guarded: list[str] = []
     for raw_line in step.run.splitlines():
@@ -5093,33 +5483,70 @@ def _or_guarded_validator_lines(step: WorkflowStep) -> list[str]:
         if not stripped or stripped.startswith("#"):
             continue
         for segment, operator in _segments_with_operators(_safe_split(stripped)):
-            carries_validator = STRICTNESS_FLAGS.intersection(segment) or any(
-                Path(token).name in UNFLAGGED_BLOCKING_SCRIPTS for token in segment
+            carries_validator = (
+                STRICTNESS_FLAGS.intersection(segment)
+                or any(Path(token).name in UNFLAGGED_BLOCKING_SCRIPTS for token in segment)
+                or _segment_invokes_third_party_command(segment)
             )
             if carries_validator and operator == "||":
                 guarded.append(stripped)
     return guarded
 
 
-# An `if` or `elif` whose condition is a `[ -d|-f|-e ... ]` test, or the
-# `test -d|-f|-e ...` spelling of the same thing. Matches the *shell keyword*
-# introducing the branch, not a bare `[ -d ... ]` appearing mid-body (e.g.
-# inside an already-taken branch), which is not a step shape D1 needs to be
-# suspicious of.
-_REPO_STATE_CONDITION_RE = re.compile(r"^\s*(?:if|elif)\s+(?:\[+\s*|test\s+)-[dfe]\s+\S+")
+# A `test`/`[`/`[[` command applying any single-letter unary operator test(1)
+# supports (`-a` through `-z`, optionally negated with `!`) — not an
+# enumerated subset (`-d`, `-f`, `-e`). `_populate_checkout_shaped_sandbox` is
+# the primary, mechanism-level guard against a repository-state bypass (it
+# makes the *shell* answer the question against a faithful filesystem, so it
+# is blind to no operator or shape); this pattern is the secondary,
+# human-readable guard that names the offending line without executing
+# anything, and an enumerated letter class would have the same blind spot the
+# sandbox fix exists to close — the next operator nobody enumerated.
+_REPO_STATE_TEST_PATTERN = r"(?:\[+\s*|test\s+)(?:!\s*)?-[A-Za-z]\s+\S+"
+
+# The `if`/`elif` spelling: the test introduces the branch itself. Matches the
+# *shell keyword*, not a bare `[ -d ... ]` appearing mid-body (e.g. inside an
+# already-taken branch), which is not a step shape D1 needs to be suspicious
+# of.
+_REPO_STATE_CONDITION_RE = re.compile(rf"^\s*(?:if|elif)\s+{_REPO_STATE_TEST_PATTERN}")
+
+# The `[ ... ] && ... || ...` spelling: no `if`/`elif` keyword at all, and the
+# test's truth still decides what runs next. Matched per segment against
+# `_REPO_STATE_TEST_PATTERN`, restricted to a segment immediately followed by
+# `&&` or `||` — a bare `[ -s file ]` with no following operator is a no-op
+# exit-status-only command, not a gate.
+_REPO_STATE_CHAINED_TEST_RE = re.compile(_REPO_STATE_TEST_PATTERN)
+
+
+def _line_has_repository_state_gate(stripped: str) -> bool:
+    """True when a line contains a repository-state test able to gate what runs next.
+
+    Two shapes count: `_REPO_STATE_CONDITION_RE`'s `if`/`elif` form, and a
+    standalone `[ ... ]`/`test ...` segment chained to what follows by `&&` or
+    `||` — `[ -s file ] && echo ok && exit 0 || <validator>` gates exactly as
+    effectively as an `if` while using neither keyword.
+    """
+    if _REPO_STATE_CONDITION_RE.match(stripped):
+        return True
+    for segment, operator in _segments_with_operators(_safe_split(stripped)):
+        if operator in ("&&", "||") and _REPO_STATE_CHAINED_TEST_RE.search(" ".join(segment)):
+            return True
+    return False
 
 
 def _repository_state_precedes_validator(step: WorkflowStep) -> bool:
     """True when a repository-state test precedes this step's validator invocation.
 
-    "Precedes" means: an earlier `if`/`elif` line in the same shell body tests
-    for a top-level path's existence, before the line that invokes the step's
-    own validator (located the same way `_gate_steps` locates one — a
-    strictness flag, or a D8 flagless validator's basename). Once a job's
-    checkout step has run, a `[ -d risk-map ]` branch ahead of the validator
-    always wins — the directory it tests for exists unconditionally by then —
-    so the validator underneath an `elif` never executes and the job reports
-    success without it ever having run. See
+    "Precedes" means: an earlier line in the same shell body contains a
+    repository-state gate (`_line_has_repository_state_gate` — an `if`/`elif`
+    condition, or a chained `[ ... ] && ... || ...` with no keyword at all),
+    before the line that invokes the step's own validator (located the same
+    three ways `_gate_steps` locates one — a strictness flag, a D8 flagless
+    validator's basename, or a THIRD_PARTY_BLOCKING_COMMANDS invocation). Once
+    a job's checkout step has run, a `[ -d risk-map ]` branch ahead of the
+    validator always wins — the directory it tests for exists unconditionally
+    by then — so the validator underneath an `elif` never executes and the job
+    reports success without it ever having run. See
     `test_the_harness_reproduces_a_repository_state_bypass_faithfully` for why
     a bare exit code alone cannot be trusted to reveal this.
     """
@@ -5133,8 +5560,10 @@ def _repository_state_precedes_validator(step: WorkflowStep) -> bool:
         # commands first — a raw token-in-line check would miss the basename
         # under a trailing `;` (`validator.py;` != `validator.py`).
         for segment in _split_simple_commands(_safe_split(stripped)):
-            if STRICTNESS_FLAGS.intersection(segment) or any(
-                Path(token).name in UNFLAGGED_BLOCKING_SCRIPTS for token in segment
+            if (
+                STRICTNESS_FLAGS.intersection(segment)
+                or any(Path(token).name in UNFLAGGED_BLOCKING_SCRIPTS for token in segment)
+                or _segment_invokes_third_party_command(segment)
             ):
                 validator_index = index
                 break
@@ -5142,7 +5571,7 @@ def _repository_state_precedes_validator(step: WorkflowStep) -> bool:
             break
     if validator_index is None:
         return False
-    return any(_REPO_STATE_CONDITION_RE.match(raw_line) for raw_line in lines[:validator_index])
+    return any(_line_has_repository_state_gate(raw_line.strip()) for raw_line in lines[:validator_index])
 
 
 class TestGateStepFailsTheJob:
@@ -5415,10 +5844,10 @@ class TestGateStepFailsTheJob:
                validator — `if [ -d risk-map ]; then ...success... elif
                <validator>; then ...`
         When: the validator is stubbed to fail, and the body runs through
-              `_run_step_body`'s own sandbox (no directory created by the test)
+              `_run_step_body`'s own sandbox (nothing created by the test itself)
         Then: the step body exits 0 — the bypass happens, because
-              `_TOP_LEVEL_DIRECTORIES` already makes `risk-map` exist in the
-              sandbox by the time the body runs
+              `_populate_checkout_shaped_sandbox` already makes `risk-map`
+              exist in the sandbox by the time the body runs
 
         This is not the assertion ADR-037 D1 needs held — it is proof that the
         harness is honest about a step shaped this way, which is the
@@ -5466,11 +5895,67 @@ class TestGateStepFailsTheJob:
             result = _run_step_body(synthetic, Path(sandbox_dir), validator_exit=1, resolver_exit=0)
         assert result.returncode == 0, (
             f"{synthetic.source}: expected the repository-state branch to bypass the "
-            f"validator and exit 0 — `_TOP_LEVEL_DIRECTORIES` should have made "
-            f"`risk-map` exist in the sandbox before the body ran. Getting a non-zero "
-            "exit here means the sandbox is not checkout-shaped after all, which would "
-            "make this test, and the guard below it, unable to tell a real bypass from "
-            "a harness artefact.\n"
+            f"validator and exit 0 — `_populate_checkout_shaped_sandbox` should have "
+            f"made `risk-map` exist in the sandbox before the body ran. Getting a "
+            "non-zero exit here means the sandbox is not checkout-shaped after all, "
+            "which would make this test, and the guard below it, unable to tell a real "
+            "bypass from a harness artefact.\n"
+            f"stdout: {result.stdout}\nstderr: {result.stderr}"
+        )
+
+    def test_the_harness_reproduces_a_file_size_bypass_faithfully(self):
+        """
+        Given: a synthetic step body that branches on `[ -s
+               risk-map/yaml/risks.yaml ]` — a real, tracked, non-empty file —
+               *before* it ever reaches the validator, the same shape as the
+               `-d` case above but with an operator `_REPO_STATE_CONDITION_RE`
+               did not recognize before this test's history
+        When: the validator is stubbed to fail, and the body runs through
+              `_run_step_body`'s own sandbox
+        Then: the step body exits 0 — the bypass happens, because
+              `_populate_checkout_shaped_sandbox` copies the real,
+              non-empty `risk-map/yaml/risks.yaml` into the sandbox, not an
+              empty placeholder or nothing at all
+
+        An empty sandbox (or one populated only with `_TOP_LEVEL_DIRECTORIES`,
+        this class's previous form) makes `[ -s ... ]` false, which sends
+        execution to the `elif` and lets the stubbed validator answer
+        honestly — reporting a step shaped exactly like the one above as
+        correctly failing when, against a real checkout where the file is
+        genuinely non-empty, the `if` branch wins unconditionally and the
+        validator never runs at all. That gap is what let the mutation
+        `if [ -s risk-map/yaml/risks.yaml ]; then ... elif <validator>; then
+        ...` survive undetected; this test is the proof that the current
+        sandbox no longer produces that false negative for a file-size test,
+        the same way the `-d` case proves it for a directory-existence test.
+        """
+        script = sorted(UNFLAGGED_BLOCKING_SCRIPTS)[0]
+        synthetic = WorkflowStep(
+            workflow="synthetic.yml",
+            job="synthetic",
+            label="synthetic",
+            run=(
+                "if [ -s risk-map/yaml/risks.yaml ]; then\n"
+                '  echo "status=success" >> $GITHUB_OUTPUT\n'
+                f"elif python3 scripts/hooks/precommit/{script}; then\n"
+                '  echo "status=success" >> $GITHUB_OUTPUT\n'
+                "else\n"
+                '  echo "status=failed" >> $GITHUB_OUTPUT\n'
+                "  exit 1\n"
+                "fi\n"
+            ),
+            shell=None,
+            working_directory=None,
+            source="synthetic::repository-state-bypass-file-size",
+        )
+        with tempfile.TemporaryDirectory() as sandbox_dir:
+            result = _run_step_body(synthetic, Path(sandbox_dir), validator_exit=1, resolver_exit=0)
+        assert result.returncode == 0, (
+            f"{synthetic.source}: expected the `[ -s ... ]` branch to bypass the "
+            "validator and exit 0 — the sandbox should hold a real, non-empty "
+            "risk-map/yaml/risks.yaml by the time the body ran. A non-zero exit here "
+            "means the sandbox is not content-faithful, which is exactly the gap that "
+            "let a file-size-based repository-state bypass go unnoticed.\n"
             f"stdout: {result.stdout}\nstderr: {result.stderr}"
         )
 
@@ -5478,10 +5963,11 @@ class TestGateStepFailsTheJob:
     def test_no_gate_step_lets_repository_state_bypass_its_validator(self, step):
         """
         Given: a gate step's shell body
-        When: it is scanned for an `if`/`elif` repository-state test
-              (`[ -d ... ]`, `[ -f ... ]`, `[ -e ... ]`, or the `test` spelling
-              of any of them) appearing before the line invoking this step's
-              own validator
+        When: it is scanned for a repository-state test — any single-letter
+              `test`/`[` operator (`-d`, `-f`, `-s`, `-r`, `-x`, ...), in
+              either the `if`/`elif` form or the keyword-free
+              `[ ... ] && ... || ...` form — appearing before the line
+              invoking this step's own validator
         Then: none is found
 
         The structural companion to
@@ -5545,6 +6031,80 @@ class TestGateStepFailsTheJob:
             "on exactly the shape it exists to catch."
         )
 
+    @pytest.mark.parametrize("operator", ["-s", "-r", "-x", "-L"])
+    def test_the_repository_state_bypass_detector_catches_every_test_operator(self, operator):
+        """
+        Given: a synthetic `if [ <operator> risk-map/yaml/risks.yaml ]; then
+               ... elif <validator>; then ...` body, for each of several
+               single-letter `test`/`[` operators the previous enumerated
+               regex (`-[dfe]`) did not include
+        When: `_repository_state_precedes_validator` scans it
+        Then: it reports the bypass for every operator
+
+        `_REPO_STATE_TEST_PATTERN` matches any single letter rather than an
+        enumerated set specifically so this does not become a per-operator
+        whack-a-mole; this test is what proves that generalization actually
+        catches the operators the review named (`-s`, `-r`, `-x`, `-L`) and
+        not only the three the previous pattern happened to list.
+        """
+        script = sorted(UNFLAGGED_BLOCKING_SCRIPTS)[0]
+        synthetic = WorkflowStep(
+            workflow="synthetic.yml",
+            job="synthetic",
+            label="synthetic",
+            run=(
+                f"if [ {operator} risk-map/yaml/risks.yaml ]; then\n"
+                '  echo "status=success" >> $GITHUB_OUTPUT\n'
+                f"elif python3 scripts/hooks/precommit/{script}; then\n"
+                '  echo "status=success" >> $GITHUB_OUTPUT\n'
+                "else\n"
+                '  echo "status=failed" >> $GITHUB_OUTPUT\n'
+                "  exit 1\n"
+                "fi\n"
+            ),
+            shell=None,
+            working_directory=None,
+            source=f"synthetic::repository-state-bypass-{operator}",
+        )
+        assert _repository_state_precedes_validator(synthetic), (
+            f"_repository_state_precedes_validator found no bypass in a synthetic body "
+            f"using `{operator}`. The detector regressed to an enumerated letter class, "
+            "which is silent on exactly the next operator nobody enumerated."
+        )
+
+    def test_the_repository_state_bypass_detector_catches_the_chained_no_keyword_form(self):
+        """
+        Given: a synthetic step body that gates its validator with
+               `[ -s risk-map/yaml/risks.yaml ] && ... || <validator>`, using
+               neither `if` nor `elif`
+        When: `_repository_state_precedes_validator` scans it
+        Then: it reports the bypass
+
+        `_REPO_STATE_CONDITION_RE` alone only recognizes the `if`/`elif` form;
+        `_line_has_repository_state_gate`'s second branch is what extends the
+        same recognition to a bare test chained by `&&`/`||`, which gates
+        execution exactly as effectively without ever writing the keyword.
+        """
+        script = sorted(UNFLAGGED_BLOCKING_SCRIPTS)[0]
+        synthetic = WorkflowStep(
+            workflow="synthetic.yml",
+            job="synthetic",
+            label="synthetic",
+            run=(
+                "[ -s risk-map/yaml/risks.yaml ] && echo already-clean && exit 0\n"
+                f"python3 scripts/hooks/precommit/{script}\n"
+            ),
+            shell=None,
+            working_directory=None,
+            source="synthetic::repository-state-bypass-chained",
+        )
+        assert _repository_state_precedes_validator(synthetic), (
+            "_repository_state_precedes_validator found no bypass in a synthetic body "
+            "gating its validator with a chained `[ ... ] && ... || ...` test and no "
+            "`if`/`elif` keyword. The detector regressed to the keyword-only form, which "
+            "is silent on exactly the shape this test exists to catch."
+        )
+
 
 # ===========================================================================
 # 9b. The aggregate gate — the summary job's own exit code
@@ -5587,6 +6147,19 @@ def _jobs_with_gate_steps(workflow_name: str) -> set[str]:
 _NEEDS_RESULT_RE = re.compile(r"\$\{\{\s*needs\.([A-Za-z0-9_-]+)\.result\s*\}\}")
 _NEEDS_OUTPUT_RE = re.compile(r"\$\{\{\s*needs\.([A-Za-z0-9_-]+)\.outputs\.[A-Za-z0-9_-]+\s*\}\}")
 
+# Any `${{ ... }}` expression at all, for the unresolved-expression guard
+# `_render_needs_expressions` runs after its own two substitutions. GitHub
+# evaluates every `${{ }}` before the shell runs; one this renderer does not
+# know how to resolve is not a no-op left for the shell to ignore — `${{
+# github.run_id }}` is not valid bash syntax (`{` cannot start a parameter
+# name), so `bash -e` aborts with "bad substitution" on the very first such
+# expression, regardless of which line it is on. That abort is a non-zero
+# exit for a reason that has nothing to do with the aggregate-gate logic
+# under test, and it happens for *every* rendering this section performs —
+# `test_summary_job_fails_when_any_gate_job_does_not_succeed` would then
+# "pass" no matter what `overall_success` actually became.
+_ANY_EXPRESSION_RE = re.compile(r"\$\{\{.*?\}\}")
+
 
 def _referenced_needs_jobs(run: str) -> set[str]:
     """Return every job id a step's body reads through the `needs` context."""
@@ -5606,9 +6179,29 @@ def _render_needs_expressions(run: str, results: dict[str, str]) -> str:
     id with no entry in `results` defaults to `"success"`, matching a control
     run where nothing has failed; `outputs.*` references resolve to the empty
     string, since no test in this section reads output content.
+
+    Raises if any `${{ }}` expression survives both substitutions, rather than
+    handing the shell a literal it cannot execute — `bash -e` aborts with "bad
+    substitution" on an unresolved `${{ }}`, a non-zero exit indistinguishable
+    from the aggregate-gate logic actually failing. An ordinary edit —
+    `echo "Run: ${{ github.run_id }}" >> $GITHUB_STEP_SUMMARY` in the same
+    step — reaches an expression shape this function does not yet know, and
+    the fix is to teach it that shape, not to let it pass through unrendered
+    and have every case in this section "pass" for the wrong reason.
     """
     rendered = _NEEDS_RESULT_RE.sub(lambda match: results.get(match.group(1), "success"), run)
-    return _NEEDS_OUTPUT_RE.sub("", rendered)
+    rendered = _NEEDS_OUTPUT_RE.sub("", rendered)
+    unresolved = _ANY_EXPRESSION_RE.findall(rendered)
+    if unresolved:
+        raise AssertionError(
+            f"_render_needs_expressions left {unresolved} unresolved in:\n{run}\n"
+            "GitHub evaluates every `${{ }}` expression before the shell runs. Leaving "
+            "one as literal text makes bash abort with a syntax error on it, which "
+            "would satisfy 'the rendered body exits non-zero' regardless of what the "
+            "aggregate-gate logic under test actually does. Teach this function the "
+            "expression shape rather than let it through unresolved."
+        )
+    return rendered
 
 
 def _run_summary_step(run: str, sandbox: Path, results: dict[str, str]) -> subprocess.CompletedProcess:
@@ -5636,7 +6229,21 @@ class TestAggregateGateReflectsEveryGateJob:
     """
 
     def test_summary_jobs_are_found(self):
-        """Non-vacuity guard: the parametrized cases below quantify over this set."""
+        """Non-vacuity guard: the parametrized cases below quantify over this set.
+
+        Known gap, recorded rather than fixed: this is an `any()` over
+        GATE_WORKFLOWS, not a per-workflow check. The three parametrized
+        tests below each `pytest.skip()` individually for a workflow with no
+        `if: always()` job, so this guard protects the class only as long as
+        *some* gate workflow has one — it would stay green if `validation.yml`
+        itself lost its summary job while a second, unrelated gate workflow
+        kept its own, and `validation.yml`'s own three cases would then skip
+        without this test, or any other, saying so. Fixing it properly means
+        deciding whether every gate workflow is required to carry an
+        aggregate job — a policy question ADR-037 does not settle explicitly
+        — not just parametrizing this check; recorded here rather than
+        answered until that question is.
+        """
         found = {workflow_name: _summary_jobs(workflow_name) for workflow_name in GATE_WORKFLOWS}
         assert any(found.values()), (
             f"No workflow among {GATE_WORKFLOWS} declares a job with `if: always()`. "
@@ -5692,6 +6299,57 @@ class TestAggregateGateReflectsEveryGateJob:
             )
 
     @pytest.mark.parametrize("workflow_name", GATE_WORKFLOWS)
+    def test_summary_job_succeeds_when_every_gate_job_succeeds(self, workflow_name):
+        """
+        Given: an `if: always()` job's own shell body, rendered with every
+               referenced job's result set to `"success"`
+        When: the rendered body runs under `bash -e`
+        Then: it exits 0
+
+        The control for `test_summary_job_fails_when_any_gate_job_does_not_
+        succeed` below, the same role `test_gate_step_body_succeeds_when_its_
+        validator_succeeds` plays for the gate-step tests in section 9.
+        Without it, a non-zero exit in the failure case could be an artefact
+        of the render or the harness — an expression `_render_needs_
+        expressions` cannot resolve aborts `bash -e` with "bad substitution"
+        for *every* rendering this class performs, success case included, so
+        this is also the test that would catch that: if it fails, the
+        failure-case test below is not observing the aggregate-gate logic at
+        all.
+        """
+        summary_jobs = _summary_jobs(workflow_name)
+        if not summary_jobs:
+            pytest.skip(f"{workflow_name} declares no `if: always()` job.")
+        gate_jobs = _jobs_with_gate_steps(workflow_name)
+        assert gate_jobs, f"No gate step belongs to any job in {workflow_name}."
+
+        for job_id in summary_jobs:
+            steps = [step for step in WORKFLOW_STEPS if step.workflow == workflow_name and step.job == job_id]
+            referenced = {job for step in steps for job in _referenced_needs_jobs(step.run)}
+            candidates = gate_jobs & referenced
+            assert candidates, (
+                f"{workflow_name}::{job_id}: none of its steps reads `needs.<job>.result` "
+                f"for any job containing a gate step ({sorted(gate_jobs)}). Non-vacuity "
+                "guard — this control has nothing to render otherwise."
+            )
+            results = {job: "success" for job in referenced}
+            outcome = 0
+            with tempfile.TemporaryDirectory() as sandbox_dir:
+                sandbox = Path(sandbox_dir)
+                for step in steps:
+                    result = _run_summary_step(step.run, sandbox, results)
+                    if result.returncode != 0:
+                        outcome = result.returncode
+                        break
+            assert outcome == 0, (
+                f"{workflow_name}::{job_id}: rendering with every referenced job "
+                f"'success' still exits {outcome}. The failure-case test below proves "
+                "nothing until this passes — a non-zero exit here means the render or "
+                "the harness is broken, not the aggregate-gate logic.\n"
+                f"stdout: {result.stdout}\nstderr: {result.stderr}"
+            )
+
+    @pytest.mark.parametrize("workflow_name", GATE_WORKFLOWS)
     def test_summary_job_fails_when_any_gate_job_does_not_succeed(self, workflow_name):
         """
         Given: an `if: always()` job's own shell body, rendered once per gate
@@ -5709,6 +6367,13 @@ class TestAggregateGateReflectsEveryGateJob:
         intact, so `test_summary_job_needs_and_reads_every_gate_job` above
         cannot see this: the mutation is in what the job's shell *does* with a
         value it already reads correctly, not in whether it reads it.
+
+        The control immediately above establishes that a non-zero exit here
+        means the aggregate-gate logic actually failed, not that
+        `_render_needs_expressions` choked on an expression it does not
+        recognize — that function raises loudly on one instead (see its own
+        docstring), so this test would error, not silently pass, if the real
+        step ever grew an expression shape neither renderer nor control knows.
         """
         summary_jobs = _summary_jobs(workflow_name)
         if not summary_jobs:
@@ -5951,15 +6616,36 @@ def _mirror_checkout(base: Path) -> Path:
 def _track_mirror(base: Path) -> None:
     """Stage every file under `base` so `git ls-files` reflects the corpus as written.
 
-    Call after `probe.write_corpus(...)` mutates or adds files, not just after
-    `_mirror_checkout`: several probes (mapping purity, mapping drift, the
-    all-schemas and persona-site-build extra-file copies, the neutrality
-    self-scan probe file) write paths that don't exist until `write_corpus`
-    runs. A probe that adds a path is left untracked by a `git add` taken only
-    at `_mirror_checkout` time, and an untracked addition is invisible to
-    git-index-based discovery — silently under-scoping the corpus rather than
-    erroring, which is the failure mode this fixture change exists to close,
-    not reopen.
+    Corrected rationale — the previous version of this docstring named several
+    probes (mapping purity, mapping drift, the all-schemas and persona-site-
+    build extra-file copies, the neutrality self-scan probe file) as the
+    reason post-`write_corpus` timing matters, on the theory that each adds a
+    path that needs staging. That is true about what those probes write and
+    false about why it matters: none of those validators reads the git index
+    at all — each resolves its corpus from `Path(__file__)` or the working
+    directory, on disk, the same way with or without a `.git` present.
+    `validate_all_schemas.py` is the only validator among this module's probes
+    that reads `git ls-files` (via `_find_pairs()`), and the one path its own
+    probe adds after `_mirror_checkout` — `riskmap.schema.json` — is excluded
+    from pairing by name (`_MASTER_SCHEMA_NAME`) regardless of whether it is
+    tracked; the pair that validator's clean run actually depends on
+    (`frameworks.yaml`/`frameworks.schema.json`) is copied by `_mirror_checkout`
+    itself, before any probe runs, so a single `git add -A` timed there would
+    already cover it. Call sites after `write_corpus` are therefore not
+    load-bearing for any probe registered today — reproduced as mutation G4
+    (moving the `git add -A` into `_mirror_checkout` and making this function a
+    no-op leaves every parametrized case passing).
+
+    Kept as three call sites anyway, deliberately, rather than folded into
+    `_mirror_checkout`: the contract this function exists to hold —
+    "`git ls-files` reflects whatever is on disk in this mirror, including
+    anything a probe just wrote" — is what protects the *next* validator that
+    reads the index over a path `write_corpus` adds, which no probe does yet
+    but nothing rules out. `test_track_mirror_stages_paths_added_after_the_
+    initial_build` pins that contract directly, on a synthetic path, so a
+    regression here (or a future refactor collapsing these calls) fails loud
+    on its own rather than staying invisible until a probe happens to depend
+    on it.
     """
     subprocess.run(["git", "add", "-A"], cwd=str(base), check=True)
 
@@ -6597,6 +7283,41 @@ class TestUnflaggedValidatorsCatchInjectedViolations:
             "sections 5 and 6 govern it — or the probe is dead."
         )
 
+    def test_track_mirror_stages_paths_added_after_the_initial_build(self, tmp_path):
+        """
+        Given: a mirror built by `_mirror_checkout`, then a new file written
+               into it afterward — the same shape as a probe's `write_corpus`
+               adding a path `_mirror_checkout` never laid down
+        When: `_track_mirror` runs
+        Then: `git ls-files` lists the newly added path
+
+        Direct proof of `_track_mirror`'s own contract, independent of any one
+        validator's behaviour — see its corrected docstring for why no probe
+        registered today makes this load-bearing. Reproduces mutation G4:
+        moving `git add -A` into `_mirror_checkout` (so staging happens once,
+        before any probe's `write_corpus` call) and making `_track_mirror` a
+        no-op leaves every case in `test_the_ci_command_fails_on_an_injected_
+        violation` passing, because none of today's probes both reads the git
+        index and depends on a path `write_corpus` adds. The next probe that
+        does would have `_track_mirror` silently do nothing for it; this test
+        pins the contract directly so that gap cannot reopen unnoticed.
+        """
+        mirror = _mirror_checkout(tmp_path / "mirror")
+        new_file = mirror / "risk-map" / "yaml" / "track-mirror-contract-probe.yaml"
+        new_file.parent.mkdir(parents=True, exist_ok=True)
+        new_file.write_text("probe: true\n", encoding="utf-8")
+
+        _track_mirror(mirror)
+
+        tracked = subprocess.run(
+            ["git", "ls-files"], cwd=str(mirror), capture_output=True, text=True, check=True
+        ).stdout
+        assert "risk-map/yaml/track-mirror-contract-probe.yaml" in tracked.splitlines(), (
+            "_track_mirror did not stage a file written after _mirror_checkout built the "
+            "base tree. A probe's write_corpus() call adds paths exactly this way, and a "
+            "future index-reading validator would silently not see one left untracked."
+        )
+
     @pytest.mark.parametrize("hook_id", UNFLAGGED_BLOCKING_HOOK_IDS)
     def test_the_ci_command_fails_on_an_injected_violation(self, hook_id, tmp_path):
         """
@@ -6632,6 +7353,21 @@ class TestUnflaggedValidatorsCatchInjectedViolations:
         clean = _mirror_checkout(tmp_path / "clean")
         probe.write_corpus(clean, False)
         _track_mirror(clean)
+        tracked_in_clean = subprocess.run(
+            ["git", "ls-files"], cwd=str(clean), capture_output=True, text=True, check=True
+        ).stdout
+        assert tracked_in_clean.strip(), (
+            f"{clean} has an empty git index after _track_mirror. Non-vacuity guard: "
+            "the precondition check below (`clean_result.returncode == 0`) has to mean "
+            "'a real corpus validated clean', not 'an index-reading validator found "
+            "nothing tracked to inspect' — the exact shape validate_all_schemas.py's "
+            "_find_pairs() collapses to over an untracked mirror. Reproduces mutation "
+            "G1 (deleting this _track_mirror(clean) call): without it, this mirror's "
+            "git index is empty (a fresh `git init` stages nothing on its own), so "
+            "_find_pairs() would see zero tracked schema/yaml pairs and main() would "
+            "return 0 having inspected nothing, which the returncode-only check below "
+            "cannot tell apart from a genuine clean pass."
+        )
         clean_result = _run_governed(clean / _MIRRORED_SOURCE_DIR / script, argv, clean)
         assert clean_result.returncode == 0, (
             f"Harness precondition failed: {invocation.source} arguments {argv} exit "
@@ -7090,15 +7826,23 @@ class TestModuleInventory:
 #     This is the section that separates "the validator found it" from "the job
 #     failed". Four one-line edits reach ADR-037 D7's rejected warn-only soak
 #     with every other assertion in this module still green.
-#     A fifth non-parametrized pair guards a shape none of the above can see: a
-#     step that branches on repository state (`[ -d risk-map ]`) *ahead* of its
-#     own validator. `_run_step_body`'s sandbox is made checkout-shaped
-#     (`_TOP_LEVEL_DIRECTORIES`) so such a branch resolves the way it would in
-#     CI — one test proves the harness is honest about the resulting bypass on
-#     a synthetic body, the other (parametrized over GATE_STEPS) proves no real
-#     gate step is shaped that way, with its own synthetic non-vacuity proof
-#     alongside it. Before 021cc3a's revert, a rescue in `_run_step_body`
-#     forced the return code whenever the stubbed validator was never invoked —
+#     Several more non-parametrized tests guard a shape none of the above can
+#     see: a step that branches on repository state (`[ -d risk-map ]`,
+#     `[ -s risk-map/yaml/risks.yaml ]`, or the keyword-free `[ ... ] && ...
+#     || ...` form) *ahead* of its own validator. `_run_step_body`'s sandbox is
+#     populated with the real tracked corpus (`_populate_checkout_shaped_
+#     sandbox`), content and permissions included, so any single-letter
+#     `test`/`[` operator resolves the way it would in CI rather than against
+#     an empty or placeholder file — the mechanism-level fix, since it is
+#     blind to no operator or shape the way a text pattern is. The structural
+#     detector (`_repository_state_precedes_validator`) is the second,
+#     human-readable layer: harness-fidelity tests prove it and the sandbox
+#     both expose a bypass on synthetic bodies (one per operator family, plus
+#     the chained no-keyword form), the parametrized test over GATE_STEPS
+#     proves no real gate step is shaped that way, and each has its own
+#     synthetic non-vacuity proof alongside it. Before 021cc3a's revert, a
+#     rescue in `_run_step_body` forced the return code whenever the stubbed
+#     validator was never invoked —
 #     backwards: it hid exactly the bypass a real checkout would produce,
 #     rather than exposing it.
 #
