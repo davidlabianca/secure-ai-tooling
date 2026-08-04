@@ -6,11 +6,31 @@ on:
     paths:
       - 'risk-map/yaml/**'
       - 'risk-map/schemas/**'
+      - '.github/workflows/validation.yml'
+      - '.pre-commit-config.yaml'
+      - 'scripts/hooks/validate_riskmap.py'
+      - 'scripts/hooks/validate_control_risk_references.py'
+      - 'scripts/hooks/validate_framework_references.py'
+      - 'scripts/hooks/riskmap_validator/**'
+      - 'scripts/hooks/precommit/validate_identification_questions.py'
+      - 'scripts/hooks/precommit/validate_yaml_prose_subset.py'
+      - 'scripts/hooks/precommit/validate_prose_references.py'
+      - 'scripts/tools/hook_file_list.py'
   push:
     branches: [main, develop]
     paths:
       - 'risk-map/yaml/**'
       - 'risk-map/schemas/**'
+      - '.github/workflows/validation.yml'
+      - '.pre-commit-config.yaml'
+      - 'scripts/hooks/validate_riskmap.py'
+      - 'scripts/hooks/validate_control_risk_references.py'
+      - 'scripts/hooks/validate_framework_references.py'
+      - 'scripts/hooks/riskmap_validator/**'
+      - 'scripts/hooks/precommit/validate_identification_questions.py'
+      - 'scripts/hooks/precommit/validate_yaml_prose_subset.py'
+      - 'scripts/hooks/precommit/validate_prose_references.py'
+      - 'scripts/tools/hook_file_list.py'
 
 permissions:
   contents: read
