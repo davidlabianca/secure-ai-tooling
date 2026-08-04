@@ -15,6 +15,12 @@ on:
       - 'scripts/hooks/precommit/validate_identification_questions.py'
       - 'scripts/hooks/precommit/validate_yaml_prose_subset.py'
       - 'scripts/hooks/precommit/validate_prose_references.py'
+      - 'scripts/hooks/precommit/validate_mapping_purity.py'
+      - 'scripts/hooks/precommit/validate_mapping_drift.py'
+      - 'scripts/hooks/precommit/validate_versionid_purity.py'
+      - 'scripts/hooks/precommit/validate_all_schemas.py'
+      - 'scripts/hooks/precommit/validate_persona_site_build.py'
+      - 'scripts/hooks/precommit/validate_neutrality.py'
       - 'scripts/tools/hook_file_list.py'
   push:
     branches: [main, develop]
@@ -30,6 +36,12 @@ on:
       - 'scripts/hooks/precommit/validate_identification_questions.py'
       - 'scripts/hooks/precommit/validate_yaml_prose_subset.py'
       - 'scripts/hooks/precommit/validate_prose_references.py'
+      - 'scripts/hooks/precommit/validate_mapping_purity.py'
+      - 'scripts/hooks/precommit/validate_mapping_drift.py'
+      - 'scripts/hooks/precommit/validate_versionid_purity.py'
+      - 'scripts/hooks/precommit/validate_all_schemas.py'
+      - 'scripts/hooks/precommit/validate_persona_site_build.py'
+      - 'scripts/hooks/precommit/validate_neutrality.py'
       - 'scripts/tools/hook_file_list.py'
 
 permissions:
@@ -428,6 +440,265 @@ jobs:
           exit 1
         fi
 
+  # ---------------------------------------------------------------------------
+  # ADR-037 D8: six validators, invoked by no workflow, that block a commit
+  # unconditionally rather than through --block's warn-only tier. D1's coverage
+  # clause quantifies over blocking hooks, not flag-bearing ones, so these are
+  # instances of the same rule D2/D4/D7 close, not exceptions to it.
+  #
+  # D7a/D7b/D7c apply unchanged:
+  #   - validate-neutrality is the one D8 member that takes a file list; its
+  #     invocation derives it the same way the D7 jobs above do.
+  #   - the other five (including validate-neutrality-policy, which shares
+  #     validate_neutrality.py with validate-neutrality but self-scans) are
+  #     invoked at their real scripts/hooks/precommit/ path, with no filenames.
+  #   - each was measured clean against this corpus before being wired in.
+  #
+  # validate-all-yaml-on-master-schema-change gets its own job here even though
+  # schema-validation already checks the same pairs, transcribed into
+  # SOURCE_FILES: that transcription is the drift D7a exists to name, and this
+  # job is the derived replacement for it.
+  # ---------------------------------------------------------------------------
+  mapping-purity-validation:
+    runs-on: ubuntu-latest
+    name: Framework Mapping Purity Validation
+    needs: setup
+    outputs:
+      mapping_purity_status: ${{ steps.validate-mapping-purity.outputs.status }}
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+    - name: Set up Python
+      uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+      with:
+        python-version: '3.14'
+        cache: 'pip'
+
+    - name: Install dependencies
+      run: pip install -r requirements.txt
+
+    - name: Run Framework Mapping Purity Validation
+      id: validate-mapping-purity
+      run: |
+        echo "🔍 Running framework mapping purity validation..."
+
+        if python3 scripts/hooks/precommit/validate_mapping_purity.py; then
+          echo "✅ Framework mapping purity validation completed successfully"
+          echo "status=success" >> $GITHUB_OUTPUT
+        else
+          echo "❌ Framework mapping purity validation failed"
+          echo "::error::Framework mapping purity validation failed (ADR-027 D4c)"
+          echo "status=failed" >> $GITHUB_OUTPUT
+          exit 1
+        fi
+
+  mapping-drift-validation:
+    runs-on: ubuntu-latest
+    name: Framework Mapping Drift Validation
+    needs: setup
+    outputs:
+      mapping_drift_status: ${{ steps.validate-mapping-drift.outputs.status }}
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+    - name: Set up Python
+      uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+      with:
+        python-version: '3.14'
+        cache: 'pip'
+
+    - name: Install dependencies
+      run: pip install -r requirements.txt
+
+    - name: Run Framework Mapping Drift Validation
+      id: validate-mapping-drift
+      run: |
+        echo "🔍 Running framework mapping drift validation..."
+
+        if python3 scripts/hooks/precommit/validate_mapping_drift.py; then
+          echo "✅ Framework mapping drift validation completed successfully"
+          echo "status=success" >> $GITHUB_OUTPUT
+        else
+          echo "❌ Framework mapping drift validation failed"
+          echo "::error::Framework mapping drift validation failed (ADR-027 D5/D5a)"
+          echo "status=failed" >> $GITHUB_OUTPUT
+          exit 1
+        fi
+
+  versionid-purity-validation:
+    runs-on: ubuntu-latest
+    name: Frameworks VersionId Purity Validation
+    needs: setup
+    outputs:
+      versionid_purity_status: ${{ steps.validate-versionid-purity.outputs.status }}
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+    - name: Set up Python
+      uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+      with:
+        python-version: '3.14'
+        cache: 'pip'
+
+    - name: Install dependencies
+      run: pip install -r requirements.txt
+
+    - name: Run Frameworks VersionId Purity Validation
+      id: validate-versionid-purity
+      run: |
+        echo "🔍 Running frameworks.yaml versionId purity validation..."
+
+        if python3 scripts/hooks/precommit/validate_versionid_purity.py; then
+          echo "✅ Frameworks versionId purity validation completed successfully"
+          echo "status=success" >> $GITHUB_OUTPUT
+        else
+          echo "❌ Frameworks versionId purity validation failed"
+          echo "::error::Frameworks versionId purity validation failed (ADR-027 D2b/D2c)"
+          echo "status=failed" >> $GITHUB_OUTPUT
+          exit 1
+        fi
+
+  master-schema-fanout-validation:
+    runs-on: ubuntu-latest
+    name: Master Schema Fan-out Validation
+    needs: setup
+    outputs:
+      master_schema_fanout_status: ${{ steps.validate-master-schema-fanout.outputs.status }}
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+    - name: Set up Python
+      uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+      with:
+        python-version: '3.14'
+        cache: 'pip'
+
+    - name: Install dependencies
+      run: pip install -r requirements.txt
+
+    - name: Run Master Schema Fan-out Validation
+      id: validate-master-schema-fanout
+      run: |
+        echo "🔍 Running master-schema fan-out validation..."
+
+        if python3 scripts/hooks/precommit/validate_all_schemas.py; then
+          echo "✅ Master schema fan-out validation completed successfully"
+          echo "status=success" >> $GITHUB_OUTPUT
+        else
+          echo "❌ Master schema fan-out validation failed"
+          echo "::error::Master schema fan-out validation failed"
+          echo "status=failed" >> $GITHUB_OUTPUT
+          exit 1
+        fi
+
+  persona-site-build-validation:
+    runs-on: ubuntu-latest
+    name: Persona Site Build Validation
+    needs: setup
+    outputs:
+      persona_site_build_status: ${{ steps.validate-persona-site-build.outputs.status }}
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+    - name: Set up Python
+      uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+      with:
+        python-version: '3.14'
+        cache: 'pip'
+
+    - name: Install dependencies
+      run: pip install -r requirements.txt
+
+    - name: Run Persona Site Build Validation
+      id: validate-persona-site-build
+      run: |
+        echo "🔍 Running persona-site build validation..."
+
+        if python3 scripts/hooks/precommit/validate_persona_site_build.py; then
+          echo "✅ Persona-site build validation completed successfully"
+          echo "status=success" >> $GITHUB_OUTPUT
+        else
+          echo "❌ Persona-site build validation failed"
+          echo "::error::Persona-site build validation failed"
+          echo "status=failed" >> $GITHUB_OUTPUT
+          exit 1
+        fi
+
+  neutrality-validation:
+    runs-on: ubuntu-latest
+    name: Agent/Skill Neutrality Validation
+    needs: setup
+    outputs:
+      neutrality_status: ${{ steps.validate-neutrality.outputs.status }}
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+    - name: Set up Python
+      uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+      with:
+        python-version: '3.14'
+        cache: 'pip'
+
+    - name: Install dependencies
+      run: pip install -r requirements.txt
+
+    - name: Run Agent/Skill Neutrality Validation
+      id: validate-neutrality
+      run: |
+        echo "🔍 Running agent/skill vendor-neutrality validation..."
+
+        FILES=$(python3 scripts/tools/hook_file_list.py validate-neutrality)
+
+        if python3 scripts/hooks/precommit/validate_neutrality.py ${FILES}; then
+          echo "✅ Agent/skill vendor-neutrality validation completed successfully"
+          echo "status=success" >> $GITHUB_OUTPUT
+        else
+          echo "❌ Agent/skill vendor-neutrality validation failed"
+          echo "::error::Agent/skill vendor-neutrality validation failed (ADR-033)"
+          echo "status=failed" >> $GITHUB_OUTPUT
+          exit 1
+        fi
+
+  neutrality-policy-validation:
+    runs-on: ubuntu-latest
+    name: Agent/Skill Neutrality Policy Re-scan
+    needs: setup
+    outputs:
+      neutrality_policy_status: ${{ steps.validate-neutrality-policy.outputs.status }}
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+    - name: Set up Python
+      uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+      with:
+        python-version: '3.14'
+        cache: 'pip'
+
+    - name: Install dependencies
+      run: pip install -r requirements.txt
+
+    - name: Run Agent/Skill Neutrality Policy Re-scan
+      id: validate-neutrality-policy
+      run: |
+        echo "🔍 Re-scanning agent/skill corpus against the neutrality policy..."
+
+        if python3 scripts/hooks/precommit/validate_neutrality.py; then
+          echo "✅ Agent/skill neutrality policy re-scan completed successfully"
+          echo "status=success" >> $GITHUB_OUTPUT
+        else
+          echo "❌ Agent/skill neutrality policy re-scan failed"
+          echo "::error::Agent/skill neutrality policy re-scan failed (ADR-033)"
+          echo "status=failed" >> $GITHUB_OUTPUT
+          exit 1
+        fi
+
   graph-validation:
     runs-on: ubuntu-latest
     name: Graph Validation
@@ -520,7 +791,7 @@ jobs:
   validation-summary:
     runs-on: ubuntu-latest
     name: Validation Summary
-    needs: [schema-validation, format-validation, component-edge-validation, control-risk-validation, framework-validation, identification-questions-validation, prose-subset-validation, prose-references-validation, graph-validation]
+    needs: [schema-validation, format-validation, component-edge-validation, control-risk-validation, framework-validation, identification-questions-validation, prose-subset-validation, prose-references-validation, mapping-purity-validation, mapping-drift-validation, versionid-purity-validation, master-schema-fanout-validation, persona-site-build-validation, neutrality-validation, neutrality-policy-validation, graph-validation]
     if: always()
     steps:
     - name: Generate Summary
@@ -537,6 +808,13 @@ jobs:
         identification_result="${{ needs.identification-questions-validation.result }}"
         prose_subset_result="${{ needs.prose-subset-validation.result }}"
         prose_references_result="${{ needs.prose-references-validation.result }}"
+        mapping_purity_result="${{ needs.mapping-purity-validation.result }}"
+        mapping_drift_result="${{ needs.mapping-drift-validation.result }}"
+        versionid_purity_result="${{ needs.versionid-purity-validation.result }}"
+        master_schema_fanout_result="${{ needs.master-schema-fanout-validation.result }}"
+        persona_site_build_result="${{ needs.persona-site-build-validation.result }}"
+        neutrality_result="${{ needs.neutrality-validation.result }}"
+        neutrality_policy_result="${{ needs.neutrality-policy-validation.result }}"
         graph_result="${{ needs.graph-validation.result }}"
 
         # Get output details
@@ -601,6 +879,55 @@ jobs:
           echo "- ✅ **YAML prose reference validation**: Passed" >> $GITHUB_STEP_SUMMARY
         else
           echo "- ❌ **YAML prose reference validation**: $prose_references_result" >> $GITHUB_STEP_SUMMARY
+          overall_success=false
+        fi
+
+        if [ "$mapping_purity_result" = "success" ]; then
+          echo "- ✅ **Framework mapping purity validation**: Passed" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "- ❌ **Framework mapping purity validation**: $mapping_purity_result" >> $GITHUB_STEP_SUMMARY
+          overall_success=false
+        fi
+
+        if [ "$mapping_drift_result" = "success" ]; then
+          echo "- ✅ **Framework mapping drift validation**: Passed" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "- ❌ **Framework mapping drift validation**: $mapping_drift_result" >> $GITHUB_STEP_SUMMARY
+          overall_success=false
+        fi
+
+        if [ "$versionid_purity_result" = "success" ]; then
+          echo "- ✅ **Frameworks versionId purity validation**: Passed" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "- ❌ **Frameworks versionId purity validation**: $versionid_purity_result" >> $GITHUB_STEP_SUMMARY
+          overall_success=false
+        fi
+
+        if [ "$master_schema_fanout_result" = "success" ]; then
+          echo "- ✅ **Master schema fan-out validation**: Passed" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "- ❌ **Master schema fan-out validation**: $master_schema_fanout_result" >> $GITHUB_STEP_SUMMARY
+          overall_success=false
+        fi
+
+        if [ "$persona_site_build_result" = "success" ]; then
+          echo "- ✅ **Persona-site build validation**: Passed" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "- ❌ **Persona-site build validation**: $persona_site_build_result" >> $GITHUB_STEP_SUMMARY
+          overall_success=false
+        fi
+
+        if [ "$neutrality_result" = "success" ]; then
+          echo "- ✅ **Agent/skill neutrality validation**: Passed" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "- ❌ **Agent/skill neutrality validation**: $neutrality_result" >> $GITHUB_STEP_SUMMARY
+          overall_success=false
+        fi
+
+        if [ "$neutrality_policy_result" = "success" ]; then
+          echo "- ✅ **Agent/skill neutrality policy re-scan**: Passed" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "- ❌ **Agent/skill neutrality policy re-scan**: $neutrality_policy_result" >> $GITHUB_STEP_SUMMARY
           overall_success=false
         fi
 

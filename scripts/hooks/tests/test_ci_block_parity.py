@@ -51,6 +51,20 @@ Covers three of the ADR's testable requirements:
       pattern to new call sites, which D5's own text records as not being a
       copy-to-root change.
 
+  D8 (blocking without a flag)
+      D1's coverage clause quantifies over *blocking* hooks, not over `--block`
+      hooks: a validator with no warn-only tier blocks unconditionally and
+      never takes the flag, so every derivation keyed on `--block` is blind to
+      it. Six validators, across seven hook ids, are invoked by no workflow at
+      all — one script, `validate_neutrality.py`, is named by two of the
+      seven. Section 10 states D1, D7b and D7c over the six hook ids that take
+      no file arguments and have to establish which corpus a run read as well
+      as what it returned: three locate their corpus from `Path(__file__)`
+      and three from the working directory, so a job wired to the wrong tree
+      exits 0 rather than failing for the `Path(__file__)`-anchored ones. The
+      seventh, `validate-neutrality`, takes an explicit file list instead and
+      is governed by section 6 (D7a) alongside D7's three.
+
 Derivation, not enumeration
 ---------------------------
 Neither side's validator list is hardcoded. Both are parsed out of the actual
@@ -174,6 +188,7 @@ synthetic-detector tests establish that the guard would catch a violation in
 both the literal and the variable-built form.
 """
 
+import importlib.util
 import json
 import os
 import re
@@ -722,8 +737,10 @@ _PRECOMMIT_DIR_FRAGMENT = "scripts/hooks/precommit/"
 
 # basename -> repo-relative real path, for every validator a pre-commit hook
 # runs out of scripts/hooks/precommit/. Derived, not listed: D7b's reasoning
-# applies to any validator in that directory, so a fourth is governed on
-# arrival exactly as the three named in the ADR are.
+# applies to any validator in that directory — this set is not scoped to the
+# ADR's own named list, so it already covers validators D7/D8 never mention —
+# and a new one is governed on arrival the same way the nine ADR-037 D7/D8
+# validators are today.
 PRECOMMIT_VALIDATORS: dict[str, str] = {
     inv.script: inv.path for inv in PRECOMMIT_INVOCATIONS if _PRECOMMIT_DIR_FRAGMENT in inv.path
 }
@@ -1061,6 +1078,17 @@ class TestGraphEmissionExclusion:
     codifies existing practice. The two synthetic tests establish that it would
     not pass if a violation were introduced, in either the literal or the
     variable-built form.
+
+    Deliberately kept flag-only, not widened to ADR-037 D8's flagless governed
+    set: D3's own text prohibits pairing graph emission with `--block`
+    specifically ("No invocation of `validate_riskmap.py` that passes
+    [a graph-emission flag] may also pass `--block`"), not with blocking-ness
+    in the abstract the way D1's coverage clause does. The pairing is also
+    structurally impossible for a D8 member: GRAPH_EMISSION_FLAGS are options
+    of `validate_riskmap.py` alone, and `validate_riskmap.py` itself carries
+    `--block` (D2) — it is never a member of UNFLAGGED_BLOCKING_SCRIPTS, and no
+    D8 validator defines a graph-emission flag at all. There is no invocation
+    this class could miss by staying flag-keyed.
     """
 
     def test_no_workflow_pairs_block_with_graph_emission(self):
@@ -1174,10 +1202,14 @@ class TestPrecommitValidatorsRunInPlace:
     `precommit/` validators, which D5's own text records as not being a
     copy-to-root change.
 
-    The structural prohibitions pass at authoring time because the three
-    validators have no CI invocation yet — they are forward guards on the
-    implementation D7 requires. The synthetic-detector tests are what stop that
-    pass from being worthless.
+    The structural prohibitions pass today because D7's own CI invocations —
+    `validation.yml:349`, `:385` and `:421` — already run these three
+    validators at their real `scripts/hooks/precommit/` path, not because
+    there is nothing yet to check: this class predates those invocations
+    landing, when it was a forward guard, and it stayed green through their
+    addition rather than turning vacuous. The synthetic-detector tests are
+    what establish the prohibitions would actually catch a violation instead
+    of passing for lack of one.
     """
 
     def test_no_workflow_copies_a_precommit_validator(self):
@@ -1942,18 +1974,27 @@ class TestCIInvocationCatchesViolation:
 # 6. D7a — the CI file lists are derived, complete, and actually inspected
 # ===========================================================================
 #
-# The three validators D7 wires take file arguments. Everything about whether
-# those jobs check anything is decided by the list that reaches their argv, and
-# none of it is visible in the workflow's own output:
+# This section is no longer only D7's three. FILE_ARGUMENT_BLOCK_HOOKS below
+# governs every hook that takes file arguments, whether strictness-flagged
+# (D7's `validate_identification_questions.py`, `validate_yaml_prose_subset.py`,
+# `validate_prose_references.py`) or one of ADR-037 D8's flagless validators
+# that also does (`validate-neutrality`; D8's other five are self-scanning and
+# take none — section 10 governs those). Everything about whether these jobs
+# check anything is decided by the list that reaches their argv, and none of
+# it is visible in the workflow's own output:
 #
-#   - an empty list is a passing job. `validate_yaml_prose_subset.py` and
-#     `validate_prose_references.py` declare `files` with nargs="*" and exit 0
-#     on an empty one.
+#   - an empty list is a passing job for `validate_yaml_prose_subset.py` and
+#     `validate_prose_references.py`: both declare `files` with nargs="*" and
+#     exit 0 on an empty one. `validate_neutrality.py` also declares
+#     nargs="*", but an empty list makes it fall back to self-discovering
+#     `scripts/agents|skills/**` from the working directory instead of exiting
+#     0 — the wrong-tree hazard D8's own validators have, not this one's.
 #   - a short list is a passing job that checked part of the corpus, and the
 #     part it skipped is indistinguishable from clean.
 #   - a `--schema-dir` the validator cannot read is a passing job too: the
 #     shared field discovery in `_prose_fields.py` returns silently when it
-#     cannot infer or read a schema, so no field is ever visited.
+#     cannot infer or read a schema, so no field is ever visited (D7's three
+#     only — `validate_neutrality.py` has no `--schema-dir`).
 #
 # The tests below therefore run the resolver, compare its whole output against
 # the hook's own patterns, and then run the real validator with the real
@@ -1979,18 +2020,158 @@ def _iter_precommit_hooks():
             yield hook
 
 
-# hook-id -> hook, for hooks that carry a strictness flag AND take file
-# arguments. `pass_filenames` defaults to true in pre-commit, so an absent key
-# counts as true. This is exactly the set for which ADR-037 D7a requires a
-# derived CI file list; the self-scanning validators are excluded because they
-# need none. Derived, so a fourth such hook is governed on arrival.
+# ---------------------------------------------------------------------------
+# ADR-037 D1's governed-hook register, read once here. Needed this early
+# because FILE_ARGUMENT_BLOCK_HOOKS below (D7a) and `_gate_steps` in section 7
+# both have to recognize a flagless governed hook (D8: a validator with no
+# warn-only tier blocks unconditionally and carries no flag for a
+# STRICTNESS_FLAGS-keyed selector to find), and section 10 states D1, D7b and
+# D7c over the same set. Defining it here means all three read one derivation
+# instead of three that could drift apart.
+# ---------------------------------------------------------------------------
+
+# ADR-037's D1 instance table is the register of hooks this decision governs.
+# The table is read rather than transcribed: it is the artefact that decides
+# which hooks are in scope, its own text says it "is expected to grow without
+# this ADR changing", and a hook added to it acquires the assertions below with
+# no edit here. Reading `.pre-commit-config.yaml` alone cannot substitute —
+# every local hook in it blocks, so a config-only predicate sweeps in hooks
+# this decision does not reach.
+_ADR_037_PATH = _REPO_ROOT / "docs" / "adr" / "037-ci-validation-authority-and-block-parity.md"
+
+# A table cell holding exactly one backticked hook id. The header and separator
+# rows do not match, and neither does the `Validator` column (a path, and one
+# containing `/`).
+_ADR_HOOK_CELL_RE = re.compile(r"^`([a-z0-9][a-z0-9-]*)`$")
+
+
+def _adr_governed_hook_ids() -> list[str]:
+    """Return the pre-commit hook ids named in ADR-037's D1 instance table.
+
+    Parsed from the markdown table rather than listed here, so the governed set
+    is the decision's own register. Order is preserved for readable
+    parametrization ids.
+    """
+    ids: list[str] = []
+    for line in _ADR_037_PATH.read_text(encoding="utf-8").splitlines():
+        stripped = line.strip()
+        if not stripped.startswith("|"):
+            continue
+        cells = [cell.strip() for cell in stripped.strip("|").split("|")]
+        if len(cells) < 2:
+            continue
+        match = _ADR_HOOK_CELL_RE.match(cells[0])
+        if match and match.group(1) not in ids:
+            ids.append(match.group(1))
+    return ids
+
+
+def _hook_invocations(hook: dict[str, Any]) -> list[Invocation]:
+    """Return the Python invocations one hook mapping declares.
+
+    Same construction `_precommit_invocations` uses for the whole config —
+    `args:` are appended by the framework after `entry:` — applied to a single
+    hook so its flags can be read without re-parsing the file.
+    """
+    command = " ".join([str(hook.get("entry") or ""), *(str(a) for a in hook.get("args") or [])])
+    return _python_invocations(command, f".pre-commit-config.yaml [{hook.get('id')}]")
+
+
+def _hook_strictness(hook: dict[str, Any]) -> frozenset[str]:
+    """Return the strictness flags a hook mapping passes to its validator."""
+    return frozenset().union(*(_strictness_flags(inv) for inv in _hook_invocations(hook)))
+
+
+# hook id -> every hook mapping declaring it. A list because `check-jsonschema`
+# is declared many times; the governed ids are unique, which the inventory test
+# below asserts rather than assumes.
+PRECOMMIT_HOOKS_BY_ID: dict[str, list[dict[str, Any]]] = {}
+for _hook in _iter_precommit_hooks():
+    if _hook.get("id"):
+        PRECOMMIT_HOOKS_BY_ID.setdefault(str(_hook["id"]), []).append(_hook)
+
+ADR_GOVERNED_HOOK_IDS = _adr_governed_hook_ids()
+
+# The full ADR-037 D8 set: governed hooks that pass no strictness flag,
+# blocking unconditionally, before splitting by `pass_filenames`. Ids the
+# config does not declare are omitted here and reported by
+# test_the_governed_hooks_resolve_to_the_precommit_config, so a rename fails
+# with its own message instead of raising at import.
+#
+# Kept separate from UNFLAGGED_BLOCKING_HOOKS below (its self-scanning subset)
+# because two different derivations need two different views of it:
+# FILE_ARGUMENT_BLOCK_HOOKS needs the whole set — D8 states D7a applies to all
+# six unchanged, and `validate-neutrality` takes an explicit file list, unlike
+# its five siblings — while section 10's own apparatus needs only the
+# self-scanning subset (see UNFLAGGED_BLOCKING_HOOKS's own comment for why).
+_FLAGLESS_GOVERNED_HOOKS: dict[str, dict[str, Any]] = {
+    hook_id: PRECOMMIT_HOOKS_BY_ID[hook_id][0]
+    for hook_id in ADR_GOVERNED_HOOK_IDS
+    if len(PRECOMMIT_HOOKS_BY_ID.get(hook_id, [])) == 1 and not _hook_strictness(PRECOMMIT_HOOKS_BY_ID[hook_id][0])
+}
+_FLAGLESS_GOVERNED_HOOK_IDS = sorted(_FLAGLESS_GOVERNED_HOOKS)
+
+# The self-scanning subset of _FLAGLESS_GOVERNED_HOOKS: D8's own apparatus
+# (section 10) below is shaped for a validator that resolves its own corpus
+# from `Path(__file__)` or the working directory, with a probe that writes a
+# small fixed set of files rather than an arbitrary resolved list.
+#
+# `validate-neutrality` is excluded here on purpose, not by oversight: it
+# carries no strictness flag (so it is in _FLAGLESS_GOVERNED_HOOKS) but
+# declares `pass_filenames: true`, unlike its five flagless siblings — it
+# takes an explicit file list exactly like D7's three, and
+# FILE_ARGUMENT_BLOCK_HOOKS below already governs it completely (D1's
+# coverage, D7a's derived list, D7c's non-vacuity per file).
+# UnflaggedProbe.write_corpus takes no file-list argument, so section 10's
+# apparatus structurally cannot express "poison whichever file D7a's resolver
+# names." Excluding it here also removes a hook-vs-script join hazard rather
+# than requiring this section to resolve it: `validate-neutrality` and
+# `validate-neutrality-policy` name the same script (`validate_neutrality.py`),
+# and once both have real CI invocations, the two are indistinguishable to
+# anything that keys on the script alone — `validate-neutrality-policy` is the
+# only governed hook this narrower set names for that script.
+UNFLAGGED_BLOCKING_HOOKS: dict[str, dict[str, Any]] = {
+    hook_id: hook for hook_id, hook in _FLAGLESS_GOVERNED_HOOKS.items() if not hook.get("pass_filenames", True)
+}
+UNFLAGGED_BLOCKING_HOOK_IDS = sorted(UNFLAGGED_BLOCKING_HOOKS)
+
+
+def _unflagged_script(hook_id: str) -> str:
+    """Return the validator basename a governed flagless hook runs."""
+    return _hook_script(UNFLAGGED_BLOCKING_HOOKS[hook_id]) or ""
+
+
+# Basenames of the flagless governed validators, keyed by script rather than
+# hook id: two ids (`validate-neutrality`, `validate-neutrality-policy`) name
+# the same script, and `_gate_steps` matches a step's command line, which
+# carries a script, not a hook id.
+UNFLAGGED_BLOCKING_SCRIPTS = frozenset(_unflagged_script(hook_id) for hook_id in UNFLAGGED_BLOCKING_HOOK_IDS)
+
+
+# hook-id -> hook, for hooks that take file arguments (`pass_filenames`
+# defaults to true in pre-commit, so an absent key counts as true) and are
+# either strictness-flagged or a member of ADR-037 D8's full flagless governed
+# set (_FLAGLESS_GOVERNED_HOOK_IDS — not UNFLAGGED_BLOCKING_HOOK_IDS, which by
+# this point has already been narrowed to the self-scanning subset).
+# D8 states D7a applies to its six validators unchanged, and that set is not
+# uniformly self-scanning: `validate-neutrality` declares `pass_filenames:
+# true`, unlike its five flagless siblings, so its file list has to be
+# constructed exactly as D7's three are — a flag-only predicate would silently
+# exclude the one D8 member D7a actually reaches.
+# This is exactly the set for which ADR-037 D7a requires a derived CI file
+# list; the self-scanning validators (flagged or not) are excluded because
+# they need none. Derived, so a further such hook — flagged or flagless — is
+# governed on arrival.
 FILE_ARGUMENT_BLOCK_HOOKS: dict[str, dict[str, Any]] = {
     str(hook["id"]): hook
     for hook in _iter_precommit_hooks()
     if hook.get("id")
     and hook.get("pass_filenames", True)
-    and STRICTNESS_FLAGS.intersection(
-        " ".join([str(hook.get("entry") or ""), *(str(a) for a in hook.get("args", []) or [])]).split()
+    and (
+        STRICTNESS_FLAGS.intersection(
+            " ".join([str(hook.get("entry") or ""), *(str(a) for a in hook.get("args", []) or [])]).split()
+        )
+        or str(hook["id"]) in _FLAGLESS_GOVERNED_HOOK_IDS
     )
 }
 FILE_ARGUMENT_BLOCK_HOOK_IDS = sorted(FILE_ARGUMENT_BLOCK_HOOKS)
@@ -2069,6 +2250,33 @@ def _resolve_argv(invocation: Invocation) -> tuple[list[str], dict[str, list[str
     return argv, produced
 
 
+def _neutrality_denylist_term() -> str:
+    """Return one ADR-033 vendor/product denylist term, read from the policy module.
+
+    Shared by this section's file-argument probe (`validate-neutrality`) and
+    section 10's self-scanning one (`validate-neutrality-policy`) — same
+    script, two hooks, one poison term, read once here rather than twice.
+
+    Imported via `importlib` rather than a package-qualified `import` or a
+    `sys.path.insert`, so this already-large test module's own import graph is
+    untouched — `test_validate_neutrality.py` uses the package-qualified form
+    because it is the dedicated test module for that validator; this one is
+    not. Read from `_neutrality_data.VENDOR_PRODUCT_TERMS` rather than written
+    out here, so a denylist edit cannot silently desync the probe from the
+    policy it is meant to test — sorted for a stable pick, since which term is
+    used does not matter, only that it is one of the policy's own.
+    """
+    spec = importlib.util.spec_from_file_location(
+        "_neutrality_data_probe", _REPO_ROOT / "scripts" / "hooks" / "precommit" / "_neutrality_data.py"
+    )
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return sorted(module.VENDOR_PRODUCT_TERMS)[0]
+
+
+_NEUTRALITY_POISON_TERM = _neutrality_denylist_term()
+
+
 # --- per-file corpus writers ------------------------------------------------
 #
 # The CI invocations run the validators in place (D7b), so the prose linters
@@ -2142,11 +2350,33 @@ def _write_identification_file(base: Path, rel_path: str, poisoned: bool) -> Non
     target.write_text(yaml.dump({"personas": [persona]}), encoding="utf-8")
 
 
+def _write_neutrality_file(base: Path, rel_path: str, poisoned: bool) -> None:
+    """Poison = an ADR-033 vendor/product denylist term (validate-neutrality, D8).
+
+    `rel_path` is one of this hook's own matched files under scripts/agents/
+    or scripts/skills/ — real repo-relative paths, unlike the entity writers
+    above, which is why this writer does not preserve the real file's content:
+    only that a plain-prose file exists at that path for the denylist scan to
+    read. No leading `---` line, so the structural frontmatter rule for a
+    top-level agent .md or a canonical SKILL.md never fires regardless of
+    which real path is targeted — only the denylist scan is under test here.
+    """
+    text = (
+        f"This probe file mentions {_NEUTRALITY_POISON_TERM} for testing purposes.\n"
+        if poisoned
+        else "Clean, vendor-neutral prose in a probe file.\n"
+    )
+    target = base / rel_path
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(text, encoding="utf-8")
+
+
 # script basename -> writer(base_dir, repo_relative_path, poisoned)
 FILE_LIST_PROBES: dict[str, Callable[[Path, str, bool], None]] = {
     "validate_identification_questions.py": _write_identification_file,
     "validate_yaml_prose_subset.py": _write_prose_subset_file,
     "validate_prose_references.py": _write_prose_references_file,
+    "validate_neutrality.py": _write_neutrality_file,
 }
 
 
@@ -2181,6 +2411,53 @@ def _invocation_names_hook(invocation: Invocation, hook_id: str) -> bool:
     return any(hook_id in _safe_split(command) for _, command in _file_list_commands(invocation))
 
 
+def _self_scanning_sibling_hooks(script: str, exclude_hook_id: str) -> list[str]:
+    """Return governed hook ids sharing `script` with `exclude_hook_id` that take no file arguments.
+
+    Derived from `.pre-commit-config.yaml`'s own `pass_filenames` key and
+    ADR-037's governed register (`ADR_GOVERNED_HOOK_IDS`), not from any
+    specific hook's name. A governed hook sharing a script with a
+    file-argument one, and declaring `pass_filenames: false`, is pre-commit's
+    own signal that its CI counterpart is invoked with no filename arguments
+    at all — `validate_neutrality.py:507` is the concrete instance (`files =
+    [...] if args.files else discover_neutral_surface_files(Path.cwd())`:
+    empty argv triggers whole-corpus self-discovery, not a vacuous no-op) —
+    but nothing here names it.
+    """
+    return sorted(
+        other
+        for other in ADR_GOVERNED_HOOK_IDS
+        if other != exclude_hook_id
+        and PRECOMMIT_HOOKS_BY_ID.get(other)
+        and _hook_script(PRECOMMIT_HOOKS_BY_ID[other][0]) == script
+        and not PRECOMMIT_HOOKS_BY_ID[other][0].get("pass_filenames", True)
+    )
+
+
+def _excuse_self_scanning_sibling_invocations(
+    script: str, hook_id: str, unattributed: list[Invocation]
+) -> list[Invocation]:
+    """Return the subset of `unattributed` still genuinely unaccounted for.
+
+    A bare invocation (empty argv — no file-list command exists to name any
+    hook with) is excused up to the number of self-scanning sibling hooks
+    that share `script`, per `.pre-commit-config.yaml`: that many bare
+    invocations are exactly what those hooks' `pass_filenames: false` entries
+    require CI to reproduce. Capped at that count rather than excusing every
+    bare invocation unconditionally, so a genuine duplicate bare invocation —
+    the original defect `test_each_governed_hook_has_exactly_one_ci_invocation`
+    exists to catch — is still reported: only as many bare invocations as
+    there are sibling hooks to explain them are ever excused, and a script
+    with no self-scanning sibling excuses none at all.
+    """
+    siblings = _self_scanning_sibling_hooks(script, hook_id)
+    if not siblings:
+        return unattributed
+    bare = [inv for inv in unattributed if not inv.argv]
+    excused = bare[: len(siblings)]
+    return [inv for inv in unattributed if inv not in excused]
+
+
 def _file_list_invocation(hook_id: str) -> Invocation:
     """Return the CI invocation belonging to a hook, failing if it is not unique.
 
@@ -2201,7 +2478,8 @@ def _file_list_invocation(hook_id: str) -> Invocation:
     if not candidates:
         pytest.fail(
             f"No workflow invokes {script} (hook {hook_id!r}). "
-            "TestStrictnessCoverage reports the coverage gap; this class cannot "
+            "TestStrictnessCoverage reports the coverage gap for a flagged hook and "
+            "TestUnflaggedBlockingCoverage for a flagless one; this class cannot "
             "establish anything about a command that does not exist."
         )
 
@@ -2242,16 +2520,18 @@ class TestCIFileListsAreDerivedAndComplete:
     def test_file_argument_block_hooks_are_derived_and_present(self):
         """
         Given: .pre-commit-config.yaml as committed
-        When: hooks carrying a strictness flag and passing filenames are derived
+        When: hooks that pass filenames and are either strictness-flagged or a
+              member of ADR-037 D8's flagless governed set are derived
         Then: at least one is found
 
         Every test below is parametrized over this set. A zero result collects
         no cases, which pytest reports as success.
         """
         assert FILE_ARGUMENT_BLOCK_HOOK_IDS, (
-            "Parsed no strictness-flagged file-argument hooks out of "
-            f"{_PRECOMMIT_CONFIG}. ADR-037 D7 names three; finding none means the "
-            "derivation stopped seeing them, which makes this whole class vacuous."
+            "Parsed no file-argument hooks out of "
+            f"{_PRECOMMIT_CONFIG}. ADR-037 D7 names three flagged ones and D8 adds "
+            "validate-neutrality; finding none means the derivation stopped seeing "
+            "them, which makes this whole class vacuous."
         )
 
     def test_every_file_argument_block_hook_has_a_corpus_probe(self):
@@ -2378,17 +2658,33 @@ class TestCIFileListsAreDerivedAndComplete:
         """
         Given: every non-graph-emitting CI invocation of a governed hook's
                validator
-        When: they are attributed to the hooks their file-list commands name
-        Then: exactly one belongs to this hook, and none belongs to no hook
+        When: they are attributed to the hooks their file-list commands name,
+              or excused as belonging to a self-scanning sibling hook that
+              shares the script
+        Then: exactly one belongs to this hook, and none is left unaccounted for
 
-        Two failures share this shape and neither was visible before.
+        Two failures share this shape and neither was visible before D8.
 
-        A *second, vacuous* invocation of the same validator — one passing no
-        file list, or a stale list — adds no failure anywhere else: the tests
-        below resolve one invocation and check it, and the extra command runs in
-        CI unexamined. ADR-037 D7's attribution constraint is the rule this
+        A *second, vacuous* invocation of the same validator — one passing a
+        stale or transcribed list — adds no failure anywhere else: the tests
+        below resolve one invocation and check it, and the extra command runs
+        in CI unexamined. ADR-037 D7's attribution constraint is the rule this
         serves: a failure must resolve to a single validator, which holds only
         while each governed hook has one command.
+
+        A bare invocation (empty argv) is not automatically this failure,
+        which is why "vacuous" above is qualified. D8 pairs a file-argument
+        hook with a self-scanning sibling on the same script
+        (`validate-neutrality` / `validate-neutrality-policy`, both running
+        `validate_neutrality.py`), and the sibling's own correct CI
+        invocation is bare by construction (`pass_filenames: false`) — for
+        `validate_neutrality.py:507`, that empty argv is what triggers
+        whole-corpus self-discovery rather than a no-op. Attribution by
+        file-list command alone cannot see that invocation belongs to
+        anything, so `_excuse_self_scanning_sibling_invocations` grants it one
+        pass per self-scanning sibling the config actually declares — no more,
+        so an unexplained bare invocation (the original defect) still fails
+        below exactly as it did before this exception existed.
 
         A second *real* hook on an existing validator produces the opposite
         error — a confident failure against whichever invocation happened to
@@ -2397,8 +2693,9 @@ class TestCIFileListsAreDerivedAndComplete:
         script = _hook_script(FILE_ARGUMENT_BLOCK_HOOKS[hook_id])
         candidates = _file_list_candidates(hook_id)
         assert candidates, (
-            f"No workflow invokes {script} (hook {hook_id!r}); "
-            "TestStrictnessCoverage reports that as the D1 coverage gap."
+            f"No workflow invokes {script} (hook {hook_id!r}); TestStrictnessCoverage "
+            "reports that as the D1 coverage gap for a flagged hook and "
+            "TestUnflaggedBlockingCoverage for a flagless one."
         )
 
         attribution = [
@@ -2406,8 +2703,10 @@ class TestCIFileListsAreDerivedAndComplete:
             for inv in candidates
         ]
         unattributed = [inv for inv, hooks in attribution if not hooks]
+        unattributed = _excuse_self_scanning_sibling_invocations(script, hook_id, unattributed)
         assert not unattributed, (
-            f"{script}: these CI invocations name no governed hook, so nothing "
+            f"{script}: these CI invocations name no governed hook, and none is "
+            f"excused as a self-scanning sibling's own bare invocation, so nothing "
             f"establishes which file set they are supposed to cover:\n"
             + "\n".join(f"  - {inv.source}: {inv.line}" for inv in unattributed)
             + "\nAn invocation of a --block validator that no hook accounts for either "
@@ -2422,6 +2721,86 @@ class TestCIFileListsAreDerivedAndComplete:
             + "\n".join(f"  - {inv.source}: {inv.line}  (argv={list(inv.argv)})" for inv in mine)
             + "\nAll non-graph-emitting invocations of this validator:\n"
             + "\n".join(f"  - {inv.source}: {inv.line}  -> hooks {hooks}" for inv, hooks in attribution)
+        )
+
+    def test_bare_invocation_is_excused_only_when_a_self_scanning_sibling_exists(self):
+        """
+        Given: a synthetic bare invocation (no argv)
+        When: it is checked against a file-argument governed hook whose script
+              has a self-scanning sibling per `.pre-commit-config.yaml`, and
+              separately against one whose script has none
+        Then: it is excused in the first case and still reported in the second
+
+        Non-vacuous proof that the exception
+        test_each_governed_hook_has_exactly_one_ci_invocation grants is earned,
+        not asserted, and bounded in both directions:
+
+          - it must actually excuse the shape D8 requires — a bare invocation
+            of `validate_neutrality.py` is not a vacuous duplicate, it is
+            `validate-neutrality-policy`'s own correct CI invocation
+            (`pass_filenames: false`, `validate_neutrality.py:507` self-scans
+            on empty argv) — or D8's CI wiring would fail this class again;
+          - it must not excuse a bare invocation with no self-scanning sibling
+            to explain it, or the original defect this class exists to catch
+            — a second, unexamined invocation — would pass silently.
+
+        Both governed hook ids used here are found by property (has a
+        self-scanning sibling / does not), not named, so this stays true if
+        the specific hooks that satisfy each property change.
+        """
+        with_sibling = next(
+            (
+                hook_id
+                for hook_id in FILE_ARGUMENT_BLOCK_HOOK_IDS
+                if _self_scanning_sibling_hooks(_hook_script(FILE_ARGUMENT_BLOCK_HOOKS[hook_id]), hook_id)
+            ),
+            None,
+        )
+        assert with_sibling is not None, (
+            "No FILE_ARGUMENT_BLOCK_HOOK_IDS member has a self-scanning sibling sharing "
+            "its script, so this fidelity check has nothing to exercise on that side. "
+            "ADR-037 D8's validate-neutrality/validate-neutrality-policy pairing is what "
+            "makes this non-vacuous; if it stopped existing, the exception "
+            "test_each_governed_hook_has_exactly_one_ci_invocation grants would be dead "
+            "code and should be removed along with this test."
+        )
+        without_sibling = next(
+            (
+                hook_id
+                for hook_id in FILE_ARGUMENT_BLOCK_HOOK_IDS
+                if not _self_scanning_sibling_hooks(_hook_script(FILE_ARGUMENT_BLOCK_HOOKS[hook_id]), hook_id)
+            ),
+            None,
+        )
+        assert without_sibling is not None, (
+            "Every FILE_ARGUMENT_BLOCK_HOOK_IDS member has a self-scanning sibling, so "
+            "there is no remaining case in which a bare invocation must still be "
+            "reported. D7's three validators are expected to supply this case; if none "
+            "of them do any more, the guard this test exists to prove has nothing left "
+            "to prove."
+        )
+
+        bare = Invocation(script="probe.py", path="probe.py", argv=(), source="synthetic", line="python3 probe.py")
+
+        excused = _excuse_self_scanning_sibling_invocations(
+            _hook_script(FILE_ARGUMENT_BLOCK_HOOKS[with_sibling]), with_sibling, [bare]
+        )
+        assert excused == [], (
+            f"{with_sibling}: a bare invocation was not excused even though its script "
+            "has a self-scanning sibling per .pre-commit-config.yaml's own "
+            "pass_filenames key. That sibling's own CI invocation is exactly this shape "
+            "(empty argv), so it must not be reported as unattributed."
+        )
+
+        still_unattributed = _excuse_self_scanning_sibling_invocations(
+            _hook_script(FILE_ARGUMENT_BLOCK_HOOKS[without_sibling]), without_sibling, [bare]
+        )
+        assert still_unattributed == [bare], (
+            f"{without_sibling}: a bare invocation of its script was excused even though "
+            "no self-scanning sibling shares that script — there is no hook it could "
+            "legitimately belong to, so it is the original defect this class exists to "
+            "catch (a second, unexamined invocation), and the exception must not "
+            "swallow it."
         )
 
     @pytest.mark.parametrize("hook_id", FILE_ARGUMENT_BLOCK_HOOK_IDS)
@@ -2501,7 +2880,14 @@ class TestCIFileListsAreDerivedAndComplete:
         """
         hook = FILE_ARGUMENT_BLOCK_HOOKS[hook_id]
         script = _hook_script(hook)
-        write_file = FILE_LIST_PROBES[script]
+        write_file = FILE_LIST_PROBES.get(script)
+        if write_file is None:
+            pytest.fail(
+                f"No per-file corpus writer for {script} (hook {hook_id!r}); "
+                "test_every_file_argument_block_hook_has_a_corpus_probe reports the same "
+                "gap. Without a writer this behavioural claim cannot be made at all — "
+                "not even the harness precondition below has a corpus to run against."
+            )
         real_path = _REPO_ROOT / PRECOMMIT_VALIDATORS[script]
         invocation = _file_list_invocation(hook_id)
         argv, produced = _resolve_argv(invocation)
@@ -2670,7 +3056,15 @@ _ABORTING_SHELLS = frozenset({"bash"})
 
 
 def _gate_steps() -> list[WorkflowStep]:
-    """Return steps that invoke a validator carrying a strictness flag.
+    """Return steps that invoke a validator D1 makes CI's decision on.
+
+    Two disjoint ways a validator earns that: a strictness flag on the command
+    line (`--block`), or membership in D8's flagless set — a validator with no
+    warn-only tier, so it blocks unconditionally and carries no flag for the
+    first test to find. The flagless set is UNFLAGGED_BLOCKING_SCRIPTS, read
+    from ADR-037's own D1 instance table rather than listed here, so a hook
+    that joins that table with no strictness flag is a gate step with no edit
+    to this function.
 
     Derived from the command line rather than from job names, so a gate moved
     into another job or workflow stays governed.
@@ -2678,7 +3072,10 @@ def _gate_steps() -> list[WorkflowStep]:
     gates: list[WorkflowStep] = []
     for step in WORKFLOW_STEPS:
         invocations = _python_invocations(step.run, step.source, keep_substitutions=True)
-        if any(STRICTNESS_FLAGS.intersection(inv.argv) for inv in invocations):
+        if any(
+            STRICTNESS_FLAGS.intersection(inv.argv) or inv.script in UNFLAGGED_BLOCKING_SCRIPTS
+            for inv in invocations
+        ):
             gates.append(step)
     return gates
 
@@ -2689,32 +3086,88 @@ GATE_STEPS = _gate_steps()
 class TestGateStepsRunFromRepositoryRoot:
     """Every D1 gate step runs at the repository root, in a shell that aborts.
 
-    Both are guards on the step rather than the command, and both are currently
-    satisfied by GitHub's defaults rather than by anything the workflow says.
-    That is precisely why they need pinning: an edit that changes either leaves
-    the command line untouched, so every other test in this module keeps
-    passing while the gate stops gating.
+    GATE_STEPS is the union `_gate_steps` derives: steps invoking a
+    `--block`-flagged validator, and steps invoking one of ADR-037 D8's
+    flagless governed validators (UNFLAGGED_BLOCKING_SCRIPTS). Both guards
+    below are properties of the step rather than of the command, so they apply
+    identically to either half of that union — a flagless validator's
+    execution context is exactly as load-bearing as a flagged one's, which is
+    the whole of D8's point.
+
+    Both are currently satisfied by GitHub's defaults rather than by anything
+    the workflow says. That is precisely why they need pinning: an edit that
+    changes either leaves the command line untouched, so every other test in
+    this module keeps passing while the gate stops gating.
 
     The two behavioural tests at the end establish that the properties being
     pinned are load-bearing — that the file list really does change with the
     working directory, and that `bash -e` really does abort on a failing
     substitution. Without them these would be prohibitions on things that might
-    not matter.
+    not matter. Both are scoped to the flagged half: a flagless step builds no
+    file list from a command substitution (D8's validators resolve their own
+    corpus instead), so `_step_substitutions` finds nothing to run there,
+    exactly as it finds nothing today for a step with no `${FILES}`-shaped
+    token at all.
     """
 
     def test_gate_steps_are_found(self):
         """
         Given: every `run:` step in every workflow
-        When: steps invoking a strictness-flagged validator are selected
+        When: steps invoking a blocking validator — one carrying a strictness
+              flag, or one of ADR-037 D8's flagless governed validators — are
+              selected
         Then: at least one is found
 
-        Non-vacuity guard: the prohibitions below quantify over this set.
+        Non-vacuity guard: the prohibitions below quantify over this set. It
+        passes today on the flagged half alone; the flagless half has its own
+        guard immediately below, because a set that unions two derivations can
+        stay non-empty while one of them silently returns nothing.
         """
         assert GATE_STEPS, (
-            "Found no workflow step invoking a validator with "
-            f"{sorted(STRICTNESS_FLAGS)}. Either ADR-037 D1's coverage regressed "
-            "entirely, or step parsing did — the second passes every prohibition "
-            "in this class by having nothing to prohibit."
+            "Found no workflow step invoking a blocking validator — one carrying "
+            f"{sorted(STRICTNESS_FLAGS)}, or one of ADR-037 D8's flagless governed "
+            "validators. Either ADR-037 D1's coverage regressed entirely, or step "
+            "parsing did — the second passes every prohibition in this class by "
+            "having nothing to prohibit."
+        )
+
+    def test_gate_steps_are_found_for_the_flagless_half(self):
+        """
+        Given: every `run:` step in every workflow
+        When: steps invoking one of ADR-037 D8's flagless governed validators
+              (UNFLAGGED_BLOCKING_SCRIPTS) are selected
+        Then: at least one is found
+
+        The non-vacuity guard `test_gate_steps_are_found` cannot see this gap:
+        GATE_STEPS is non-empty today because of the five flagged steps, and
+        would stay non-empty — silently passing every prohibition in this class
+        for the flagless validators it never actually reaches — even if
+        `_gate_steps`'s flagless arm returned nothing at all, whether because no
+        workflow invokes one yet or because the arm itself broke.
+
+        Expected RED as committed: ADR-037 D8 records that none of the six
+        flagless validators has a CI invocation yet.
+        TestUnflaggedBlockingCoverage::test_ci_invokes_every_unflagged_blocking_hook
+        pins the identical gap from the pre-commit side, per hook id; this is
+        the same fact stated as the precondition for the two guards below to
+        mean anything for D8's half of GATE_STEPS.
+        """
+        flagless_gates = [
+            step
+            for step in GATE_STEPS
+            if any(
+                inv.script in UNFLAGGED_BLOCKING_SCRIPTS
+                for inv in _python_invocations(step.run, step.source, keep_substitutions=True)
+            )
+        ]
+        assert flagless_gates, (
+            "No gate step invokes a flagless governed validator "
+            f"({sorted(UNFLAGGED_BLOCKING_SCRIPTS)}). GATE_STEPS today is only the "
+            "flagged five, so the root-working-directory and aborting-shell "
+            "guards below quantify over none of D8's validators: a D8 CI step "
+            "added at the wrong working directory, or under a shell that "
+            "swallows failures, would pass every prohibition in this class "
+            "while not gating."
         )
 
     def test_no_gate_step_declares_a_non_root_working_directory(self):
@@ -3250,9 +3703,9 @@ class TestWorkflowTriggerCoverage:
         Non-vacuity guard for the two tests below.
         """
         assert GATE_WORKFLOWS, (
-            "No workflow contains a step invoking a validator with "
-            f"{sorted(STRICTNESS_FLAGS)}; the trigger rules below would quantify "
-            "over nothing."
+            "No workflow contains a gate step — one invoking a validator with "
+            f"{sorted(STRICTNESS_FLAGS)}, or one of ADR-037 D8's flagless governed "
+            "validators; the trigger rules below would quantify over nothing."
         )
 
     def test_pytest_workflows_are_found(self):
@@ -3447,10 +3900,20 @@ def _write_stub_interpreter(directory: Path) -> None:
     """Write a `python3` stub whose exit code is controlled by the environment.
 
     The stub decides which role it is playing from the command line rather than
-    from a script name: an invocation carrying a strictness flag is the gate's
-    validator, anything else is the file-list resolver. That is derived from
-    STRICTNESS_FLAGS, so it keeps working if the resolver is renamed or the
-    validator moves.
+    from a script name: an invocation is the gate's validator if it carries a
+    strictness flag, or — for ADR-037 D8's flagless governed validators, which
+    carry no flag at all — if one of its arguments' basenames is in
+    UNFLAGGED_BLOCKING_SCRIPTS. Anything else is the file-list resolver. Both
+    checks are derived (from STRICTNESS_FLAGS and from ADR-037's own D1
+    instance table), so the stub keeps working if the resolver is renamed, a
+    validator moves, or a further flagless validator is added to the table.
+
+    The second check matters because a flagless gate step's body has no
+    resolver call to distinguish from: it is one invocation, carrying no flag,
+    and without the basename check the stub would always answer as the
+    resolver — so `STUB_VALIDATOR_EXIT` would never be reachable for a D8
+    validator, and `test_gate_step_body_fails_when_its_validator_fails` would
+    misreport a correctly-failing D8 step as green.
 
     The resolver arm prints one path-shaped token, because the step word-splits
     that output into the validator's argv and an empty expansion would exercise
@@ -3458,11 +3921,19 @@ def _write_stub_interpreter(directory: Path) -> None:
     """
     directory.mkdir(parents=True, exist_ok=True)
     flags = " ".join(f'"{flag}"' for flag in sorted(STRICTNESS_FLAGS))
+    scripts = " ".join(f'"{script}"' for script in sorted(UNFLAGGED_BLOCKING_SCRIPTS))
     body = (
         "#!/usr/bin/env bash\n"
         f"for want in {flags}; do\n"
         '  for arg in "$@"; do\n'
         '    if [ "$arg" = "$want" ]; then\n'
+        '      exit "${STUB_VALIDATOR_EXIT:-0}"\n'
+        "    fi\n"
+        "  done\n"
+        "done\n"
+        f"for want in {scripts}; do\n"
+        '  for arg in "$@"; do\n'
+        '    if [ "$(basename -- "$arg")" = "$want" ]; then\n'
         '      exit "${STUB_VALIDATOR_EXIT:-0}"\n'
         "    fi\n"
         "  done\n"
@@ -3515,6 +3986,29 @@ def _gate_step_ids() -> list[str]:
     return [step.source for step in GATE_STEPS]
 
 
+def _or_guarded_validator_lines(step: WorkflowStep) -> list[str]:
+    """Return lines in a step's body where the validator command is `||`-guarded.
+
+    "The validator command" is identified the same way `_gate_steps` identifies
+    a gate step: a simple command carrying a strictness flag, or one naming a
+    script in UNFLAGGED_BLOCKING_SCRIPTS (ADR-037 D8's flagless governed set).
+    Both are checked per segment, not per line, so a guard on an unrelated
+    command earlier on the same line is not mistaken for one on the validator.
+    """
+    guarded: list[str] = []
+    for raw_line in step.run.splitlines():
+        stripped = raw_line.strip()
+        if not stripped or stripped.startswith("#"):
+            continue
+        for segment, operator in _segments_with_operators(_safe_split(stripped)):
+            carries_validator = STRICTNESS_FLAGS.intersection(segment) or any(
+                Path(token).name in UNFLAGGED_BLOCKING_SCRIPTS for token in segment
+            )
+            if carries_validator and operator == "||":
+                guarded.append(stripped)
+    return guarded
+
+
 class TestGateStepFailsTheJob:
     """A found violation has to fail the step, and the step has to fail the job.
 
@@ -3551,6 +4045,47 @@ class TestGateStepFailsTheJob:
         )
         empty = [step.source for step in GATE_STEPS if not step.run.strip()]
         assert not empty, f"Gate steps with an empty `run:` body: {empty}"
+
+    def test_the_validator_stub_recognizes_a_flagless_governed_script(self, tmp_path):
+        """
+        Given: the stub interpreter `_run_step_body` installs, invoked directly
+               with one of ADR-037 D8's flagless governed validators on the
+               command line and no strictness flag
+        When: STUB_VALIDATOR_EXIT is set to 1 and STUB_RESOLVER_EXIT to 0
+        Then: the stub exits 1 — it answered as the validator, not the resolver
+
+        Non-vacuous proof for the half of the two behavioural cases below that
+        the live parametrization cannot yet exercise: no workflow invokes a
+        flagless governed validator yet (ADR-037 D8), so GATE_STEPS carries no
+        such step and neither
+        test_gate_step_body_succeeds_when_its_validator_succeeds nor
+        test_gate_step_body_fails_when_its_validator_fails runs this code path
+        today. Without this test, `_write_stub_interpreter`'s basename check
+        could regress to always answering as the resolver and nothing would
+        notice until a correctly-written D8 CI step started reading as green
+        no matter what its validator returned.
+
+        UNFLAGGED_BLOCKING_SCRIPTS is not empty —
+        TestUnflaggedBlockingCoverage's own non-vacuity guard establishes
+        that — so a script name always exists to probe with.
+        """
+        script = sorted(UNFLAGGED_BLOCKING_SCRIPTS)[0]
+        bin_dir = tmp_path / "bin"
+        _write_stub_interpreter(bin_dir)
+        result = subprocess.run(
+            [str(bin_dir / "python3"), f"scripts/hooks/precommit/{script}"],
+            capture_output=True,
+            text=True,
+            env={**os.environ, "STUB_VALIDATOR_EXIT": "1", "STUB_RESOLVER_EXIT": "0"},
+        )
+        assert result.returncode == 1, (
+            f"The stub interpreter, invoked with {script} and no strictness flag, exited "
+            f"{result.returncode} instead of STUB_VALIDATOR_EXIT (1). It answered as the "
+            "file-list resolver instead of the validator, which is exactly the ambiguity "
+            "D8's flagless validators present on their real command line: no flag "
+            "distinguishes 'this is the check' from 'this built the file list'.\n"
+            f"stdout: {result.stdout!r}\nstderr: {result.stderr!r}"
+        )
 
     @pytest.mark.parametrize("step", GATE_STEPS, ids=_gate_step_ids())
     def test_gate_step_body_succeeds_when_its_validator_succeeds(self, step, tmp_path):
@@ -3641,8 +4176,10 @@ class TestGateStepFailsTheJob:
     def test_no_gate_step_guards_its_validator_against_failure(self, step):
         """
         Given: a gate step's shell body
-        When: the simple command carrying a strictness flag is located and the
-              operator following it is inspected
+        When: the simple command invoking the step's validator — located by a
+              strictness flag or, for ADR-037 D8's flagless validators, by the
+              script's basename — is found and the operator following it is
+              inspected
         Then: it is not `||`
 
         The structural companion to the behavioural tests above, and the one
@@ -3651,21 +4188,52 @@ class TestGateStepFailsTheJob:
         identical output there, and those two differ by exactly whether the job
         can fail.
         """
-        guarded: list[str] = []
-        for raw_line in step.run.splitlines():
-            stripped = raw_line.strip()
-            if not stripped or stripped.startswith("#"):
-                continue
-            for segment, operator in _segments_with_operators(_safe_split(stripped)):
-                if STRICTNESS_FLAGS.intersection(segment) and operator == "||":
-                    guarded.append(stripped)
-
+        guarded = _or_guarded_validator_lines(step)
         assert not guarded, (
-            f"{step.source}: a strictness-carrying command is guarded against its own "
+            f"{step.source}: the validator command is guarded against its own "
             f"failure:\n" + "\n".join(f"  - {line}" for line in guarded) + "\n"
             "`|| true` (or any `||` fallback) makes the validator's non-zero exit "
             "invisible to the `if`, so the success branch runs, the job goes green, "
             "and the violation is merely printed."
+        )
+
+    def test_the_or_guard_detector_catches_a_flagless_validator(self):
+        """
+        Given: a synthetic step body guarding one of ADR-037 D8's flagless
+               governed validators with `|| true`, carrying no strictness flag
+               at all
+        When: _or_guarded_validator_lines scans it
+        Then: the guarded line is reported
+
+        Non-vacuous proof for the half of test_no_gate_step_guards_its_validator_against_failure
+        the live parametrization cannot yet exercise: no workflow invokes a
+        flagless governed validator yet (ADR-037 D8), so every case that test
+        collects today is a flagged step, and none of them reaches the
+        basename branch of `_or_guarded_validator_lines`. A detector that
+        regressed to flag-only matching would report nothing here, and a `||
+        true` on a real D8 step would pass this class silently once one landed.
+
+        UNFLAGGED_BLOCKING_SCRIPTS is not empty —
+        TestUnflaggedBlockingCoverage's own non-vacuity guard establishes
+        that — so a script name always exists to build the synthetic body
+        from.
+        """
+        script = sorted(UNFLAGGED_BLOCKING_SCRIPTS)[0]
+        synthetic = WorkflowStep(
+            workflow="synthetic.yml",
+            job="synthetic",
+            label="synthetic",
+            run=f"if python3 scripts/hooks/precommit/{script} || true; then\n  echo ok\nfi\n",
+            shell=None,
+            working_directory=None,
+            source="synthetic::guarded-flagless",
+        )
+        guarded = _or_guarded_validator_lines(synthetic)
+        assert guarded, (
+            f"_or_guarded_validator_lines found no `||`-guarded line in a synthetic body "
+            f"guarding {script} with no strictness flag on the line. The detector "
+            "regressed to flag-only matching, which is silent on exactly the guard "
+            "D8's flagless validators are exposed to."
         )
 
     @pytest.mark.parametrize("step", GATE_STEPS, ids=_gate_step_ids())
@@ -3706,7 +4274,854 @@ class TestGateStepFailsTheJob:
 
 
 # ===========================================================================
-# 10. This module's own inventory
+# 10. D8 — blocking validators that carry no strictness flag
+# ===========================================================================
+#
+# Every derivation above keys on `--block`. ADR-037 D8 records that keying on
+# the flag reproduces one surface lower the defect D1 exists to end: `--block`
+# marks a validator with a *warn-only tier to promote*, so a validator that
+# blocks unconditionally never carries it and is invisible to a rule that
+# quantifies over flag-bearing hooks. Three such hooks are invoked by no
+# workflow at all, and a contributor without the hooks installed can land a
+# violation with an all-green CI.
+#
+# D1's coverage clause therefore ranges over *blocking* hooks. This section
+# applies it to the hooks that carry no flag, and D7a/D7b/D7c apply to them
+# unchanged (D8).
+#
+# What is different about these three, and what the tests below have to do
+# differently as a result:
+#
+#   They resolve their own inputs. All three are `pass_filenames: false` and
+#   scan a corpus they locate themselves, so there is no file list to derive
+#   and section 6 does not apply to them. Their enabling input is not an
+#   argument at all — it is the checkout they resolve against.
+#
+#   Two of them resolve it from `Path(__file__)` and one from the working
+#   directory, and that asymmetry is the hazard. A `__file__`-anchored
+#   validator invoked from the wrong working directory does not fail: it
+#   validates the corpus beside its own source and exits 0, so a job wired to
+#   the wrong tree is green and silent. The cwd-anchored one fails loudly in
+#   the same situation. Nothing on either command line distinguishes the two.
+#
+# The consequence for these tests is that "run it against a poisoned corpus"
+# has to be spelled out as *which* corpus. Every behavioural test below builds
+# a checkout-shaped mirror — the validator sources at their real relative
+# paths, the framework registry and schema they read as oracles, and the
+# content files under `risk-map/yaml/` — so both anchoring styles resolve
+# inside it. Running the mirror's own copy is the non-vacuity case; running
+# the repository's copy against the same mirror is the hazard case.
+
+
+# ADR_GOVERNED_HOOK_IDS, UNFLAGGED_BLOCKING_HOOKS, UNFLAGGED_BLOCKING_HOOK_IDS,
+# UNFLAGGED_BLOCKING_SCRIPTS and _unflagged_script are defined in section 6 now,
+# not here: FILE_ARGUMENT_BLOCK_HOOKS (D7a) and `_gate_steps` (section 7) both
+# need them to recognize a flagless governed hook, and this section still reads
+# the same names.
+
+
+def _unflagged_ci_invocations(hook_id: str) -> list[Invocation]:
+    """Return every CI invocation of a governed flagless hook's validator, attributed to this hook.
+
+    Reuses section 6's hook-vs-script join (`_invocation_names_hook`) rather
+    than writing a second one. Matching on script alone was this function's
+    original form, and it silently attributes a *sibling* hook's own CI
+    invocation to `hook_id` whenever two ADR-governed hooks share a script —
+    `validate-neutrality` and `validate-neutrality-policy` both name
+    `validate_neutrality.py`. UNFLAGGED_BLOCKING_HOOKS excludes the
+    file-argument sibling for exactly this reason (see its own definition),
+    but that exclusion is a policy choice about which hooks section 10 tests,
+    not a guarantee about the shape of `.pre-commit-config.yaml` — this
+    function stays correct even if a future hook shares a script with a
+    UNFLAGGED_BLOCKING_HOOK_IDS member some other way.
+
+    A candidate invocation is excluded when its own file-list command names a
+    *different* governed hook that shares this script: that is what an
+    unrelated sibling's invocation looks like, whether the sibling is a
+    file-argument hook (`_invocation_names_hook` finds its name directly) or
+    another self-scanning one sharing this script (excluded by
+    UNFLAGGED_BLOCKING_HOOKS, so never reaches this function as `hook_id`
+    itself, but still a candidate to exclude here).
+
+    Parsed with substitutions preserved so a file list built at run time can be
+    resolved rather than passed through as a literal `${VAR}` token.
+    """
+    script = _unflagged_script(hook_id)
+    sibling_ids = [
+        other
+        for other in ADR_GOVERNED_HOOK_IDS
+        if other != hook_id
+        and PRECOMMIT_HOOKS_BY_ID.get(other)
+        and _hook_script(PRECOMMIT_HOOKS_BY_ID[other][0]) == script
+    ]
+    return [
+        inv
+        for inv in WORKFLOW_INVOCATIONS_RESOLVABLE
+        if inv.script == script and not any(_invocation_names_hook(inv, sibling) for sibling in sibling_ids)
+    ]
+
+
+def _steps_invoking(script: str) -> list[WorkflowStep]:
+    """Return every workflow step whose shell body executes the named script."""
+    return [
+        step
+        for step in WORKFLOW_STEPS
+        if any(inv.script == script for inv in _python_invocations(step.run, step.source, keep_substitutions=True))
+    ]
+
+
+def _changes_directory(step: WorkflowStep) -> list[str]:
+    """Return the `cd` commands in a step's body, if any.
+
+    The same scan `test_no_gate_step_changes_directory` performs, expressed
+    again here rather than reused. `_gate_steps` now recognizes a flagless
+    validator's invocation as a gate step (D8), so that test does reach these
+    steps too — but its failure message speaks about "gate steps" in
+    aggregate, and the hazard is sharper for these than for a flagged step: a
+    moved working directory makes the cwd-anchored validator fail loudly and
+    the two `__file__`-anchored ones pass silently on a corpus the job did not
+    name. This copy exists so a failure here names the offending hook_id
+    directly.
+    """
+    found: list[str] = []
+    for raw_line in step.run.splitlines():
+        stripped = raw_line.strip()
+        if not stripped or stripped.startswith("#"):
+            continue
+        for segment in _split_simple_commands(_safe_split(stripped)):
+            while segment and (segment[0] in _LEADING_WORDS or _TOKEN_ASSIGN_RE.match(segment[0])):
+                segment = segment[1:]
+            if segment and segment[0] == "cd":
+                found.append(stripped)
+    return found
+
+
+# --- checkout mirror --------------------------------------------------------
+#
+# The mirror is not a copy-to-root arrangement and does not test one. It
+# reproduces the *relative* layout of a checkout at a different absolute path,
+# which is what CI is; D7b's prohibition is on flattening that layout, not on
+# the repository existing somewhere else. Running the mirror's own copy of a
+# validator is therefore the faithful model of the CI invocation, and it is the
+# only way to put a violation in front of a validator that locates its corpus
+# from `Path(__file__)`.
+
+# Oracles both mapping validators read through `framework_mapping`: the version
+# registry and the pinned-value patterns. Copied verbatim so a poisoned mapping
+# value is judged against the real registry rather than a fixture of one.
+_MIRRORED_ORACLES = (
+    "risk-map/yaml/frameworks.yaml",
+    "risk-map/schemas/frameworks.schema.json",
+)
+
+_MIRRORED_SOURCE_DIR = "scripts/hooks/precommit"
+
+
+def _mirror_checkout(base: Path) -> Path:
+    """Materialize a checkout-shaped tree under `base` and return it.
+
+    Contains the `precommit/` validator sources at their real repo-relative
+    path and the framework oracles they read. Content YAML files are written by
+    the per-validator corpus writers, because what counts as content differs:
+    for the mapping validators it is the four consumer files, and for the
+    versionId validator it is `frameworks.yaml` itself.
+    """
+    shutil.copytree(
+        _REPO_ROOT / _MIRRORED_SOURCE_DIR,
+        base / _MIRRORED_SOURCE_DIR,
+        ignore=shutil.ignore_patterns("__pycache__"),
+        dirs_exist_ok=True,
+    )
+    for relative in _MIRRORED_ORACLES:
+        target = base / relative
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(_REPO_ROOT / relative, target)
+    return base
+
+
+# --- per-validator corpora --------------------------------------------------
+
+_CONTENT_ENTITIES = ("risks", "controls", "components", "personas")
+
+# A framework key the registry does not declare. Purity fails loudly on it
+# (rule 1, ADR-027 D4c) and drift deliberately skips it, so it isolates the
+# purity validator's own remit.
+_UNKNOWN_FRAMEWORK_KEY = "frameworkProbeNotInRegistry"
+
+# A pinned value whose version token no framework declares. Drift classifies it
+# invalid — the version-token check is its remit (ADR-027 D5) — and the token is
+# built from the registry rather than written out, so a version bump cannot turn
+# the poison into a valid value.
+_DRIFT_PROBE_TOKEN = "0.0.0-probe"
+
+# A versionId that neither derives from its entry's id nor satisfies the D2a
+# charset: uppercase and `_` are outside `^[a-z0-9.@-]+$`, and the entry's
+# `version` is null so the derived value is the bare id.
+_PROBE_FRAMEWORK_ID = "framework-probe"
+_MALFORMED_VERSION_ID = "Framework_Probe@BOGUS"
+
+
+def _versioned_framework_id() -> str:
+    """Return a framework id the registry declares a version for.
+
+    Read from the registry so the drift probe pins a value against whatever the
+    corpus actually declares. Fails rather than returning a default: with no
+    versioned framework there is no drift to inject, and a silently skipped
+    injection is a passing test that proved nothing.
+    """
+    data = yaml.safe_load((_REPO_ROOT / "risk-map" / "yaml" / "frameworks.yaml").read_text(encoding="utf-8"))
+    for entry in data.get("frameworks") or []:
+        if isinstance(entry, dict) and entry.get("version") is not None and entry.get("id"):
+            return str(entry["id"])
+    pytest.fail(
+        "No framework in the registry declares a version, so no value can be given a "
+        "stale version token and the drift probe cannot express a violation. Drift "
+        "detection would then be untestable rather than passing."
+    )
+
+
+def _write_mapping_content(base: Path, mappings_by_entity: dict[str, dict[str, list[str]]]) -> None:
+    """Write the four consumer YAMLs, giving named entities a `mappings` block.
+
+    All four are written whether or not they carry mappings: both validators
+    exit 1 with "content file not found" on a missing default, which would be a
+    red run that never reached a mapping value.
+    """
+    yaml_dir = _yaml_dir(base)
+    for entity in _CONTENT_ENTITIES:
+        item: dict[str, Any] = {"id": f"{entity[:-1]}Probe", "title": "Probe"}
+        mappings = mappings_by_entity.get(entity)
+        if mappings:
+            item["mappings"] = mappings
+        (yaml_dir / f"{entity}.yaml").write_text(yaml.dump({entity: [item]}), encoding="utf-8")
+
+
+def _write_mapping_purity_corpus(base: Path, poisoned: bool) -> None:
+    """Corpus for validate_mapping_purity.py; poison = mapping under an unregistered framework."""
+    _write_mapping_content(base, {"risks": {_UNKNOWN_FRAMEWORK_KEY: ["PROBE-REF"]}} if poisoned else {})
+
+
+def _write_mapping_drift_corpus(base: Path, poisoned: bool) -> None:
+    """Corpus for validate_mapping_drift.py; poison = pinned value on an unknown version token."""
+    value = f"PROBE-REF@{_DRIFT_PROBE_TOKEN}"
+    _write_mapping_content(base, {"controls": {_versioned_framework_id(): [value]}} if poisoned else {})
+
+
+def _write_versionid_purity_corpus(base: Path, poisoned: bool) -> None:
+    """Corpus for validate_versionid_purity.py; poison = a hand-edited versionId.
+
+    The clean corpus is the registry as committed, which the mirror already
+    holds: this validator's subject file *is* one of the oracles, so there is
+    nothing to write for the clean case.
+    """
+    if not poisoned:
+        return
+    path = _yaml_dir(base) / "frameworks.yaml"
+    data = yaml.safe_load(path.read_text(encoding="utf-8"))
+    data["frameworks"].append({"id": _PROBE_FRAMEWORK_ID, "version": None, "versionId": _MALFORMED_VERSION_ID})
+    path.write_text(yaml.dump(data), encoding="utf-8")
+
+
+def _copy_repo_file(base: Path, relative: str) -> None:
+    """Copy one real repository file into a mirror at the same relative path.
+
+    Used by probes below whose validator has real data or source dependencies
+    beyond `_MIRRORED_ORACLES` — copying the real file rather than a synthetic
+    stand-in means the clean run exercises the validator's actual behaviour on
+    the actual corpus, and only the deliberate poison differs from what CI
+    would see.
+    """
+    target = base / relative
+    target.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(_REPO_ROOT / relative, target)
+
+
+# A framework id outside frameworks.schema.json's own `enum` constraint on
+# `frameworks[].id` — a JSON Schema violation, independent of ADR-027's
+# versionId rules validate_versionid_purity.py enforces above. Verified
+# empirically against check-jsonschema (the real subprocess this validator
+# shells out to): a minimal `{"id": ...}` entry with no other fields reports
+# both the enum violation and the fields missing to be schema-valid, and
+# check-jsonschema resolves that $ref only when riskmap.schema.json is also
+# on disk next to frameworks.schema.json — not part of _MIRRORED_ORACLES,
+# because none of the other probes below need it.
+_ALL_SCHEMAS_PROBE_FRAMEWORK_ID = "framework-not-in-schema-enum"
+
+
+def _write_all_schemas_corpus(base: Path, poisoned: bool) -> None:
+    """Corpus for validate_all_schemas.py; poison = a frameworks.yaml entry outside the schema enum."""
+    _copy_repo_file(base, "risk-map/schemas/riskmap.schema.json")
+    if not poisoned:
+        return
+    path = _yaml_dir(base) / "frameworks.yaml"
+    data = yaml.safe_load(path.read_text(encoding="utf-8"))
+    data["frameworks"].append({"id": _ALL_SCHEMAS_PROBE_FRAMEWORK_ID})
+    path.write_text(yaml.dump(data), encoding="utf-8")
+
+
+# validate_persona_site_build.py's own real data and source dependencies.
+# Copied verbatim rather than synthesized: build_site_data's transform and
+# write_site_data's output-schema validation are involved enough that a
+# minimal synthetic corpus risks passing or failing for reasons unrelated to
+# the poison. Verified empirically: with only these copied and personas.yaml
+# left as committed, the builder runs clean (exit 0).
+_PERSONA_SITE_BUILD_EXTRA_FILES = (
+    "scripts/build_persona_site_data.py",
+    "scripts/hooks/_sentinel_expansion.py",
+    "risk-map/schemas/persona-site-data.schema.json",
+    "risk-map/schemas/external-references.schema.json",
+    "risk-map/yaml/personas.yaml",
+    "risk-map/yaml/risks.yaml",
+    "risk-map/yaml/controls.yaml",
+    "risk-map/yaml/components.yaml",
+)
+
+# The marker substring in build_persona_site_data.load_yaml's own error text
+# for an empty/all-null YAML file — read from that message here because the
+# violation this poison targets *is* "the file failed to parse", not a
+# content rule with an independent spec to check the marker against.
+_PERSONA_SITE_BUILD_EMPTY_MARKER = "is empty or all-null"
+
+
+def _write_persona_site_build_corpus(base: Path, poisoned: bool) -> None:
+    """Corpus for validate_persona_site_build.py; poison = an empty personas.yaml.
+
+    `load_yaml` raises ValueError on an empty/all-null file — a real, named
+    failure mode in the source (build_persona_site_data.py:76-81), not one
+    inferred from validate_persona_site_build.py's own wrapper message.
+    """
+    for relative in _PERSONA_SITE_BUILD_EXTRA_FILES:
+        _copy_repo_file(base, relative)
+    if poisoned:
+        (base / "risk-map" / "yaml" / "personas.yaml").write_text("", encoding="utf-8")
+
+
+# Relative path a self-scanning validate-neutrality-policy corpus writes its
+# probe file at. Not one of the repository's own tracked scripts/agents/**
+# paths — this hook takes no file arguments, so the probe's path is this
+# module's own choice, unlike FILE_LIST_PROBES below where the hook's file
+# list dictates rel_path.
+_NEUTRALITY_SELF_SCAN_REL_PATH = "scripts/agents/probe.md"
+
+
+def _write_neutrality_self_scan_corpus(base: Path, poisoned: bool) -> None:
+    """Corpus for validate_neutrality.py's self-scanning hook (validate-neutrality-policy).
+
+    Writes one file under scripts/agents/ so discover_neutral_surface_files
+    finds it from the mirror's working directory. No leading `---` line, so
+    the structural frontmatter rule for a top-level agent .md never fires —
+    only the denylist scan (this hook's actual remit) is under test here.
+    """
+    text = (
+        f"This probe agent mentions {_NEUTRALITY_POISON_TERM} for testing purposes.\n"
+        if poisoned
+        else "Clean, vendor-neutral prose describing this probe agent.\n"
+    )
+    target = base / _NEUTRALITY_SELF_SCAN_REL_PATH
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(text, encoding="utf-8")
+
+
+class UnflaggedProbe(NamedTuple):
+    """A flagless blocking validator plus the means to make it fail.
+
+    Attributes:
+        write_corpus: Callable (mirror_root, poisoned) -> None writing content
+            files into an already-materialized mirror.
+        marker: A string the diagnostic must contain, proving the injected
+            violation is what fired rather than some unrelated check.
+        rule: The rule the poison violates, for assertion messages.
+    """
+
+    write_corpus: Callable[[Path, bool], None]
+    marker: str
+    rule: str
+
+
+# validator basename -> probe. Keyed on the script rather than the hook id so a
+# hook rename does not orphan a probe.
+UNFLAGGED_PROBES: dict[str, UnflaggedProbe] = {
+    "validate_mapping_purity.py": UnflaggedProbe(
+        write_corpus=_write_mapping_purity_corpus,
+        marker=_UNKNOWN_FRAMEWORK_KEY,
+        rule="unknown framework key (ADR-027 D4c)",
+    ),
+    "validate_mapping_drift.py": UnflaggedProbe(
+        write_corpus=_write_mapping_drift_corpus,
+        marker=_DRIFT_PROBE_TOKEN,
+        rule="unrecognized version token (ADR-027 D5)",
+    ),
+    "validate_versionid_purity.py": UnflaggedProbe(
+        write_corpus=_write_versionid_purity_corpus,
+        marker=_MALFORMED_VERSION_ID,
+        rule="versionId derivation and D2a charset (ADR-027 D2b/D2c)",
+    ),
+    "validate_all_schemas.py": UnflaggedProbe(
+        write_corpus=_write_all_schemas_corpus,
+        marker=_ALL_SCHEMAS_PROBE_FRAMEWORK_ID,
+        rule="framework id outside frameworks.schema.json's own enum (JSON Schema)",
+    ),
+    "validate_persona_site_build.py": UnflaggedProbe(
+        write_corpus=_write_persona_site_build_corpus,
+        marker=_PERSONA_SITE_BUILD_EMPTY_MARKER,
+        rule="empty/unparseable personas.yaml (build_persona_site_data.load_yaml)",
+    ),
+    "validate_neutrality.py": UnflaggedProbe(
+        write_corpus=_write_neutrality_self_scan_corpus,
+        marker=_NEUTRALITY_POISON_TERM,
+        rule="ADR-033 vendor/product denylist term under scripts/agents|skills/**",
+    ),
+}
+
+
+def _governed_ci_argv(hook_id: str) -> tuple[Invocation, list[str]]:
+    """Return a governed hook's single CI invocation and its resolved argv.
+
+    Fails when there is none — every behavioural claim in this section is about
+    the command CI runs, and there is nothing to run — and when there are
+    several, because ADR-037 D7 requires a failure to resolve to one validator
+    and this section cannot decide which of two commands the rule is about.
+    """
+    invocations = _unflagged_ci_invocations(hook_id)
+    script = _unflagged_script(hook_id)
+    if not invocations:
+        pytest.fail(
+            f"No workflow invokes {script} (hook {hook_id!r}), so there is no CI command "
+            f"to run against a corpus. "
+            f"TestUnflaggedBlockingCoverage::test_ci_invokes_every_unflagged_blocking_hook "
+            f"reports this as the ADR-037 D1 coverage gap; it is repeated here because a "
+            f"non-vacuity claim about a command that does not exist cannot be made at all."
+        )
+    if len(invocations) > 1:
+        pytest.fail(
+            f"{hook_id}: {len(invocations)} workflow invocations of {script}, so no single "
+            f"command's behaviour can be attributed to this hook:\n"
+            + "\n".join(f"  - {inv.source}: {inv.line}" for inv in invocations)
+            + "\nADR-037 D7 requires a failure to resolve to a single validator."
+        )
+    argv, _ = _resolve_argv(invocations[0])
+    return invocations[0], argv
+
+
+def _run_governed(script_path: Path, argv: list[str], cwd: Path) -> subprocess.CompletedProcess:
+    """Run a validator with a given argv from a given working directory."""
+    return subprocess.run(
+        [sys.executable, str(script_path), *argv],
+        capture_output=True,
+        text=True,
+        cwd=str(cwd),
+    )
+
+
+class TestUnflaggedBlockingCoverage:
+    """ADR-037 D8: a hook that blocks without a flag is a D1 instance.
+
+    D1's coverage clause quantifies over blocking hooks, not over `--block`
+    hooks. `TestStrictnessCoverage` implements it for the flag-bearing half;
+    this class implements it for the half that carries no flag, which that
+    derivation cannot see at all.
+
+    The shape is the same and for the same reason: it quantifies over the
+    pre-commit side, so a validator absent from CI FAILS here rather than
+    skipping. A rule ranging over the intersection of the two surfaces passes
+    on precisely this gap — which is how these three came to live only on
+    contributor machines.
+    """
+
+    def test_the_governed_hooks_resolve_to_the_precommit_config(self):
+        """
+        Given: the hook ids ADR-037's D1 instance table names
+        When: each is looked up in .pre-commit-config.yaml
+        Then: each resolves to exactly one hook, and at least one of them
+              carries no strictness flag
+
+        Two ways this section goes quiet, both silent. The table and the config
+        drift apart — a renamed hook id leaves a row naming nothing — and the
+        parametrizations below then quantify over a smaller set with no failure
+        anywhere. And if no governed hook is flagless, every case below is
+        collected from an empty set, which pytest reports as success.
+        """
+        assert ADR_GOVERNED_HOOK_IDS, (
+            f"Parsed no hook ids out of {_ADR_037_PATH.name}. The D1 instance table is "
+            "where this section's governed set comes from; an empty parse makes every "
+            "assertion below quantify over nothing."
+        )
+
+        unresolved = {
+            hook_id: len(PRECOMMIT_HOOKS_BY_ID.get(hook_id, []))
+            for hook_id in ADR_GOVERNED_HOOK_IDS
+            if len(PRECOMMIT_HOOKS_BY_ID.get(hook_id, [])) != 1
+        }
+        assert not unresolved, (
+            f"ADR-037's D1 instance table names hook ids that do not resolve to exactly "
+            f"one hook in {_PRECOMMIT_CONFIG.name}: {unresolved}.\n"
+            "The table is the register of what this decision governs. An id it names and "
+            "the config does not declare governs nothing, and the row reads as coverage."
+        )
+
+        assert UNFLAGGED_BLOCKING_HOOK_IDS, (
+            "No governed hook passes zero strictness flags, so this section's "
+            "parametrizations collect no cases. D8 exists because three of them do; "
+            "either they gained a flag — in which case sections 2 and 5 now govern them "
+            "— or `_hook_strictness` stopped reading hook entries."
+        )
+
+    @pytest.mark.parametrize("hook_id", UNFLAGGED_BLOCKING_HOOK_IDS)
+    def test_ci_invokes_every_unflagged_blocking_hook(self, hook_id):
+        """
+        Given: a pre-commit hook that blocks a commit with no strictness flag to
+               promote anything — a violation exits it non-zero unconditionally
+        When: every `run:` step in every workflow is searched for an invocation
+              of that validator
+        Then: at least one exists
+
+        ADR-037 D1 part 1, applied to the half of the rule `--block` cannot
+        reach. These validators have no laxer mode to fall back to: CI either
+        runs them or it does not check, and today it does not, so the whole
+        check exists only for contributors who installed the hooks.
+
+        Strictness needs no separate assertion while these carry no flag —
+        "at least the same strictness" as a flagless hook is satisfied by
+        invoking the validator. If one later grows a warn-only tier and a flag,
+        `BLOCK_VALIDATORS` picks it up from the config and
+        TestStrictnessMonotonicity governs the CI invocation from that point,
+        which is what D8's Strictness paragraph says happens without an
+        amendment.
+
+        Attributed by hook (`_unflagged_ci_invocations`), not by script alone:
+        `validate-neutrality` shares `validate_neutrality.py` with this hook's
+        `validate-neutrality-policy` sibling, and a script-only check would let
+        that sibling's own CI invocation (once it exists) satisfy this hook's
+        coverage claim without this hook itself ever being invoked.
+        """
+        script = _unflagged_script(hook_id)
+        invocations = _unflagged_ci_invocations(hook_id)
+        assert invocations, (
+            f"{script} is invoked by the {hook_id!r} pre-commit hook, which blocks a "
+            f"commit on any violation, and by no workflow under {_WORKFLOW_DIR} attributably "
+            f"to this hook. No workflow runs `pre-commit` either, so the check runs only "
+            f"where the hooks were installed and the merge decision depends on a "
+            f"contributor's local state.\nADR-037 D1 part 1 quantifies over blocking "
+            f"hooks, not over flagged ones; D8 records these as instances of that rule "
+            f"rather than exceptions to it."
+        )
+
+
+class TestUnflaggedValidatorsRunInPlace:
+    """ADR-037 D7b, applied to the flagless six (D8).
+
+    Section 4 states the same rule as a prohibition — no workflow may copy a
+    `precommit/` validator or invoke one from a path other than its real one —
+    and a prohibition is satisfied by a validator no workflow mentions. That is
+    the state these six are in today, so section 4 passes on them while saying
+    nothing.
+
+    This class states the positive form D8 requires: the invocation exists, and
+    it runs the script where it lives. The two are one assertion because for
+    these validators the path is not a detail of style. Three of the six —
+    `validate_mapping_purity.py`, `validate_mapping_drift.py`,
+    `validate_persona_site_build.py` — locate their corpus from
+    `Path(__file__)`; flattening the layout moves those three's corpus
+    resolution silently, on top of the `sys.path` breakage section 4's own
+    docstring already covers for every validator in the directory.
+    """
+
+    @pytest.mark.parametrize("hook_id", UNFLAGGED_BLOCKING_HOOK_IDS)
+    def test_each_unflagged_blocking_validator_is_invoked_in_place(self, hook_id):
+        """
+        Given: a governed flagless hook's validator
+        When: every workflow invocation and every file-relocating command is
+              examined
+        Then: at least one invocation exists, each names the validator's real
+              path, and no command relocates it
+
+        The copy scan is `WORKFLOW_COPY_COMMANDS`, the same derivation section 4
+        uses, so a copy written through shell variables is seen as well as a
+        literal one — `test_copy_detector_flags_variable_built_copy_to_root`
+        establishes that.
+        """
+        script = _unflagged_script(hook_id)
+        real_path = PRECOMMIT_VALIDATORS.get(script)
+        assert real_path, (
+            f"{script} is not among the validators derived from "
+            f"{_PRECOMMIT_CONFIG.name} as living under {_PRECOMMIT_DIR_FRAGMENT}, so "
+            "section 4's copy and path prohibitions do not reach it either."
+        )
+
+        invocations = _ci_invocations_of(script)
+        assert invocations, (
+            f"No workflow invokes {script} (hook {hook_id!r}), so ADR-037 D7b's "
+            f"in-place requirement has no call site to hold. The prohibition in "
+            f"TestPrecommitValidatorsRunInPlace passes on this validator for the same "
+            f"reason it passes on any validator CI never runs — which is why D8 states "
+            f"the requirement positively."
+        )
+
+        misplaced = [inv for inv in invocations if inv.path != real_path]
+        assert not misplaced, (
+            f"ADR-037 D7b requires {script} to be invoked at {real_path!r}:\n"
+            + "\n".join(f"  - {inv.source}: invoked as {inv.path!r}\n      {inv.line}" for inv in misplaced)
+            + "\nThis validator resolves its corpus, its framework oracles and its "
+            "`sys.path` entry from its own location. A different path is a different "
+            "corpus, and for the two that never consult the working directory it is a "
+            "different corpus reported as success."
+        )
+
+        relocations = [copy for copy in WORKFLOW_COPY_COMMANDS if copy.source_path.endswith(script)]
+        assert not relocations, (
+            f"ADR-037 D7b prohibits relocating {script}:\n"
+            + "\n".join(f"  - {c.source}: {c.line}  ({c.source_path} -> {c.destination})" for c in relocations)
+            + "\nCopying it to the repository root moves the root its own path derivation "
+            "computes four levels up, which lands outside the checkout."
+        )
+
+
+class TestUnflaggedValidatorsCatchInjectedViolations:
+    """ADR-037 D7c, applied to the flagless three (D8).
+
+    A green job is evidence of nothing until the red case has been observed.
+    For these three the failure mode is not a missing flag — there is none to
+    miss — but a command that runs against a corpus other than the one under
+    test and reports success.
+
+    Each case therefore runs the argument list the workflow passes, from the
+    mirror's own copy of the validator, against a mirror carrying exactly one
+    injected violation in the validator's own remit. The clean mirror is
+    asserted first with the same arguments: without it, a validator that failed
+    on everything would satisfy the poisoned assertion for the wrong reason.
+    """
+
+    def test_every_unflagged_blocking_hook_has_a_corpus_probe(self):
+        """
+        Given: the governed flagless hooks
+        When: compared against the probe registry
+        Then: every one has a probe, and no probe is orphaned
+
+        The derive-don't-enumerate rule sections 5 and 6 apply, applied here. A
+        fourth flagless blocking hook entering ADR-037's instance table fails
+        this until someone can express a violation in its inputs, rather than
+        being quietly excluded from the only assertion that observes behaviour.
+        """
+        scripts = {_unflagged_script(hook_id) for hook_id in UNFLAGGED_BLOCKING_HOOK_IDS}
+        unprobed = sorted(name for name in scripts if name not in UNFLAGGED_PROBES)
+        assert not unprobed, (
+            f"No corpus probe for {unprobed}. Without one, a CI invocation of that "
+            "validator can be checked for existence but not for effect, and an "
+            "invocation that inspects the wrong tree looks identical to a correct one."
+        )
+        stale = sorted(set(UNFLAGGED_PROBES) - scripts)
+        assert not stale, (
+            f"Probes exist for validators ADR-037 no longer governs as flagless blocking "
+            f"hooks: {stale}. Either the hook gained a strictness flag — in which case "
+            "sections 5 and 6 govern it — or the probe is dead."
+        )
+
+    @pytest.mark.parametrize("hook_id", UNFLAGGED_BLOCKING_HOOK_IDS)
+    def test_the_ci_command_fails_on_an_injected_violation(self, hook_id, tmp_path):
+        """
+        Given: the argument list a workflow passes to a governed flagless
+               validator, and a checkout-shaped mirror carrying one injected
+               violation
+        When: the mirror's own copy of the validator runs with those arguments
+        Then: it exits non-zero and names the violation, having exited 0 on the
+              clean mirror with the same arguments
+
+        Running the mirror's copy is what makes the poison visible to a
+        validator that locates its corpus from its own path. It is not a
+        copy-to-root arrangement and does not endorse one: the mirror preserves
+        the repo-relative layout, which is what a checkout is and what D7b
+        requires be preserved. `test_a_poisoned_corpus_can_go_unread` runs the
+        other arm — the repository's copy against the same mirror — and observes
+        what happens when the layout is right and the tree is not.
+
+        The marker assertion is what separates "the command failed" from "the
+        command found this". Both mapping validators exit 1 on a missing content
+        file and on an unreadable oracle, neither of which is a finding about
+        the corpus.
+        """
+        script = _unflagged_script(hook_id)
+        probe = UNFLAGGED_PROBES.get(script)
+        if probe is None:
+            pytest.fail(
+                f"No corpus probe for {script}; "
+                "test_every_unflagged_blocking_hook_has_a_corpus_probe explains the gap."
+            )
+        invocation, argv = _governed_ci_argv(hook_id)
+
+        clean = _mirror_checkout(tmp_path / "clean")
+        probe.write_corpus(clean, False)
+        clean_result = _run_governed(clean / _MIRRORED_SOURCE_DIR / script, argv, clean)
+        assert clean_result.returncode == 0, (
+            f"Harness precondition failed: {invocation.source} arguments {argv} exit "
+            f"{clean_result.returncode} on a mirror with no injected violation, so the "
+            f"poisoned result below would prove nothing.\n"
+            f"stdout: {clean_result.stdout}\nstderr: {clean_result.stderr}"
+        )
+
+        poisoned = _mirror_checkout(tmp_path / "poisoned")
+        probe.write_corpus(poisoned, True)
+        poisoned_result = _run_governed(poisoned / _MIRRORED_SOURCE_DIR / script, argv, poisoned)
+        output = poisoned_result.stdout + poisoned_result.stderr
+        assert probe.marker in output, (
+            f"{invocation.source} arguments {argv} never named {probe.marker!r} on a "
+            f"corpus carrying a {probe.rule} violation, so the check did not reach it. "
+            f"The invocation is reachable and vacuous, which is worse than laxity "
+            f"because it reports success.\n"
+            f"stdout: {poisoned_result.stdout}\nstderr: {poisoned_result.stderr}"
+        )
+        assert poisoned_result.returncode != 0, (
+            f"{invocation.source} arguments {argv} reported a {probe.rule} violation and "
+            f"exited 0, so the pull request merges with the violation printed in the log. "
+            f"The {hook_id!r} hook blocks the same content locally.\n"
+            f"stdout: {poisoned_result.stdout}\nstderr: {poisoned_result.stderr}"
+        )
+
+
+class TestUnflaggedValidatorsValidateTheCheckoutUnderTest:
+    """The corpus these validators judge is not named on their command line.
+
+    Sections 6 and 7 establish for the file-argument validators that the inputs
+    are derived, complete and read. These three take no file list: each locates
+    its own corpus, and *how* differs between siblings that sit in the same
+    directory and are wired by adjacent lines of the same config. One resolves
+    from the working directory; the others from their own source path.
+
+    Only the first of those fails when it is pointed somewhere unexpected. A
+    validator that resolves from its own path validates the tree its source sits
+    in, whatever the job intended, and exits 0 — so a wrongly wired job is green
+    and its log looks like a clean corpus. Nothing on the command line, in the
+    file list, or in the flags differs between the two cases.
+
+    The consequence is that the step's execution context is load-bearing here.
+    `_gate_steps` now recognizes one of these validator's invocations as a gate
+    step too (D8), so `TestGateStepsRunFromRepositoryRoot` reaches it — but only
+    with the generic root-working-directory and aborting-shell guards it states
+    for every gate step. What that class cannot say is which hook_id is at
+    fault or that the working directory is what a *cwd-resolving* validator
+    among these depends on to fail loudly at all; the tests below say both.
+    """
+
+    @pytest.mark.parametrize("hook_id", UNFLAGGED_BLOCKING_HOOK_IDS)
+    def test_a_poisoned_corpus_can_go_unread(self, hook_id, tmp_path):
+        """
+        Given: one mirror carrying an injected violation, and the validator run
+               two ways against it — the mirror's own copy, and the
+               repository's copy with the mirror as its working directory
+        When: both runs use the same arguments
+        Then: the mirror's copy names the violation; the repository's copy
+              either names it too, or exits 0 without naming it
+
+        CHARACTERIZATION, and the reason the next test exists. It asserts no
+        wiring and passes before the CI invocations land — its subject is the
+        validators' own behaviour, which is what makes the working-directory
+        rule below load-bearing rather than stylistic.
+
+        The disjunction is the finding, stated so that it cannot be satisfied by
+        accident. A validator resolving its corpus from the working directory
+        reports the violation; one resolving it from its own path reports
+        nothing and succeeds, having read a different tree. What is prohibited
+        is the third outcome — a non-zero exit that does not name the violation
+        — because that is a harness fault: it would mean the poisoned run failed
+        for a reason unrelated to the poison, and the first assertion's
+        companion in test_the_ci_command_fails_on_an_injected_violation would be
+        reading the same noise.
+
+        If this ever fails because every validator's second arm names the
+        violation, the asymmetry has been designed out — revisit the rule below,
+        but keep it, since a step at the repository root is what makes the
+        cwd-resolving one work at all.
+        """
+        script = _unflagged_script(hook_id)
+        probe = UNFLAGGED_PROBES.get(script)
+        if probe is None:
+            pytest.fail(
+                f"No corpus probe for {script}; "
+                "test_every_unflagged_blocking_hook_has_a_corpus_probe explains the gap."
+            )
+
+        mirror = _mirror_checkout(tmp_path / "mirror")
+        probe.write_corpus(mirror, True)
+
+        inside = _run_governed(mirror / _MIRRORED_SOURCE_DIR / script, [], mirror)
+        inside_output = inside.stdout + inside.stderr
+        assert inside.returncode != 0 and probe.marker in inside_output, (
+            f"Harness precondition failed: run from inside the mirror, {script} did not "
+            f"report the injected {probe.rule} violation, so this mirror establishes "
+            f"nothing about where the validator looks.\n"
+            f"exit: {inside.returncode}\nstdout: {inside.stdout}\nstderr: {inside.stderr}"
+        )
+
+        outside = _run_governed(_REPO_ROOT / _MIRRORED_SOURCE_DIR / script, [], mirror)
+        outside_output = outside.stdout + outside.stderr
+        assert probe.marker in outside_output or outside.returncode == 0, (
+            f"{script}, run from the repository against the mirror as its working "
+            f"directory, exited {outside.returncode} without naming {probe.marker!r}. "
+            f"That is neither of the two outcomes this characterization models — it "
+            f"found the violation, or it read a different tree and succeeded — so the "
+            f"probe is measuring something other than which corpus was read, and the "
+            f"non-vacuity assertions that share these fixtures are reading the same "
+            f"noise.\nstdout: {outside.stdout}\nstderr: {outside.stderr}"
+        )
+
+    @pytest.mark.parametrize("hook_id", UNFLAGGED_BLOCKING_HOOK_IDS)
+    def test_the_ci_step_runs_at_the_repository_root(self, hook_id):
+        """
+        Given: the workflow step invoking a governed flagless validator
+        When: its effective `working-directory:` and its shell body are examined
+        Then: the step runs at the repository root and does not change directory
+
+        The working directory is the only thing that decides which tree one of
+        these validators reads, and it is the thing that decides nothing at all
+        for the other two — which is exactly why it has to be pinned rather than
+        left to GitHub's default. Move it and the outcomes diverge: the
+        cwd-resolving validator fails loudly on a tree that has no
+        `risk-map/yaml/`, and the two that resolve from their own path go on
+        validating the checkout while the job's other steps operate somewhere
+        else. One of those is a confusing red; the other is a green job that
+        never looked at what the job was about.
+
+        Neither is visible to a command-line scan. `TestGateStepsRunFromRepositoryRoot`
+        does now reach the step this test examines — `_gate_steps` recognizes a
+        flagless validator's invocation as a gate step (D8) — but only as one
+        entry among every gate step's; a violation there reports "a gate step",
+        not which hook_id it was or which of the two failure modes above
+        applies. This test exists to say both.
+        """
+        script = _unflagged_script(hook_id)
+        steps = _steps_invoking(script)
+        assert steps, (
+            f"No workflow step invokes {script} (hook {hook_id!r}), so there is no "
+            f"execution context to pin. Until one exists, the corpus this validator "
+            f"judges in CI is not the repository's — it is nothing at all, because the "
+            f"validator does not run. ADR-037 D1 requires the invocation; D8 names this "
+            f"hook as an instance."
+        )
+
+        relocated = [
+            step
+            for step in steps
+            if step.working_directory is not None
+            and step.working_directory.strip() not in _ROOT_WORKING_DIRECTORIES
+        ]
+        assert not relocated, (
+            f"{script} is invoked from a step that declares a non-root working "
+            f"directory:\n"
+            + "\n".join(f"  - {step.source}: working-directory: {step.working_directory!r}" for step in relocated)
+            + "\nThe corpus is resolved from the working directory or from the script's "
+            "own path, and the two disagree once they are not the same tree."
+        )
+
+        wandering = [(step.source, line) for step in steps for line in _changes_directory(step)]
+        assert not wandering, (
+            f"{script} is invoked from a step that changes directory:\n"
+            + "\n".join(f"  - {source}: {line}" for source, line in wandering)
+            + "\nSame hazard as a `working-directory:` key, spelled where a scan of step "
+            "keys does not look."
+        )
+
+
+# ===========================================================================
+# 11. This module's own inventory
 # ===========================================================================
 
 
@@ -3741,6 +5156,10 @@ class TestModuleInventory:
             "TestGateStepsRunFromRepositoryRoot",
             "TestWorkflowTriggerCoverage",
             "TestGateStepFailsTheJob",
+            "TestUnflaggedBlockingCoverage",
+            "TestUnflaggedValidatorsRunInPlace",
+            "TestUnflaggedValidatorsCatchInjectedViolations",
+            "TestUnflaggedValidatorsValidateTheCheckoutUnderTest",
             "TestModuleInventory",
         }
     )
@@ -3866,15 +5285,17 @@ class TestModuleInventory:
 #     establishes that `--block` reaches the validator and not that the file
 #     list does. Section 6 is where the file list is established.
 #
-# TestCIFileListsAreDerivedAndComplete (2 + 5 x 3 governed hooks = 17)
+# TestCIFileListsAreDerivedAndComplete (2 + 5 x 4 governed hooks + 1 = 23)
 #   — D7a: the governed hook set is derived and non-empty and every member has
 #     a corpus writer; each CI invocation takes its file list from a command
 #     rather than from transcribed paths; that command is a single simple
 #     command running a script that reads the pre-commit config and names this
-#     hook's own id; exactly one CI invocation belongs to each governed hook;
-#     that command's whole output equals the hook's own file set; and the real
-#     validator, run with the real argument list once per resolved file, fails
-#     on each of them in turn.
+#     hook's own id; exactly one CI invocation belongs to each governed hook,
+#     once a bare invocation belonging to a self-scanning sibling sharing its
+#     script is excused (proven bounded by a synthetic case, not just
+#     asserted); that command's whole output equals the hook's own file set;
+#     and the real validator, run with the real argument list once per
+#     resolved file, fails on each of them in turn.
 #     "From a command" alone was satisfied by `FILES=$(cat prose-files.txt)` —
 #     a transcription with a substitution wrapped round it — and by
 #     `$(resolver || true)`, which discards the resolver's exit-1-on-empty.
@@ -3882,16 +5303,30 @@ class TestModuleInventory:
 #     validator: the resolution used to take candidates[0], so a duplicate ran
 #     in CI unexamined and a second real hook produced a confident failure
 #     against the wrong command.
+#     The governed set is no longer only D7's flagged three: `validate-neutrality`
+#     carries no strictness flag (ADR-037 D8) but declares `pass_filenames: true`
+#     like they do, so D7a reaches it too and it is the fourth member, with its
+#     own corpus writer (a probe drawn from ADR-033's own vendor/product
+#     denylist, `_write_neutrality_file`). It shares `validate_neutrality.py`
+#     with the self-scanning `validate-neutrality-policy`, whose own CI
+#     invocation is correctly bare — the uniqueness assertion above would
+#     misread that bare invocation as unattributed without the exception.
 #
-# TestGateStepsRunFromRepositoryRoot (6)
-#   — no gate step declares a non-root working-directory or runs `cd`; every
-#     gate step's shell exits on error and none turns it back off with `set +e`;
-#     plus two fidelity checks — the derived file list really does change with
-#     the working directory, and `bash -e` really does abort on a failing
-#     command substitution (a platform assertion, flagged as such in place).
-#     The prohibitions PASS today because GitHub's defaults supply both
-#     properties. Nothing in the workflow states them, which is the reason to
-#     pin them: an edit that changes either leaves every command line intact.
+# TestGateStepsRunFromRepositoryRoot (7)
+#   — GATE_STEPS is the union of steps invoking a `--block`-flagged validator
+#     and steps invoking one of ADR-037 D8's flagless governed validators
+#     (UNFLAGGED_BLOCKING_SCRIPTS), so both guards below reach either half: no
+#     gate step declares a non-root working-directory or runs `cd`; every gate
+#     step's shell exits on error and none turns it back off with `set +e`;
+#     plus two fidelity checks scoped to the flagged half — the derived file
+#     list really does change with the working directory, and `bash -e` really
+#     does abort on a failing command substitution (a platform assertion,
+#     flagged as such in place) — and a non-vacuity guard for each half of the
+#     union.
+#     The prohibitions PASS today for the flagged five because GitHub's
+#     defaults supply both properties. The flagless half's non-vacuity guard is
+#     RED as committed: GATE_STEPS contains none of D8's validators yet, which
+#     TestUnflaggedBlockingCoverage records from the pre-commit side.
 #
 # TestWorkflowTriggerCoverage (2 + 1 + 1 + 1)
 #   — a gate workflow triggers on its own definition, on every script its steps
@@ -3905,18 +5340,62 @@ class TestModuleInventory:
 #     alongside `paths`, because a workflow switching spelling would otherwise
 #     read as "runs unconditionally" and pass every case vacuously.
 #
-# TestGateStepFailsTheJob (1 + 5 x 5 gate steps, 2 of them skipped)
+# TestGateStepFailsTheJob (3 + 5 x 5 gate steps, 2 of them skipped = 28)
 #   — the step's own exit code, which nothing else here models. Each gate step's
 #     `run:` body is executed verbatim under `bash -e` with the interpreter
 #     stubbed: it exits 0 when the stub succeeds (the control), non-zero when
 #     the validator fails, and non-zero when the file-list resolver fails.
-#     Structurally, no strictness-carrying command is `||`-guarded and no gate
-#     step or its job declares `continue-on-error:` or a conditional `if:`.
-#     The two steps with no file-list substitution skip the resolver case;
-#     their validator case covers them.
+#     Structurally, the validator command — located by a strictness flag or,
+#     for D8's flagless validators, by script basename — is not `||`-guarded,
+#     and no gate step or its job declares `continue-on-error:` or a
+#     conditional `if:`. The two steps with no file-list substitution skip the
+#     resolver case; their validator case covers them.
+#     Two of the three non-parametrized tests are synthetic, non-vacuous proof
+#     for the flagless half neither GATE_STEPS nor the parametrized cases can
+#     yet exercise (no workflow invokes a D8 validator): the stub correctly
+#     answers as the validator for a flagless script with no flag on the line,
+#     and the `||`-guard detector catches one guarded with no flag either. Both
+#     PASS today — they test the detection logic directly, not GATE_STEPS'
+#     current (flagged-only) content.
 #     This is the section that separates "the validator found it" from "the job
 #     failed". Four one-line edits reach ADR-037 D7's rejected warn-only soak
 #     with every other assertion in this module still green.
+#
+# TestUnflaggedBlockingCoverage (1 + 6, parametrized over the derived set)
+#   — D8: the hooks ADR-037's D1 instance table names all resolve to the
+#     pre-commit config, and at least one of them carries no strictness flag;
+#     and every flagless self-scanning hook has a CI invocation, attributed to
+#     it rather than to a sibling sharing its script. The second is D1 part 1
+#     over the half of the rule `--block` cannot see, and it fails — rather
+#     than skips — on a validator no workflow runs.
+#     Six governed hooks are flagless (D8); one of them, `validate-neutrality`,
+#     also takes file arguments and is governed by section 6 instead (its own
+#     count there), not by this class — see UNFLAGGED_BLOCKING_HOOKS's own
+#     comment for why.
+#
+# TestUnflaggedValidatorsRunInPlace (6)
+#   — D7b stated positively: the invocation exists, names the validator's real
+#     path, and no workflow relocates it. Section 4's prohibition passes on
+#     these six by having no call site to police.
+#
+# TestUnflaggedValidatorsCatchInjectedViolations (1 + 6)
+#   — D7c: every governed self-scanning hook has a corpus probe, and the
+#     arguments CI passes exit non-zero and name the injected violation on a
+#     checkout-shaped mirror carrying one, having exited 0 on the clean
+#     mirror. Poison per validator: an unregistered framework key (purity,
+#     D4c), an unknown version token (drift, D5), a hand-edited versionId
+#     (versionId purity, D2b/D2c), a framework id outside frameworks.schema.json's
+#     enum (JSON Schema), an empty personas.yaml (build_persona_site_data.load_yaml),
+#     an ADR-033 vendor/product denylist term under scripts/agents|skills/**.
+#
+# TestUnflaggedValidatorsValidateTheCheckoutUnderTest (6 + 6)
+#   — which corpus the run read, which no flag, file list or command line
+#     states. A characterization observes that a poisoned corpus in the working
+#     directory goes unread by a validator that resolves from its own path,
+#     which exits 0; the rule that follows pins the step to the repository
+#     root. Section 7 now reaches these steps too — `_gate_steps` recognizes a
+#     flagless validator's invocation as a gate step (D8) — but only with its
+#     generic guards; the per-hook_id detail stays here.
 #
 # TestModuleInventory (1)
 #   — the classes this module collects are the classes it declares, and none
