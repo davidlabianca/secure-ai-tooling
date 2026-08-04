@@ -192,7 +192,12 @@ jobs:
       run: |
         echo "🔗 Running component edge validation..."
 
-        if python3 validate_riskmap.py --force; then
+        # ADR-037 D2: --block promotes the warn-only tier (controls<->components
+        # mirror drift, category/subcategory nesting) to errors, matching the
+        # validate-component-edges pre-commit hook. ADR-037 D3 keeps the flag
+        # off the graph-validation job, whose emission blocks run after the
+        # warn-only exit.
+        if python3 validate_riskmap.py --force --block; then
           echo "✅ Component edge validation completed successfully"
           echo "status=success" >> $GITHUB_OUTPUT
         else
@@ -266,12 +271,139 @@ jobs:
       run: |
         echo "🔗 Running framework reference validation..."
 
-        if python3 validate_framework_references.py --force; then
+        # ADR-037 D4: --block promotes deprecated-persona warnings to errors,
+        # matching the validate-framework-references pre-commit hook.
+        if python3 validate_framework_references.py --force --block; then
           echo "✅ Framework reference validation completed successfully"
           echo "status=success" >> $GITHUB_OUTPUT
         else
           echo "❌ Framework reference validation failed"
           echo "::error::Framework reference validation failed"
+          echo "status=failed" >> $GITHUB_OUTPUT
+          exit 1
+        fi
+
+  # ---------------------------------------------------------------------------
+  # ADR-037 D7: the three validators pre-commit runs with --block and CI ran
+  # nowhere. One job each, so a failure names a single validator.
+  #
+  # Two constraints shape every step below.
+  #   D7a — the file list is derived from each hook's own `files:` regex over
+  #         the tracked corpus, never transcribed here. A transcribed list
+  #         drifts in the permissive direction. hook_file_list.py exits
+  #         non-zero on an empty match, because these validators exit 0 when
+  #         handed no files.
+  #   D7b — the validators run at their real paths under
+  #         scripts/hooks/precommit/. They derive their sys.path entry and
+  #         their default --schema-dir from Path(__file__); copying them to the
+  #         repository root (as the older jobs above do for their validators)
+  #         breaks both, and the schema miss is swallowed silently — the job
+  #         would exit 0 having inspected nothing.
+  # ---------------------------------------------------------------------------
+  identification-questions-validation:
+    runs-on: ubuntu-latest
+    name: Identification Questions Validation
+    needs: setup
+    outputs:
+      identification_status: ${{ steps.validate-identification.outputs.status }}
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+    - name: Set up Python
+      uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+      with:
+        python-version: '3.14'
+        cache: 'pip'
+
+    - name: Install dependencies
+      run: pip install -r requirements.txt
+
+    - name: Run Identification Questions Validation
+      id: validate-identification
+      run: |
+        echo "🧭 Running identification-questions validation..."
+
+        FILES=$(python3 scripts/tools/hook_file_list.py validate-identification-questions)
+
+        if python3 scripts/hooks/precommit/validate_identification_questions.py --block ${FILES}; then
+          echo "✅ Identification-questions validation completed successfully"
+          echo "status=success" >> $GITHUB_OUTPUT
+        else
+          echo "❌ Identification-questions validation failed"
+          echo "::error::Identification-questions validation failed"
+          echo "status=failed" >> $GITHUB_OUTPUT
+          exit 1
+        fi
+
+  prose-subset-validation:
+    runs-on: ubuntu-latest
+    name: YAML Prose Subset Validation
+    needs: setup
+    outputs:
+      prose_subset_status: ${{ steps.validate-prose-subset.outputs.status }}
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+    - name: Set up Python
+      uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+      with:
+        python-version: '3.14'
+        cache: 'pip'
+
+    - name: Install dependencies
+      run: pip install -r requirements.txt
+
+    - name: Run YAML Prose Subset Validation
+      id: validate-prose-subset
+      run: |
+        echo "📝 Running YAML prose authoring subset validation..."
+
+        FILES=$(python3 scripts/tools/hook_file_list.py validate-yaml-prose-subset)
+
+        if python3 scripts/hooks/precommit/validate_yaml_prose_subset.py --block ${FILES}; then
+          echo "✅ YAML prose subset validation completed successfully"
+          echo "status=success" >> $GITHUB_OUTPUT
+        else
+          echo "❌ YAML prose subset validation failed"
+          echo "::error::YAML prose subset validation failed (ADR-017 D4)"
+          echo "status=failed" >> $GITHUB_OUTPUT
+          exit 1
+        fi
+
+  prose-references-validation:
+    runs-on: ubuntu-latest
+    name: YAML Prose Reference Validation
+    needs: setup
+    outputs:
+      prose_references_status: ${{ steps.validate-prose-references.outputs.status }}
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+    - name: Set up Python
+      uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+      with:
+        python-version: '3.14'
+        cache: 'pip'
+
+    - name: Install dependencies
+      run: pip install -r requirements.txt
+
+    - name: Run YAML Prose Reference Validation
+      id: validate-prose-references
+      run: |
+        echo "🔖 Running YAML prose reference validation..."
+
+        FILES=$(python3 scripts/tools/hook_file_list.py validate-prose-references)
+
+        if python3 scripts/hooks/precommit/validate_prose_references.py --block ${FILES}; then
+          echo "✅ YAML prose reference validation completed successfully"
+          echo "status=success" >> $GITHUB_OUTPUT
+        else
+          echo "❌ YAML prose reference validation failed"
+          echo "::error::YAML prose reference validation failed (ADR-016 D6)"
           echo "status=failed" >> $GITHUB_OUTPUT
           exit 1
         fi
@@ -368,7 +500,7 @@ jobs:
   validation-summary:
     runs-on: ubuntu-latest
     name: Validation Summary
-    needs: [schema-validation, format-validation, component-edge-validation, control-risk-validation, framework-validation, graph-validation]
+    needs: [schema-validation, format-validation, component-edge-validation, control-risk-validation, framework-validation, identification-questions-validation, prose-subset-validation, prose-references-validation, graph-validation]
     if: always()
     steps:
     - name: Generate Summary
@@ -382,6 +514,9 @@ jobs:
         edge_result="${{ needs.component-edge-validation.result }}"
         control_result="${{ needs.control-risk-validation.result }}"
         framework_result="${{ needs.framework-validation.result }}"
+        identification_result="${{ needs.identification-questions-validation.result }}"
+        prose_subset_result="${{ needs.prose-subset-validation.result }}"
+        prose_references_result="${{ needs.prose-references-validation.result }}"
         graph_result="${{ needs.graph-validation.result }}"
 
         # Get output details
@@ -425,6 +560,27 @@ jobs:
           echo "- ✅ **Framework reference validation**: Passed" >> $GITHUB_STEP_SUMMARY
         else
           echo "- ❌ **Framework reference validation**: $framework_result" >> $GITHUB_STEP_SUMMARY
+          overall_success=false
+        fi
+
+        if [ "$identification_result" = "success" ]; then
+          echo "- ✅ **Identification-questions validation**: Passed" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "- ❌ **Identification-questions validation**: $identification_result" >> $GITHUB_STEP_SUMMARY
+          overall_success=false
+        fi
+
+        if [ "$prose_subset_result" = "success" ]; then
+          echo "- ✅ **YAML prose subset validation**: Passed" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "- ❌ **YAML prose subset validation**: $prose_subset_result" >> $GITHUB_STEP_SUMMARY
+          overall_success=false
+        fi
+
+        if [ "$prose_references_result" = "success" ]; then
+          echo "- ✅ **YAML prose reference validation**: Passed" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "- ❌ **YAML prose reference validation**: $prose_references_result" >> $GITHUB_STEP_SUMMARY
           overall_success=false
         fi
 
