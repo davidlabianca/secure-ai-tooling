@@ -68,3 +68,8 @@ python3 scripts/hooks/precommit/validate_neutrality.py scripts/skills/<name>/SKI
   risks, controls, and personas against the framework-mappings style
   guide (version pinning, applicability, selectivity), deferring format
   to the style guide (ADR-031 D2, ADR-027).
+- `audit-identification-questions/` — audits persona identification
+  questions against the identification-questions style guide (framing,
+  scoping, examples, ordering), deferring the rules to the style guide.
+  Editorial responsibility per ADR-021 D7; admitted to this roster per the
+  [2026-08-02 ADR-031 amendment](../../docs/adr/031-authoring-time-agents-and-skills.md#amendment-2026-08-02-admission-of-audit-identification-questions-as-a-fifth-authoring-skill) D7.
