@@ -2,6 +2,18 @@
 
 Once you've determined the need for a new component, the following steps are required to integrate it into the framework. For this example, we'll add a new component called `componentNewComponent` to the "Application" category.
 
+## What a component is
+
+A component is an **architectural shape** — a class of element an AI system can contain — not a named thing in one deployment. `componentIdentityProvider` is the shape "identity authority"; a deployment may hold several instances of it under different authorities, and the identity provider a tool server demands is a different instance from the agent's own. Both are the same component.
+
+Three consequences follow, and each is a common source of review findings:
+
+- **A second instance does not earn a second component.** Two of the same shape under different authorities is a deployment fact, not a modeling one. What earns a second component is a second *locus* — a distinct place where something is decided, enforced, or stored.
+- **A description should not read as a singular.** Prefer "the authoritative source of identity for a deployment" over wording that implies the corpus knows of exactly one. If a sentence would be false in a deployment with two of them, rewrite it.
+- **Edges connect shapes, not instances.** An edge means "this class of element reaches that one," so an edge is right if the path exists in any deployment that has both.
+
+Adding a component is the highest-blast-radius change in the corpus: it cascades into reciprocal edges on every component it touches, the controls and risks that reference it, and the regenerated graphs and tables. Before adding one, test whether an existing component absorbs it — and if the candidate is too broad to instruct a reader, decompose an existing component instead of adding a wider one.
+
 ## 1. Add the new component ID to the schema
 
 First, derive the new component ID from the component title (`component` + camelCase descriptor — e.g., "Feature Store" → `componentFeatureStore`) and declare it in the schema. This makes the system aware of the new component and allows for validation. (The issue-template flow derives this ID automatically; when authoring YAML/schema directly via PR, apply the same convention by hand.)
