@@ -137,20 +137,20 @@ The exposure is not specific to `altitude-check`. Every artifact whose eval enco
 
 ### D7. A corpus-state-dependent eval expectation is grounded in a pinned fixture that ships with the artifact
 
-#### D7a. Classify the expectation: absence-grounded cases pin, presence-grounded cases may not
+#### D7a. Classify the expectation: fixture-grounded cases pin, presence-grounded absorb cases may not
 
 The rule fires on any eval case where changing the corpus, without changing the artifact, would change the expected verdict. It does not fire on corpus-independent cases — objective-vs-implementation, threat-vs-control-gap, real-vs-hypothetical and their kin — which are graded from the case input alone and are unaffected by this amendment.
 
 For the cases it does reach, the grounding depends on which existential the expectation asserts:
 
-- **Absence-grounded expectations pin.** An expectation that rests on *no existing entry covering* the candidate — a "keep as new" verdict, a "the corpus lacks this domain" verdict, a "decompose the existing entry" verdict that presumes a specific too-broad entry — is graded against a **pinned fixture that ships with the artifact** (D7b), never against the live corpus file. The case states in its own prompt that the fixture is the sole ground truth for that verdict.
-- **Presence-grounded expectations may use the live corpus, and name what they depend on.** An expectation that rests on a *named existing entry* is graded against the live corpus file, and the case records the entry ids it depends on. Naming the dependency converts a future failure from an open question into a one-line diagnosis: the referenced entry moved, and the case is retired or repointed.
+- **Fixture-grounded expectations pin.** This includes two cases: an **absence-grounded** expectation rests on *no existing entry covering* the candidate, such as a "keep as new" or "the corpus lacks this domain" verdict; a **shape-grounded** expectation rests on a *named existing entry being deliberately too broad*, such as a "decompose" verdict. Both are graded against a **pinned fixture that ships with the artifact** (D7b), never against the live corpus file. The case states in its own prompt that the fixture is the sole ground truth for that verdict.
+- **Presence-grounded absorb expectations may use the live corpus, and name what they depend on.** An expectation that rests on a *named existing entry already covering the candidate* without requiring structural change is graded against the live corpus file, and the case records the entry ids it depends on. Naming the dependency converts a future failure from an open question into a one-line diagnosis: the referenced entry moved, and the case is retired or repointed.
 
 #### D7b. What the fixture is, and where it lives
 
-A fixture is a **small, hand-authored, purpose-built stand-in** for the corpus file the test consults — on the order of 5–10 corpus-shaped entries — not a copy of the live file and not a snapshot of it. It is constructed to contain, by design, whatever conditions the artifact's absence-grounded cases need: a deliberate coverage gap to ground a "keep as new" verdict, a deliberately over-broad entry to ground a "decompose" verdict.
+A fixture is a **small, hand-authored, purpose-built stand-in** for the corpus file the test consults — on the order of 5–10 corpus-shaped entries — not a copy of the live file and not a snapshot of it. It is constructed to contain, by design, whatever conditions the artifact's fixture-grounded cases need: a deliberate coverage gap to ground a "keep as new" verdict, a deliberately over-broad entry to ground a "decompose" verdict.
 
-- **One fixture per artifact, shared across its cases.** The artifact's absence-grounded cases draw against one consistent backdrop rather than each inventing an uncoordinated inline list, so adding the *n*th such case costs a case, not a new fixture.
+- **One fixture per artifact, shared across its cases.** The artifact's fixture-grounded cases draw against one consistent backdrop rather than each inventing an uncoordinated inline list, so adding the *n*th such case costs a case, not a new fixture.
 - **It ships inside the artifact.** The fixture lives under the artifact's own eval tree (`scripts/skills/<skill>/evals/fixtures/`), so it travels with the artifact on clone or vendor. This is what keeps the eval portable in the [D6](#d6-develop-evaluate-and-expand-lifecycle) sense — everything the grader needs is inside the directory a consumer copies — and what keeps [D1](#d1-canonical-only-neutral-cloneable)'s "single, complete, authoritative form" true of the shipped unit.
 - **It declares that it is not corpus content.** The fixture carries a header stating it is test input, is not Risk Map content, and must not be cited, validated, or consumed as corpus.
 - **It is refreshed on structural change only.** A fixture is revised when the entity *shape* changes — a schema change that adds a required field, a structural revision of the entity model — never in response to corpus content growth. Immunity to content growth is the point of pinning it.
@@ -160,11 +160,11 @@ A fixture is a **small, hand-authored, purpose-built stand-in** for the corpus f
 
 #### D7c. Live-corpus exercise is retained, not replaced
 
-Fixture grounding is scoped to the expectations that need it. For each test whose guidance directs the executor to read a corpus file, the artifact's eval set **retains at least one case graded against that live file** — necessarily a presence-grounded case under D7a. Without that floor, an artifact could ship an eval that never exercises the corpus lookup its own guidance mandates, and would be testing placement judgment in the abstract while claiming to test the skill.
+Fixture grounding is scoped to the expectations that need it. For each test whose guidance directs the executor to read a corpus file, the artifact's eval set **retains at least one case graded against that live file** — necessarily a presence-grounded absorb case under D7a. Without that floor, an artifact could ship an eval that never exercises the corpus lookup its own guidance mandates, and would be testing placement judgment in the abstract while claiming to test the skill.
 
 ### Alternatives considered
 
-- **Grade absence-grounded cases against the live corpus and accept the drift.** Simplest, and it exercises the lookup an executor really performs in production. Rejected: the expectation is falsified by the corpus's routine direction of change, so the case fails without a defect behind it. Annotating the case ("if this now absorbs, that is corpus growth") shortens the diagnosis but does not prevent the false alarm.
+- **Grade fixture-grounded cases against the live corpus and accept the drift.** Simplest, and it exercises the lookup an executor really performs in production. Rejected: the expectation is falsified by the corpus's routine direction of change, so the case fails without a defect behind it. Annotating the case ("if this now absorbs, that is corpus growth") shortens the diagnosis but does not prevent the false alarm.
 - **Make every corpus-dependent case self-contained with an inline list, referencing no corpus at all.** Fully immune to drift. Rejected on two counts: it removes all live-corpus exercise (D7c), and it produces one uncoordinated backdrop per case, which does not scale to the several new-verdict and decompose-verdict cases the class needs.
 - **Pin a historical corpus snapshot from repository history** (`git show <sha>:risk-map/yaml/components.yaml`). Durable in principle and cheap to author. Rejected on portability: [D1](#d1-canonical-only-neutral-cloneable) ships the artifact as a self-contained cloneable unit and [D6](#d6-develop-evaluate-and-expand-lifecycle) makes the eval the consumer's portable trust anchor, but a repository-history reference does not resolve from a vendored or partially-cloned artifact directory — the eval stops being portable. It is also opaque to a future reader and drags in the entity shape of the pinned era rather than a backdrop built to make the gap and the over-broad entry obvious.
 - **Hold fixtures in one repo-wide eval-fixture directory outside the artifacts.** Rejected: it splits the eval from the artifact D1 requires to be a single complete cloneable form, and creates a shared surface every artifact must coordinate on for no gain — fixtures are per-artifact by construction.
@@ -177,19 +177,19 @@ Fixture grounding is scoped to the expectations that need it. For each test whos
 - An "already covered, or genuinely new?" expectation becomes stable under the corpus's routine direction of change. A failing case again means a defect.
 - D6's "fixed inputs" clause becomes operable for the one class where it was ambiguous, and is tightened rather than weakened: the corpus was an unacknowledged input, and pinning it makes the input set actually fixed.
 - The eval stays self-contained, so it remains portable in the D6 sense — a consumer who vendors the artifact directory gets a gradeable eval, not a dangling reference to repository state.
-- One shared backdrop supports several absence-grounded cases, so the outcome coverage a three-outcome test needs is cheap to complete.
+- One shared backdrop supports several fixture-grounded cases, so the outcome coverage a three-outcome test needs is cheap to complete.
 
 **Negative**
 
-- **Authoring cost rises per artifact.** An artifact with absence-grounded cases now needs a hand-authored fixture on top of its eval, and the fixture has to be built well enough that the gap and the over-broad entry are unambiguous.
+- **Authoring cost rises per artifact.** An artifact with fixture-grounded cases now needs a hand-authored fixture on top of its eval, and the fixture has to be built well enough that the gap and the over-broad entry are unambiguous.
 - **A fixture is content-shaped material that is not content.** Realistic-looking component, control, or risk entries under `scripts/skills/**` can be mistaken for corpus data by a contributor, a downstream consumer, or an authoring agent reading the directory. The non-authoritative header (D7b) mitigates this; nothing enforces it today.
 - **Fixtures are outside schema validation.** A structural schema change can leave a fixture shaped like an entity generation that no longer exists, quietly degrading the case's realism. The refresh trigger (D7b) is deliberate and manual.
 - **Two grounding regimes now coexist in one eval file.** A case author must classify the expectation (D7a) before writing it; misclassifying a negative existential as a presence case silently reintroduces the drift this rule exists to remove.
-- **Eval sets authored before this rule are not retrofitted by it.** Until the sweep below runs, absence-grounded expectations in the shipped set remain pinned to the live corpus.
+- **Eval sets authored before this rule are not retrofitted by it.** Until the sweep below runs, fixture-grounded expectations in the shipped set remain pinned to the live corpus.
 
 **Follow-up**
 
-- **Sweep the shipped eval sets** (`scripts/skills/**/evals/`, and agent evals as they land) for corpus-state-dependent expectations, classify each per D7a, and retrofit the absence-grounded ones with fixtures. Tracked as a backlog issue; routed per artifact as infrastructure (`swe` → `code-reviewer`).
+- **Sweep the shipped eval sets** (`scripts/skills/**/evals/`, and agent evals as they land) for corpus-state-dependent expectations, classify each per D7a, and retrofit the fixture-grounded ones with fixtures. Tracked as a backlog issue; routed per artifact as infrastructure (`swe` → `code-reviewer`).
 - **The first artifact to land a fixture fixes the pattern** — the `evals/fixtures/` layout and the non-authoritative header wording that later artifacts follow. This is the same "first PR sets the on-disk pattern" mechanism [ADR-031 D6](031-authoring-time-agents-and-skills.md) used for the skill layout itself.
 - **The eval-runner selection deferred by D6 inherits a constraint from this amendment:** whatever runner is chosen must be able to grade a case against a fixture shipped alongside the eval, not only against live repository state.
 - **A check that fixture files are never read or validated as corpus** is deferred. The boundary is review-enforced until one exists.
