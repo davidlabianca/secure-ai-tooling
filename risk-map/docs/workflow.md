@@ -17,6 +17,7 @@ This page outlines the overall process for contributing content to the CoSAI Ris
 6. Open a PR against the `develop` branch describing the Risk Map updates and validation performed
    - GitHub Actions will automatically run the same validations on your PR
    - Address any CI failures before requesting review
+   - **Change spans more than one entity type?** (e.g. a new component plus the controls and risks that reference it) — it lands as multiple PRs in a fixed order, not one. See [Landing Sequence for Corpus Changes](contributing/landing-sequence.md) before you open a PR.
 
 ## Content Type Guides
 

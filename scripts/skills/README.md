@@ -60,3 +60,16 @@ python3 scripts/hooks/precommit/validate_neutrality.py scripts/skills/<name>/SKI
 - `mapping-selection/` — selects a control's/risk's components, addressed
   risks/controls, and framework mappings, grounded in the corpus and the
   framework applicability rules (ADR-031 D2/D4).
+- `altitude-check/` — checks whether a control/risk/component draft is
+  pitched at the right altitude (granularity), applying the per-type
+  altitude tests and deferring terminology to `classical-lexicon`
+  (ADR-031 D2).
+- `audit-framework-mappings/` — audits the framework mappings across
+  risks, controls, and personas against the framework-mappings style
+  guide (version pinning, applicability, selectivity), deferring format
+  to the style guide (ADR-031 D2, ADR-027).
+- `audit-identification-questions/` — audits persona identification
+  questions against the identification-questions style guide (framing,
+  scoping, examples, ordering), deferring the rules to the style guide.
+  Editorial responsibility per ADR-021 D7; admitted to this roster per the
+  [2026-08-02 ADR-031 amendment](../../docs/adr/031-authoring-time-agents-and-skills.md#amendment-2026-08-02-admission-of-audit-identification-questions-as-a-fifth-authoring-skill) D7.
