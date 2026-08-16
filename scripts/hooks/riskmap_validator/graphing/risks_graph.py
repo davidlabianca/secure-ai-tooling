@@ -144,6 +144,13 @@ class RiskGraph(BaseGraph):
         Returns:
             Complete Mermaid graph with three-layer hierarchy and styling
         """
+        # Start this instance's own render pass with a clean subgraph-id
+        # collision set (see BaseGraph._reset_declared_subgraph_ids). This
+        # only covers the risk-layer ids declared directly on self (via
+        # _get_risk_subgraphs); the reused ControlGraph instance resets its
+        # own state independently inside _get_subgraph.
+        self._reset_declared_subgraph_ids()
+
         # Get graph configuration for risk graph type
         config_result = self.config_loader.get_graph_config("risk")
         if isinstance(config_result, tuple) and len(config_result) == 2:
