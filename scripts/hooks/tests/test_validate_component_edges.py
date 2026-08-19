@@ -832,6 +832,32 @@ class TestComponentGraph:
         # Should contain style definitions section
         assert "%% Node style definitions" in mermaid_output
 
+    def test_style_definitions_emit_real_component_category_lines(self, simple_forward_map, simple_components):
+        """
+        Test that the styling loop emits a `style <categoryId> ...` line for
+        a real component category, not just the "%% Node style definitions"
+        section header.
+
+        component_graph.py's styling loop (build_graph) iterates the config
+        loader's componentCategories -- sourced from the default
+        risk-map/yaml/mermaid-styles.yaml, not from the categories actually
+        present in `simple_components` -- so this exercises the
+        get_component_category_styles() -> _get_node_style() plumbing
+        end to end. Without this assertion, that loop could stop emitting
+        style lines entirely and the suite would stay green: the only other
+        coverage (test_mermaid_output_format above) checks for the section
+        header comment, not for any actual style line.
+        """
+        graph = ComponentGraph(simple_forward_map, simple_components)
+        mermaid_output = graph.to_mermaid()
+
+        style_lines = [line.strip() for line in mermaid_output.split("\n") if line.strip().startswith("style ")]
+
+        assert any(line.startswith("style componentsInfrastructure ") for line in style_lines), (
+            f"Expected a 'style componentsInfrastructure ...' line; got style lines: {style_lines}"
+        )
+        assert all("fill:" in line and "stroke:" in line for line in style_lines)
+
     def test_to_mermaid_method(self, simple_forward_map, simple_components):
         """Test the to_mermaid method returns the built graph."""
         graph = ComponentGraph(simple_forward_map, simple_components)

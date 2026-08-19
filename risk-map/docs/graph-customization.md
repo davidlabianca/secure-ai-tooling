@@ -1,6 +1,6 @@
 # Customizing Graph Appearance
 
-The CoSAI Risk Map system generates a visual Mermaid graph of component relationships. You can fully customize its appearance through the `risk-map/yaml/mermaid-styles.yaml` configuration file. (The control and risk graph generators that also read this file were withdrawn per #477; their `graphTypes.control` / `graphTypes.risk` sections remain in the file for now and are described below for completeness, but no generator currently consumes them.)
+The CoSAI Risk Map system generates a visual Mermaid graph of component relationships. You can fully customize its appearance through the `risk-map/yaml/mermaid-styles.yaml` configuration file.
 
 ## Understanding the Configuration Structure
 
@@ -35,7 +35,7 @@ foundation:
 
 ### Shared Elements
 
-Elements used by both component graphs and control graphs:
+Elements used by the component graph:
 
 ```yaml
 sharedElements:
@@ -62,7 +62,7 @@ sharedElements:
 
 ### Graph Type Configurations
 
-Specific settings for component graphs and control graphs:
+Specific settings for the component graph:
 
 ```yaml
 graphTypes:
@@ -71,34 +71,13 @@ graphTypes:
     flowchartConfig:
       padding: 5 # Internal node padding
       wrappingWidth: 250 # Text wrapping width
-  control:
-    direction: 'LR' # Left-right layout optimized for control-to-component flow
-    flowchartConfig:
-      nodeSpacing: 25 # Space between nodes
-      rankSpacing: 150 # Space between ranks/levels
-      padding: 5 # Internal node padding
-      wrappingWidth: 250 # Text wrapping width
-    specialStyling:
-      edgeStyles:
-        multiEdgeStyles: # 4-color cycling system for controls with 3+ edges
-          - stroke: '#9c27b0' # Purple - solid
-            strokeWidth: '2px'
-          - stroke: '#ff9800' # Orange - dashed
-            strokeWidth: '2px'
-            strokeDasharray: '5 5'
-          - stroke: '#e91e63' # Pink - long dash
-            strokeWidth: '2px'
-            strokeDasharray: '10 2'
-          - stroke: '#C95792' # Magenta - long dash with spacing
-            strokeWidth: '2px'
-            strokeDasharray: '10 5'
 ```
 
 ## Common Customization Examples
 
 ### 1. Change Component Category Color Scheme
 
-To modify the color scheme for component categories (affects both graph types):
+To modify the color scheme for component categories:
 
 ```yaml
 sharedElements:
@@ -127,34 +106,9 @@ graphTypes:
       nodeSpacing: 40 # Increase space between nodes
       rankSpacing: 50 # Increase space between levels
       wrappingWidth: 300 # Allow wider text labels
-  control:
-    direction: 'TB' # Change to top-bottom layout
 ```
 
-### 3. Customize Multi-Edge Control Styling
-
-To modify the 4-color cycling system for complex controls:
-
-```yaml
-graphTypes:
-  control:
-    specialStyling:
-      edgeStyles:
-        multiEdgeStyles:
-          - stroke: '#1976d2' # Blue theme
-            strokeWidth: '3px' # Thicker lines
-          - stroke: '#388e3c' # Green
-            strokeWidth: '3px'
-            strokeDasharray: '8 8'
-          - stroke: '#f57c00' # Orange
-            strokeWidth: '3px'
-            strokeDasharray: '12 4'
-          - stroke: '#7b1fa2' # Purple
-            strokeWidth: '3px'
-            strokeDasharray: '15 5'
-```
-
-### 4. Adjust Foundation Colors for Brand Consistency
+### 3. Adjust Foundation Colors for Brand Consistency
 
 To align with organizational brand colors:
 
@@ -165,49 +119,6 @@ foundation:
     success: '#00aa44' # Your brand success color
     accent: '#6600cc' # Your brand accent color
     neutral: '#404040' # Darker borders for better contrast
-```
-
-### 5. Customize Risk Category Appearance
-
-To modify colors for risk categories in the controls-to-risk graph:
-
-```yaml
-graphTypes:
-  risk:
-    specialStyling:
-      riskCategories:
-        risks:
-          fill: '#ffeef0' # Light pink background for risk category
-          stroke: '#e91e63' # Pink border for risk emphasis
-          strokeWidth: '2px'
-          subgroupFill: '#ffe0e6' # Darker pink for risk subgroups
-```
-
-**Note**: The current configuration uses a single `risks` category. Individual risk categories (like `risksSupplyChainAndDevelopment`, `risksDeploymentAndInfrastructure`, etc.) are defined in `risks.yaml` but share the same visual styling from this single `risks` configuration.
-
-### 6. Style All Three Graph Containers
-
-To create a consistent appearance across the risk graph's three layers:
-
-```yaml
-graphTypes:
-  risk:
-    specialStyling:
-      componentsContainer:
-        fill: '#e8f5e9' # Light green - bottom layer (components)
-        stroke: '#4caf50' # Green border
-        strokeWidth: '3px'
-        strokeDasharray: '10 5'
-      controlsContainer:
-        fill: '#e3f2fd' # Light blue - middle layer (controls)
-        stroke: '#2196f3' # Blue border
-        strokeWidth: '3px'
-        strokeDasharray: '10 5'
-      risksContainer:
-        fill: '#fce4ec' # Light pink - top layer (risks)
-        stroke: '#e91e63' # Pink border
-        strokeWidth: '3px'
-        strokeDasharray: '10 5'
 ```
 
 ## Testing Your Customizations

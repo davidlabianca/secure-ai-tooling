@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """
-Tests for BaseGraph and MultiEdgeStyler classes
+Tests for the BaseGraph class
 
-This test suite validates the foundational graph generation classes used across
-all Mermaid graph types. The tests focus on initialization validation, category
-handling, cluster finding, node mapping, and style generation.
+This test suite validates the foundational graph generation class used by
+ComponentGraph. The tests focus on initialization validation, category
+handling, cluster finding, node grouping, and style generation.
 
 Test Coverage:
 ==============
@@ -12,58 +12,37 @@ Test Coverage:
    - TypeError when components is not dict
    - TypeError when components contains non-ComponentNode values
    - Valid/invalid controls dict validation
-   - Valid/invalid risks dict validation
    - Config loader initialization
 
-2. Node Type Mapping (_nodetype_a_to_b_mapping):
-   - component-by-control mapping type
-   - risk-by-control mapping type
-   - Invalid mapping_type ValueError
-   - Empty components/risks handling
-   - "all" components handling
-   - "none" components handling
-
-3. Category Name Loading (_load_category_names):
+2. Category Name Loading (_load_category_names):
    - Successful YAML loading
    - Exception handling for missing/corrupt files
    - with_controls=False filtering
    - Caching behavior
 
-4. Node Clustering (_find_node_clusters):
+3. Node Clustering (_find_node_clusters):
    - Component clusters finding
-   - Risks clusters finding
+   - Risks clusters finding (naming-only; no production caller after #477 --
+     see #488, the ComponentGraph collision fix this machinery is kept for)
    - Invalid node_type (should return {})
    - Cluster naming conflict resolution
    - Fallback subgroup naming
 
-5. Node Grouping (_group_node_by):
+4. Node Grouping (_group_node_by):
    - Components grouping with/without subcategories
    - Controls grouping
-   - Risks grouping
    - ValueError with invalid node_type
    - Subcategory processing
 
-6. Nested Subgraph Generation (_get_nested_subgraph_new):
+5. Nested Subgraph Generation (_get_nested_subgraph_new):
    - Components without subcategory
    - Subgroup iteration and line generation
    - Empty line removal
    - Empty category_subgroups handling
 
-7. Node Styling (_get_node_style):
+6. Node Styling (_get_node_style):
    - componentCategory style type
-   - riskCategory style type
-   - dynamicSubgroup style with parent categories
-   - Fallback colors for Infrastructure/Data/Model/Application
-   - Default gray fallback
    - Unknown style_type default
-
-8. MultiEdgeStyler Class:
-   - TypeError when basegraph is invalid
-   - Edge index cycling (0-3)
-   - Edge index cycling beyond 4
-   - Empty multiEdgeStyles config
-   - style_group with no edges
-   - reset_index functionality
 
 Coverage Target: 95%+ for graphing/base.py (up from 78%)
 """
@@ -80,9 +59,9 @@ import yaml
 git_root = Path(__file__).parent.parent.parent.parent
 sys.path.insert(0, str(git_root / "scripts" / "hooks"))
 
-from riskmap_validator.graphing.base import BaseGraph, MultiEdgeStyler  # noqa: E402
+from riskmap_validator.graphing.base import BaseGraph  # noqa: E402
 from riskmap_validator.graphing.graph_utils import MermaidConfigLoader  # noqa: E402
-from riskmap_validator.models import ComponentNode, ControlNode, RiskNode  # noqa: E402
+from riskmap_validator.models import ComponentNode, ControlNode  # noqa: E402
 
 
 class TestBaseGraphInitialization:
@@ -124,25 +103,9 @@ class TestBaseGraphInitialization:
         }
 
     @pytest.fixture
-    def valid_risks(self):
-        """Provide valid risks dictionary."""
-        return {
-            "risk1": RiskNode(title="Risk 1", category="risks"),
-        }
-
-    @pytest.fixture
     def mock_config_loader(self):
         """Provide mock MermaidConfigLoader."""
         mock = Mock(spec=MermaidConfigLoader)
-        mock.get_control_edge_styles.return_value = {
-            "allControlEdges": {"stroke": "#4285f4", "strokeWidth": "2px"},
-            "multiEdgeStyles": [
-                {"stroke": "#9c27b0", "strokeWidth": "2px"},
-                {"stroke": "#ff9800", "strokeWidth": "2px"},
-                {"stroke": "#34a853", "strokeWidth": "2px"},
-                {"stroke": "#e91e63", "strokeWidth": "2px"},
-            ],
-        }
         mock.get_component_category_styles.return_value = {
             "componentsData": {
                 "fill": "#fff5e6",
@@ -166,7 +129,6 @@ class TestBaseGraphInitialization:
         assert graph.components == valid_components
         assert len(graph.components) == 2
         assert graph.controls == {}
-        assert graph.risks == {}
 
     def test_basegraph_components_not_dict_raises_typeerror(self, mock_config_loader):
         """
@@ -251,247 +213,6 @@ class TestBaseGraphInitialization:
         graph = BaseGraph(components=valid_components, controls=invalid_controls, config_loader=mock_config_loader)
 
         assert graph.controls == {}
-
-    def test_basegraph_with_valid_risks_sets_risks(self, valid_components, valid_risks, mock_config_loader):
-        """
-        Test that valid risks dict is set correctly.
-
-        Given: Valid components and risks dictionaries
-        When: BaseGraph is instantiated
-        Then: Risks are set on the object
-        """
-        graph = BaseGraph(components=valid_components, risks=valid_risks, config_loader=mock_config_loader)
-
-        assert graph.risks == valid_risks
-        assert len(graph.risks) == 1
-
-    def test_basegraph_with_invalid_risks_ignores_risks(self, valid_components, mock_config_loader):
-        """
-        Test that invalid risks dict is ignored (not set).
-
-        Given: Valid components but invalid risks (not a dict)
-        When: BaseGraph is instantiated
-        Then: Risks remain empty dict
-        """
-        graph = BaseGraph(components=valid_components, risks=["invalid"], config_loader=mock_config_loader)  # pyright: ignore[reportArgumentType]
-
-        assert graph.risks == {}
-
-    def test_basegraph_with_risks_containing_non_risknode_ignores_risks(
-        self, valid_components, mock_config_loader
-    ):
-        """
-        Test that risks dict with non-RiskNode values is ignored.
-
-        Given: Risks dict containing non-RiskNode values
-        When: BaseGraph is instantiated
-        Then: Risks remain empty dict
-        """
-        invalid_risks = {
-            "risk1": RiskNode(title="Risk 1", category="risks"),
-            "risk2": 123,  # Invalid
-        }
-
-        graph = BaseGraph(components=valid_components, risks=invalid_risks, config_loader=mock_config_loader)
-
-        assert graph.risks == {}
-
-
-class TestNodeTypeMapping:
-    """
-    Test _nodetype_a_to_b_mapping method.
-
-    Tests focus on mapping controls to components/risks with special handling
-    for "all", "none", and filtering of non-existent nodes.
-    """
-
-    @pytest.fixture
-    def components_and_controls(self):
-        """Provide components and controls for mapping tests."""
-        components = {
-            "comp1": ComponentNode(title="C1", category="componentsData", to_edges=[], from_edges=[]),
-            "comp2": ComponentNode(title="C2", category="componentsModel", to_edges=[], from_edges=[]),
-        }
-        controls = {
-            "ctrl_all": ControlNode(
-                title="All Control",
-                category="controlsData",
-                components=["all"],
-                risks=[],
-                personas=[],
-            ),
-            "ctrl_none": ControlNode(
-                title="None Control",
-                category="controlsData",
-                components=["none"],
-                risks=[],
-                personas=[],
-            ),
-            "ctrl_specific": ControlNode(
-                title="Specific Control",
-                category="controlsData",
-                components=["comp1"],
-                risks=[],
-                personas=[],
-            ),
-            "ctrl_nonexistent": ControlNode(
-                title="Non-existent Control",
-                category="controlsData",
-                components=["comp1", "comp_missing"],
-                risks=[],
-                personas=[],
-            ),
-        }
-        return components, controls
-
-    @pytest.fixture
-    def risks_and_controls(self):
-        """Provide risks and controls for risk mapping tests."""
-        risks = {
-            "risk1": RiskNode(title="Risk 1", category="risks"),
-            "risk2": RiskNode(title="Risk 2", category="risks"),
-        }
-        controls = {
-            "ctrl_all_risks": ControlNode(
-                title="All Risks",
-                category="controlsData",
-                components=[],
-                risks=["all"],
-                personas=[],
-            ),
-            "ctrl_none_risks": ControlNode(
-                title="None Risks",
-                category="controlsData",
-                components=[],
-                risks=["none"],
-                personas=[],
-            ),
-            "ctrl_specific_risks": ControlNode(
-                title="Specific Risks",
-                category="controlsData",
-                components=[],
-                risks=["risk1"],
-                personas=[],
-            ),
-        }
-        return risks, controls
-
-    @pytest.fixture
-    def mock_config_loader(self):
-        """Provide mock config loader."""
-        return Mock(spec=MermaidConfigLoader)
-
-    def test_component_to_control_mapping(self, components_and_controls, mock_config_loader):
-        """
-        Test component-by-control mapping.
-
-        Given: Components and controls with various mapping types
-        When: _component_to_control_mapping is called
-        Then: Mapping is created correctly with "all", "none", specific, and filtered
-        """
-        components, controls = components_and_controls
-        graph = BaseGraph(components=components, controls=controls, config_loader=mock_config_loader)
-        graph._component_to_control_mapping()
-
-        assert graph.initial_mapping["ctrl_all"] == ["components"]  # "all" mapped to special value
-        assert graph.initial_mapping["ctrl_none"] == []  # "none" mapped to empty list
-        assert graph.initial_mapping["ctrl_specific"] == ["comp1"]
-        # ctrl_nonexistent should filter out comp_missing
-        assert graph.initial_mapping["ctrl_nonexistent"] == ["comp1"]
-        assert "comp_missing" not in graph.initial_mapping["ctrl_nonexistent"]
-
-    def test_risk_to_control_mapping(self, risks_and_controls, mock_config_loader):
-        """
-        Test risk-by-control mapping.
-
-        Given: Risks and controls with various mapping types
-        When: _risk_to_control_mapping is called
-        Then: Mapping is created correctly
-        """
-        risks, controls = risks_and_controls
-        # Need minimal components to initialize
-        components = {
-            "comp1": ComponentNode(title="C1", category="componentsData", to_edges=[], from_edges=[]),
-        }
-        graph = BaseGraph(components=components, controls=controls, risks=risks, config_loader=mock_config_loader)
-        graph._risk_to_control_mapping()
-
-        assert graph.initial_mapping["ctrl_all_risks"] == ["risks"]  # "all" mapped to special value
-        assert graph.initial_mapping["ctrl_none_risks"] == []  # "none" mapped to empty list
-        assert graph.initial_mapping["ctrl_specific_risks"] == ["risk1"]
-
-    def test_nodetype_a_to_b_mapping_invalid_type_raises_valueerror(
-        self, components_and_controls, mock_config_loader
-    ):
-        """
-        Test that invalid mapping_type raises ValueError.
-
-        Given: Valid components and controls
-        When: _nodetype_a_to_b_mapping is called with invalid type
-        Then: ValueError is raised
-        """
-        components, controls = components_and_controls
-        graph = BaseGraph(components=components, controls=controls, config_loader=mock_config_loader)
-
-        with pytest.raises(ValueError, match="mapping_type must be: 'component-by-control' or 'risk-by-control'"):
-            graph._nodetype_a_to_b_mapping("invalid-mapping-type")
-
-    def test_component_mapping_with_empty_components_returns_early(self, mock_config_loader):
-        """
-        Test that component mapping with no components returns early.
-
-        Given: Empty components dict
-        When: _component_to_control_mapping is called
-        Then: Method returns early without error
-        """
-        components = {}
-        controls = {
-            "ctrl1": ControlNode(
-                title="Control 1",
-                category="controlsData",
-                components=["comp1"],
-                risks=[],
-                personas=[],
-            ),
-        }
-        # BaseGraph requires at least one component, so we need to use a minimal one
-        # Actually, looking at the code, empty components will fail initialization
-        # So we test with components but empty controls
-        components = {
-            "comp1": ComponentNode(title="C1", category="componentsData", to_edges=[], from_edges=[]),
-        }
-        graph = BaseGraph(components=components, controls=controls, config_loader=mock_config_loader)
-        graph.components = {}  # Manually set to empty after init
-        graph._component_to_control_mapping()
-
-        # Should return early and not set initial_mapping
-        assert not hasattr(graph, "initial_mapping") or graph.initial_mapping == {}
-
-    def test_risk_mapping_with_empty_risks_returns_early(self, mock_config_loader):
-        """
-        Test that risk mapping with no risks returns early.
-
-        Given: Empty risks dict
-        When: _risk_to_control_mapping is called
-        Then: Method returns early without error
-        """
-        components = {
-            "comp1": ComponentNode(title="C1", category="componentsData", to_edges=[], from_edges=[]),
-        }
-        controls = {
-            "ctrl1": ControlNode(
-                title="Control 1",
-                category="controlsData",
-                components=[],
-                risks=["risk1"],
-                personas=[],
-            ),
-        }
-        graph = BaseGraph(components=components, controls=controls, risks={}, config_loader=mock_config_loader)
-        graph._risk_to_control_mapping()
-
-        # Should return early
-        assert not hasattr(graph, "initial_mapping") or graph.initial_mapping == {}
 
 
 class TestCategoryNameLoading:
@@ -618,6 +339,41 @@ class TestCategoryNameLoading:
         assert "controlsModel" not in names
 
 
+class TestCategoryDisplayName:
+    """
+    Test _get_category_display_name method.
+
+    Every real ComponentGraph render passes a category id that is present in
+    the YAML-loaded cache (component_graph.py:113), so the "configured name"
+    return path is the one every production call actually takes. The other
+    tests in this module cover it only indirectly, via mocked config loaders
+    that never populate _category_names_cache with the category under test.
+    """
+
+    @pytest.fixture
+    def mock_config_loader(self):
+        """Provide mock config loader."""
+        return Mock(spec=MermaidConfigLoader)
+
+    def test_returns_configured_name_for_cached_category(self, mock_config_loader):
+        """
+        Test that a category present in the cached YAML-loaded names returns
+        the configured display name directly.
+
+        Given: A category id already present in _category_names_cache
+        When: _get_category_display_name is called
+        Then: The cached configured name is returned verbatim, not a
+              dynamically generated one
+        """
+        components = {
+            "comp1": ComponentNode(title="C1", category="componentsData", to_edges=[], from_edges=[]),
+        }
+        graph = BaseGraph(components=components, config_loader=mock_config_loader)
+        graph._category_names_cache = {"componentsData": "Configured Data Components"}
+
+        assert graph._get_category_display_name("componentsData") == "Configured Data Components"
+
+
 class TestNodeClustering:
     """
     Test _find_node_clusters method.
@@ -669,18 +425,20 @@ class TestNodeClustering:
         """
         Test finding risk clusters.
 
-        Given: Risks and node-to-controls mapping
+        _find_node_clusters's "risks" node_type branch takes its node ids
+        from node_to_controls (below), not from self.risks -- BaseGraph no
+        longer models risk data (issue #477 removed RiskNode), so this
+        exercises the naming/clustering logic only, with no risk-typed
+        fixture data needed.
+
+        Given: A node-to-controls mapping keyed by risk-shaped ids
         When: _find_node_clusters is called with node_type="risks"
         Then: Risk clusters are identified correctly
         """
         components = {
             "comp1": ComponentNode(title="C1", category="componentsData", to_edges=[], from_edges=[]),
         }
-        risks = {
-            "risk1": RiskNode(title="R1", category="risks"),
-            "risk2": RiskNode(title="R2", category="risks"),
-        }
-        graph = BaseGraph(components=components, risks=risks, config_loader=mock_config_loader)
+        graph = BaseGraph(components=components, config_loader=mock_config_loader)
 
         # Node to controls mapping with shared controls
         node_to_controls = {
@@ -741,6 +499,47 @@ class TestNodeClustering:
             # Should have some name (possibly with suffix to avoid conflict)
             assert cluster_name is not None
             assert len(cluster_name) > 0
+
+    def test_cluster_naming_conflict_appends_parent_category_when_prefix_differs(self, mock_config_loader):
+        """
+        Test that a colliding cluster name is disambiguated by appending the
+        parent category, for the case where the common prefix is NOT the
+        same string as the parent category name.
+
+        test_cluster_naming_conflict_resolution above always constructs a
+        common prefix identical to the parent category, which only reaches
+        the "append literal Subgroup" branch. This is the sibling branch:
+        #488 (the ComponentGraph collision fix this clustering machinery is
+        retained for) will need both.
+
+        Given: A cluster whose derived name ("componentsFoo") collides with
+               an existing category, where "Foo" (the common prefix) differs
+               from "Data" (the parent category, stripped of its prefix)
+        When: _find_node_clusters is called
+        Then: The parent category name is appended to disambiguate, rather
+              than the literal "Subgroup" suffix
+        """
+        components = {
+            "componentFoo1": ComponentNode(title="Foo 1", category="componentsData", to_edges=[], from_edges=[]),
+            "componentFoo2": ComponentNode(title="Foo 2", category="componentsData", to_edges=[], from_edges=[]),
+        }
+        graph = BaseGraph(components=components, config_loader=mock_config_loader)
+        # Pre-seed "componentsFoo" as an already-taken category name so the
+        # derived cluster name collides with it.
+        graph.component_by_category = {
+            "componentsFoo": [],
+            "componentsData": ["componentFoo1", "componentFoo2"],
+        }
+
+        node_to_controls = {
+            "componentFoo1": {"ctrl1", "ctrl2"},
+            "componentFoo2": {"ctrl1", "ctrl2"},
+        }
+
+        clusters = graph._find_node_clusters("component", node_to_controls, min_shared_controls=2, min_nodes=2)
+
+        assert "componentsFooData" in clusters
+        assert "componentsFooSubgroup" not in clusters
 
     def test_cluster_fallback_naming(self, mock_config_loader):
         """
@@ -840,9 +639,9 @@ class TestSubgraphIdUniqueness:
             "componentsExternalTools": ["componentC3", "componentD4"],
         }
 
-        # Each category's node-to-controls map is independent, mirroring how
-        # _find_optimal_subgroupings builds one map per category before
-        # clustering within it.
+        # Each category's node-to-controls map is independent, mirroring a
+        # caller that builds one map per category before clustering within it
+        # (the calling convention #488's ComponentGraph fix will use).
         node_to_controls_by_category = {
             "componentsApplication": {
                 "componentA1": {"ctrl1", "ctrl2"},
@@ -1119,30 +918,6 @@ class TestGroupNodeBy:
         assert "ctrl1" in groups["controlsData"]
         assert "ctrl2" in groups["controlsModel"]
 
-    def test_group_risks_by_category(self, mock_config_loader):
-        """
-        Test grouping risks by category.
-
-        Given: Risks with different categories
-        When: _group_node_by("risks") is called
-        Then: Risks are grouped by category
-        """
-        components = {
-            "comp1": ComponentNode(title="C1", category="componentsData", to_edges=[], from_edges=[]),
-        }
-        risks = {
-            "risk1": RiskNode(title="R1", category="risksPrivacy"),
-            "risk2": RiskNode(title="R2", category="risksSecurity"),
-        }
-        graph = BaseGraph(components=components, risks=risks, config_loader=mock_config_loader)
-
-        groups, subcat_groups = graph._group_node_by("risks")
-
-        assert "risksPrivacy" in groups
-        assert "risksSecurity" in groups
-        assert "risk1" in groups["risksPrivacy"]
-        assert "risk2" in groups["risksSecurity"]
-
     def test_group_node_by_invalid_node_type_raises_valueerror(self, mock_config_loader):
         """
         Test that invalid node_type raises ValueError.
@@ -1349,134 +1124,6 @@ class TestNodeStyling:
         assert "stroke:#333333" in style
         assert "stroke-width:2px" in style
 
-    def test_get_node_style_risk_category(self, mock_config_loader):
-        """
-        Test riskCategory style type.
-
-        Given: Category config for risk
-        When: _get_node_style("riskCategory") is called
-        Then: Returns formatted style string with risk defaults
-        """
-        components = {
-            "comp1": ComponentNode(title="C1", category="componentsData", to_edges=[], from_edges=[]),
-        }
-        graph = BaseGraph(components=components, config_loader=mock_config_loader)
-
-        category_config = {}  # Empty to test defaults
-        style = graph._get_node_style("riskCategory", category_config=category_config)
-
-        assert "fill:#ffeef0" in style  # Default risk fill
-        assert "stroke:#e91e63" in style  # Default risk stroke
-        assert "stroke-width:2px" in style
-
-    def test_get_node_style_dynamic_subgroup_with_config(self, mock_config_loader):
-        """
-        Test dynamicSubgroup style with parent category in config.
-
-        Given: Parent category with subgroupFill in config
-        When: _get_node_style("dynamicSubgroup") is called
-        Then: Uses configured subgroupFill
-        """
-        components = {
-            "comp1": ComponentNode(title="C1", category="componentsData", to_edges=[], from_edges=[]),
-        }
-        graph = BaseGraph(components=components, config_loader=mock_config_loader)
-
-        style = graph._get_node_style("dynamicSubgroup", parent_category="componentsData")
-
-        assert "fill:#f5f0e6" in style  # From mock config
-
-    def test_get_node_style_dynamic_subgroup_infrastructure_fallback(self, mock_config_loader):
-        """
-        Test dynamicSubgroup fallback for Infrastructure category.
-
-        Given: Parent category containing "Infrastructure" without subgroupFill in config
-        When: _get_node_style("dynamicSubgroup") is called
-        Then: Uses Infrastructure fallback color
-        """
-        components = {
-            "comp1": ComponentNode(title="C1", category="componentsData", to_edges=[], from_edges=[]),
-        }
-        graph = BaseGraph(components=components, config_loader=mock_config_loader)
-
-        style = graph._get_node_style("dynamicSubgroup", parent_category="componentsInfrastructure")
-
-        assert "fill:#d4e6d4" in style  # Infrastructure fallback
-
-    def test_get_node_style_dynamic_subgroup_data_fallback(self, mock_config_loader):
-        """
-        Test dynamicSubgroup fallback for Data category.
-
-        Given: Parent category containing "Data" without subgroupFill in config
-        When: _get_node_style("dynamicSubgroup") is called
-        Then: Uses Data fallback color
-        """
-        components = {
-            "comp1": ComponentNode(title="C1", category="componentsData", to_edges=[], from_edges=[]),
-        }
-        graph = BaseGraph(components=components, config_loader=mock_config_loader)
-
-        # Force fallback by using category not in config
-        style = graph._get_node_style("dynamicSubgroup", parent_category="componentsDataSpecial")
-
-        assert "fill:#f5f0e6" in style  # Data fallback
-
-    def test_get_node_style_dynamic_subgroup_model_fallback(self, mock_config_loader):
-        """
-        Test dynamicSubgroup fallback for Model category.
-
-        Given: Parent category containing "Model" without subgroupFill in config
-        When: _get_node_style("dynamicSubgroup") is called
-        Then: Uses Model fallback color
-        """
-        components = {
-            "comp1": ComponentNode(title="C1", category="componentsData", to_edges=[], from_edges=[]),
-        }
-        graph = BaseGraph(components=components, config_loader=mock_config_loader)
-
-        # Test Model fallback - need to bypass config lookup
-        # The code checks config first, so we modify the return value
-        mock_config_loader.get_component_category_styles.return_value = {}
-        style = graph._get_node_style("dynamicSubgroup", parent_category="componentsModelSpecial")
-
-        assert "fill:#f0e6e6" in style  # Model fallback
-
-    def test_get_node_style_dynamic_subgroup_application_fallback(self, mock_config_loader):
-        """
-        Test dynamicSubgroup fallback for Application category.
-
-        Given: Parent category containing "Application" without subgroupFill in config
-        When: _get_node_style("dynamicSubgroup") is called
-        Then: Uses Application fallback color
-        """
-        components = {
-            "comp1": ComponentNode(title="C1", category="componentsData", to_edges=[], from_edges=[]),
-        }
-        graph = BaseGraph(components=components, config_loader=mock_config_loader)
-
-        mock_config_loader.get_component_category_styles.return_value = {}
-        style = graph._get_node_style("dynamicSubgroup", parent_category="componentsApplicationSpecial")
-
-        assert "fill:#e0f0ff" in style  # Application fallback
-
-    def test_get_node_style_dynamic_subgroup_default_gray_fallback(self, mock_config_loader):
-        """
-        Test dynamicSubgroup default gray fallback.
-
-        Given: Parent category not matching any specific type
-        When: _get_node_style("dynamicSubgroup") is called
-        Then: Uses default gray fallback
-        """
-        components = {
-            "comp1": ComponentNode(title="C1", category="componentsData", to_edges=[], from_edges=[]),
-        }
-        graph = BaseGraph(components=components, config_loader=mock_config_loader)
-
-        mock_config_loader.get_component_category_styles.return_value = {}
-        style = graph._get_node_style("dynamicSubgroup", parent_category="componentsUnknownType")
-
-        assert "fill:#f8f8f8" in style  # Default gray
-
     def test_get_node_style_unknown_type_returns_default(self, mock_config_loader):
         """
         Test that unknown style_type returns default style.
@@ -1495,182 +1142,6 @@ class TestNodeStyling:
         assert "fill:#ffffff" in style  # Default fill
         assert "stroke:#333333" in style  # Default stroke
         assert "stroke-width:2px" in style
-
-
-class TestMultiEdgeStyler:
-    """
-    Test MultiEdgeStyler class.
-
-    Tests focus on edge index management and style generation.
-    """
-
-    @pytest.fixture
-    def mock_basegraph(self):
-        """Provide mock BaseGraph."""
-        mock = Mock(spec=BaseGraph)
-        mock_config = Mock(spec=MermaidConfigLoader)
-        mock_config.get_control_edge_styles.return_value = {
-            "multiEdgeStyles": [
-                {"stroke": "#9c27b0", "strokeWidth": "2px"},
-                {"stroke": "#ff9800", "strokeWidth": "2px"},
-                {"stroke": "#34a853", "strokeWidth": "2px"},
-                {"stroke": "#e91e63", "strokeWidth": "2px"},
-            ],
-        }
-        mock.config_loader = mock_config
-        mock._get_edge_style.side_effect = lambda style: (
-            f"stroke:{style.get('stroke')},stroke-width:{style.get('strokeWidth')}"
-        )
-        return mock
-
-    def test_multiedgestyler_creation_with_valid_basegraph_succeeds(self, mock_basegraph):
-        """
-        Test that MultiEdgeStyler can be created with valid BaseGraph.
-
-        Given: Valid BaseGraph instance
-        When: MultiEdgeStyler is instantiated
-        Then: Object is created successfully
-        """
-        styler = MultiEdgeStyler(basegraph=mock_basegraph)
-
-        assert styler.basegraph == mock_basegraph
-        assert styler.index == 0
-        assert len(styler.edges) == 4
-
-    def test_multiedgestyler_invalid_basegraph_raises_typeerror(self):
-        """
-        Test that invalid basegraph raises TypeError.
-
-        Given: Invalid basegraph (not BaseGraph instance)
-        When: MultiEdgeStyler is instantiated
-        Then: TypeError is raised with appropriate message
-        """
-        with pytest.raises(TypeError, match="Requires an instance of a BaseGraph subclass"):
-            MultiEdgeStyler(basegraph="invalid")
-
-    def test_multiedgestyler_none_basegraph_raises_typeerror(self):
-        """
-        Test that None basegraph raises TypeError.
-
-        Given: None as basegraph
-        When: MultiEdgeStyler is instantiated
-        Then: TypeError is raised with appropriate message
-        """
-        with pytest.raises(TypeError, match="Requires an instance of a BaseGraph subclass"):
-            MultiEdgeStyler(basegraph=None)
-
-    def test_set_edge_cycles_through_indices(self, mock_basegraph):
-        """
-        Test that set_edge cycles through indices 0-3.
-
-        Given: MultiEdgeStyler instance
-        When: set_edge is called multiple times
-        Then: Edges are distributed across 4 style groups cyclically
-        """
-        styler = MultiEdgeStyler(basegraph=mock_basegraph)
-
-        styler.set_edge(0)  # Should go to edges[0]
-        styler.set_edge(1)  # Should go to edges[1]
-        styler.set_edge(2)  # Should go to edges[2]
-        styler.set_edge(3)  # Should go to edges[3]
-        styler.set_edge(4)  # Should cycle back to edges[0]
-        styler.set_edge(5)  # Should go to edges[1]
-
-        assert 0 in styler.edges[0]
-        assert 1 in styler.edges[1]
-        assert 2 in styler.edges[2]
-        assert 3 in styler.edges[3]
-        assert 4 in styler.edges[0]
-        assert 5 in styler.edges[1]
-
-    def test_reset_index_resets_to_zero(self, mock_basegraph):
-        """
-        Test that reset_index resets index to 0.
-
-        Given: MultiEdgeStyler with non-zero index
-        When: reset_index is called
-        Then: Index is reset to 0
-        """
-        styler = MultiEdgeStyler(basegraph=mock_basegraph)
-
-        styler.set_edge(0)
-        styler.set_edge(1)
-        styler.set_edge(2)
-        assert styler.index == 3
-
-        styler.reset_index()
-        assert styler.index == 0
-
-    def test_get_edge_style_lines_with_edges(self, mock_basegraph):
-        """
-        Test get_edge_style_lines generates correct linkStyle lines.
-
-        Given: MultiEdgeStyler with edges set
-        When: get_edge_style_lines is called
-        Then: Returns linkStyle lines for all groups with edges
-        """
-        styler = MultiEdgeStyler(basegraph=mock_basegraph)
-
-        styler.set_edge(0)
-        styler.set_edge(1)
-        styler.set_edge(2)
-
-        lines = styler.get_edge_style_lines()
-
-        assert len(lines) == 3  # Three style groups have edges
-        assert all("linkStyle" in line for line in lines)
-
-    def test_get_edge_style_lines_with_empty_edges(self, mock_basegraph):
-        """
-        Test get_edge_style_lines with no edges returns empty list.
-
-        Given: MultiEdgeStyler with no edges set
-        When: get_edge_style_lines is called
-        Then: Returns empty list
-        """
-        styler = MultiEdgeStyler(basegraph=mock_basegraph)
-
-        lines = styler.get_edge_style_lines()
-
-        assert lines == []
-
-    def test_get_edge_style_lines_with_empty_config_returns_empty_list(self, mock_basegraph):
-        """
-        Test get_edge_style_lines with empty multiEdgeStyles config.
-
-        Given: Config with no multiEdgeStyles
-        When: get_edge_style_lines is called
-        Then: Returns empty list
-        """
-        mock_basegraph.config_loader.get_control_edge_styles.return_value = {
-            "multiEdgeStyles": [],
-        }
-        styler = MultiEdgeStyler(basegraph=mock_basegraph)
-
-        styler.set_edge(0)
-        styler.set_edge(1)
-
-        lines = styler.get_edge_style_lines()
-
-        assert lines == []
-
-    def test_get_edge_style_lines_skips_empty_style_groups(self, mock_basegraph):
-        """
-        Test that get_edge_style_lines skips empty style groups.
-
-        Given: Edges only in some style groups
-        When: get_edge_style_lines is called
-        Then: Only generates lines for groups with edges
-        """
-        styler = MultiEdgeStyler(basegraph=mock_basegraph)
-
-        # Only add to groups 0 and 2
-        styler.edges[0].append(0)
-        styler.edges[2].append(2)
-
-        lines = styler.get_edge_style_lines()
-
-        assert len(lines) == 2  # Only two groups have edges
 
 
 class TestToMermaid:
