@@ -18,7 +18,7 @@ import pytest
 import yaml
 from referencing import Registry, Resource
 from referencing.jsonschema import DRAFT7
-from riskmap_validator.models import ComponentNode, ControlNode, RiskNode
+from riskmap_validator.models import ComponentNode, ControlNode
 from riskmap_validator.validator import ComponentEdgeValidator
 
 # ============================================================================
@@ -257,18 +257,6 @@ def sample_controls():
             risks=["all"],
             personas=["personaModelCreator", "personaModelConsumer"],
         ),
-    }
-
-
-@pytest.fixture
-def sample_risks():
-    """Sample risk data for testing."""
-    return {
-        "riskDataPoisoning": RiskNode(title="Data Poisoning", category="risks"),
-        "riskPromptInjection": RiskNode(title="Prompt Injection", category="risks"),
-        "riskModelSourceTampering": RiskNode(title="Model Source Tampering", category="risks"),
-        "riskModelDeploymentTampering": RiskNode(title="Model Deployment Tampering", category="risks"),
-        "OrphanRisk": RiskNode(title="Orphaned Risk", category="risks"),
     }
 
 

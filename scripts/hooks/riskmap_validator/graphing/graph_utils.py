@@ -177,72 +177,6 @@ class MermaidConfigLoader:
                     "direction": "TD",
                     "flowchartConfig": {"nodeSpacing": 25, "rankSpacing": 30, "padding": 5, "wrappingWidth": 250},
                 },
-                "control": {
-                    "direction": "LR",
-                    "flowchartConfig": {"nodeSpacing": 25, "rankSpacing": 30, "padding": 5, "wrappingWidth": 250},
-                    "specialStyling": {
-                        "componentsContainer": {
-                            "fill": "#f0f0f0",
-                            "stroke": "#666666",
-                            "strokeWidth": "3px",
-                            "strokeDasharray": "10 5",
-                        },
-                        "edgeStyles": {
-                            "allControlEdges": {
-                                "stroke": "#4285f4",
-                                "strokeWidth": "3px",
-                                "strokeDasharray": "8 4",
-                            },
-                            "subgraphEdges": {"stroke": "#34a853", "strokeWidth": "2px"},
-                            "multiEdgeStyles": [
-                                {"stroke": "#9c27b0", "strokeWidth": "2px"},
-                                {"stroke": "#ff9800", "strokeWidth": "2px", "strokeDasharray": "5 5"},
-                                {"stroke": "#e91e63", "strokeWidth": "2px", "strokeDasharray": "10 2"},
-                                {"stroke": "#C95792", "strokeWidth": "2px", "strokeDasharray": "10 5"},
-                            ],
-                        },
-                    },
-                },
-                "risk": {
-                    "direction": "TD",
-                    "flowchartConfig": {"nodeSpacing": 30, "rankSpacing": 40, "padding": 5, "wrappingWidth": 250},
-                    "specialStyling": {
-                        "componentsContainer": {
-                            "fill": "#f0f0f0",
-                            "stroke": "#666666",
-                            "strokeWidth": "3px",
-                            "strokeDasharray": "10 5",
-                        },
-                        "riskCategories": {
-                            "risks": {
-                                "fill": "#ffeef0",
-                                "stroke": "#e91e63",
-                                "strokeWidth": "2px",
-                                "subgroupFill": "#ffe0e6",
-                            }
-                        },
-                        "edgeStyles": {
-                            "riskControlEdges": [
-                                {"stroke": "#e91e63", "strokeWidth": "2px", "strokeDasharray": "5 3"},
-                                {"stroke": "#d81b60", "strokeWidth": "2px", "strokeDasharray": "8 4"},
-                                {"stroke": "#c2185b", "strokeWidth": "2px", "strokeDasharray": "10 2"},
-                                {"stroke": "#ad1457", "strokeWidth": "2px", "strokeDasharray": "12 5"},
-                            ],
-                            "allControlEdges": {
-                                "stroke": "#4285f4",
-                                "strokeWidth": "3px",
-                                "strokeDasharray": "8 4",
-                            },
-                            "subgraphEdges": {"stroke": "#34a853", "strokeWidth": "2px"},
-                            "multiEdgeStyles": [
-                                {"stroke": "#9c27b0", "strokeWidth": "2px"},
-                                {"stroke": "#ff9800", "strokeWidth": "2px", "strokeDasharray": "5 5"},
-                                {"stroke": "#e91e63", "strokeWidth": "2px", "strokeDasharray": "10 2"},
-                                {"stroke": "#C95792", "strokeWidth": "2px", "strokeDasharray": "10 5"},
-                            ],
-                        },
-                    },
-                },
             },
         }
 
@@ -371,7 +305,7 @@ class MermaidConfigLoader:
         Get component category styling configuration.
 
         Returns styling for each category: fill, stroke, strokeWidth, subgroupFill.
-        Used by ComponentGraph and ControlGraph for visual differentiation.
+        Used by ComponentGraph for visual differentiation.
 
         Returns:
             Dict mapping category IDs to style properties, empty if not found
@@ -447,7 +381,8 @@ class MermaidConfigLoader:
         Combines config retrieval with preamble generation. Handles fallbacks for missing configs.
 
         Args:
-            graph_type: Type of graph ('component', 'control', etc.)
+            graph_type: Key under the config's top-level 'graphTypes' mapping
+                (currently only 'component' is defined)
 
         Returns:
             Tuple of (config dict, preamble lines list). Always returns valid containers.
@@ -463,109 +398,6 @@ class MermaidConfigLoader:
             preamble = []  # Ensure we always have a valid list
 
         return result, preamble
-
-    def get_control_edge_styles(self) -> dict:
-        """
-        Get edge styling for control graphs.
-
-        Returns styling for allControlEdges, subgraphEdges, and multiEdgeStyles (4 cycling colors).
-        Used by ControlGraph for visual differentiation of relationship types.
-
-        Returns:
-            Dict with edge styling definitions, empty if not found
-        """
-        result = self._get_safe_value("graphTypes", "control", "specialStyling", "edgeStyles", default={})
-        return result if isinstance(result, dict) else {}
-
-    def get_risks_container_style(self, graph_type: str = "risk") -> dict:
-        return self._get_group_container_style("risksContainer", graph_type)
-
-    def get_components_container_style(self, graph_type: str = "risk") -> dict:
-        return self._get_group_container_style("componentsContainer", graph_type)
-
-    def get_controls_container_style(self, graph_type: str = "risk") -> dict:
-        return self._get_group_container_style("controlsContainer", graph_type)
-
-    def _get_group_container_style(self, container_type: str, graph_type: str) -> dict:
-        """
-        Get styling for containers of subgraphs - used in in control and risk graphs.
-
-        Returns styling for top-level components, risks, controls subgraph:
-        fill, stroke, strokeWidth, strokeDasharray
-        Provides visual hierarchy in ControlGraph and RiskGraph visualizations.
-
-        Returns:
-            Dict with container styling properties, empty if not found
-        """
-        container_types: list[str] = ["componentsContainer", "controlsContainer", "risksContainer"]
-        graph_types: list[str] = ["control", "risk"]
-        if container_type not in container_types:
-            return dict()
-
-        if graph_type not in graph_types:
-            return dict()
-
-        result = self._get_safe_value("graphTypes", graph_type, "specialStyling", container_type, default={})
-        return result if isinstance(result, dict) else {}
-
-    def get_risk_category_styles(self) -> dict:
-        """
-        Get risk category styling configuration.
-
-        Returns styling for risk categories: fill, stroke, strokeWidth, subgroupFill.
-        Used by RiskGraph for visual differentiation.
-
-        Returns:
-            Dict mapping risk category IDs to style properties
-        """
-        result = self._get_safe_value("graphTypes", "risk", "specialStyling", "riskCategories", default={})
-        return result if isinstance(result, dict) else {}
-
-    def get_risk_edge_styles(self) -> dict:
-        """
-        Get edge styling for risk graphs.
-
-        Returns styling for riskControlEdges, allControlEdges, subgraphEdges, and multiEdgeStyles.
-        Used by RiskGraph for risk-to-control and control-to-component relationships.
-
-        Returns:
-            Dict with edge styling definitions
-        """
-        result = self._get_safe_value("graphTypes", "risk", "specialStyling", "edgeStyles", default={})
-        return result if isinstance(result, dict) else {}
-
-    def get_risk_control_edge_style(self, index: int = 0) -> dict:
-        """
-        Get risk-to-control edge style for specified index.
-
-        Supports both single style object and array of 4 styles.
-        When array is configured, cycles through styles using index % 4.
-
-        Args:
-            index: Edge index for array-based cycling (default: 0)
-
-        Returns:
-            Dict with stroke, strokeWidth, and strokeDasharray properties
-        """
-        edge_styles = self.get_risk_edge_styles()
-        risk_control_edges = edge_styles.get("riskControlEdges", {})
-
-        # Handle array format (new)
-        if isinstance(risk_control_edges, list):
-            if len(risk_control_edges) >= 4:
-                return risk_control_edges[index % 4]
-            elif len(risk_control_edges) > 0:
-                return risk_control_edges[index % len(risk_control_edges)]
-            else:
-                # Empty array - fallback to emergency default
-                return {"stroke": "#e91e63", "strokeWidth": "2px", "strokeDasharray": "5 3"}
-
-        # Handle single object format (backward compatibility)
-        elif isinstance(risk_control_edges, dict):
-            return risk_control_edges
-
-        # No configuration found - use emergency default
-        return {"stroke": "#e91e63", "strokeWidth": "2px", "strokeDasharray": "5 3"}
 
     def clear_cache(self):
         """

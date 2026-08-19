@@ -14,7 +14,7 @@ from pathlib import Path
 
 import yaml
 
-from .models import ComponentNode, ControlNode, RiskNode
+from .models import ComponentNode, ControlNode
 
 
 def parse_components_yaml(file_path: Path = None) -> dict[str, ComponentNode]:
@@ -149,62 +149,6 @@ def parse_controls_yaml(file_path: Path = None) -> dict[str, ControlNode]:
         raise yaml.YAMLError(f"Error parsing controls YAML: {e}")
     except KeyError as e:
         raise KeyError(f"Missing required field in controls.yaml: {e}")
-
-
-def parse_risks_yaml(file_path: Path = None) -> dict[str, RiskNode]:
-    """
-    Parse risks.yaml file and return dictionary of RiskNode objects.
-
-    Args:
-        file_path: Path to risks.yaml file. Defaults to risk-map/yaml/risks.yaml
-
-    Returns:
-        Dictionary mapping risk IDs to RiskNode objects
-
-    Raises:
-        FileNotFoundError: If risks.yaml file doesn't exist
-        yaml.YAMLError: If YAML parsing fails
-        KeyError: If required fields are missing
-    """
-    if file_path is None:
-        file_path = Path("risk-map/yaml/risks.yaml")
-
-    if not file_path.exists():
-        raise FileNotFoundError(f"Risks file not found: {file_path}")
-
-    try:
-        with open(file_path, "r", encoding="utf-8") as f:
-            data = yaml.safe_load(f)
-
-        risks = {}
-
-        for risk_data in data.get("risks", []):
-            risk_id = risk_data["id"]
-            title = risk_data["title"]
-
-            # Risks don't have explicit categories yet - use default
-            category = risk_data.get("category", "risks")
-
-            # Handle controls that mitigate this risk
-            controls = risk_data.get("controls", [])
-
-            # Handle personas
-            personas = risk_data.get("personas", [])
-
-            # Ensure fields are string lists
-            if not isinstance(controls, list):
-                controls = []
-            if not isinstance(personas, list):
-                personas = []
-
-            risks[risk_id] = RiskNode(title=title, category=category)
-
-        return risks
-
-    except yaml.YAMLError as e:
-        raise yaml.YAMLError(f"Error parsing risks YAML: {e}")
-    except KeyError as e:
-        raise KeyError(f"Missing required field in risks.yaml: {e}")
 
 
 def get_staged_yaml_files(target_file: Path | None = None, force_check: bool = False) -> list[Path]:
