@@ -401,10 +401,10 @@ repos:
       # .git/index.lock. The current risk-map has few enough trigger files to
       # avoid batching in practice, but the flag is future-proofing for growth.
       - id: regenerate-graphs
-        name: 'generate: Mermaid graphs (component, control, risk)'
+        name: 'generate: Mermaid graph (component)'
         language: system
         entry: python3 scripts/hooks/precommit/regenerate_graphs.py
-        files: ^risk-map/yaml/(components|controls|risks)\.yaml$
+        files: ^risk-map/yaml/components\.yaml$
         pass_filenames: true
         require_serial: true
 

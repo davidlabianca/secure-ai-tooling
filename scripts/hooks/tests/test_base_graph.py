@@ -777,12 +777,11 @@ class TestSubgraphIdUniqueness:
     subgraph id makes the whole file unrenderable (mmdc exits 1 with a
     TypeError; mermaid.live fails on it too).
 
-    This lives at the BaseGraph level -- not against ControlGraph's or
-    RiskGraph's rendered output -- because GitHub issue #477 will remove
-    controls_graph.py and risks_graph.py shortly. A guard written only against
-    a concrete graph type's output would be deleted along with it. Every graph
-    type, including ComponentGraph (which survives #477 and is the vehicle for
-    future work), is built on BaseGraph's clustering (_find_node_clusters /
+    This lives at the BaseGraph level -- not against a concrete graph type's
+    rendered output -- because GitHub issue #477 removed controls_graph.py and
+    risks_graph.py, and a guard written against either one's output would have
+    been deleted along with it. ComponentGraph is now the only graph type, and
+    it is built on the same BaseGraph clustering (_find_node_clusters /
     _find_component_clusters) and subgraph-emission (_create_subgraph_section)
     primitives exercised here directly.
 
@@ -806,11 +805,12 @@ class TestSubgraphIdUniqueness:
         shares 2+ controls (the clustering threshold) and whose IDs have no
         meaningful common prefix once "component" is stripped -- e.g.
         "componentA1"/"componentB2" strip to "A1"/"B2", which share no prefix,
-        forcing the positional fallback subgroup name. Component clustering
-        itself is scoped to one category at a time (this is how every caller in
-        the codebase invokes it -- see controls_graph.py's per-category loop),
-        so this fixture calls _find_component_clusters once per category, the
-        same way a real caller does, without going through ControlGraph.
+        forcing the positional fallback subgroup name. Component clustering is
+        scoped to one category at a time -- that was the calling convention in
+        the controls_graph.py per-category loop #477 removed, and it is the
+        convention the clustering API still assumes -- so this fixture calls
+        _find_component_clusters once per category rather than driving it
+        through a graph type.
 
         Given: two independently-clustered categories, each producing one
                2-member cluster via BaseGraph._find_component_clusters

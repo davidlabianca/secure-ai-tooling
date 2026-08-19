@@ -835,25 +835,6 @@ class TestMermaidConfigLoaderIntegration:
         graph_custom = ComponentGraph(forward_map, components, config_loader=custom_loader)
         assert graph_custom.config_loader is custom_loader
 
-    def test_control_graph_uses_config_loader(self):
-        """Test that ControlGraph properly uses MermaidConfigLoader."""
-        from riskmap_validator.graphing import ControlGraph
-        from riskmap_validator.models import ComponentNode, ControlNode
-
-        controls = {"ctrl1": ControlNode("Test", "controlsData", ["comp1"], [], [])}
-        components = {"comp1": ComponentNode("Test", "componentsData", [], [])}
-
-        # Should work with default config loader
-        graph = ControlGraph(controls, components)
-        assert hasattr(graph, "config_loader")
-        assert isinstance(graph.config_loader, MermaidConfigLoader)
-
-        # Should work with custom config loader
-        custom_loader = MermaidConfigLoader()
-        graph_custom = ControlGraph(controls, components, config_loader=custom_loader)
-        assert graph_custom.config_loader is custom_loader
-
-
 class TestMissingCategoryWarnings:
     """
     Tests for MermaidConfigLoader missing-category warning generation.

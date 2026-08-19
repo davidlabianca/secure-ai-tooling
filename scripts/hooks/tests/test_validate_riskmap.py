@@ -4,11 +4,11 @@ Tests for validate_riskmap.py
 
 This test suite validates the main entry point for component edge validation
 and graph generation. The script orchestrates ComponentEdgeValidator and provides
-graph generation capabilities for component, control, and risk visualizations.
+graph generation for the component relationship visualization.
 
 Test Coverage:
 ==============
-Total Tests: 115 across 9 test classes.
+Total Tests: 98 across 9 test classes.
 
 Line-number annotations against validate_riskmap.py have been dropped from
 this list: they were stale by hundreds of lines and nothing kept them
@@ -17,7 +17,7 @@ also stale — it does not match a measured run — so it has been dropped
 rather than replaced with another number that nothing enforces. Measure with
 `pytest --cov=validate_riskmap scripts/hooks/tests/test_validate_riskmap.py`.
 
-1. TestParseArgs - CLI argument parsing - 14 tests
+1. TestParseArgs - CLI argument parsing - 12 tests
    - Default arguments
    - --force/-f flag (long and short form)
    - --file PATH argument — argparse parsing only; the flag's effect on
@@ -25,8 +25,6 @@ rather than replaced with another number that nothing enforces. Measure with
    - --allow-isolated flag
    - --quiet/-q flag (long and short form)
    - --to-graph PATH argument
-   - --to-controls-graph PATH argument
-   - --to-risk-graph PATH argument
    - --debug flag
    - --mermaid-format/-m flag (long and short form)
    - Combined argument parsing
@@ -49,7 +47,7 @@ rather than replaced with another number that nothing enforces. Measure with
    - the corpus is parsed exactly once per run, and opened exactly twice
      (the second read is a tracked deferral; see the test's docstring)
 
-4. TestMainFileFlag - `--file PATH` end-to-end wiring - 35 tests
+4. TestMainFileFlag - `--file PATH` end-to-end wiring - 32 tests
    - --file selects the corpus directly, without routing through
      get_staged_yaml_files, and works outside a git repository
    - End-to-end: the corpus content decides the outcome, parametrised over
@@ -60,9 +58,8 @@ rather than replaced with another number that nothing enforces. Measure with
      rather than the report-to-maintainers banner; the default corpus of the
      wrong shape must fail identically, so one function does not grow two
      user experiences
-   - --force --file is rejected as contradictory, as are --file with
-     --to-controls-graph and --to-risk-graph; --to-graph stays allowed and
-     draws the --file corpus
+   - --force --file is rejected as contradictory; --to-graph stays allowed
+     and draws the --file corpus
    - Only the checks that read other repo files (lifecycle order, controls
      mirror) skip under --file; category/subcategory nesting is
      self-contained in the corpus under test, runs, and promotes under
@@ -82,19 +79,11 @@ rather than replaced with another number that nothing enforces. Measure with
    - reached directly because every main() test that mocks
      ComponentEdgeValidator makes the parse unreachable
 
-6. TestMainGraphGeneration - Graph output - 12 tests
+6. TestMainGraphGeneration - Graph output - 4 tests
    - Component graph generation
-   - Controls graph generation
-   - Risk graph generation
    - Mermaid format output for component graph
-   - Mermaid format output for controls graph
-   - Mermaid format output for risk graph
    - Component graph error handling
-   - Controls graph error handling
-   - Risk graph error handling
    - Debug flag passed to ComponentGraph
-   - Debug flag passed to ControlGraph
-   - Debug flag passed to RiskGraph
 
 7. TestMainErrorHandling - Exception handling - 3 tests
    - KeyboardInterrupt handling (exit code 2)
@@ -113,7 +102,7 @@ rather than replaced with another number that nothing enforces. Measure with
      does not decide.
 
 9. TestProductionInvocations - characterization of the shipped command
-   forms - 17 tests. Green today by design; they lock what CI and
+   forms - 13 tests. Green today by design; they lock what CI and
    pre-commit observe so the --file work cannot change it silently.
    - --block on the real corpus for each staged trigger file, including the
      validator options and the file-selection call
@@ -121,8 +110,8 @@ rather than replaced with another number that nothing enforces. Measure with
    - --mode lifecycle
    - --force, including outside a git repository, from a copy at the tree
      root as CI runs it, and with an isolated component present
-   - --force --to-*-graph to an extensionless path, byte-compared with the
-     committed diagrams
+   - --force --to-graph to an extensionless path, byte-compared with the
+     committed diagram
    - the regenerate-graphs hook form (graph flag, -m, --quiet, no --force),
      including its empty-selection no-op
    Tests that read the live corpus carry the live_corpus marker.
@@ -248,8 +237,6 @@ class TestParseArgs:
         assert args.allow_isolated is False
         assert args.quiet is False
         assert args.to_graph is None
-        assert args.to_controls_graph is None
-        assert args.to_risk_graph is None
         assert args.debug is False
         assert args.mermaid_format is False
 
@@ -343,32 +330,6 @@ class TestParseArgs:
             args = parse_args()
 
         assert args.to_graph == Path("output/graph.md")
-
-    def test_parse_args_with_to_controls_graph_path(self):
-        """
-        Test --to-controls-graph argument sets output path.
-
-        Given: Script called with --to-controls-graph controls.md
-        When: parse_args() is called
-        Then: Returns namespace with to_controls_graph=Path("controls.md")
-        """
-        with patch("sys.argv", ["script.py", "--to-controls-graph", "controls.md"]):
-            args = parse_args()
-
-        assert args.to_controls_graph == Path("controls.md")
-
-    def test_parse_args_with_to_risk_graph_path(self):
-        """
-        Test --to-risk-graph argument sets output path.
-
-        Given: Script called with --to-risk-graph risk.md
-        When: parse_args() is called
-        Then: Returns namespace with to_risk_graph=Path("risk.md")
-        """
-        with patch("sys.argv", ["script.py", "--to-risk-graph", "risk.md"]):
-            args = parse_args()
-
-        assert args.to_risk_graph == Path("risk.md")
 
     def test_parse_args_with_debug_flag(self):
         """
@@ -491,9 +452,9 @@ def _option_help_block(help_text: str, option: str) -> str:
     Lines are rejoined so an assertion on a flag name is not defeated by where
     the text happened to wrap. A continuation is joined without a space when
     the previous line ends in a hyphen: argparse formats help through textwrap,
-    which breaks on hyphens by default, so "--to-risk-graph" can arrive as
-    "--to-" + "risk-graph" and a plain space-join would silently turn every
-    long flag name into an unfindable "--to- risk-graph".
+    which breaks on hyphens by default, so "--mermaid-format" can arrive as
+    "--mermaid-" + "format" and a plain space-join would silently turn every
+    long flag name into an unfindable "--mermaid- format".
 
     Args:
         help_text: Full rendered `--help` output.
@@ -525,7 +486,7 @@ def _option_help_block(help_text: str, option: str) -> str:
 
 # Every combination --file is rejected in. A user has to be able to learn all
 # of them from --help; which sentence carries them is the implementer's call.
-_FILE_REJECTED_WITH = ("--force", "lifecycle", "--to-controls-graph", "--to-risk-graph")
+_FILE_REJECTED_WITH = ("--force", "lifecycle")
 
 
 class TestFileFlagHelpText:
@@ -537,8 +498,7 @@ class TestFileFlagHelpText:
 
         Given: The script's rendered `--help`
         When:  The --file option's help block is read
-        Then:  It mentions --force, lifecycle mode, --to-controls-graph and
-               --to-risk-graph
+        Then:  It mentions --force and lifecycle mode
 
         Substance, not wording: the implementer chooses the sentence. What is
         pinned is that the rejected combinations are discoverable from the
@@ -2139,58 +2099,6 @@ class TestMainFileFlag:
             f"Expected exit 0 without --block; got {exc_info.value.code}. Output: {combined!r}"
         )
 
-    @pytest.mark.parametrize(
-        "graph_flag", ["--to-controls-graph", "--to-risk-graph"], ids=["controls-graph", "risk-graph"]
-    )
-    def test_main_with_file_flag_and_control_derived_graph_is_rejected(
-        self, graph_flag, tmp_path, repo_root, monkeypatch, capsys
-    ):
-        """
-        Test that --file is rejected with the graphs it cannot supply data for.
-
-        Given: The repo root as cwd and a small --file corpus
-        When:  main() is called with --file <corpus> and --to-controls-graph
-               or --to-risk-graph
-        Then:  Exits 2, names --file and the graph flag, writes no output
-               file, and does not print the unexpected-exception banner
-
-        Both graphs join controls (and risks) to components, and
-        parse_controls_yaml() and parse_risks_yaml() take no argument: they
-        read the repo's own controls.yaml and risks.yaml regardless of
-        --file. Every control whose components are not in the --file corpus
-        silently loses its edges. Measured against the committed
-        controls-graph, a two-component --file corpus drops all 69
-        control→component edges while still rendering every control, every
-        subgraph and all styling, exiting 0 with "saved to" — a finished
-        looking diagram of a system with almost no controls.
-
-        Newly reachable: before --file was wired, this invocation validated
-        nothing and produced no graph. Rejecting it is the same mechanism and
-        placement as the --force and lifecycle rejections. --to-graph alone
-        stays allowed, since that graph is genuinely derived from the --file
-        corpus — test_main_with_file_flag_and_to_graph_is_allowed pins it.
-        """
-        corpus = _write_custom_components(tmp_path, _CLEAN_LOCAL_COMPONENTS)
-        output = tmp_path / "graph-output.md"
-        monkeypatch.chdir(repo_root)
-
-        with patch("sys.argv", ["script.py", "--file", str(corpus), graph_flag, str(output)]):
-            with pytest.raises(SystemExit) as exc_info:
-                main()
-
-        captured = capsys.readouterr()
-        combined = captured.out + captured.err
-
-        assert exc_info.value.code == 2, (
-            f"Expected exit 2 for --file combined with {graph_flag}; "
-            f"got {exc_info.value.code}. Output: {combined!r}"
-        )
-        assert "--file" in combined and graph_flag in combined, (
-            f"Expected both flag names in the rejection message; got: {combined!r}"
-        )
-        assert not output.exists(), f"A rejected invocation must not leave a graph behind; found {output}"
-        _assert_not_crash_shaped(combined)
-
     def test_main_with_file_flag_and_to_graph_is_allowed(self, tmp_path, repo_root, monkeypatch, capsys):
         """
         Test that --to-graph still works with --file and draws that corpus.
@@ -2275,49 +2183,6 @@ class TestMainFileFlag:
             assert sentence in combined, (
                 f"Expected {sentence!r} when --file names the default corpus; got: {combined!r}"
             )
-
-    def test_main_with_file_naming_the_default_corpus_is_still_rejected_with_control_graphs(
-        self, tmp_path, repo_root, monkeypatch, capsys
-    ):
-        """
-        Test that the control-graph rejection does not exempt the default corpus.
-
-        Given: The repo root as cwd
-        When:  main() is called with --file risk-map/yaml/components.yaml and
-               --to-controls-graph
-        Then:  Exits 2 and writes no graph
-
-        Two path-sensitive rules meet here and answer differently on purpose.
-        The skip predicate compares resolved paths, so naming the default
-        corpus is not treated as a custom one and every check still runs. The
-        graph rejection does not: it fires on the presence of --file, whatever
-        it names.
-
-        That is deliberate and fail-closed. Making the rejection
-        path-sensitive too would mean `--file <default> --to-controls-graph`
-        quietly becoming a supported way to spell an invocation that has an
-        unambiguous existing spelling (`--force --to-controls-graph`), and the
-        rule a reader has to hold would grow a special case for no gain.
-        Pinned so the next reader can tell the difference from an oversight.
-        """
-        monkeypatch.chdir(repo_root)
-        output = tmp_path / "controls-graph.md"
-
-        with patch(
-            "sys.argv",
-            ["script.py", "--file", str(DEFAULT_COMPONENTS_FILE), "--to-controls-graph", str(output)],
-        ):
-            with pytest.raises(SystemExit) as exc_info:
-                main()
-
-        captured = capsys.readouterr()
-        combined = captured.out + captured.err
-
-        assert exc_info.value.code == 2, (
-            f"--file is rejected with --to-controls-graph whatever it names; "
-            f"got {exc_info.value.code}. Output: {combined!r}"
-        )
-        assert not output.exists(), f"A rejected invocation must not leave a graph behind; found {output}"
 
 
 class TestParseCorpus:
@@ -2535,102 +2400,6 @@ class TestMainGraphGeneration:
         captured = capsys.readouterr()
         assert f"Graph visualization saved to {graph_path}" in captured.out
 
-    def test_main_generates_controls_graph_when_to_controls_graph_specified(self, capsys):
-        """
-        Test that controls graph is generated when --to-controls-graph is provided.
-
-        Given: Valid validation and --to-controls-graph controls.md specified
-        When: main() is called
-        Then: ControlGraph is created and written to output file
-        """
-        file_paths = [Path("risk-map/yaml/components.yaml")]
-        graph_path = Path("controls.md")
-        mock_controls = [Mock()]
-        mock_graph_output = "```mermaid\ngraph TD\nCTL-->COMP\n```"
-
-        with patch("sys.argv", ["script.py", "--force", "--to-controls-graph", str(graph_path)]):
-            with patch("validate_riskmap.get_staged_yaml_files", return_value=file_paths):
-                with patch("validate_riskmap.ComponentEdgeValidator") as mock_validator_class:
-                    with patch("validate_riskmap.parse_controls_yaml", return_value=mock_controls):
-                        with patch("validate_riskmap.ControlGraph") as mock_graph_class:
-                            with patch("builtins.open", mock_open()) as mock_file:
-                                # Setup validator mock
-                                mock_validator = Mock()
-                                mock_validator.validate_file.return_value = True
-                                mock_validator.forward_map = {}
-                                mock_validator.components = {"COMP": Mock()}
-                                mock_validator_class.return_value = mock_validator
-
-                                # Setup graph mock
-                                mock_graph = Mock()
-                                mock_graph.to_mermaid.return_value = mock_graph_output
-                                mock_graph_class.return_value = mock_graph
-
-                                with pytest.raises(SystemExit) as exc_info:
-                                    main()
-
-        assert exc_info.value.code == 0
-
-        # Verify controls were parsed
-
-        # Verify graph was created
-        mock_graph_class.assert_called_once_with(mock_controls, mock_validator.components, debug=False)
-
-        # Verify file was written
-        mock_file.assert_called_with(graph_path, "w", encoding="utf-8")
-
-        # Verify success message
-        captured = capsys.readouterr()
-        assert f"Controls graph visualization saved to {graph_path}" in captured.out
-
-    def test_main_generates_risk_graph_when_to_risk_graph_specified(self, capsys):
-        """
-        Test that risk graph is generated when --to-risk-graph is provided.
-
-        Given: Valid validation and --to-risk-graph risk.md specified
-        When: main() is called
-        Then: RiskGraph is created and written to output file
-        """
-        file_paths = [Path("risk-map/yaml/components.yaml")]
-        graph_path = Path("risk.md")
-        mock_risks = [Mock()]
-        mock_controls = [Mock()]
-        mock_graph_output = "```mermaid\ngraph TD\nRSK-->CTL-->COMP\n```"
-
-        with patch("sys.argv", ["script.py", "--force", "--to-risk-graph", str(graph_path)]):
-            with patch("validate_riskmap.get_staged_yaml_files", return_value=file_paths):
-                with patch("validate_riskmap.ComponentEdgeValidator") as mock_validator_class:
-                    with patch("validate_riskmap.parse_risks_yaml", return_value=mock_risks):
-                        with patch("validate_riskmap.parse_controls_yaml", return_value=mock_controls):
-                            with patch("validate_riskmap.RiskGraph") as mock_graph_class:
-                                with patch("builtins.open", mock_open()) as mock_file:
-                                    # Setup validator mock
-                                    mock_validator = Mock()
-                                    mock_validator.validate_file.return_value = True
-                                    mock_validator.forward_map = {}
-                                    mock_validator.components = {"COMP": Mock()}
-                                    mock_validator_class.return_value = mock_validator
-
-                                    # Setup graph mock
-                                    mock_graph = Mock()
-                                    mock_graph.to_mermaid.return_value = mock_graph_output
-                                    mock_graph_class.return_value = mock_graph
-
-                                    with pytest.raises(SystemExit) as exc_info:
-                                        main()
-
-        assert exc_info.value.code == 0
-
-        # Verify graph was created with all three data sources
-        mock_graph_class.assert_called_once_with(mock_risks, mock_controls, mock_validator.components, debug=False)
-
-        # Verify file was written
-        mock_file.assert_called_with(graph_path, "w", encoding="utf-8")
-
-        # Verify success message
-        captured = capsys.readouterr()
-        assert f"Risk graph visualization saved to {graph_path}" in captured.out
-
     def test_main_generates_mermaid_format_files_when_flag_set(self, capsys):
         """
         Test that .mermaid format files are generated when --mermaid-format is set.
@@ -2721,195 +2490,6 @@ class TestMainGraphGeneration:
         assert "Failed to generate graph:" in captured.out
         assert "Graph generation failed" in captured.out
 
-    def test_main_generates_controls_graph_with_mermaid_format(self, capsys):
-        """
-        Test that controls graph generates both .md and .mermaid files when flag is set.
-
-        Given: Valid validation, --to-controls-graph and --mermaid-format flags
-        When: main() is called
-        Then: Both .md and .mermaid files are written for controls graph
-        """
-        file_paths = [Path("risk-map/yaml/components.yaml")]
-        graph_path = Path("controls.md")
-        mermaid_path = Path("controls.mermaid")
-        mock_controls = [Mock()]
-        mock_md_output = "```mermaid\ngraph TD\nCTL-->COMP\n```"
-        mock_mermaid_output = "graph TD\nCTL-->COMP"
-
-        with patch(
-            "sys.argv", ["script.py", "--force", "--to-controls-graph", str(graph_path), "--mermaid-format"]
-        ):
-            with patch("validate_riskmap.get_staged_yaml_files", return_value=file_paths):
-                with patch("validate_riskmap.ComponentEdgeValidator") as mock_validator_class:
-                    with patch("validate_riskmap.parse_controls_yaml", return_value=mock_controls):
-                        with patch("validate_riskmap.ControlGraph") as mock_graph_class:
-                            with patch("builtins.open", mock_open()) as mock_file:
-                                # Setup validator mock
-                                mock_validator = Mock()
-                                mock_validator.validate_file.return_value = True
-                                mock_validator.forward_map = {}
-                                mock_validator.components = {}
-                                mock_validator_class.return_value = mock_validator
-
-                                # Setup graph mock
-                                mock_graph = Mock()
-
-                                def to_mermaid_side_effect(output_format="markdown"):
-                                    if output_format == "mermaid":
-                                        return mock_mermaid_output
-                                    return mock_md_output
-
-                                mock_graph.to_mermaid.side_effect = to_mermaid_side_effect
-                                mock_graph_class.return_value = mock_graph
-
-                                with pytest.raises(SystemExit) as exc_info:
-                                    main()
-
-        assert exc_info.value.code == 0
-
-        # Verify both files were written
-        assert mock_file.call_count == 2
-        mock_file.assert_any_call(graph_path, "w", encoding="utf-8")
-        mock_file.assert_any_call(mermaid_path, "w", encoding="utf-8")
-
-        # Verify success messages
-        captured = capsys.readouterr()
-        assert f"Controls graph visualization saved to {graph_path}" in captured.out
-        assert f"Mermaid format saved to {mermaid_path}" in captured.out
-
-    def test_main_generates_risk_graph_with_mermaid_format(self, capsys):
-        """
-        Test that risk graph generates both .md and .mermaid files when flag is set.
-
-        Given: Valid validation, --to-risk-graph and --mermaid-format flags
-        When: main() is called
-        Then: Both .md and .mermaid files are written for risk graph
-        """
-        file_paths = [Path("risk-map/yaml/components.yaml")]
-        graph_path = Path("risk.md")
-        mermaid_path = Path("risk.mermaid")
-        mock_risks = [Mock()]
-        mock_controls = [Mock()]
-        mock_md_output = "```mermaid\ngraph TD\nRSK-->CTL-->COMP\n```"
-        mock_mermaid_output = "graph TD\nRSK-->CTL-->COMP"
-
-        with patch("sys.argv", ["script.py", "--force", "--to-risk-graph", str(graph_path), "--mermaid-format"]):
-            with patch("validate_riskmap.get_staged_yaml_files", return_value=file_paths):
-                with patch("validate_riskmap.ComponentEdgeValidator") as mock_validator_class:
-                    with patch("validate_riskmap.parse_risks_yaml", return_value=mock_risks):
-                        with patch("validate_riskmap.parse_controls_yaml", return_value=mock_controls):
-                            with patch("validate_riskmap.RiskGraph") as mock_graph_class:
-                                with patch("builtins.open", mock_open()) as mock_file:
-                                    # Setup validator mock
-                                    mock_validator = Mock()
-                                    mock_validator.validate_file.return_value = True
-                                    mock_validator.forward_map = {}
-                                    mock_validator.components = {}
-                                    mock_validator_class.return_value = mock_validator
-
-                                    # Setup graph mock
-                                    mock_graph = Mock()
-
-                                    def to_mermaid_side_effect(output_format="markdown"):
-                                        if output_format == "mermaid":
-                                            return mock_mermaid_output
-                                        return mock_md_output
-
-                                    mock_graph.to_mermaid.side_effect = to_mermaid_side_effect
-                                    mock_graph_class.return_value = mock_graph
-
-                                    with pytest.raises(SystemExit) as exc_info:
-                                        main()
-
-        assert exc_info.value.code == 0
-
-        # Verify both files were written
-        assert mock_file.call_count == 2
-        mock_file.assert_any_call(graph_path, "w", encoding="utf-8")
-        mock_file.assert_any_call(mermaid_path, "w", encoding="utf-8")
-
-        # Verify success messages
-        captured = capsys.readouterr()
-        assert f"Risk graph visualization saved to {graph_path}" in captured.out
-        assert f"Mermaid format saved to {mermaid_path}" in captured.out
-
-    def test_main_handles_controls_graph_generation_errors(self, capsys):
-        """
-        Test that controls graph generation errors are caught and reported.
-
-        Given: Controls graph to_mermaid() raises an exception
-        When: main() is called
-        Then: Error is caught, warning printed, and script exits 0
-        """
-        file_paths = [Path("risk-map/yaml/components.yaml")]
-        graph_path = Path("controls.md")
-
-        with patch("sys.argv", ["script.py", "--force", "--to-controls-graph", str(graph_path)]):
-            with patch("validate_riskmap.get_staged_yaml_files", return_value=file_paths):
-                with patch("validate_riskmap.ComponentEdgeValidator") as mock_validator_class:
-                    with patch("validate_riskmap.parse_controls_yaml", return_value=[Mock()]):
-                        with patch("validate_riskmap.ControlGraph") as mock_graph_class:
-                            # Setup validator mock
-                            mock_validator = Mock()
-                            mock_validator.validate_file.return_value = True
-                            mock_validator.forward_map = {}
-                            mock_validator.components = {}
-                            mock_validator_class.return_value = mock_validator
-
-                            # Setup graph to raise exception
-                            mock_graph = Mock()
-                            mock_graph.to_mermaid.side_effect = RuntimeError("Controls graph failed")
-                            mock_graph_class.return_value = mock_graph
-
-                            with pytest.raises(SystemExit) as exc_info:
-                                main()
-
-        assert exc_info.value.code == 0
-
-        # Verify error message
-        captured = capsys.readouterr()
-        assert "Failed to generate controls graph:" in captured.out
-        assert "Controls graph failed" in captured.out
-
-    def test_main_handles_risk_graph_generation_errors(self, capsys):
-        """
-        Test that risk graph generation errors are caught and reported.
-
-        Given: Risk graph to_mermaid() raises an exception
-        When: main() is called
-        Then: Error is caught, warning printed, and script exits 0
-        """
-        file_paths = [Path("risk-map/yaml/components.yaml")]
-        graph_path = Path("risk.md")
-
-        with patch("sys.argv", ["script.py", "--force", "--to-risk-graph", str(graph_path)]):
-            with patch("validate_riskmap.get_staged_yaml_files", return_value=file_paths):
-                with patch("validate_riskmap.ComponentEdgeValidator") as mock_validator_class:
-                    with patch("validate_riskmap.parse_risks_yaml", return_value=[Mock()]):
-                        with patch("validate_riskmap.parse_controls_yaml", return_value=[Mock()]):
-                            with patch("validate_riskmap.RiskGraph") as mock_graph_class:
-                                # Setup validator mock
-                                mock_validator = Mock()
-                                mock_validator.validate_file.return_value = True
-                                mock_validator.forward_map = {}
-                                mock_validator.components = {}
-                                mock_validator_class.return_value = mock_validator
-
-                                # Setup graph to raise exception
-                                mock_graph = Mock()
-                                mock_graph.to_mermaid.side_effect = RuntimeError("Risk graph failed")
-                                mock_graph_class.return_value = mock_graph
-
-                                with pytest.raises(SystemExit) as exc_info:
-                                    main()
-
-        assert exc_info.value.code == 0
-
-        # Verify error message
-        captured = capsys.readouterr()
-        assert "Failed to generate risk graph:" in captured.out
-        assert "Risk graph failed" in captured.out
-
     def test_main_passes_debug_flag_to_component_graph(self):
         """
         Test that debug flag is passed to ComponentGraph constructor.
@@ -2943,80 +2523,6 @@ class TestMainGraphGeneration:
 
         # Verify debug=True was passed
         mock_graph_class.assert_called_once_with(mock_validator.forward_map, mock_validator.components, debug=True)
-
-    def test_main_passes_debug_flag_to_control_graph(self):
-        """
-        Test that debug flag is passed to ControlGraph constructor.
-
-        Given: Script called with --debug and --to-controls-graph flags
-        When: main() is called
-        Then: ControlGraph is initialized with debug=True
-        """
-        file_paths = [Path("risk-map/yaml/components.yaml")]
-        graph_path = Path("controls.md")
-        mock_controls = [Mock()]
-
-        with patch("sys.argv", ["script.py", "--force", "--to-controls-graph", str(graph_path), "--debug"]):
-            with patch("validate_riskmap.get_staged_yaml_files", return_value=file_paths):
-                with patch("validate_riskmap.ComponentEdgeValidator") as mock_validator_class:
-                    with patch("validate_riskmap.parse_controls_yaml", return_value=mock_controls):
-                        with patch("validate_riskmap.ControlGraph") as mock_graph_class:
-                            with patch("builtins.open", mock_open()):
-                                # Setup validator mock
-                                mock_validator = Mock()
-                                mock_validator.validate_file.return_value = True
-                                mock_validator.forward_map = {}
-                                mock_validator.components = {}
-                                mock_validator_class.return_value = mock_validator
-
-                                # Setup graph mock
-                                mock_graph = Mock()
-                                mock_graph.to_mermaid.return_value = "```mermaid\ngraph\n```"
-                                mock_graph_class.return_value = mock_graph
-
-                                with pytest.raises(SystemExit):
-                                    main()
-
-        # Verify debug=True was passed
-        mock_graph_class.assert_called_once_with(mock_controls, mock_validator.components, debug=True)
-
-    def test_main_passes_debug_flag_to_risk_graph(self):
-        """
-        Test that debug flag is passed to RiskGraph constructor.
-
-        Given: Script called with --debug and --to-risk-graph flags
-        When: main() is called
-        Then: RiskGraph is initialized with debug=True
-        """
-        file_paths = [Path("risk-map/yaml/components.yaml")]
-        graph_path = Path("risk.md")
-        mock_risks = [Mock()]
-        mock_controls = [Mock()]
-
-        with patch("sys.argv", ["script.py", "--force", "--to-risk-graph", str(graph_path), "--debug"]):
-            with patch("validate_riskmap.get_staged_yaml_files", return_value=file_paths):
-                with patch("validate_riskmap.ComponentEdgeValidator") as mock_validator_class:
-                    with patch("validate_riskmap.parse_risks_yaml", return_value=mock_risks):
-                        with patch("validate_riskmap.parse_controls_yaml", return_value=mock_controls):
-                            with patch("validate_riskmap.RiskGraph") as mock_graph_class:
-                                with patch("builtins.open", mock_open()):
-                                    # Setup validator mock
-                                    mock_validator = Mock()
-                                    mock_validator.validate_file.return_value = True
-                                    mock_validator.forward_map = {}
-                                    mock_validator.components = {}
-                                    mock_validator_class.return_value = mock_validator
-
-                                    # Setup graph mock
-                                    mock_graph = Mock()
-                                    mock_graph.to_mermaid.return_value = "```mermaid\ngraph\n```"
-                                    mock_graph_class.return_value = mock_graph
-
-                                    with pytest.raises(SystemExit):
-                                        main()
-
-        # Verify debug=True was passed
-        mock_graph_class.assert_called_once_with(mock_risks, mock_controls, mock_validator.components, debug=True)
 
 
 class TestMainErrorHandling:
@@ -3113,7 +2619,7 @@ class TestMainErrorHandling:
 #      no ComponentEdgeValidator instantiation).
 #   2. Load risk-map/yaml/lifecycle-stage.yaml directly and run
 #      check_lifecycle_stage_order_uniqueness.
-#   3. Skip graph generation (no ComponentGraph / ControlGraph / RiskGraph).
+#   3. Skip graph generation (no ComponentGraph).
 #   4. Exit 0 on clean corpus, exit 1 on duplicate orders, exit 0 with a
 #      skip message when the file is absent (matches the default-mode
 #      graceful-skip pattern at validate_riskmap.py:210-212).
@@ -3484,14 +2990,13 @@ class TestMainLifecycleMode:
 #
 #   .pre-commit-config.yaml:211            validate_riskmap.py --block
 #   .pre-commit-config.yaml:232            validate_riskmap.py --mode lifecycle
-#   .pre-commit-config.yaml:403-409        regenerate_graphs.py, which runs
-#                                            validate_riskmap.py --to-graph|
-#                                            --to-controls-graph|--to-risk-graph
+#   .pre-commit-config.yaml:403            regenerate_graphs.py, which runs
+#                                            validate_riskmap.py --to-graph
 #                                            <tracked path> -m --quiet
-#                                            (regenerate_graphs.py:62, 73, 84)
-#   .github/workflows/validation.yml:195   validate_riskmap.py --force
-#   .github/workflows/validation.yml:336   validate_riskmap.py --force \
-#                                            --to-graph|--to-controls-graph|--to-risk-graph FILE
+#                                            (regenerate_graphs.py:42)
+#   .github/workflows/validation.yml:259   validate_riskmap.py --force --block
+#   .github/workflows/validation.yml:748   validate_riskmap.py --force \
+#                                            --to-graph FILE
 #
 # The regenerate-graphs form is the fragile one. It is the only shipped form
 # that passes no --force, so it depends on staging-based selection; graph
@@ -3533,25 +3038,14 @@ class TestMainLifecycleMode:
 
 # Graph flag → (progress message, committed diagram, committed .mermaid).
 # CI diffs the generated file against the first path; the regenerate-graphs
-# hook writes both and git-adds them.
+# hook writes both and git-adds them. A single-element list, parametrised
+# so a future graph type is one entry away from the same coverage.
 _GRAPH_FORMS = [
     (
         "--to-graph",
         "Graph visualization saved to",
         "risk-map/diagrams/risk-map-graph.md",
         "risk-map/diagrams/risk-map-graph.mermaid",
-    ),
-    (
-        "--to-controls-graph",
-        "Controls graph visualization saved to",
-        "risk-map/diagrams/controls-graph.md",
-        "risk-map/diagrams/controls-graph.mermaid",
-    ),
-    (
-        "--to-risk-graph",
-        "Risk graph visualization saved to",
-        "risk-map/diagrams/controls-to-risk-graph.md",
-        "risk-map/diagrams/controls-to-risk-graph.mermaid",
     ),
 ]
 
@@ -3885,11 +3379,11 @@ class TestProductionInvocations:
         validated_corpus_paths,
     ):
         """
-        Test the CI graph forms `--force --to-*-graph FILE` (validation.yml:336).
+        Test the CI graph form `--force --to-graph FILE` (validation.yml:748).
 
         Given: The repo root as cwd and an extensionless output path, as
-               produced by $(mktemp) at validation.yml:309-311
-        When:  main() is called with --force and one of the three graph flags
+               produced by $(mktemp) at validation.yml:725
+        When:  main() is called with --force and the graph flag
         Then:  Exits 0, validates components.yaml, writes the graph to
                exactly the path given, and that file matches the committed
                diagram byte for byte
@@ -3899,7 +3393,7 @@ class TestProductionInvocations:
         would write somewhere else and leave CI diffing an empty file — a
         test using "graph.md" cannot see that. Byte equality is CI's real
         contract: it runs `diff -u` against the committed diagram
-        (validation.yml:339) and fails the build on any difference.
+        (validation.yml:751) and fails the build on any difference.
         """
         monkeypatch.chdir(repo_root)
         output = tmp_path / "graph-output"
@@ -3951,7 +3445,7 @@ class TestProductionInvocations:
         Test the regenerate-graphs hook form: a graph flag, -m, --quiet, no --force.
 
         Given: The repo root as cwd and components.yaml staged
-        When:  main() is called as regenerate_graphs.py:62/73/84 calls it —
+        When:  main() is called as regenerate_graphs.py:42 calls it —
                <graph flag> <path> -m --quiet, with no --force
         Then:  Exits 0; the staged set is requested with target_file None and
                force False; components.yaml is validated; both the .md and

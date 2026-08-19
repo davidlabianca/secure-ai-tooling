@@ -31,12 +31,6 @@ Generate graphs to see the impact of your changes:
 ```bash
 # Generate component relationship graph
 python scripts/hooks/validate_riskmap.py --to-graph ./preview-graph.md --force
-
-# Generate control-to-component relationship graph
-python scripts/hooks/validate_riskmap.py --to-controls-graph ./preview-controls.md --force
-
-# Generate controls-to-risk relationship graph
-python scripts/hooks/validate_riskmap.py --to-risk-graph ./preview-risks.md --force
 ```
 
 ### 4. Format files before committing
@@ -87,16 +81,14 @@ When graph generation produces unexpected results:
 python scripts/hooks/validate_riskmap.py --to-graph ./debug-graph.md --debug --force
 ```
 
-### 12. Use control graphs to validate mappings
+### 12. Use the cross-reference tables to validate mappings
 
-When adding or modifying controls, generate control graphs to verify your mappings are logical:
+When adding or modifying controls, regenerate the cross-reference tables to verify your mappings are logical:
 
 ```bash
-# Generate control graph to verify your control mappings
-python scripts/hooks/validate_riskmap.py --to-controls-graph ./verify-controls.md --force
-
-# Generate risk graph to verify control-risk relationships
-python scripts/hooks/validate_riskmap.py --to-risk-graph ./verify-risks.md --force
+# Regenerate the control-to-risk and control-to-component cross-references
+python scripts/hooks/yaml_to_markdown.py controls --format xref-risks
+python scripts/hooks/yaml_to_markdown.py controls --format xref-components
 ```
 
 ### 13. Run all validations locally before pushing

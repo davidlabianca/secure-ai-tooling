@@ -3,20 +3,17 @@
 Git pre-commit hook for component edge validation and graph generation.
 
 Validates bidirectional edge consistency in YAML component files.
-Can generate Mermaid graph visualizations of component, control, and risk relationships.
+Can generate a Mermaid graph visualization of component relationships.
 
 Usage:
     python validate_riskmap.py                    # Check staged files
     python validate_riskmap.py --force            # Force check
     python validate_riskmap.py --to-graph out.md  # Generate component graph
-    python validate_riskmap.py --to-controls-graph ctrl.md  # Generate control graph
-    python validate_riskmap.py --to-risk-graph risk.md      # Generate risk graph
 
 Options:
     --force             Force validation regardless of git status
     --file PATH         Validate this components corpus instead of the default;
-                        not valid with --force, --mode lifecycle,
-                        --to-controls-graph or --to-risk-graph
+                        not valid with --force or --mode lifecycle
     --allow-isolated    Allow components with no edges
     --block             Promote warn-only check warnings to errors and exit 1
     --quiet, -q         Minimal output
@@ -32,8 +29,8 @@ import yaml
 
 # Configuration Constants
 from riskmap_validator.config import DEFAULT_COMPONENTS_FILE
-from riskmap_validator.graphing import ComponentGraph, ControlGraph, RiskGraph
-from riskmap_validator.utils import get_staged_yaml_files, parse_controls_yaml, parse_risks_yaml
+from riskmap_validator.graphing import ComponentGraph
+from riskmap_validator.utils import get_staged_yaml_files, parse_controls_yaml
 from riskmap_validator.validator import (
     ComponentEdgeValidator,
     CorpusParseError,
@@ -57,8 +54,6 @@ Examples:
   %(prog)s --file custom/components.yaml            # Check specific file
   %(prog)s --allow-isolated                         # Allow components with no edges
   %(prog)s --to-graph graph.md                      # Output component graph as .md code block
-  %(prog)s --to-controls-graph controls.md          # Output control-to-component graph
-  %(prog)s --to-risk-graph risk.md                  # Output risk-to-control-to-component graph
   %(prog)s --to-graph graph.md --mermaid-format     # Output both .md and .mermaid formats
   %(prog)s --quiet                                  # Minimal output
   %(prog)s --help                                   # Show this help
@@ -83,11 +78,9 @@ Exit Codes:
         help=(
             f"Path to the components YAML file to validate (default: {DEFAULT_COMPONENTS_FILE}). "
             "Names the corpus directly and ignores git staging, so it cannot be combined with "
-            "--force, is not accepted with --mode lifecycle, and is rejected with "
-            "--to-controls-graph and --to-risk-graph, which read the repo's own controls.yaml "
-            "and risks.yaml. --to-graph stays available, being drawn from this corpus. The "
-            "repo-scoped checks (lifecycle order, controls mirror) are skipped when it names a "
-            "corpus other than the default."
+            "--force and is not accepted with --mode lifecycle. --to-graph stays available, "
+            "being drawn from this corpus. The repo-scoped checks (lifecycle order, controls "
+            "mirror) are skipped when it names a corpus other than the default."
         ),
     )
 
@@ -104,20 +97,6 @@ Exit Codes:
         "-g",
         type=Path,
         help="Output component graph visualization to specified txt file",
-    )
-
-    parser.add_argument(
-        "--to-controls-graph",
-        "-c",
-        type=Path,
-        help="Output control-to-component graph visualization to specified file",
-    )
-
-    parser.add_argument(
-        "--to-risk-graph",
-        "-r",
-        type=Path,
-        help="Output risk-to-control-to-component graph visualization to specified file",
     )
 
     parser.add_argument(
@@ -157,20 +136,6 @@ Exit Codes:
             parser.error("--file cannot be combined with --force: both select which corpus to validate")
         if args.mode == "lifecycle":
             parser.error("--file is not valid with --mode lifecycle: that mode reads lifecycle-stage.yaml only")
-        # Both graph call sites below pass no path, so they read the repo's own
-        # controls.yaml — and, for --to-risk-graph, risks.yaml. Joined to the
-        # components --file names, every control→component edge drops and the run
-        # exits 0 on a fully rendered diagram of a system with no controls.
-        for flag, value in (
-            ("--to-controls-graph", args.to_controls_graph),
-            ("--to-risk-graph", args.to_risk_graph),
-        ):
-            if value is not None:
-                parser.error(
-                    f"--file cannot be combined with {flag}: that graph joins the repo's own "
-                    f"controls and risks to the components, so it cannot be built from the corpus "
-                    f"--file names. Use --to-graph, which is drawn from that corpus."
-                )
 
     return args
 
@@ -445,55 +410,6 @@ def main() -> None:
                     print(f"   Mermaid format saved to {mermaid_file}")
             except Exception as e:
                 print(f"⚠️  Failed to generate graph: {e}")
-
-        if args.to_controls_graph:
-            try:
-                # Parse controls and generate graph
-                controls = parse_controls_yaml()
-                control_graph = ControlGraph(controls, validator.components, debug=args.debug)
-
-                controls_graph_output = control_graph.to_mermaid()
-
-                # Write graph to file
-                with open(args.to_controls_graph, "w", encoding="utf-8") as f:
-                    f.write(controls_graph_output)
-
-                print(f"   Controls graph visualization saved to {args.to_controls_graph}")
-
-                # Save .mermaid format if requested
-                if args.mermaid_format:
-                    mermaid_file = args.to_controls_graph.with_suffix(".mermaid")
-                    mermaid_output = control_graph.to_mermaid(output_format="mermaid")
-                    with open(mermaid_file, "w", encoding="utf-8") as f:
-                        f.write(mermaid_output)
-                    print(f"   Mermaid format saved to {mermaid_file}")
-            except Exception as e:
-                print(f"⚠️  Failed to generate controls graph: {e}")
-
-        if args.to_risk_graph:
-            try:
-                # Parse risks/controls and generate graph
-                risks = parse_risks_yaml()
-                controls = parse_controls_yaml()
-                risk_graph = RiskGraph(risks, controls, validator.components, debug=args.debug)
-
-                risk_graph_output = risk_graph.to_mermaid()
-
-                # Write graph to file
-                with open(args.to_risk_graph, "w", encoding="utf-8") as f:
-                    f.write(risk_graph_output)
-
-                print(f"   Risk graph visualization saved to {args.to_risk_graph}")
-
-                # Save .mermaid format if requested
-                if args.mermaid_format:
-                    mermaid_file = args.to_risk_graph.with_suffix(".mermaid")
-                    mermaid_output = risk_graph.to_mermaid(output_format="mermaid")
-                    with open(mermaid_file, "w", encoding="utf-8") as f:
-                        f.write(mermaid_output)
-                    print(f"   Mermaid format saved to {mermaid_file}")
-            except Exception as e:
-                print(f"⚠️  Failed to generate risk graph: {e}")
 
         sys.exit(0)
 
