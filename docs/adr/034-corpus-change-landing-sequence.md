@@ -1,6 +1,6 @@
 # ADR-034: Dependency-ordered landing sequence for risk-map corpus changes
 
-**Status:** Draft
+**Status:** Accepted
 **Date:** 2026-07-09
 **Authors:** Architect agent, with maintainer review
 

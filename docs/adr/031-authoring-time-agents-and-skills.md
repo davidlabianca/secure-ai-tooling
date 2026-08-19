@@ -144,3 +144,43 @@ Because the standard is maintained externally and versions on its own cadence, c
 - Curation ownership (settled): the NIST-first term set and the escape-hatch adjudication (D3a) are owned by maintainers via CoSAI governance review (issues, offline discussion); the global-legitimacy check (D3b) is materialized by the classical-lexicon skill, which records the cross-standard equivalence set and flags parochialism / naming-conflict gaps for maintainers to carry into that review; STABLE-snapshot re-pinning (D4) is triggered per framework-version bump through the existing ADR-027 mapping cadence. Implementation obligation: the classical-lexicon skill must include the equivalence-recording and gap-flagging behavior so the maintainer can establish global legitimacy correctly.
 - This ADR introduces `scripts/skills/` as a new canonical, tracked directory — none exists today. The skill format is decided in D6 (the Agent Skills open standard); the first skill PR establishes the on-disk layout and pins the spec revision the canonical surface targets (D6), setting the pattern every later skill follows.
 - A lightweight consistency check that the authoring skills/agents and their source rules (the contributing guides) stay in sync is deferred to the backlog. Until it exists, D1's "reference the source, don't re-derive" mandate is enforced by review.
+
+## Amendment 2026-08-02: Admission of `audit-identification-questions` as a fifth authoring skill
+
+**Status:** Draft (2026-08-02). Adds D7; does not alter the Accepted status of D1–D6 above.
+**Authors:** maintainer review, prompted by PR review.
+
+### Context
+
+[D2](#d2-agent-vs-skill-boundary) named four skills at authoring time (2026-07-01): `classical-lexicon`, `mapping-selection`, `altitude-check`, `audit-framework-mappings`. A fifth skill, `audit-identification-questions`, was subsequently built and shipped to `scripts/skills/` (PR #433) without going through the admission this ADR's own governing standard, [ADR-033 D6](033-vendor-neutral-agent-skill-shipping.md), requires: *"A new agent or skill enters the shipped set by an amendment to the relevant ADR ... or a new ADR that conforms to this standard ... not by dropping a file, but by an ADR-level decision that admits it and records that it conforms."* [ADR-021 D7](021-personas-and-self-assessment-schema.md) recognizes the skill's editorial-review responsibility, but ADR-021 D7 answers a different question (what the skill is *for*) than the one this amendment answers (whether it is admitted to *this* ADR's shipped roster and whether it conforms to ADR-033). PR #433's own description described the skill as completing "the last of the four ADR-031 D2 authoring skills" — text that is simply wrong against D2's actual four-item enumeration, and is corrected by this amendment rather than repeated.
+
+### D7. Admission of `audit-identification-questions`
+
+**Why a fifth skill, not a fold-in.** The skill is the same *shape* as `audit-framework-mappings` (D2): an audit skill that defers editorial/format rules to a style guide (`identification-questions-style-guide.md`) rather than restating them, covering ground content-reviewer's mechanical structural checks cannot reach — leading-question framing, scoping-clause completeness, example-parenthetical judgment. It does not fold into any of the original four; its editorial surface (identification questions) is distinct from theirs (terminology, selection judgment, altitude, framework-mapping correctness).
+
+**ADR-033 D1-D5 conformance:**
+
+- **D1 (canonical-only, neutral, cloneable):** ships only as its neutral canonical form at `scripts/skills/audit-identification-questions/SKILL.md`; no first-party harness wrapper is tracked in-repo.
+- **D2 (the neutrality contract):** the shipped file carries no denylisted harness- or vendor-specific tokens; the D5 neutrality check passes against it.
+- **D3 (consumer leverage):** defers editorial rules to `identification-questions-style-guide.md` rather than restating them.
+- **D4 (shipping format):** ships in the Agent Skills open standard fixed by [D6](#d6-skill-format-the-agent-skills-open-standard), the same format as the original four.
+- **D5 (a neutrality check is required):** the ADR-033 D5 check passes.
+- **Portable eval:** ships at `scripts/skills/audit-identification-questions/evals/evals.json`.
+
+`audit-identification-questions` is admitted to the shipped set as of this amendment's acceptance. From this point forward, [D2](#d2-agent-vs-skill-boundary)'s original "four skills" language describes the roster **as decided on 2026-07-01**, not the current shipped count; `scripts/skills/README.md` and any other roster-count text should read **five**.
+
+### Consequences
+
+**Positive**
+
+- `scripts/skills/` no longer has a skill operating without a recorded ADR-033 D6 admission. The gap PR #433's review surfaced is closed the same way the ADR-008 amendment closed the analogous gap for `draft-issue-comment` (D6 above, the standing pattern for exactly this situation — though this ADR is itself the "relevant ADR" here, so the admission lands in-place rather than in a different document).
+- D2's original text is preserved as the historical record of the 2026-07-01 decision; nothing about the "four skills" framing needed to be correct in hindsight, only clearly superseded.
+
+**Negative**
+
+- A reader who stops at D2 without reaching this amendment will undercount the roster by one. Mitigated by this section explicitly flagging D2's language as decision-time, not current.
+
+**Follow-up**
+
+- **Maintainer sign-off flips this amendment `Draft → Accepted`.**
+- `scripts/skills/README.md`'s roster entry for `audit-identification-questions` cited "(ADR-031 D5, ADR-021 D7)" — D5 is the Persona creator/critic sequencing section and does not admit this skill. Already corrected in the same commit as this amendment to cite ADR-021 D7 (responsibility) and this D7 (admission), rather than waiting on Accept.

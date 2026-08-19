@@ -8,6 +8,13 @@ This script validates that:
 - Controls or risks that list "all" or "none" are exempt from validation.
 - Identifies any controls or risks that have no cross-references.
 
+This validator checks only control<->risk reciprocity; it never loads
+components.yaml or personas.yaml and so has no notion of component or persona
+coverage. That is intentional per ADR-034 §D3a: a newly-added component or
+persona may be referenced by zero controls/risks and must still pass. Do not
+add per-PR component/persona coverage enforcement here without revisiting
+that ADR.
+
 Only runs when YAML files are modified in the commit.
 Provides -f/--force option to run validation regardless of git status.
 """
