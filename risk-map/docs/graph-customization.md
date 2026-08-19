@@ -1,6 +1,6 @@
 # Customizing Graph Appearance
 
-The CoSAI Risk Map system generates visual Mermaid graphs of component relationships and control-to-component mappings. You can fully customize the appearance of these graphs through the `risk-map/yaml/mermaid-styles.yaml` configuration file.
+The CoSAI Risk Map system generates a visual Mermaid graph of component relationships. You can fully customize its appearance through the `risk-map/yaml/mermaid-styles.yaml` configuration file. (The control and risk graph generators that also read this file were withdrawn per #477; their `graphTypes.control` / `graphTypes.risk` sections remain in the file for now and are described below for completeness, but no generator currently consumes them.)
 
 ## Understanding the Configuration Structure
 
@@ -224,14 +224,11 @@ graphTypes:
    git commit -m "Update graph styling"
    ```
 
-3. **Generate test graphs** to preview your changes:
+3. **Generate a test graph** to preview your changes:
 
    ```bash
    # Generate component graph with your styling
    python3 scripts/hooks/validate_riskmap.py --to-graph test-component.md --force
-
-   # Generate control graph with your styling
-   python3 scripts/hooks/validate_riskmap.py --to-controls-graph test-control.md --force
    ```
 
 4. **View the results** by opening the generated Markdown files in a compatible viewer (see Visualizing Graphs below).

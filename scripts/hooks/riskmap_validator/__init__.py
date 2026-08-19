@@ -5,7 +5,7 @@ A validation and graph generation system for CoSAI Risk Map framework components
 
 This package provides tools for:
 - Validating component relationship consistency in YAML files
-- Generating Mermaid graph visualizations of component and control relationships
+- Generating a Mermaid graph visualization of component relationships
 - Supporting git pre-commit hooks for automated validation
 - Enforcing bidirectional edge consistency across AI system components
 
@@ -18,7 +18,7 @@ Modules:
 
 Usage:
     from riskmap_validator.validator import ComponentEdgeValidator
-    from riskmap_validator.graphing import ComponentGraph, ControlGraph
+    from riskmap_validator.graphing import ComponentGraph
     from riskmap_validator.models import ComponentNode, ControlNode
 
 Dependencies:

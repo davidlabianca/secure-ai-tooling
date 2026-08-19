@@ -11,37 +11,33 @@ When you create a pull request, GitHub Actions automatically runs:
 - **Python Code Quality**: Runs ruff linting on modified Python files
 - **Component Edge Consistency**: Verifies bidirectional component relationships
 - **Control-Risk Reference Integrity**: Validates control-risk cross-references
-- **Graph Validation**: Generates and compares all three graph types
+- **Graph Validation**: Generates and compares the component graph
 - **GitHub Config Validation**: Validates issue templates against GitHub schemas and `dependabot.yml` against `vendor.dependabot` schema
 
 ## Graph Validation in CI
 
-The GitHub Actions workflow performs comprehensive graph validation:
+The GitHub Actions workflow performs component graph validation:
 
-1. **Generation**: Creates fresh graphs using `validate_riskmap.py`
-2. **Comparison**: Compares generated graphs against committed versions in your PR
-3. **Validation**: Ensures graphs are up-to-date with YAML changes
+1. **Generation**: Creates a fresh graph using `validate_riskmap.py`
+2. **Comparison**: Compares the generated graph against the committed version in your PR
+3. **Validation**: Ensures the graph is up-to-date with YAML changes
 4. **Diff Output**: Provides detailed differences if validation fails
 
-**Graphs Validated:**
+**Graph Validated:**
 
 - Component relationship graph (`./risk-map/diagrams/risk-map-graph.md`)
-- Control-to-component graph (`./risk-map/diagrams/controls-graph.md`)
-- Controls-to-risk graph (`./risk-map/diagrams/controls-to-risk-graph.md`)
 
 ## Handling CI Validation Failures
 
 If GitHub Actions reports graph validation failures:
 
 ```bash
-# Most common fix: regenerate graphs locally
+# Most common fix: regenerate the graph locally
 python scripts/hooks/validate_riskmap.py --to-graph ./risk-map/diagrams/risk-map-graph.md --force
-python scripts/hooks/validate_riskmap.py --to-controls-graph ./risk-map/diagrams/controls-graph.md --force
-python scripts/hooks/validate_riskmap.py --to-risk-graph ./risk-map/diagrams/controls-to-risk-graph.md --force
 
-# Commit the updated graphs
-git add risk-map/diagrams/risk-map-graph.md risk-map/diagrams/controls-graph.md risk-map/diagrams/controls-to-risk-graph.md
-git commit -m "Update generated graphs to reflect YAML changes"
+# Commit the updated graph
+git add risk-map/diagrams/risk-map-graph.md
+git commit -m "Update generated graph to reflect YAML changes"
 git push
 ```
 

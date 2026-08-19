@@ -42,7 +42,7 @@ Development tools and utilities for this project.
 
 **[Graph Generation](docs/graph-generation.md)**
 
-- Manually generating component, control, and risk graphs
+- Manually generating the component graph
 - Graph generation options and flags
 - Debugging graph output
 

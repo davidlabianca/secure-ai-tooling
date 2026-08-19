@@ -13,10 +13,8 @@ In addition to local pre-commit validation, the repository includes GitHub Actio
   references in `.github/workflows/*.yml`
 - **Component Edge Validation**: Verifies component relationship consistency
 - **Control-Risk Reference Validation**: Checks control-risk cross-reference integrity
-- **Graph Validation**: Generates and compares graphs against committed versions
-  - Component graph (`./risk-map/diagrams/risk-map-graph.md`)
-  - Control graph (`./risk-map/diagrams/controls-graph.md`)
-  - Controls-to-risk graph (`./risk-map/diagrams/controls-to-risk-graph.md`)
+- **Graph Validation**: Generates and compares the component graph against
+  the committed version (`./risk-map/diagrams/risk-map-graph.md`)
 - **GitHub Config Validation**: Validates issue templates and dependabot configuration
   - Issue forms against `vendor.github-issue-forms` schema
   - `config.yml` against `vendor.github-issue-config` schema
@@ -59,20 +57,13 @@ pinning. The CI failure names the offending workflow file and line.
 
 ```bash
 # The most common cause is missing graph regeneration
-# Fix by running locally and committing the updated graphs:
+# Fix by running locally and committing the updated graph:
 
-# For component graph issues:
 python3 scripts/hooks/validate_riskmap.py --to-graph ./risk-map/diagrams/risk-map-graph.md --force
 
-# For control graph issues:
-python3 scripts/hooks/validate_riskmap.py --to-controls-graph ./risk-map/diagrams/controls-graph.md --force
-
-# For controls-to-risk graph issues:
-python3 scripts/hooks/validate_riskmap.py --to-risk-graph ./risk-map/diagrams/controls-to-risk-graph.md --force
-
-# Then commit the updated graphs:
-git add risk-map/diagrams/risk-map-graph.md risk-map/diagrams/controls-graph.md risk-map/diagrams/controls-to-risk-graph.md
-git commit -m "Update generated graphs"
+# Then commit the updated graph:
+git add risk-map/diagrams/risk-map-graph.md
+git commit -m "Update generated graph"
 ```
 
 ## Table Validation Process
