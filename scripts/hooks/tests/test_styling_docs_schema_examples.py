@@ -23,15 +23,12 @@ structure comes from the real config.
 import copy
 import json
 import re
-import sys
 from pathlib import Path
 from typing import Any
 
 import pytest
 import yaml
 from jsonschema import Draft7Validator
-
-sys.path.insert(0, str(Path(__file__).parent.parent))
 
 # Resolve the repo root from this test file's location:
 # scripts/hooks/tests/ -> scripts/hooks/ -> scripts/ -> repo root
@@ -42,7 +39,9 @@ _GRAPH_CUSTOMIZATION_DOC = _REPO_ROOT / "risk-map" / "docs" / "graph-customizati
 _LIVE_CONFIG = _REPO_ROOT / "risk-map" / "yaml" / "mermaid-styles.yaml"
 _SCHEMA_FILE = _REPO_ROOT / "risk-map" / "schemas" / "mermaid-styles.schema.json"
 
-_YAML_FENCE_PATTERN = re.compile(r"```yaml\n(.*?)```", re.DOTALL)
+# Matches ```yaml and ```yml fences, case-insensitively (```YAML, ```Yml, etc.),
+# so a doc author using the shorter or differently-cased fence tag is still caught.
+_YAML_FENCE_PATTERN = re.compile(r"```ya?ml\n(.*?)```", re.DOTALL | re.IGNORECASE)
 
 
 def _extract_yaml_blocks(doc_path: Path) -> list[str]:

@@ -153,19 +153,44 @@ class TestRequiredHookIds:
 # Local wrapper hook contracts
 # ===========================================================================
 
-# (id, expected entry substring, expected files regex substring, pass_filenames)
+# (id, expected entry substring, expected files regex value, pass_filenames)
 # Substring match keeps the test stable against minor wording changes.
+#
+# regenerate-graphs and regenerate-tables are checked by full-string equality
+# (see _EXACT_FILES_VALUE_HOOK_IDS below), not substring search: their `files:`
+# value contains alternation syntax -- `(components|controls|risks|...)` -- as
+# its actual, intended content. Searching for that same alternation text with
+# re.search() does not check for the literal text; it *evaluates* the
+# alternation, so the assertion is satisfied by any one branch matching
+# anywhere in the string. That made the guard vacuous: it stayed green when
+# commit 1 narrowed regenerate-graphs's trigger from three forms to one,
+# because the surviving `components` branch alone still matched. Full-string
+# equality has no such ambiguity, and both hooks' entire `files:` value is
+# load-bearing (there is no incidental wrapper text to tolerate drift in), so
+# equality is the right contract here.
+#
+# regenerate-svgs's `\.\(mmd\|mermaid\)` avoids this particular trap: the
+# parens and pipe are backslash-escaped, so re.search matches them as literal
+# characters rather than evaluating an alternation. It is left as-is because it
+# does not have the bug described above -- not because the assertion is strong.
+# It pins only the extension, so retargeting the hook away from
+# risk-map/diagrams/ keeps it green. The same is true of the other entries
+# matched by fragment. Strengthening those is a separate change, and the
+# durable form is a fires-on/does-not-fire-on assertion over concrete paths
+# (as TestMappingValidatorOracleTrigger does) rather than a longer substring.
+_EXACT_FILES_VALUE_HOOK_IDS = {"regenerate-graphs", "regenerate-tables"}
+
 _WRAPPER_CONTRACTS = [
     (
         "regenerate-graphs",
         "scripts/hooks/precommit/regenerate_graphs.py",
-        "(components|controls|risks)",
+        r"^risk-map/yaml/components\.yaml$",
         True,
     ),
     (
         "regenerate-tables",
         "scripts/hooks/precommit/regenerate_tables.py",
-        "(components|controls|risks|personas)",
+        r"^risk-map/yaml/(components|controls|risks|personas)\.yaml$",
         True,
     ),
     (
@@ -204,9 +229,14 @@ class TestWrapperHookContracts:
                 f"Hook `{hook_id}` entry must reference `{entry_substr}`; got: {hook.get('entry')!r}"
             )
             files_value = hook.get("files", "")
-            assert re.search(files_substr, files_value), (
-                f"Hook `{hook_id}` files regex must contain `{files_substr}`; got: {files_value!r}"
-            )
+            if hook_id in _EXACT_FILES_VALUE_HOOK_IDS:
+                assert files_value == files_substr, (
+                    f"Hook `{hook_id}` files value must equal `{files_substr}` exactly; got: {files_value!r}"
+                )
+            else:
+                assert re.search(files_substr, files_value), (
+                    f"Hook `{hook_id}` files regex must contain `{files_substr}`; got: {files_value!r}"
+                )
             assert hook.get("pass_filenames") is pass_filenames, (
                 f"Hook `{hook_id}` pass_filenames must be {pass_filenames}; got: {hook.get('pass_filenames')!r}"
             )

@@ -9,26 +9,26 @@ version: '1.0.0'
 # Design foundation - core design tokens
 foundation:
   colors:
-    primary: '#4285f4' # Google Blue - used for primary actions and "all" controls
-    success: '#34a853' # Google Green - used for success states and category mappings
-    accent: '#9c27b0' # Purple - first multi-edge style color
-    warning: '#ff9800' # Orange - second multi-edge style color
-    error: '#e91e63' # Pink - third multi-edge style color
+    primary: '#4285f4' # Google Blue - primary/brand color token
+    success: '#34a853' # Google Green - success color token
+    accent: '#9c27b0' # Purple - accent color token
+    warning: '#ff9800' # Orange - warning color token
+    error: '#e91e63' # Pink - error/emphasis color token
     neutral: '#333333' # Dark gray - used for borders and strokes
-    lightGray: '#f0f0f0' # Light gray - container backgrounds
-    darkGray: '#666666' # Medium gray - container borders
+    lightGray: '#f0f0f0' # Light gray - background color token
+    darkGray: '#666666' # Medium gray - border color token
 
   strokeWidths:
-    thin: '1px' # Subgroup borders
-    medium: '2px' # Standard component and control borders
-    thick: '3px' # Emphasis elements like container borders
+    thin: '1px' # Thin stroke width token
+    medium: '2px' # Medium stroke width token
+    thick: '3px' # Thick stroke width token
 
   strokePatterns:
     solid: '' # No dash pattern (solid lines)
     dashed: '5 5' # Standard dashed pattern
-    dotted: '8 4' # Dotted pattern for "all" control edges
-    longDash: '10 2' # Long dash pattern for multi-edge styles
-    longDashSpaced: '10 5' # Long dash with spacing for containers
+    dotted: '8 4' # Dotted dash pattern token
+    longDash: '10 2' # Long dash pattern token
+    longDashSpaced: '10 5' # Long dash pattern token, with spacing
 
 # Shared elements used by graph generation
 sharedElements:
