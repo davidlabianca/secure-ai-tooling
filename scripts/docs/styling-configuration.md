@@ -4,7 +4,10 @@ The validation system includes a configuration system for customizing Mermaid gr
 
 ## Configuration File Structure
 
-The `mermaid-styles.yaml` file is organized into three main sections:
+The `mermaid-styles.yaml` file has four required top-level keys: `version`, `foundation`,
+`sharedElements`, and `graphTypes`. `version` is a schema-required semantic version
+string (e.g. `1.0.0`) and does not need its own section. The other three are described
+below.
 
 ### 1. Foundation Design Tokens
 

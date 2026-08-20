@@ -4,7 +4,10 @@ The CoSAI Risk Map system generates a visual Mermaid graph of component relation
 
 ## Understanding the Configuration Structure
 
-The `mermaid-styles.yaml` file uses a hierarchical structure with four main sections:
+The `mermaid-styles.yaml` file has four required top-level keys: `version`, `foundation`,
+`sharedElements`, and `graphTypes`. `version` is a schema-required semantic version
+string (e.g. `1.0.0`) and does not need its own section. The other three are described
+below.
 
 ### Foundation Design Tokens
 
@@ -13,25 +16,32 @@ Define semantic colors, stroke widths, and patterns used throughout the system:
 ```yaml
 foundation:
   colors:
-    primary: '#4285f4' # Google Blue - used for primary actions and "all" controls
-    success: '#34a853' # Google Green - used for success states and category mappings
-    accent: '#9c27b0' # Purple - first multi-edge style color
-    warning: '#ff9800' # Orange - second multi-edge style color
-    error: '#e91e63' # Pink - third multi-edge style color
+    primary: '#4285f4' # Google Blue - primary/brand color token
+    success: '#34a853' # Google Green - success color token
+    accent: '#9c27b0' # Purple - accent color token
+    warning: '#ff9800' # Orange - warning color token
+    error: '#e91e63' # Pink - error/emphasis color token
     neutral: '#333333' # Dark gray - used for borders and strokes
-    lightGray: '#f0f0f0' # Light gray - container backgrounds
-    darkGray: '#666666' # Medium gray - container borders
+    lightGray: '#f0f0f0' # Light gray - background color token
+    darkGray: '#666666' # Medium gray - border color token
   strokeWidths:
-    thin: '1px' # Subgroup borders
-    medium: '2px' # Standard component and control borders
-    thick: '3px' # Emphasis elements like container borders
+    thin: '1px' # Thin stroke width token
+    medium: '2px' # Medium stroke width token
+    thick: '3px' # Thick stroke width token
   strokePatterns:
     solid: '' # No dash pattern (solid lines)
     dashed: '5 5' # Standard dashed pattern
-    dotted: '8 4' # Dotted pattern for "all" control edges
-    longDash: '10 2' # Long dash pattern for multi-edge styles
-    longDashSpaced: '10 5' # Long dash with spacing for containers
+    dotted: '8 4' # Dotted dash pattern token
+    longDash: '10 2' # Long dash pattern token
+    longDashSpaced: '10 5' # Long dash pattern token, with spacing
 ```
+
+`foundation` is schema-required (`graph_utils.py`'s config loader checks for its presence)
+but nothing in the graphing pipeline reads its values: the component graph's actual
+colors, stroke widths, and dash patterns come from `sharedElements.componentCategories`
+and `sharedElements.cssClasses` below, set directly rather than derived from
+`foundation`. Editing `foundation.colors` or `foundation.strokeWidths` has no visible
+effect on the generated graph.
 
 ### Shared Elements
 
@@ -101,19 +111,6 @@ graphTypes:
       nodeSpacing: 40 # Increase space between nodes
       rankSpacing: 50 # Increase space between levels
       wrappingWidth: 300 # Allow wider text labels
-```
-
-### 3. Adjust Foundation Colors for Brand Consistency
-
-To align with organizational brand colors:
-
-```yaml
-foundation:
-  colors:
-    primary: '#0066cc' # Your brand primary color
-    success: '#00aa44' # Your brand success color
-    accent: '#6600cc' # Your brand accent color
-    neutral: '#404040' # Darker borders for better contrast
 ```
 
 ## Testing Your Customizations
@@ -191,7 +188,7 @@ python scripts/hooks/validate_riskmap.py --to-graph ./test.md --mermaid-format -
 
 ## Advanced Customization Tips
 
-- **Consistent color schemes**: Use the `foundation.colors` section to define a palette, then reference these colors throughout the configuration
+- **Consistent color schemes**: Set colors directly on each `sharedElements.componentCategories` entry and `sharedElements.cssClasses` value. `foundation.colors` is not read by the graph renderer, and the YAML has no anchor/alias mechanism, so there is no way to define a palette in `foundation` and reference it elsewhere in the file
 - **Accessibility**: Choose colors with sufficient contrast ratios for accessibility compliance
 - **Testing**: Generate graphs with diverse content (few vs. many components/controls) to ensure your styling works across different scenarios
 - **Version control**: Document your customization rationale in commit messages for future reference
