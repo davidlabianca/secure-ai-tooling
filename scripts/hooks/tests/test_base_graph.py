@@ -770,6 +770,242 @@ class TestNodeClustering:
                 assert "components" in cluster_name.lower() or "subgroup" in cluster_name.lower()
 
 
+class TestSubgraphIdUniqueness:
+    """
+    Guard the Mermaid rendering contract that every generated graph must satisfy:
+    no "subgraph <id>" declaration id is emitted more than once. A duplicated
+    subgraph id makes the whole file unrenderable (mmdc exits 1 with a
+    TypeError; mermaid.live fails on it too).
+
+    This lives at the BaseGraph level -- not against ControlGraph's or
+    RiskGraph's rendered output -- because GitHub issue #477 will remove
+    controls_graph.py and risks_graph.py shortly. A guard written only against
+    a concrete graph type's output would be deleted along with it. Every graph
+    type, including ComponentGraph (which survives #477 and is the vehicle for
+    future work), is built on BaseGraph's clustering (_find_node_clusters /
+    _find_component_clusters) and subgraph-emission (_create_subgraph_section)
+    primitives exercised here directly.
+
+    The test asserts the guarantee (no duplicate id in emitted output), not a
+    mechanism: it does not assert which naming branch is taken, what a name is
+    spelled, or that any particular code path inside _find_node_clusters ran.
+    """
+
+    @pytest.fixture
+    def mock_config_loader(self):
+        """Provide mock config loader."""
+        return Mock(spec=MermaidConfigLoader)
+
+    def test_clusters_from_independent_categories_do_not_emit_duplicate_subgraph_ids(self, mock_config_loader):
+        """
+        Reproduce a duplicate subgraph id using clusters whose members span two
+        different component categories.
+
+        Fixture shape: two categories (componentsApplication,
+        componentsExternalTools), each containing a pair of components that
+        shares 2+ controls (the clustering threshold) and whose IDs have no
+        meaningful common prefix once "component" is stripped -- e.g.
+        "componentA1"/"componentB2" strip to "A1"/"B2", which share no prefix,
+        forcing the positional fallback subgroup name. Component clustering
+        itself is scoped to one category at a time (this is how every caller in
+        the codebase invokes it -- see controls_graph.py's per-category loop),
+        so this fixture calls _find_component_clusters once per category, the
+        same way a real caller does, without going through ControlGraph.
+
+        Given: two independently-clustered categories, each producing one
+               2-member cluster via BaseGraph._find_component_clusters
+        When: a subgraph section is emitted for every discovered cluster, the
+              same way every graph type emits sections via
+              BaseGraph._create_subgraph_section
+        Then: no subgraph id appears in more than one "subgraph <id> [...]"
+              declaration across the combined output
+        """
+        components = {
+            "componentA1": ComponentNode(
+                title="A1 Title", category="componentsApplication", to_edges=[], from_edges=[]
+            ),
+            "componentB2": ComponentNode(
+                title="B2 Title", category="componentsApplication", to_edges=[], from_edges=[]
+            ),
+            "componentC3": ComponentNode(
+                title="C3 Title", category="componentsExternalTools", to_edges=[], from_edges=[]
+            ),
+            "componentD4": ComponentNode(
+                title="D4 Title", category="componentsExternalTools", to_edges=[], from_edges=[]
+            ),
+        }
+        graph = BaseGraph(components=components, config_loader=mock_config_loader)
+        graph.component_by_category = {
+            "componentsApplication": ["componentA1", "componentB2"],
+            "componentsExternalTools": ["componentC3", "componentD4"],
+        }
+
+        # Each category's node-to-controls map is independent, mirroring how
+        # _find_optimal_subgroupings builds one map per category before
+        # clustering within it.
+        node_to_controls_by_category = {
+            "componentsApplication": {
+                "componentA1": {"ctrl1", "ctrl2"},
+                "componentB2": {"ctrl1", "ctrl2"},
+            },
+            "componentsExternalTools": {
+                "componentC3": {"ctrl3", "ctrl4"},
+                "componentD4": {"ctrl3", "ctrl4"},
+            },
+        }
+
+        emitted_ids: list[str] = []
+        for category, node_to_controls in node_to_controls_by_category.items():
+            clusters = graph._find_component_clusters(node_to_controls, min_shared_controls=2, min_nodes=2)
+
+            # Vacuity guard: if clustering stops producing subgroups for this
+            # fixture (threshold tuning, a shape assumption breaking elsewhere
+            # in the module), the test must fail loudly instead of silently
+            # passing over an empty set -- this module's history includes
+            # guards that passed because their derivation returned nothing.
+            assert clusters, (
+                f"No clusters found for category {category!r}; fixture no longer "
+                "exercises clustering -- update the fixture, don't let this pass empty."
+            )
+
+            for subgroup_name, member_ids in clusters.items():
+                section = graph._create_subgraph_section(
+                    category=subgroup_name,
+                    category_name=subgroup_name,
+                    item_ids=member_ids,
+                    items=graph.components,
+                )
+                for line in section:
+                    stripped = line.strip()
+                    if stripped.startswith("subgraph "):
+                        # Line format: 'subgraph <id> ["<display name>"]'
+                        emitted_ids.append(stripped.split()[1])
+
+        # Sanity check on the harness itself: two sections should have been
+        # emitted (one per category) before checking for collisions between
+        # them.
+        assert len(emitted_ids) == 2
+
+        duplicate_ids = {sid for sid in emitted_ids if emitted_ids.count(sid) > 1}
+        assert not duplicate_ids, (
+            f"Duplicate subgraph id(s) {duplicate_ids} emitted across categories "
+            f"{list(node_to_controls_by_category)}; a Mermaid graph with a repeated "
+            "subgraph id fails to render (mmdc exits 1, mermaid.live fails too)."
+        )
+
+    def test_common_prefix_branch_collision_across_categories_does_not_emit_duplicate_subgraph_ids(
+        self, mock_config_loader
+    ):
+        """
+        Same guarantee as the test above, reached via the OTHER naming branch in
+        _find_node_clusters (base.py:230-242, the common-prefix branch) instead of
+        the positional fallback. A fix that only patches the fallback branch (e.g.
+        making its positional index globally unique) leaves this branch shipping
+        an identical collision, since it computes names independently via
+        commonprefix() and never consults what the fallback branch or a sibling
+        category's call produced.
+
+        Fixture shape: two categories, each clustering a pair of components whose
+        IDs share a >2-char prefix once "component" is stripped
+        ("GizmoAlpha"/"GizmoBeta" -> "Gizmo"; "GizmoGamma"/"GizmoDelta" -> "Gizmo"),
+        so both independent per-category calls derive the same name
+        "componentsGizmo" via the common-prefix branch specifically. "Gizmo" is a
+        fictitious prefix, chosen so this fixture doesn't also collide with the
+        real schema's "componentsModel" category (a genuine top-level component
+        category), which would confound the assertion with an unrelated,
+        pre-existing collision.
+
+        Given: two independently-clustered categories, each producing one
+               2-member cluster whose name resolves through the common-prefix
+               branch to the same string
+        When: a subgraph section is emitted for every discovered cluster via
+              BaseGraph._create_subgraph_section
+        Then: no subgraph id appears in more than one declaration, AND (fixture-
+              reach guard) the two categories' derived names actually match each
+              other and are not fallback-pattern names -- proving this fixture
+              still exercises the common-prefix branch and not the scenario the
+              previous test already covers
+        """
+        components = {
+            "componentGizmoAlpha": ComponentNode(
+                title="Gizmo Alpha", category="componentsApplication", to_edges=[], from_edges=[]
+            ),
+            "componentGizmoBeta": ComponentNode(
+                title="Gizmo Beta", category="componentsApplication", to_edges=[], from_edges=[]
+            ),
+            "componentGizmoGamma": ComponentNode(
+                title="Gizmo Gamma", category="componentsExternalTools", to_edges=[], from_edges=[]
+            ),
+            "componentGizmoDelta": ComponentNode(
+                title="Gizmo Delta", category="componentsExternalTools", to_edges=[], from_edges=[]
+            ),
+        }
+        graph = BaseGraph(components=components, config_loader=mock_config_loader)
+        graph.component_by_category = {
+            "componentsApplication": ["componentGizmoAlpha", "componentGizmoBeta"],
+            "componentsExternalTools": ["componentGizmoGamma", "componentGizmoDelta"],
+        }
+
+        node_to_controls_by_category = {
+            "componentsApplication": {
+                "componentGizmoAlpha": {"ctrl1", "ctrl2"},
+                "componentGizmoBeta": {"ctrl1", "ctrl2"},
+            },
+            "componentsExternalTools": {
+                "componentGizmoGamma": {"ctrl3", "ctrl4"},
+                "componentGizmoDelta": {"ctrl3", "ctrl4"},
+            },
+        }
+
+        derived_names: list[str] = []
+        emitted_ids: list[str] = []
+        for category, node_to_controls in node_to_controls_by_category.items():
+            clusters = graph._find_component_clusters(node_to_controls, min_shared_controls=2, min_nodes=2)
+
+            assert clusters, (
+                f"No clusters found for category {category!r}; fixture no longer "
+                "exercises clustering -- update the fixture, don't let this pass empty."
+            )
+
+            for subgroup_name, member_ids in clusters.items():
+                derived_names.append(subgroup_name)
+                section = graph._create_subgraph_section(
+                    category=subgroup_name,
+                    category_name=subgroup_name,
+                    item_ids=member_ids,
+                    items=graph.components,
+                )
+                for line in section:
+                    stripped = line.strip()
+                    if stripped.startswith("subgraph "):
+                        emitted_ids.append(stripped.split()[1])
+
+        # Fixture-reach guard: confirm this fixture actually reaches the
+        # common-prefix collision it was built for -- both categories' clusters
+        # resolved to the identical name, and that name did not come from the
+        # positional fallback branch already covered by the previous test. This
+        # is a mechanism assertion on the fixture's own construction (what
+        # inputs were fed in and what name resulted), not on which production
+        # branch fired -- it exists so a refactor of the naming logic can't
+        # silently make this fixture stop exercising the common-prefix branch
+        # while the test keeps passing for the wrong reason.
+        assert len(derived_names) == 2 and derived_names[0] == derived_names[1], (
+            f"Fixture no longer produces identical names across categories (got {derived_names}); "
+            "it no longer reaches the collision this test targets -- update the fixture."
+        )
+        assert "Subgroup" not in derived_names[0], (
+            "Fixture drifted onto the positional fallback naming branch instead of "
+            "the common-prefix branch this test is meant to exercise."
+        )
+
+        duplicate_ids = {sid for sid in emitted_ids if emitted_ids.count(sid) > 1}
+        assert not duplicate_ids, (
+            f"Duplicate subgraph id(s) {duplicate_ids} emitted across categories via the "
+            f"common-prefix naming branch; a Mermaid graph with a repeated subgraph id "
+            "fails to render (mmdc exits 1, mermaid.live fails too)."
+        )
+
+
 class TestGroupNodeBy:
     """
     Test _group_node_by method.

@@ -40,6 +40,7 @@ and reproducibility. Each test class focuses on a specific aspect of the system:
 - TestEndToEndIntegration: Complete validation workflows
 """
 
+import re
 import subprocess
 
 # Import the validator using git repo root
@@ -79,6 +80,46 @@ from riskmap_validator.utils import get_staged_yaml_files  # noqa: E402
 
 # Import the validator and its exception from the validator module
 from riskmap_validator.validator import ComponentEdgeValidator, EdgeValidationError  # noqa: E402
+
+
+def _parse_mermaid_graph_structure(graph_text: str) -> dict:
+    """
+    Parse the subset of Mermaid syntax this codebase's graph generators emit.
+
+    Test-only structural parser (not a general Mermaid parser) used to assert
+    rendering invariants against generated graph text:
+      - "subgraph <id>" / "subgraph <id> [\"<display>\"]" container declarations
+      - "<id>[<label>]" leaf node declarations
+      - "<source> --> <target>" / "<source> -.-> <target>" edges
+      - "style <id> <style-string>" style declarations
+
+    Returns:
+        dict with keys "subgraph_ids", "node_ids", "edges", "style_ids" -- each
+        a list preserving duplicates/order, so callers can detect both
+        missing-declaration and duplicate-declaration failures.
+    """
+    subgraph_ids: list[str] = []
+    node_ids: list[str] = []
+    edges: list[tuple[str, str]] = []
+    style_ids: list[str] = []
+
+    for line in graph_text.split("\n"):
+        stripped = line.strip()
+        if m := re.match(r"^subgraph (\S+)", stripped):
+            subgraph_ids.append(m.group(1))
+        elif m := re.match(r"^style (\S+)\s", stripped):
+            style_ids.append(m.group(1))
+        elif m := re.match(r"^(\S+)\s+(?:-->|-\.->)\s+(\S+)$", stripped):
+            edges.append((m.group(1), m.group(2)))
+        elif m := re.match(r"^(\w+)\[", stripped):
+            node_ids.append(m.group(1))
+
+    return {
+        "subgraph_ids": subgraph_ids,
+        "node_ids": node_ids,
+        "edges": edges,
+        "style_ids": style_ids,
+    }
 
 
 class TestComponentEdgeValidator:
@@ -806,6 +847,45 @@ class TestComponentGraph:
         assert "```mermaid" in mermaid_output
         assert "```" in mermaid_output
 
+    def test_build_graph_is_idempotent_across_repeated_calls(self, simple_forward_map, simple_components):
+        """
+        Regression guard: calling build_graph() twice on the same instance
+        must declare the same subgraph ids in the same order both times.
+
+        _create_subgraph_section's collision-tracking state
+        (_declared_subgraph_ids, declared in BaseGraph.__init__) is scoped to
+        the instance's whole lifetime rather than to a single render pass. A
+        category id (e.g. "componentsData") legitimately reappears every time
+        build_graph() runs -- categories don't change between calls -- but
+        without a reset at the start of a render pass, the second call sees
+        every id the first call already declared as "taken" and disambiguates
+        it (e.g. "componentsData" -> "componentsData2"), even though no two
+        categories collide with each other. NOTE: asserting against
+        to_mermaid() output would not catch this -- to_mermaid() only
+        formats self.graph, which is built once in __init__ and never
+        touched again; the defect is only visible by calling build_graph()
+        itself a second time.
+        """
+        # __init__ already calls build_graph() once to populate self.graph;
+        # that is "first pass" here. A second, explicit call is the
+        # re-entrant one under test.
+        graph = ComponentGraph(simple_forward_map, simple_components)
+        first_pass = graph.graph
+        first_ids = _parse_mermaid_graph_structure(first_pass)["subgraph_ids"]
+
+        second_pass = graph.build_graph()
+        second_ids = _parse_mermaid_graph_structure(second_pass)["subgraph_ids"]
+
+        assert second_ids == first_ids, (
+            f"Calling build_graph() a second time on the same ComponentGraph "
+            f"instance produced different subgraph ids: first pass {first_ids}, "
+            f"second pass {second_ids}."
+        )
+        assert second_pass == first_pass, (
+            "Calling build_graph() a second time on the same ComponentGraph "
+            "instance produced different output text."
+        )
+
 
 class TestControlNode:
     """
@@ -1300,3 +1380,701 @@ class TestControlGraph:
             line for line in link_style_lines if any(color in line for color in multi_edge_colors)
         ]
         assert len(multi_edge_styles) == 0  # Should be 0 since this control maps to categories
+
+    def test_control_graph_output_has_no_duplicate_subgraph_ids(self):
+        """
+        Companion test to base.py's TestSubgraphIdUniqueness, exercised against the
+        concrete ControlGraph output that a rendering failure is actually reported
+        against. This test is expected to be deleted along with controls_graph.py
+        per issue #477; the load-bearing guard lives in test_base_graph.py because
+        it survives that deletion.
+
+        Fixture shape: two component categories (componentsApplication,
+        componentsExternalTools), each with one pair of components that shares 2
+        controls (triggering component clustering) plus one additional standalone
+        component (so the parent category subgraph still has members left over
+        after the pair is pulled into a subgroup, and its nested-subgraph section
+        is actually emitted -- an all-clustered category is skipped entirely by
+        ControlGraph._get_subgraph and would mask the collision). Each pair's IDs
+        share no meaningful prefix once "component" is stripped, so cluster naming
+        falls back to the positional "{prefix}Subgroup{i+1}" pattern in both
+        categories independently, producing the id collision reported against the
+        real corpus (componentsSubgroup1 declared under both componentsApplication
+        and componentsExternalTools).
+
+        Given: components/controls shaped to produce one cluster per category,
+               under two different parent categories
+        When: ControlGraph builds its Mermaid graph
+        Then: no "subgraph <id>" declaration id appears more than once in the
+              rendered output
+        """
+        components = {
+            "componentA1": ComponentNode(
+                title="A1 Title", category="componentsApplication", to_edges=[], from_edges=[]
+            ),
+            "componentB2": ComponentNode(
+                title="B2 Title", category="componentsApplication", to_edges=[], from_edges=[]
+            ),
+            "componentA3": ComponentNode(
+                title="A3 Title", category="componentsApplication", to_edges=[], from_edges=[]
+            ),
+            "componentC3": ComponentNode(
+                title="C3 Title", category="componentsExternalTools", to_edges=[], from_edges=[]
+            ),
+            "componentD4": ComponentNode(
+                title="D4 Title", category="componentsExternalTools", to_edges=[], from_edges=[]
+            ),
+            "componentC5": ComponentNode(
+                title="C5 Title", category="componentsExternalTools", to_edges=[], from_edges=[]
+            ),
+        }
+        controls = {
+            "ctrl1": ControlNode(
+                title="Ctrl 1",
+                category="controlsData",
+                components=["componentA1", "componentB2"],
+                risks=[],
+                personas=[],
+            ),
+            "ctrl2": ControlNode(
+                title="Ctrl 2",
+                category="controlsData",
+                components=["componentA1", "componentB2"],
+                risks=[],
+                personas=[],
+            ),
+            "ctrl3": ControlNode(
+                title="Ctrl 3",
+                category="controlsData",
+                components=["componentC3", "componentD4"],
+                risks=[],
+                personas=[],
+            ),
+            "ctrl4": ControlNode(
+                title="Ctrl 4",
+                category="controlsData",
+                components=["componentC3", "componentD4"],
+                risks=[],
+                personas=[],
+            ),
+            "ctrl5": ControlNode(
+                title="Ctrl 5", category="controlsData", components=["componentA3"], risks=[], personas=[]
+            ),
+            "ctrl6": ControlNode(
+                title="Ctrl 6", category="controlsData", components=["componentC5"], risks=[], personas=[]
+            ),
+        }
+
+        graph = ControlGraph(controls, components)
+
+        # Vacuity guard: if this fixture stops producing subgroupings (clustering
+        # thresholds changed, shape assumption broke), the test must fail loudly
+        # rather than silently pass over nothing to check.
+        assert graph.subgroupings, (
+            "Fixture produced no subgroupings; it no longer exercises clustering "
+            "-- update the fixture, don't let this pass on an empty derivation."
+        )
+
+        subgraph_ids = re.findall(r"^\s*subgraph (\S+)", graph.graph, flags=re.MULTILINE)
+        duplicate_ids = {sid for sid in subgraph_ids if subgraph_ids.count(sid) > 1}
+
+        assert not duplicate_ids, (
+            f"Duplicate subgraph id(s) {duplicate_ids} declared in ControlGraph output; "
+            "a Mermaid graph with a repeated subgraph id fails to render (mmdc exits 1, "
+            "mermaid.live fails too)."
+        )
+
+    def _fallback_collision_components_and_controls(self):
+        """
+        Same fixture shape as test_control_graph_output_has_no_duplicate_subgraph_ids:
+        two categories, each with a 2-member cluster (sharing 2 controls, no common
+        ID prefix -> positional fallback naming) plus one standalone component per
+        category so the parent subgraph still has leftover members and the
+        nested-subgraph path actually fires. Factored out so multiple guarantee
+        tests can exercise the identical scenario without re-declaring it.
+        """
+        components = {
+            "componentA1": ComponentNode(
+                title="A1 Title", category="componentsApplication", to_edges=[], from_edges=[]
+            ),
+            "componentB2": ComponentNode(
+                title="B2 Title", category="componentsApplication", to_edges=[], from_edges=[]
+            ),
+            "componentA3": ComponentNode(
+                title="A3 Title", category="componentsApplication", to_edges=[], from_edges=[]
+            ),
+            "componentC3": ComponentNode(
+                title="C3 Title", category="componentsExternalTools", to_edges=[], from_edges=[]
+            ),
+            "componentD4": ComponentNode(
+                title="D4 Title", category="componentsExternalTools", to_edges=[], from_edges=[]
+            ),
+            "componentC5": ComponentNode(
+                title="C5 Title", category="componentsExternalTools", to_edges=[], from_edges=[]
+            ),
+        }
+        controls = {
+            "ctrl1": ControlNode(
+                title="Ctrl 1",
+                category="controlsData",
+                components=["componentA1", "componentB2"],
+                risks=[],
+                personas=[],
+            ),
+            "ctrl2": ControlNode(
+                title="Ctrl 2",
+                category="controlsData",
+                components=["componentA1", "componentB2"],
+                risks=[],
+                personas=[],
+            ),
+            "ctrl3": ControlNode(
+                title="Ctrl 3",
+                category="controlsData",
+                components=["componentC3", "componentD4"],
+                risks=[],
+                personas=[],
+            ),
+            "ctrl4": ControlNode(
+                title="Ctrl 4",
+                category="controlsData",
+                components=["componentC3", "componentD4"],
+                risks=[],
+                personas=[],
+            ),
+            "ctrl5": ControlNode(
+                title="Ctrl 5", category="controlsData", components=["componentA3"], risks=[], personas=[]
+            ),
+            "ctrl6": ControlNode(
+                title="Ctrl 6", category="controlsData", components=["componentC5"], risks=[], personas=[]
+            ),
+        }
+        return components, controls
+
+    def test_control_graph_declared_subgraphs_have_exactly_one_style_line(self):
+        """
+        Guard against a cosmetic fix that renames the second colliding subgraph
+        id (making declared ids unique) without updating self.subgroupings, which
+        is the only source the style-emission loop reads from. Measured on the
+        rename-on-collision fix: the original id still gets two "style" lines
+        (last one silently wins in Mermaid) and the renamed id gets zero -- a
+        graph that renders, but colors one subgroup wrong and the other not at
+        all. A bare "no duplicate declared subgraph id" check cannot see this,
+        because by the time ids are unique the duplication has moved from the
+        subgraph declaration to the style declaration.
+
+        Given: the fallback-collision fixture (two categories, each producing a
+               same-named 2-member cluster via the positional fallback branch)
+        When: ControlGraph builds its Mermaid graph
+        Then: every dynamically-generated subgroup id (the ones build_controls_graph
+              styles via self.subgroupings, as opposed to control categories or
+              component categories absent from the styling config -- neither of
+              which are styled by design and are out of scope here) has exactly
+              one "style <id> ..." line
+        """
+        components, controls = self._fallback_collision_components_and_controls()
+        graph = ControlGraph(controls, components)
+
+        assert graph.subgroupings, (
+            "Fixture produced no subgroupings; it no longer exercises clustering "
+            "-- update the fixture, don't let this pass on an empty derivation."
+        )
+
+        # Scope the check to subgroup ids specifically (from self.subgroupings),
+        # not every declared subgraph id: control categories never get a "style"
+        # line by design, and not every component category is present in the
+        # styling config either -- both are pre-existing, unrelated behavior.
+        # Only dynamically-generated subgroups are guaranteed a style line by
+        # build_controls_graph's dedicated subgroup-styling loop.
+        subgroup_ids = {name for subgroups in graph.subgroupings.values() for name in subgroups.keys()}
+
+        parsed = _parse_mermaid_graph_structure(graph.graph)
+        style_counts = {sid: parsed["style_ids"].count(sid) for sid in subgroup_ids}
+        wrong_counts = {sid: count for sid, count in style_counts.items() if count != 1}
+
+        assert not wrong_counts, (
+            f"Declared subgraph(s) without exactly one style line: {wrong_counts} "
+            "(0 = the subgraph renders uncolored/default; >1 = Mermaid keeps only "
+            "the last style, silently discarding the others)."
+        )
+
+    def test_control_graph_edges_resolve_to_declared_ids(self):
+        """
+        Every edge must target something that was actually declared (a node or a
+        subgraph/category id) -- an edge to an undeclared id is invisible/broken
+        in the rendered graph even when the file technically parses.
+
+        Given: the fallback-collision fixture
+        When: ControlGraph builds its Mermaid graph
+        Then: every "-->"/"-.->" edge target is among the declared node ids or
+              declared subgraph ids
+        """
+        components, controls = self._fallback_collision_components_and_controls()
+        graph = ControlGraph(controls, components)
+
+        assert graph.subgroupings, (
+            "Fixture produced no subgroupings; it no longer exercises clustering "
+            "-- update the fixture, don't let this pass on an empty derivation."
+        )
+
+        parsed = _parse_mermaid_graph_structure(graph.graph)
+        declared = set(parsed["subgraph_ids"]) | set(parsed["node_ids"])
+        # "components" is a valid universal edge target (controls mapped to
+        # "all") even though it's also a subgraph id already covered above.
+        unresolved_targets = sorted({target for _, target in parsed["edges"] if target not in declared})
+
+        assert not unresolved_targets, (
+            f"Edge target(s) {unresolved_targets} are not declared anywhere in the output "
+            "(no matching node or subgraph id) -- these edges point at nothing."
+        )
+
+    def test_control_graph_every_component_appears_at_least_once(self):
+        """
+        Every component passed into ControlGraph must be declared as a node
+        somewhere in the output. This is the guarantee that catches silent data
+        loss, which a "no duplicate id" check cannot: when a category is fully
+        absorbed into a subgroup with no leftover members, ControlGraph._get_subgraph
+        skips that (now-empty) category entirely, so the nested-subgraph call that
+        would have embedded the subgroup never fires -- see
+        test_control_graph_fully_clustered_category_does_not_lose_components for
+        that shape specifically. This test uses the leftover-members fixture as a
+        baseline: it should never regress even when the fixture is "well-behaved".
+
+        Given: the fallback-collision fixture
+        When: ControlGraph builds its Mermaid graph
+        Then: every component id in the input appears as a declared node at least
+              once in the output
+        """
+        components, controls = self._fallback_collision_components_and_controls()
+        graph = ControlGraph(controls, components)
+
+        assert graph.subgroupings, (
+            "Fixture produced no subgroupings; it no longer exercises clustering "
+            "-- update the fixture, don't let this pass on an empty derivation."
+        )
+
+        parsed = _parse_mermaid_graph_structure(graph.graph)
+        declared_node_ids = set(parsed["node_ids"])
+        missing = sorted(cid for cid in components if cid not in declared_node_ids)
+
+        assert not missing, (
+            f"Component id(s) {missing} never declared as a node in the output -- silently dropped."
+        )
+
+    def test_control_graph_fully_clustered_category_does_not_lose_components(self):
+        """
+        F2 shape: two categories with NO leftover members -- every component in
+        each category is absorbed into that category's single cluster. This is
+        the discriminator the leftover-members fixtures above cannot exercise:
+        when a category's item list becomes empty after clustering,
+        ControlGraph._get_subgraph's "if not item_ids: continue" skips it
+        entirely, so the nested-subgraph call that would emit the subgroup (and
+        the components inside it) for that category never runs. Measured: this
+        drops 2 of 4 components from the rendered output entirely, with NO
+        duplicate subgraph id in sight -- the naive duplicate-id check reports
+        this fixture as clean. A rename-on-collision fix does not touch this
+        path at all (the skip happens before _create_subgraph_section is ever
+        called for the affected category), so this is also a discriminator
+        against that cosmetic fix specifically.
+
+        Given: two categories, each entirely absorbed into one 2-member cluster
+               (no components left over in either parent category)
+        When: ControlGraph builds its Mermaid graph
+        Then: every component id in the input still appears as a declared node
+        """
+        components = {
+            "componentA1": ComponentNode(
+                title="A1 Title", category="componentsApplication", to_edges=[], from_edges=[]
+            ),
+            "componentB2": ComponentNode(
+                title="B2 Title", category="componentsApplication", to_edges=[], from_edges=[]
+            ),
+            "componentC3": ComponentNode(
+                title="C3 Title", category="componentsExternalTools", to_edges=[], from_edges=[]
+            ),
+            "componentD4": ComponentNode(
+                title="D4 Title", category="componentsExternalTools", to_edges=[], from_edges=[]
+            ),
+        }
+        controls = {
+            "ctrl1": ControlNode(
+                title="Ctrl 1",
+                category="controlsData",
+                components=["componentA1", "componentB2"],
+                risks=[],
+                personas=[],
+            ),
+            "ctrl2": ControlNode(
+                title="Ctrl 2",
+                category="controlsData",
+                components=["componentA1", "componentB2"],
+                risks=[],
+                personas=[],
+            ),
+            "ctrl3": ControlNode(
+                title="Ctrl 3",
+                category="controlsData",
+                components=["componentC3", "componentD4"],
+                risks=[],
+                personas=[],
+            ),
+            "ctrl4": ControlNode(
+                title="Ctrl 4",
+                category="controlsData",
+                components=["componentC3", "componentD4"],
+                risks=[],
+                personas=[],
+            ),
+        }
+
+        graph = ControlGraph(controls, components)
+
+        assert graph.subgroupings, (
+            "Fixture produced no subgroupings; it no longer exercises clustering "
+            "-- update the fixture, don't let this pass on an empty derivation."
+        )
+
+        # Fixture-reach guard: confirm this fixture actually reaches the F2 shape
+        # it was built for -- every member of each clustered category absorbed
+        # into that category's subgroup(s), with nothing left over. This is a
+        # mechanism assertion on the fixture's own construction (not on which
+        # production code path fires), so a future change that alters how
+        # much gets clustered can't silently turn this into a no-op leftover
+        # fixture that duplicates the other tests without testing F2 at all.
+        for category, subgroups in graph.subgroupings.items():
+            clustered_members = {member for members in subgroups.values() for member in members}
+            original_members = {cid for cid, node in components.items() if node.category == category}
+            assert clustered_members == original_members, (
+                f"Fixture no longer fully clusters category {category!r} "
+                f"(leftover members: {original_members - clustered_members}); "
+                "this test targets the fully-clustered (F2) shape specifically -- "
+                "update the fixture to restore it, don't let this silently degrade "
+                "into the leftover-members shape already covered elsewhere."
+            )
+
+        parsed = _parse_mermaid_graph_structure(graph.graph)
+        declared_node_ids = set(parsed["node_ids"])
+        missing = sorted(cid for cid in components if cid not in declared_node_ids)
+
+        assert not missing, (
+            f"Component id(s) {missing} never declared as a node in the output -- silently dropped "
+            "when their category has no leftover members after clustering."
+        )
+
+    def test_control_graph_common_prefix_collision_does_not_duplicate_or_lose_data(self):
+        """
+        A collision reached via the common-prefix naming branch (base.py:230-242),
+        not the positional fallback the other tests above exercise. Two
+        categories each cluster a pair of components whose IDs share a >2-char
+        prefix once "component" is stripped ("GizmoAlpha"/"GizmoBeta" ->
+        "Gizmo"; "GizmoGamma"/"GizmoDelta" -> "Gizmo"), so both clusters are
+        named "componentsGizmo" independently of the fallback's positional
+        index. A fix that only patches the fallback branch (i+1 restarting, or
+        similar) leaves this branch shipping the identical bug. "Gizmo" is a
+        fictitious prefix chosen so this fixture doesn't also collide with the
+        real schema's "componentsModel" category, which would confound the
+        assertions with an unrelated pre-existing collision.
+
+        Given: two categories whose clusters both resolve through the
+               common-prefix naming branch to the same derived name
+        When: ControlGraph builds its Mermaid graph
+        Then: no subgraph id is declared twice, every declared subgraph has
+              exactly one style line, and no component is silently dropped
+        """
+        components = {
+            "componentGizmoAlpha": ComponentNode(
+                title="Gizmo Alpha", category="componentsApplication", to_edges=[], from_edges=[]
+            ),
+            "componentGizmoBeta": ComponentNode(
+                title="Gizmo Beta", category="componentsApplication", to_edges=[], from_edges=[]
+            ),
+            "componentA3": ComponentNode(
+                title="A3 Title", category="componentsApplication", to_edges=[], from_edges=[]
+            ),
+            "componentGizmoGamma": ComponentNode(
+                title="Gizmo Gamma", category="componentsExternalTools", to_edges=[], from_edges=[]
+            ),
+            "componentGizmoDelta": ComponentNode(
+                title="Gizmo Delta", category="componentsExternalTools", to_edges=[], from_edges=[]
+            ),
+            "componentC5": ComponentNode(
+                title="C5 Title", category="componentsExternalTools", to_edges=[], from_edges=[]
+            ),
+        }
+        controls = {
+            "ctrl1": ControlNode(
+                title="Ctrl 1",
+                category="controlsData",
+                components=["componentGizmoAlpha", "componentGizmoBeta"],
+                risks=[],
+                personas=[],
+            ),
+            "ctrl2": ControlNode(
+                title="Ctrl 2",
+                category="controlsData",
+                components=["componentGizmoAlpha", "componentGizmoBeta"],
+                risks=[],
+                personas=[],
+            ),
+            "ctrl3": ControlNode(
+                title="Ctrl 3",
+                category="controlsData",
+                components=["componentGizmoGamma", "componentGizmoDelta"],
+                risks=[],
+                personas=[],
+            ),
+            "ctrl4": ControlNode(
+                title="Ctrl 4",
+                category="controlsData",
+                components=["componentGizmoGamma", "componentGizmoDelta"],
+                risks=[],
+                personas=[],
+            ),
+            "ctrl5": ControlNode(
+                title="Ctrl 5", category="controlsData", components=["componentA3"], risks=[], personas=[]
+            ),
+            "ctrl6": ControlNode(
+                title="Ctrl 6", category="controlsData", components=["componentC5"], risks=[], personas=[]
+            ),
+        }
+
+        graph = ControlGraph(controls, components)
+
+        assert graph.subgroupings, (
+            "Fixture produced no subgroupings; it no longer exercises clustering "
+            "-- update the fixture, don't let this pass on an empty derivation."
+        )
+
+        # Fixture-reach guard: confirm the two categories' clusters actually
+        # resolved to the SAME name (the collision this fixture targets) and
+        # that the name came from the common-prefix branch, not the positional
+        # fallback already covered by the other fixtures in this file and in
+        # test_base_graph.py. This is a mechanism assertion on the fixture's
+        # own construction, not on production internals -- it exists so a
+        # cosmetic fix or an unrelated refactor can't silently neuter this
+        # specific scenario without the test noticing it stopped exercising it.
+        derived_names = {
+            subgroup_name for subgroups in graph.subgroupings.values() for subgroup_name in subgroups.keys()
+        }
+        assert derived_names == {"componentsGizmo"}, (
+            f"Fixture no longer produces a single shared common-prefix name across "
+            f"categories (got {derived_names}); it no longer reaches the branch this "
+            "test targets -- update the fixture, don't let this silently pass."
+        )
+        assert "Subgroup" not in next(iter(derived_names)), (
+            "Fixture drifted onto the positional fallback naming branch instead of "
+            "the common-prefix branch this test is meant to exercise."
+        )
+
+        parsed = _parse_mermaid_graph_structure(graph.graph)
+        subgraph_ids = parsed["subgraph_ids"]
+        duplicate_ids = {sid for sid in subgraph_ids if subgraph_ids.count(sid) > 1}
+        assert not duplicate_ids, (
+            f"Duplicate subgraph id(s) {duplicate_ids} declared via the common-prefix naming "
+            "branch; a Mermaid graph with a repeated subgraph id fails to render."
+        )
+
+        # Scope the style-line check to the dynamically-generated subgroup ids
+        # (derived_names, already confirmed above), not every declared subgraph:
+        # control categories and unconfigured component categories never get a
+        # "style" line by design, which is pre-existing and unrelated here.
+        style_counts = {sid: parsed["style_ids"].count(sid) for sid in derived_names}
+        wrong_counts = {sid: count for sid, count in style_counts.items() if count != 1}
+        assert not wrong_counts, (
+            f"Declared subgraph(s) without exactly one style line: {wrong_counts} "
+            "-- a fallback-only naming fix leaves this branch's collision shipping."
+        )
+
+        declared_node_ids = set(parsed["node_ids"])
+        missing = sorted(cid for cid in components if cid not in declared_node_ids)
+        assert not missing, (
+            f"Component id(s) {missing} never declared as a node in the output -- silently dropped."
+        )
+
+    def test_control_graph_empty_category_does_not_falsely_appear_covered(self):
+        """
+        Regression guard for a loud-to-silent conversion.
+
+        _maps_to_full_category checks
+        set(component_by_category[category]).issubset(control_components).
+        When a category is fully absorbed into a cluster,
+        component_by_category[category] is []; the empty set is a subset of
+        every set, so this check is vacuously True for ANY control, including
+        one with zero components in common with the category.
+
+        Before _get_subgraph was fixed to still render a fully-absorbed
+        category's nested subgroup (see
+        test_control_graph_fully_clustered_category_does_not_lose_components),
+        a control wrongly optimized to target that category pointed at an id
+        that was never declared anywhere -- an unresolved edge target, loud
+        and easy to catch. Now that the category IS declared (as a container
+        for its nested subgroup), the same vacuous-coverage bug would
+        silently point a bogus edge at a real, correctly-styled box instead.
+        This test targets the mapping bug directly, at the level where it
+        actually lives, so it cannot resurface through a future emission-path
+        change.
+
+        Given: a category fully absorbed into a subgroup (no direct members)
+               and a control whose components have no relationship to that
+               category at all
+        When: ControlGraph builds its control-to-component mapping
+        Then: that control is never optimized to target the empty category,
+              and no edge to it appears in the rendered graph
+        """
+        components = {
+            "componentA1": ComponentNode(
+                title="A1 Title", category="componentsApplication", to_edges=[], from_edges=[]
+            ),
+            "componentB2": ComponentNode(
+                title="B2 Title", category="componentsApplication", to_edges=[], from_edges=[]
+            ),
+            "componentX": ComponentNode(
+                title="X Title", category="componentsExternalTools", to_edges=[], from_edges=[]
+            ),
+        }
+        controls = {
+            "ctrl1": ControlNode(
+                title="Ctrl 1",
+                category="controlsData",
+                components=["componentA1", "componentB2"],
+                risks=[],
+                personas=[],
+            ),
+            "ctrl2": ControlNode(
+                title="Ctrl 2",
+                category="controlsData",
+                components=["componentA1", "componentB2"],
+                risks=[],
+                personas=[],
+            ),
+            # Unrelated to componentsApplication entirely -- must never be
+            # considered to "cover" it, empty or not.
+            "ctrlUnrelated": ControlNode(
+                title="Ctrl Unrelated", category="controlsData", components=["componentX"], risks=[], personas=[]
+            ),
+        }
+
+        graph = ControlGraph(controls, components)
+
+        assert graph.component_by_category.get("componentsApplication") == [], (
+            "Fixture no longer fully absorbs componentsApplication into its cluster "
+            "-- update the fixture, don't let this pass without exercising the "
+            "empty-category shape this test targets."
+        )
+
+        assert "componentsApplication" not in graph.control_to_component_map["ctrlUnrelated"], (
+            "ctrlUnrelated was optimized to target 'componentsApplication', a category "
+            "it shares zero components with -- the empty-category vacuous-subset bug "
+            "in _maps_to_full_category."
+        )
+
+        assert "ctrlUnrelated --> componentsApplication" not in graph.graph, (
+            "A bogus edge from an unrelated control to the empty category was rendered."
+        )
+
+    def test_control_graph_full_union_coverage_of_split_subgroup_still_edges_every_member(self):
+        """
+        Regression guard for the "wrong box" risk in a collision resolved by
+        merging component_by_category[subgroup_name] across colliding parent
+        categories (see _integrate_subgroupings).
+
+        A control that covers the FULL union of two colliding subgroups' true
+        memberships would, if the merged/unioned entry were offered as a
+        "control fully covers this category" optimization target, collapse to
+        a single edge pointing at whichever of the (now multiple, physically
+        distinct) rendered boxes happens to hold the unrenamed id -- silently
+        losing all coverage of the box that got renamed on collision, with no
+        edge, no visual trace, and no test failure to catch it. Before the
+        merge fix, this same control would instead have fallen through to
+        individual per-component edges (safe, if visually noisier).
+
+        Given: two categories whose clusters collide on the same subgroup
+               name (common-prefix branch), and a control that covers every
+               member of both colliding clusters
+        When: ControlGraph builds its control-to-component mapping
+        Then: the collided/merged subgroup name is never used as an
+              optimization target for that control -- every member component
+              still gets an edge (individually), so none are silently dropped
+        """
+        components = {
+            "componentGizmoAlpha": ComponentNode(
+                title="Gizmo Alpha", category="componentsApplication", to_edges=[], from_edges=[]
+            ),
+            "componentGizmoBeta": ComponentNode(
+                title="Gizmo Beta", category="componentsApplication", to_edges=[], from_edges=[]
+            ),
+            "componentGizmoGamma": ComponentNode(
+                title="Gizmo Gamma", category="componentsExternalTools", to_edges=[], from_edges=[]
+            ),
+            "componentGizmoDelta": ComponentNode(
+                title="Gizmo Delta", category="componentsExternalTools", to_edges=[], from_edges=[]
+            ),
+        }
+        controls = {
+            "ctrl1": ControlNode(
+                title="Ctrl 1",
+                category="controlsData",
+                components=["componentGizmoAlpha", "componentGizmoBeta"],
+                risks=[],
+                personas=[],
+            ),
+            "ctrl2": ControlNode(
+                title="Ctrl 2",
+                category="controlsData",
+                components=["componentGizmoAlpha", "componentGizmoBeta"],
+                risks=[],
+                personas=[],
+            ),
+            "ctrl3": ControlNode(
+                title="Ctrl 3",
+                category="controlsData",
+                components=["componentGizmoGamma", "componentGizmoDelta"],
+                risks=[],
+                personas=[],
+            ),
+            "ctrl4": ControlNode(
+                title="Ctrl 4",
+                category="controlsData",
+                components=["componentGizmoGamma", "componentGizmoDelta"],
+                risks=[],
+                personas=[],
+            ),
+            # Covers the FULL union of both colliding clusters' true members.
+            "ctrlFullUnion": ControlNode(
+                title="Ctrl Full Union",
+                category="controlsData",
+                components=[
+                    "componentGizmoAlpha",
+                    "componentGizmoBeta",
+                    "componentGizmoGamma",
+                    "componentGizmoDelta",
+                ],
+                risks=[],
+                personas=[],
+            ),
+        }
+
+        graph = ControlGraph(controls, components)
+
+        derived_names = {
+            subgroup_name for subgroups in graph.subgroupings.values() for subgroup_name in subgroups.keys()
+        }
+        assert derived_names == {"componentsGizmo"}, (
+            f"Fixture no longer produces the shared common-prefix collision this test "
+            f"targets (got {derived_names}) -- update the fixture, don't let this "
+            "silently pass."
+        )
+
+        full_union_targets = set(graph.control_to_component_map["ctrlFullUnion"])
+        all_four_members = {
+            "componentGizmoAlpha",
+            "componentGizmoBeta",
+            "componentGizmoGamma",
+            "componentGizmoDelta",
+        }
+
+        assert all_four_members <= full_union_targets, (
+            f"ctrlFullUnion's targets {full_union_targets} do not cover all four "
+            f"members {all_four_members} individually -- collapsing to a collided "
+            "subgroup id silently dropped coverage of at least one physical box."
+        )

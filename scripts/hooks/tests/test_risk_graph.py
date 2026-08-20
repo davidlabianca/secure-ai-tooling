@@ -36,10 +36,12 @@ on RiskGraph functionality while ensuring integration with existing
 ControlGraph optimizations.
 """
 
+import re
 from unittest.mock import MagicMock, patch
 
 import pytest
 from riskmap_validator.graphing.base import MermaidConfigLoader
+from riskmap_validator.graphing.controls_graph import ControlGraph
 from riskmap_validator.graphing.risks_graph import RiskGraph
 from riskmap_validator.models import ComponentNode, ControlNode, RiskNode
 
@@ -515,3 +517,84 @@ class TestIntegrationScenarios:
         assert "MinimalRisk --> MinimalControl" in mermaid_output
         # ControlGraph optimization maps to category when it contains all components in that category
         assert "MinimalControl --> componentsData" in mermaid_output
+
+
+class TestComposedControlGraphReuseDoesNotRenameIds:
+    """
+    Regression guard for a composition re-entrancy defect.
+
+    RiskGraph.build_risk_control_component_graph() reuses the composed
+    ControlGraph's _get_controls_subgraph()/_get_component_subgraph() to embed
+    the control/component layers -- but that ControlGraph instance already
+    rendered those exact same subgraphs once, inside its own __init__, to
+    build risk_graph.control_graph.graph. Subgraph-id collision-tracking state
+    that lives for the ControlGraph instance's full lifetime (rather than
+    being scoped to a single render pass) sees this second pass's ids as
+    already declared by the first pass and disambiguates every one of them
+    (e.g. "controlsData" -> "controlsData2"), even on a corpus with no
+    genuine subgroup-name collision at all. The existing
+    test_basic_graph_generation only asserts "controlsData" in mermaid_output,
+    which "controlsData2" also satisfies -- it cannot see this. These tests
+    pin the actual declared id set instead of a substring.
+    """
+
+    def test_risk_graph_control_and_component_ids_match_standalone_control_graph(
+        self, sample_risks, sample_controls, sample_components
+    ):
+        """
+        Given: a corpus with no subgroup-naming collisions (no pair of
+               sample_components shares 2+ controls, so no clustering fires)
+        When: a RiskGraph is built (composing a ControlGraph, then reusing
+              that already-built instance's subgraph-emission methods a
+              second time to embed them in the three-layer graph)
+        Then: every "subgraph <id>" declared in the RiskGraph's own rendered
+              output, aside from its own "risks" layer, is exactly the set
+              the standalone ControlGraph declares for the same input --
+              not a "...2"-suffixed variant introduced purely by being
+              rendered a second time through composition
+        """
+        standalone = ControlGraph(sample_controls, sample_components)
+        standalone_ids = set(re.findall(r"^\s*subgraph (\S+)", standalone.graph, flags=re.MULTILINE))
+
+        risk_graph = RiskGraph(sample_risks, sample_controls, sample_components)
+        risk_graph_ids = set(re.findall(r"^\s*subgraph (\S+)", risk_graph.graph, flags=re.MULTILINE))
+
+        # RiskGraph declares an additional "risks" subgraph the standalone
+        # ControlGraph never does; every other id must match exactly.
+        risk_graph_control_component_ids = risk_graph_ids - {"risks"}
+
+        assert risk_graph_control_component_ids == standalone_ids, (
+            f"RiskGraph's reused control/component subgraph ids "
+            f"{risk_graph_control_component_ids} differ from the standalone "
+            f"ControlGraph's {standalone_ids} -- composition disambiguated ids "
+            "that were never involved in a genuine naming collision."
+        )
+
+    def test_reusing_a_built_control_graphs_subgraph_methods_is_idempotent(
+        self, sample_controls, sample_components
+    ):
+        """
+        Given: a fully-built ControlGraph (its own __init__ already rendered
+               controls/component subgraphs once, while building self.graph)
+        When: _get_controls_subgraph()/_get_component_subgraph() -- the exact
+              methods RiskGraph's composition calls -- are invoked again on
+              the same instance
+        Then: the ids declared on the second call are identical to the ids
+              declared on the first call, in the same order -- not
+              disambiguated against a false "already declared" collision
+              left over from the instance's first (and only legitimate)
+              render pass
+        """
+        control_graph = ControlGraph(sample_controls, sample_components)
+
+        first_pass = "\n".join(control_graph._get_controls_subgraph() + control_graph._get_component_subgraph())
+        first_ids = re.findall(r"^\s*subgraph (\S+)", first_pass, flags=re.MULTILINE)
+
+        second_pass = "\n".join(control_graph._get_controls_subgraph() + control_graph._get_component_subgraph())
+        second_ids = re.findall(r"^\s*subgraph (\S+)", second_pass, flags=re.MULTILINE)
+
+        assert second_ids == first_ids, (
+            f"Calling the subgraph-emission methods a second time on an "
+            f"already-built ControlGraph produced different ids: first pass "
+            f"{first_ids}, second pass {second_ids}."
+        )
