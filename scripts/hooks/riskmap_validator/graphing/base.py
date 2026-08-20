@@ -26,7 +26,7 @@ from pathlib import Path
 
 import yaml
 
-from riskmap_validator.models import ComponentNode, ControlNode
+from riskmap_validator.models import ComponentNode
 
 from .graph_utils import MermaidConfigLoader, UnionFind, _get_schema_categories
 
@@ -39,7 +39,7 @@ class BaseGraph:
     handling, display name generation, and configuration management.
 
     Key Features:
-    - Dynamic category discovery from component/control data
+    - Dynamic category discovery from component data
     - Category display name generation with YAML config loading
     - Shared configuration patterns
     """
@@ -47,7 +47,6 @@ class BaseGraph:
     def __init__(
         self,
         components: dict[str, ComponentNode],
-        controls: dict[str, ControlNode] | None = None,
         config_loader: "MermaidConfigLoader|None" = None,
     ):
         """
@@ -64,7 +63,6 @@ class BaseGraph:
         # warnings.simplefilter("always") will see all occurrences.
         self.config_loader.emit_missing_category_warnings(_get_schema_categories())
         self._category_names_cache = None
-        self.controls: dict[str, ControlNode] = {}
 
         # Subgraph ids actually written by _create_subgraph_section, across
         # every call made against this instance. Cluster naming (_find_node_
@@ -78,9 +76,7 @@ class BaseGraph:
 
         self.component_by_category: dict[str, list[str]] = dict()
         self.component_by_subcategory: dict[str, dict[str, list[str]]] = dict()
-        self.control_by_category: dict[str, list[str]] = dict()
 
-        self.components_by_control: dict[str, list[str]] = dict()
         self.graph: str = ""
 
         if not isinstance(components, dict) or not all(
@@ -88,9 +84,6 @@ class BaseGraph:
         ):
             raise TypeError("'components' must be a dict of ComponentNodes")
         self.components = components
-
-        if isinstance(controls, dict) and all(isinstance(node, ControlNode) for node in controls.values()):
-            self.controls = controls
 
     def _reset_declared_subgraph_ids(self) -> None:
         """
@@ -120,7 +113,7 @@ class BaseGraph:
 
         return lines + "\n"
 
-    def _load_category_names(self, with_controls: bool = True) -> dict[str, str]:
+    def _load_category_names(self) -> dict[str, str]:
         """
         Load category names from YAML files.
 
@@ -153,13 +146,6 @@ class BaseGraph:
         else:
             category_names = self._category_names_cache
 
-        if not with_controls:
-            category_names = {
-                category_id: category_title
-                for category_id, category_title in self._load_category_names().items()
-                if not category_id.startswith("controls")
-            }
-
         return category_names
 
     def _find_component_clusters(
@@ -181,9 +167,6 @@ class BaseGraph:
         if node_type == "component":
             node_prefix = "component"
             node_category_prefix = "components"
-        elif node_type == "risks":
-            node_prefix = "risk"
-            node_category_prefix = "risks"
         else:
             return {}
 
@@ -284,12 +267,10 @@ class BaseGraph:
     def _group_node_by(
         self, node_type: str, w_subcategories: bool = False
     ) -> tuple[dict[str, list[str]], dict[str, dict[str, list[str]]]]:
-        if node_type == "controls":
-            items = self.controls
-        elif node_type == "components":
+        if node_type == "components":
             items = self.components
         else:
-            raise ValueError("node_type must be 'controls' or 'components'")
+            raise ValueError("node_type must be 'components'")
 
         """Group node IDs by their category (simple mapping without subgroups)."""
         groups: dict[str, list[str]] = {}

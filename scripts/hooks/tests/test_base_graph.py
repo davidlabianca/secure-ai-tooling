@@ -11,26 +11,21 @@ Test Coverage:
 1. BaseGraph Class Initialization:
    - TypeError when components is not dict
    - TypeError when components contains non-ComponentNode values
-   - Valid/invalid controls dict validation
    - Config loader initialization
 
 2. Category Name Loading (_load_category_names):
    - Successful YAML loading
    - Exception handling for missing/corrupt files
-   - with_controls=False filtering
    - Caching behavior
 
 3. Node Clustering (_find_node_clusters):
    - Component clusters finding
-   - Risks clusters finding (naming-only; no production caller after #477 --
-     see #488, the ComponentGraph collision fix this machinery is kept for)
    - Invalid node_type (should return {})
    - Cluster naming conflict resolution
    - Fallback subgroup naming
 
 4. Node Grouping (_group_node_by):
    - Components grouping with/without subcategories
-   - Controls grouping
    - ValueError with invalid node_type
    - Subcategory processing
 
@@ -61,14 +56,14 @@ sys.path.insert(0, str(git_root / "scripts" / "hooks"))
 
 from riskmap_validator.graphing.base import BaseGraph  # noqa: E402
 from riskmap_validator.graphing.graph_utils import MermaidConfigLoader  # noqa: E402
-from riskmap_validator.models import ComponentNode, ControlNode  # noqa: E402
+from riskmap_validator.models import ComponentNode  # noqa: E402
 
 
 class TestBaseGraphInitialization:
     """
     Test BaseGraph initialization validation.
 
-    Tests focus on type validation for components, controls, and risks dictionaries.
+    Tests focus on type validation for the components dictionary.
     """
 
     @pytest.fixture
@@ -86,19 +81,6 @@ class TestBaseGraphInitialization:
                 category="componentsModel",
                 to_edges=[],
                 from_edges=["comp1"],
-            ),
-        }
-
-    @pytest.fixture
-    def valid_controls(self):
-        """Provide valid controls dictionary."""
-        return {
-            "ctrl1": ControlNode(
-                title="Control 1",
-                category="controlsData",
-                components=["comp1"],
-                risks=["risk1"],
-                personas=["persona1"],
             ),
         }
 
@@ -127,7 +109,6 @@ class TestBaseGraphInitialization:
 
         assert graph.components == valid_components
         assert len(graph.components) == 2
-        assert graph.controls == {}
 
     def test_basegraph_components_not_dict_raises_typeerror(self, mock_config_loader):
         """
@@ -160,58 +141,6 @@ class TestBaseGraphInitialization:
 
         with pytest.raises(TypeError, match="'components' must be a dict of ComponentNodes"):
             BaseGraph(components=invalid_components, config_loader=mock_config_loader)
-
-    def test_basegraph_with_valid_controls_sets_controls(
-        self, valid_components, valid_controls, mock_config_loader
-    ):
-        """
-        Test that valid controls dict is set correctly.
-
-        Given: Valid components and controls dictionaries
-        When: BaseGraph is instantiated
-        Then: Controls are set on the object
-        """
-        graph = BaseGraph(components=valid_components, controls=valid_controls, config_loader=mock_config_loader)
-
-        assert graph.controls == valid_controls
-        assert len(graph.controls) == 1
-
-    def test_basegraph_with_invalid_controls_ignores_controls(self, valid_components, mock_config_loader):
-        """
-        Test that invalid controls dict is ignored (not set).
-
-        Given: Valid components but invalid controls (not a dict)
-        When: BaseGraph is instantiated
-        Then: Controls remain empty dict
-        """
-        graph = BaseGraph(components=valid_components, controls="invalid", config_loader=mock_config_loader)  # pyright: ignore[reportArgumentType]
-
-        assert graph.controls == {}
-
-    def test_basegraph_with_controls_containing_non_controlnode_ignores_controls(
-        self, valid_components, mock_config_loader
-    ):
-        """
-        Test that controls dict with non-ControlNode values is ignored.
-
-        Given: Controls dict containing non-ControlNode values
-        When: BaseGraph is instantiated
-        Then: Controls remain empty dict
-        """
-        invalid_controls = {
-            "ctrl1": ControlNode(
-                title="Control 1",
-                category="controlsData",
-                components=[],
-                risks=[],
-                personas=[],
-            ),
-            "ctrl2": {"not": "a control node"},  # Invalid
-        }
-
-        graph = BaseGraph(components=valid_components, controls=invalid_controls, config_loader=mock_config_loader)
-
-        assert graph.controls == {}
 
 
 class TestCategoryNameLoading:
@@ -307,36 +236,6 @@ class TestCategoryNameLoading:
         # Should return empty dict on exception
         assert names == {}
 
-    def test_load_category_names_with_controls_false_filters_controls(self, mock_config_loader):
-        """
-        Test that with_controls=False filters out control categories.
-
-        Given: Category names including control categories
-        When: _load_category_names(with_controls=False) is called
-        Then: Only non-control categories are returned
-        """
-        components = {
-            "comp1": ComponentNode(title="C1", category="componentsData", to_edges=[], from_edges=[]),
-        }
-        graph = BaseGraph(components=components, config_loader=mock_config_loader)
-
-        # Set up cache with both component and control categories
-        graph._category_names_cache = {
-            "componentsData": "Data Components",
-            "componentsModel": "Model Components",
-            "controlsData": "Data Controls",
-            "controlsModel": "Model Controls",
-        }
-
-        # Call with with_controls=False
-        names = graph._load_category_names(with_controls=False)
-
-        # Should only include component categories
-        assert "componentsData" in names
-        assert "componentsModel" in names
-        assert "controlsData" not in names
-        assert "controlsModel" not in names
-
 
 class TestCategoryDisplayName:
     """
@@ -377,7 +276,7 @@ class TestNodeClustering:
     """
     Test _find_node_clusters method.
 
-    Tests focus on component and risk clustering with different node types.
+    Tests focus on component clustering and the invalid-node_type fallback.
     """
 
     @pytest.fixture
@@ -419,36 +318,6 @@ class TestNodeClustering:
                 cluster_found = True
                 break
         assert cluster_found
-
-    def test_find_node_clusters_with_risks_node_type(self, mock_config_loader):
-        """
-        Test finding risk clusters.
-
-        _find_node_clusters's "risks" node_type branch takes its node ids
-        from node_to_controls (below), not from self.risks -- BaseGraph no
-        longer models risk data (issue #477 removed RiskNode), so this
-        exercises the naming/clustering logic only, with no risk-typed
-        fixture data needed.
-
-        Given: A node-to-controls mapping keyed by risk-shaped ids
-        When: _find_node_clusters is called with node_type="risks"
-        Then: Risk clusters are identified correctly
-        """
-        components = {
-            "comp1": ComponentNode(title="C1", category="componentsData", to_edges=[], from_edges=[]),
-        }
-        graph = BaseGraph(components=components, config_loader=mock_config_loader)
-
-        # Node to controls mapping with shared controls
-        node_to_controls = {
-            "risk1": {"ctrl1", "ctrl2"},
-            "risk2": {"ctrl1", "ctrl2"},  # Shares 2 controls with risk1
-        }
-
-        clusters = graph._find_node_clusters("risks", node_to_controls, min_shared_controls=2, min_nodes=2)
-
-        # risk1 and risk2 should be clustered
-        assert len(clusters) >= 1
 
     def test_find_node_clusters_with_invalid_node_type_returns_empty_dict(self, mock_config_loader):
         """
@@ -881,42 +750,6 @@ class TestGroupNodeBy:
         assert "comp1" in subcat_groups["componentsData"]["Storage"]
         assert "comp2" in subcat_groups["componentsData"]["Processing"]
 
-    def test_group_controls_by_category(self, mock_config_loader):
-        """
-        Test grouping controls by category.
-
-        Given: Controls with different categories
-        When: _group_node_by("controls") is called
-        Then: Controls are grouped by category
-        """
-        components = {
-            "comp1": ComponentNode(title="C1", category="componentsData", to_edges=[], from_edges=[]),
-        }
-        controls = {
-            "ctrl1": ControlNode(
-                title="Control 1",
-                category="controlsData",
-                components=[],
-                risks=[],
-                personas=[],
-            ),
-            "ctrl2": ControlNode(
-                title="Control 2",
-                category="controlsModel",
-                components=[],
-                risks=[],
-                personas=[],
-            ),
-        }
-        graph = BaseGraph(components=components, controls=controls, config_loader=mock_config_loader)
-
-        groups, subcat_groups = graph._group_node_by("controls")
-
-        assert "controlsData" in groups
-        assert "controlsModel" in groups
-        assert "ctrl1" in groups["controlsData"]
-        assert "ctrl2" in groups["controlsModel"]
-
     def test_group_node_by_invalid_node_type_raises_valueerror(self, mock_config_loader):
         """
         Test that invalid node_type raises ValueError.
@@ -930,7 +763,7 @@ class TestGroupNodeBy:
         }
         graph = BaseGraph(components=components, config_loader=mock_config_loader)
 
-        with pytest.raises(ValueError, match="node_type must be 'controls' or 'components'"):
+        with pytest.raises(ValueError, match="node_type must be 'components'"):
             graph._group_node_by("invalid_type")
 
 
