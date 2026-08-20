@@ -47,17 +47,14 @@ sharedElements:
       fill: '#e6f3e6' # Light green for infrastructure components
       stroke: '#333333' # Dark gray border
       strokeWidth: '2px' # Medium border width
-      subgroupFill: '#d4e6d4' # Darker green for infrastructure subgroups
     componentsApplication:
       fill: '#e6f0ff' # Light blue for application components
       stroke: '#333333' # Dark gray border
       strokeWidth: '2px' # Medium border width
-      subgroupFill: '#e0f0ff' # Darker blue for application subgroups
     componentsModel:
       fill: '#ffe6e6' # Light red for model components
       stroke: '#333333' # Dark gray border
       strokeWidth: '2px' # Medium border width
-      subgroupFill: '#f0e6e6' # Darker red for model subgroups
 ```
 
 ### Graph Type Configurations
@@ -86,12 +83,10 @@ sharedElements:
       fill: '#e3f2fd' # Light blue instead of green
       stroke: '#333333'
       strokeWidth: '2px'
-      subgroupFill: '#bbdefb' # Darker blue for subgroups
     componentsApplication:
       fill: '#f3e5f5' # Light purple instead of blue
       stroke: '#333333'
       strokeWidth: '2px'
-      subgroupFill: '#e1bee7' # Darker purple for subgroups
 ```
 
 ### 2. Modify Graph Layout and Spacing

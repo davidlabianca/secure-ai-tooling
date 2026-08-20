@@ -150,25 +150,21 @@ class MermaidConfigLoader:
                         "fill": "#e6f3e6",
                         "stroke": "#333333",
                         "strokeWidth": "2px",
-                        "subgroupFill": "#d4e6d4",
                     },
                     "componentsData": {
                         "fill": "#fff5e6",
                         "stroke": "#333333",
                         "strokeWidth": "2px",
-                        "subgroupFill": "#f5f0e6",
                     },
                     "componentsApplication": {
                         "fill": "#e6f0ff",
                         "stroke": "#333333",
                         "strokeWidth": "2px",
-                        "subgroupFill": "#e0f0ff",
                     },
                     "componentsModel": {
                         "fill": "#ffe6e6",
                         "stroke": "#333333",
                         "strokeWidth": "2px",
-                        "subgroupFill": "#f0e6e6",
                     },
                 },
             },
@@ -304,7 +300,7 @@ class MermaidConfigLoader:
         """
         Get component category styling configuration.
 
-        Returns styling for each category: fill, stroke, strokeWidth, subgroupFill.
+        Returns styling for each category: fill, stroke, strokeWidth.
         Used by ComponentGraph for visual differentiation.
 
         Returns:

@@ -111,7 +111,6 @@ class TestBaseGraphInitialization:
                 "fill": "#fff5e6",
                 "stroke": "#333333",
                 "strokeWidth": "2px",
-                "subgroupFill": "#f5f0e6",
             },
         }
         return mock
@@ -1093,13 +1092,11 @@ class TestNodeStyling:
                 "fill": "#fff5e6",
                 "stroke": "#333333",
                 "strokeWidth": "2px",
-                "subgroupFill": "#f5f0e6",
             },
             "componentsModel": {
                 "fill": "#ffe6e6",
                 "stroke": "#333333",
                 "strokeWidth": "2px",
-                # No subgroupFill - will test fallback
             },
         }
         return mock

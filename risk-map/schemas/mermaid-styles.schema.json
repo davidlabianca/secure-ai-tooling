@@ -201,11 +201,6 @@
           "type": "string",
           "pattern": "^\\d+px$",
           "description": "Border stroke width"
-        },
-        "subgroupFill": {
-          "type": "string",
-          "pattern": "^#[0-9A-Fa-f]{6}$",
-          "description": "Fill color for subgroups within this category"
         }
       }
     },
