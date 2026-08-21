@@ -28,6 +28,7 @@ on:
       # its_governed_hooks_scan in scripts/hooks/tests/test_ci_block_parity.py.
       - 'scripts/agents/*.md'
       - 'scripts/skills/**'
+      - 'scripts/agents-evals/**'
       - 'scripts/build_persona_site_data.py'
       - 'scripts/hooks/_sentinel_expansion.py'
       - 'scripts/hooks/precommit/_linter_types.py'
@@ -62,6 +63,7 @@ on:
       # its_governed_hooks_scan in scripts/hooks/tests/test_ci_block_parity.py.
       - 'scripts/agents/*.md'
       - 'scripts/skills/**'
+      - 'scripts/agents-evals/**'
       - 'scripts/build_persona_site_data.py'
       - 'scripts/hooks/_sentinel_expansion.py'
       - 'scripts/hooks/precommit/_linter_types.py'
