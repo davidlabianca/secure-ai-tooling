@@ -3,7 +3,7 @@
 **Status:** Accepted
 **Date:** 2026-04-25
 **Authors:** Architect agent, with maintainer review
-**Superseded in part by:** [Amendment 2026-08-20](#amendment-2026-08-20-mermaid-stylesschemajson-control-and-risk-sections-removed-not-pending) (below) — [D6](#d6-mermaid-stylesschemajson)'s framing of `graphTypes.control`/`graphTypes.risk` as pending a follow-up sweep, its field-taxonomy table's `subgroupFill` and `graphTypes.{component,control,risk}` rows, and [D8](#d8-per-rule-machine-enforcement-summary-across-all-five-schemas)'s D6 rows are superseded. D1-D5, D6a, D6b, D7, and the rest of D8 are unchanged.
+**Superseded in part by:** [Amendment 2026-08-20](#amendment-2026-08-20-mermaid-stylesschemajson-control-and-risk-sections-removed-not-pending) (below) — [D6](#d6-mermaid-stylesschemajson)'s framing of `graphTypes.control`/`graphTypes.risk` as pending a follow-up sweep, and its field-taxonomy table's `subgroupFill` and `graphTypes.{component,control,risk}` rows, are superseded. D1-D5, D6a, D6b, D7, and D8 (including its D6 rows, unaffected in substance) are unchanged.
 
 ---
 
@@ -228,7 +228,7 @@ This deferral is recorded so a future contributor proposing removal encounters t
 | `sharedElements.componentCategories.<id>` | structured reference (implicit, against components category enum) | object with `fill`, `stroke`, `strokeWidth`, `subgroupFill` | schema (shape only); name-to-enum coupling not enforced (D6a) |
 | `graphTypes.{component,control,risk}.*` | metadata (config) | nested per-graph-type objects with `direction` enum, `flowchartConfig`, `specialStyling` | schema |
 
-**Consumers.** `MermaidConfigLoader` (`scripts/hooks/riskmap_validator/graphing/graph_utils.py`) loads the file via the singleton pattern. `ComponentGraph` (`scripts/hooks/riskmap_validator/graphing/`) reads the loader's resolved config and emits styling tokens into Mermaid front-matter and edge-style strings. `scripts/hooks/yaml_to_markdown.py` does **not** consume `mermaid-styles.yaml` directly — table generation is style-agnostic. Site renderer does not consume it either; the SPA's CSS is independent.
+**Consumers.** `MermaidConfigLoader` (`scripts/hooks/riskmap_validator/graphing/graph_utils.py`) loads the file via the singleton pattern. `ComponentGraph` (`scripts/hooks/riskmap_validator/graphing/`) reads the loader's resolved config and emits styling tokens into Mermaid front-matter; it emits no edge-style strings. `scripts/hooks/yaml_to_markdown.py` does **not** consume `mermaid-styles.yaml` directly — table generation is style-agnostic. Site renderer does not consume it either; the SPA's CSS is independent.
 
 #### D6a. The category-coupling gap (GAP-31)
 
@@ -339,7 +339,7 @@ Every machine-enforceable rule in scope is enforced or has a named conformance-s
 
 ## Amendment 2026-08-20: `mermaid-styles.schema.json` control and risk sections removed, not pending
 
-**Status:** Draft (2026-08-20). Does not alter the Accepted status of D1-D8 above; supersedes only [D6](#d6-mermaid-stylesschemajson)'s "remain pending a follow-up sweep" framing, its field-taxonomy table's `subgroupFill` and `graphTypes.{component,control,risk}` rows, and the corresponding [D8](#d8-per-rule-machine-enforcement-summary-across-all-five-schemas) rows.
+**Status:** Draft (2026-08-20). Does not alter the Accepted status of D1-D8 above; supersedes only [D6](#d6-mermaid-stylesschemajson)'s "remain pending a follow-up sweep" framing and its field-taxonomy table's `subgroupFill` and `graphTypes.{component,control,risk}` rows. The corresponding [D8](#d8-per-rule-machine-enforcement-summary-across-all-five-schemas) rows are unaffected in substance — see D9 below.
 **Authors:** SWE agent, with maintainer review.
 
 ### Context

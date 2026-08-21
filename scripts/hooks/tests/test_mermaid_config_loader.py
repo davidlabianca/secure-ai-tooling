@@ -44,10 +44,6 @@ class TestMermaidConfigLoader:
                 }
             },
             "sharedElements": {
-                "cssClasses": {
-                    "hidden": "display: none;",
-                    "allControl": "stroke:#4285f4,stroke-width:2px,stroke-dasharray: 5 5",
-                },
                 "componentCategories": {
                     "componentsData": {
                         "fill": "#fff5e6",
@@ -128,10 +124,6 @@ class TestMermaidConfigLoader:
         loader = MermaidConfigLoader(missing_file)
 
         # Should fall back to emergency defaults
-        css_classes = loader.get_css_classes()
-        assert "hidden" in css_classes
-        assert "allControl" in css_classes
-
         categories = loader.get_component_category_styles()
         assert "componentsData" in categories
         assert "componentsInfrastructure" in categories
@@ -143,8 +135,8 @@ class TestMermaidConfigLoader:
         loader = MermaidConfigLoader(temp_config_file)
 
         # Test nested value retrieval
-        hidden_class = loader._get_safe_value("sharedElements", "cssClasses", "hidden")
-        assert hidden_class == "display: none;"
+        fill_color = loader._get_safe_value("sharedElements", "componentCategories", "componentsData", "fill")
+        assert fill_color == "#fff5e6"
 
         # Test missing value with default
         missing_value = loader._get_safe_value("nonexistent", "path", default="default_value")
@@ -173,20 +165,6 @@ class TestMermaidConfigLoader:
 
         assert isinstance(preamble, list)
         assert "graph TD" in preamble
-        assert any("classDef hidden" in line for line in preamble)
-        assert any("classDef allControl" in line for line in preamble)
-
-    def test_get_css_classes(self, temp_config_file, valid_config_data):
-        """Test CSS classes retrieval."""
-        self.create_config_file(temp_config_file, valid_config_data)
-
-        loader = MermaidConfigLoader(temp_config_file)
-        css_classes = loader.get_css_classes()
-
-        assert isinstance(css_classes, dict)
-        assert "hidden" in css_classes
-        assert "allControl" in css_classes
-        assert css_classes["hidden"] == "display: none;"
 
     def test_get_component_category_styles(self, temp_config_file, valid_config_data):
         """Test component category styles retrieval."""
@@ -241,7 +219,6 @@ class TestMermaidConfigLoader:
         assert "colors" in emergency_defaults["foundation"]
 
         # Check shared elements structure
-        assert "cssClasses" in emergency_defaults["sharedElements"]
         assert "componentCategories" in emergency_defaults["sharedElements"]
 
         # Check graph types structure
@@ -330,7 +307,7 @@ class TestMermaidConfigLoaderEdgeCases:
         loader._get_emergency_defaults = mock_emergency_defaults
 
         # Should fall back to default parameter
-        result = loader._get_safe_value("sharedElements", "cssClasses", default={"fallback": "value"})
+        result = loader._get_safe_value("sharedElements", "componentCategories", default={"fallback": "value"})
         assert result == {"fallback": "value"}
 
         # Restore original method
@@ -346,7 +323,7 @@ class TestMermaidConfigLoaderEdgeCases:
         valid_config = {
             "version": "1.0.0",
             "foundation": {"colors": {}},
-            "sharedElements": {"cssClasses": {}},
+            "sharedElements": {"componentCategories": {}},
             "graphTypes": {},
         }
         with open(temp_config_file, "w") as f:
@@ -361,9 +338,9 @@ class TestMermaidConfigLoaderEdgeCases:
         loader._config = "not_a_dict"
 
         # Should fall back to emergency defaults
-        css_classes = loader._get_safe_value("sharedElements", "cssClasses")
-        assert isinstance(css_classes, dict)
-        assert "hidden" in css_classes  # From emergency defaults
+        categories = loader._get_safe_value("sharedElements", "componentCategories")
+        assert isinstance(categories, dict)
+        assert "componentsData" in categories  # From emergency defaults
 
     def test_get_safe_value_both_defaults_fail_shortcircuit(self, temp_config_file):
         """
@@ -379,7 +356,7 @@ class TestMermaidConfigLoaderEdgeCases:
         valid_config = {
             "version": "1.0.0",
             "foundation": {"colors": {}},
-            "sharedElements": {"cssClasses": {}},
+            "sharedElements": {"componentCategories": {}},
             "graphTypes": {},
         }
         with open(temp_config_file, "w") as f:
@@ -566,7 +543,6 @@ class TestMissingCategoryWarnings:
             "version": "1.0.0",
             "foundation": {"colors": {}},
             "sharedElements": {
-                "cssClasses": {"hidden": "display: none;"},
                 "componentCategories": {
                     "componentsInfrastructure": {"fill": "#e6f3e6"},
                     "componentsModel": {"fill": "#ffe6e6"},
@@ -605,7 +581,6 @@ class TestMissingCategoryWarnings:
             "version": "1.0.0",
             "foundation": {"colors": {}},
             "sharedElements": {
-                "cssClasses": {"hidden": "display: none;"},
                 "componentCategories": cat_entries,
             },
             "graphTypes": {
@@ -900,7 +875,6 @@ class TestBaseGraphEmitsCategoryWarnings:
             "version": "1.0.0",
             "foundation": {"colors": {}},
             "sharedElements": {
-                "cssClasses": {"hidden": "display: none;"},
                 "componentCategories": cat_entries,
             },
             "graphTypes": {

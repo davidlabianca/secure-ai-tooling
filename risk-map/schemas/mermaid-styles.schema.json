@@ -127,25 +127,9 @@
     "sharedElements": {
       "type": "object",
       "description": "Elements shared across multiple graph types",
-      "required": ["cssClasses", "componentCategories"],
+      "required": ["componentCategories"],
       "additionalProperties": false,
       "properties": {
-        "cssClasses": {
-          "type": "object",
-          "description": "CSS class definitions for Mermaid graphs",
-          "required": ["hidden", "allControl"],
-          "additionalProperties": false,
-          "properties": {
-            "hidden": {
-              "type": "string",
-              "description": "CSS for hidden utility nodes"
-            },
-            "allControl": {
-              "type": "string",
-              "description": "CSS for controls that apply to all components"
-            }
-          }
-        },
         "componentCategories": {
           "type": "object",
           "description": "Styling for component categories shared between graph types",

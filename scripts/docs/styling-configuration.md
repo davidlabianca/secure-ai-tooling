@@ -32,9 +32,6 @@ foundation:
 
 ```yaml
 sharedElements:
-  cssClasses:
-    hidden: 'display: none;'
-    allControl: 'stroke:#4285f4,stroke-width:2px,stroke-dasharray: 5 5'
   componentCategories:
     componentsInfrastructure:
       fill: '#e6f3e6' # Light green

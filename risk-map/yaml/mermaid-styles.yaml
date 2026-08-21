@@ -32,10 +32,6 @@ foundation:
 
 # Shared elements used by graph generation
 sharedElements:
-  cssClasses:
-    hidden: 'display: none;'
-    allControl: 'stroke:#4285f4,stroke-width:2px,stroke-dasharray: 5 5'
-
   # Component category styling
   componentCategories:
     componentsInfrastructure:

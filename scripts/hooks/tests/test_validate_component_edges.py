@@ -787,7 +787,6 @@ class TestComponentGraph:
 
         # Should contain basic mermaid structure
         assert "graph TD" in mermaid_output
-        assert "classDef hidden display: none;" in mermaid_output
 
         # Should contain component connections
         assert "comp-a --> comp-b" in mermaid_output

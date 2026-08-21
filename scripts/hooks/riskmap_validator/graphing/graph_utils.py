@@ -141,10 +141,6 @@ class MermaidConfigLoader:
                 }
             },
             "sharedElements": {
-                "cssClasses": {
-                    "hidden": "display: none;",
-                    "allControl": "stroke:#4285f4,stroke-width:2px,stroke-dasharray: 5 5",
-                },
                 "componentCategories": {
                     "componentsInfrastructure": {
                         "fill": "#e6f3e6",
@@ -183,7 +179,7 @@ class MermaidConfigLoader:
         Traverses config using key path. Falls back to emergency defaults, then final default.
 
         Args:
-            *path: Sequence of keys to traverse (e.g., 'sharedElements', 'cssClasses')
+            *path: Sequence of keys to traverse (e.g., 'sharedElements', 'componentCategories')
             default: Final fallback value if not found
 
         Returns:
@@ -246,8 +242,6 @@ class MermaidConfigLoader:
         if not isinstance(graph_config, dict) or not graph_config:
             return None
 
-        css_classes: dict[Any, Any] = self.get_css_classes()
-
         graph_direction = graph_config.get("direction", "LR")
         flowchart_config = graph_config.get("flowchartConfig", {})
         node_spacing = flowchart_config.get("nodeSpacing", 25)
@@ -259,11 +253,6 @@ class MermaidConfigLoader:
         flowchart_params += f", 'padding': {node_padding}, 'wrappingWidth': {wrapping_width}"
         flowchart_init = flowchart_params
         mermaid_config = f"%%{{init: {{'flowchart': {{{flowchart_init}}}}}}}%%"
-
-        # Get CSS class definitions with fallbacks
-        hidden_class_def = css_classes.get("hidden", "display: none;")
-        all_control_default = "stroke:#4285f4,stroke-width:2px,stroke-dasharray: 5 5"
-        all_control_class_def = css_classes.get("allControl", all_control_default)
 
         lines: list[str] = []
 
@@ -288,8 +277,6 @@ class MermaidConfigLoader:
             [
                 f"graph {graph_direction}",
                 f"   {mermaid_config}",
-                f"    classDef hidden {hidden_class_def}",
-                f"    classDef allControl {all_control_class_def}",
                 "",
             ]
         )
@@ -356,19 +343,6 @@ class MermaidConfigLoader:
 
         for message in self.get_missing_category_warnings(schema_categories):
             warnings.warn(message, stacklevel=2)
-
-    def get_css_classes(self) -> dict:
-        """
-        Get CSS class definitions for graph styling.
-
-        Returns predefined CSS classes: 'hidden' (display: none) and 'allControl' (blue dashed).
-        Used in graph preambles and special element styling.
-
-        Returns:
-            Dict mapping class names to Mermaid style strings
-        """
-        result = self._get_safe_value("sharedElements", "cssClasses", default={})
-        return result if isinstance(result, dict) else {}
 
     def get_graph_config(self, graph_type: str) -> tuple[dict, list]:
         """

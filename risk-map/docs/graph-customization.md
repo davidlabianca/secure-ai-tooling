@@ -39,9 +39,8 @@ foundation:
 `foundation` is schema-required (`graph_utils.py`'s config loader checks for its presence)
 but nothing in the graphing pipeline reads its values: the component graph's actual
 colors, stroke widths, and dash patterns come from `sharedElements.componentCategories`
-and `sharedElements.cssClasses` below, set directly rather than derived from
-`foundation`. Editing `foundation.colors` or `foundation.strokeWidths` has no visible
-effect on the generated graph.
+below, set directly rather than derived from `foundation`. Editing `foundation.colors`
+or `foundation.strokeWidths` has no visible effect on the generated graph.
 
 ### Shared Elements
 
@@ -49,9 +48,6 @@ Elements used by the component graph:
 
 ```yaml
 sharedElements:
-  cssClasses:
-    hidden: 'display: none;'
-    allControl: 'stroke:#4285f4,stroke-width:2px,stroke-dasharray: 5 5'
   componentCategories:
     componentsInfrastructure:
       fill: '#e6f3e6' # Light green for infrastructure components
@@ -188,7 +184,7 @@ python scripts/hooks/validate_riskmap.py --to-graph ./test.md --mermaid-format -
 
 ## Advanced Customization Tips
 
-- **Consistent color schemes**: Set colors directly on each `sharedElements.componentCategories` entry and `sharedElements.cssClasses` value. `foundation.colors` is not read by the graph renderer, and the YAML has no anchor/alias mechanism, so there is no way to define a palette in `foundation` and reference it elsewhere in the file
+- **Consistent color schemes**: Set colors directly on each `sharedElements.componentCategories` entry. `foundation.colors` is not read by the graph renderer, and the YAML has no anchor/alias mechanism, so there is no way to define a palette in `foundation` and reference it elsewhere in the file
 - **Accessibility**: Choose colors with sufficient contrast ratios for accessibility compliance
 - **Testing**: Generate graphs with diverse content (few vs. many components/controls) to ensure your styling works across different scenarios
 - **Version control**: Document your customization rationale in commit messages for future reference
