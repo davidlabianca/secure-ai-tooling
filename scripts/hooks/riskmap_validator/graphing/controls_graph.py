@@ -56,6 +56,14 @@ class ControlGraph(BaseGraph):
         self._group_controls_by_category()
 
         self.initial_mapping: dict[str, list[str]] = dict()
+        # Subgroup names claimed by more than one parent category (a naming
+        # collision -- see _find_node_clusters). Populated by
+        # _integrate_subgroupings; _get_category_check_order excludes these
+        # from full-category-coverage matching, since their
+        # component_by_category entry is a union spanning multiple distinct
+        # rendered boxes, not one.
+        self._split_subgroup_names: set[str] = set()
+
         # Find subgroupings and integrate them
         self.subgroupings = self._find_optimal_subgroupings()
         if self.debug and self.subgroupings:
@@ -64,6 +72,12 @@ class ControlGraph(BaseGraph):
 
         # Graph generation state
         self._processed_subgroups = set()
+        # Maps (parent_category, subgroup_name) -> the id actually declared for
+        # it. Usually equal to subgroup_name; differs when _create_subgraph_
+        # section had to disambiguate a collision with another parent
+        # category's subgroup of the same name. build_controls_graph's style
+        # pass reads this so a style line targets what was actually declared.
+        self._subgroup_render_ids: dict[tuple[str, str], str] = {}
         self._universal_control_edge_indices = []
         self._category_edge_indices = []
         self._multi_edge_styler = MultiEdgeStyler(self)
@@ -88,6 +102,19 @@ class ControlGraph(BaseGraph):
             return False
 
         category_components = set(self.component_by_category[category])
+
+        # A category with no members has nothing to "fully cover". Without
+        # this guard, set().issubset(x) is vacuously True for any x, so
+        # EVERY control -- including one with zero components in common --
+        # would appear to fully cover an empty category. A category ends up
+        # empty when all of its components were absorbed into a cluster (see
+        # _integrate_subgroupings); that category still gets rendered as a
+        # container for its nested subgroup, so a control wrongly matched
+        # here would silently point at a real, declared box instead of
+        # failing loudly with an unresolved edge target.
+        if not category_components:
+            return False
+
         control_component_set = set(control_components)
 
         # Check if control covers all category components
@@ -149,23 +176,55 @@ class ControlGraph(BaseGraph):
                 if component_id not in all_subgrouped_components
             ]
 
-            # Add subgroups as categories
+            # Add subgroups as categories. subgroup_name is derived
+            # independently per parent category (see _find_node_clusters) and
+            # can collide across two different parents; merge memberships
+            # rather than overwrite so this mapping -- the one
+            # _maps_to_full_category and edge-target optimization read --
+            # never silently forgets a colliding parent's members. Without
+            # this, a control that only covers the *other* colliding parent's
+            # members could be (mis)matched against this one's alone.
             for subgroup_name, subgroup_components in subgroups.items():
-                self.component_by_category[subgroup_name] = subgroup_components
+                existing = self.component_by_category.get(subgroup_name, [])
+                if existing:
+                    # subgroup_name was already claimed by another parent
+                    # category -- a naming collision. _create_subgraph_section
+                    # renders each parent's contribution under a distinct id
+                    # (see its docstring), so the merged entry below no longer
+                    # corresponds to one physical box. Track it so
+                    # _get_category_check_order can exclude it: a control that
+                    # covers the full union would otherwise be optimized to a
+                    # single edge pointing at only one of the (now multiple)
+                    # boxes, silently losing coverage of the other(s).
+                    self._split_subgroup_names.add(subgroup_name)
+                merged = existing + [c for c in subgroup_components if c not in existing]
+                self.component_by_category[subgroup_name] = merged
 
     def _get_category_check_order(self) -> list[str]:
         """
         Get category check order: subgroups first, then main categories.
+
+        Split subgroup names (claimed by more than one parent category, see
+        _integrate_subgroupings) are excluded entirely, from both lists: their
+        component_by_category entry is a union spanning multiple distinct
+        rendered boxes, so matching a control against it as a single
+        "fully covers this category" target would be checking coverage of a
+        box that does not physically exist. Excluded names fall through to
+        individual component matching instead, which is always safe.
         """
         # Collect subgroups and main categories
         subgroup_names = []
         main_categories = []
 
         for parent_category, subgroups in self.subgroupings.items():
-            subgroup_names.extend(subgroups.keys())
+            for name in subgroups:
+                if name not in self._split_subgroup_names:
+                    subgroup_names.append(name)
 
         # Add main categories excluding subgroups
         for category in self.component_by_category.keys():
+            if category in self._split_subgroup_names:
+                continue
             if category not in subgroup_names:
                 main_categories.append(category)
 
@@ -231,17 +290,57 @@ class ControlGraph(BaseGraph):
         ):
             return []
 
+        # Scope the id-dedup/subgroup-emission bookkeeping to THIS call, not
+        # the instance's lifetime. RiskGraph composes an already-built
+        # ControlGraph and calls _get_controls_subgraph()/_get_component_
+        # subgraph() again to embed the same subgraphs a second time (the
+        # first render already happened inside ControlGraph.__init__ to
+        # build self.graph). Without resetting here, that second pass sees
+        # every id the first pass declared as "already taken" and
+        # disambiguates all of them -- renaming ids that never had a genuine
+        # collision, purely because they were rendered twice. Resetting is
+        # safe because control ids and component ids never share a
+        # namespace (fixed "controls"/"components" prefixes), so nothing is
+        # lost by starting each call's declarations fresh. The shared half of
+        # this reset (_declared_subgraph_ids) lives on BaseGraph -- see
+        # _reset_declared_subgraph_ids -- since every graph type needs it,
+        # not just this one; the two lines below are this subclass's own
+        # cluster bookkeeping and reset alongside it.
+        self._reset_declared_subgraph_ids()
+        self._processed_subgroups.clear()
+        self._subgroup_render_ids.clear()
+
         subgraph_lines = []
 
         if subgraph_type == "controls":
             item_by_category = self.control_by_category.items()
             items = self.controls
+            subgroup_names: set[str] = set()
         else:
             item_by_category = self.component_by_category.items()
             items = self.components
+            # _integrate_subgroupings() also registers every subgroup as a
+            # flat entry in component_by_category (needed so control-mapping
+            # logic can treat subgroups and categories uniformly). A subgroup
+            # must only ever be rendered nested inside its parent category via
+            # _get_nested_subgraph below -- never iterated here as if it were
+            # its own top-level category. Without this exclusion, a category
+            # visited before its parent (or a parent with no leftover direct
+            # members, see the item_ids check below) can reach this flat entry
+            # and re-emit it as a second, non-nested "subgraph <id>" section.
+            subgroup_names = {name for subgroups in self.subgroupings.values() for name in subgroups}
 
         for category, item_ids in item_by_category:
-            if not item_ids or category in self._processed_subgroups:
+            if category in subgroup_names or category in self._processed_subgroups:
+                continue
+
+            # A parent category can have no leftover direct members when every
+            # one of its components was absorbed into a cluster (subgroupings
+            # is non-empty for it); that category must still be visited so its
+            # nested subgroup(s) get emitted -- only skip when there is
+            # genuinely nothing to render.
+            has_subgroups = subgraph_type == "components" and bool(self.subgroupings.get(category))
+            if not item_ids and not has_subgroups:
                 continue
 
             category_name = self._get_category_display_name(category)
@@ -275,6 +374,15 @@ class ControlGraph(BaseGraph):
             subgroup_lines = self._create_subgraph_section(
                 subgroup_name, subgroup_display_name, subgroup_components, self.components, "        "
             )
+
+            # _create_subgraph_section disambiguates on collision (another
+            # parent category's subgroup already claimed subgroup_name); the
+            # id it actually declared is embedded in the first line. Record
+            # it so build_controls_graph's style pass can target what was
+            # actually declared, not the pre-collision logical name.
+            if subgroup_lines:
+                self._subgroup_render_ids[(category, subgroup_name)] = subgroup_lines[0].split()[1]
+
             # Remove the empty line at the end for nested subgroups
             if subgroup_lines and subgroup_lines[-1] == "":
                 subgroup_lines.pop()
@@ -440,11 +548,22 @@ class ControlGraph(BaseGraph):
                 style_str = self._get_node_style("componentCategory", category_config=category_config)
                 lines.append(f"    style {category_key} {style_str}")
 
-        # Add dynamic styling for subgroups using configuration
+        # Add dynamic styling for subgroups using configuration.
+        # subgroup_name is the pre-collision logical name and can repeat
+        # across parent categories (see _integrate_subgroupings); look up
+        # what was actually declared for THIS (parent, subgroup_name) pair
+        # and style that id instead, deduplicating so a shared logical name
+        # gets styled exactly once and a disambiguated sibling still gets its
+        # own line rather than being silently left uncolored.
+        styled_subgraph_ids: set[str] = set()
         for parent_category, subgroups in self.subgroupings.items():
             style_str = self._get_node_style("dynamicSubgroup", parent_category=parent_category)
             for subgroup_name in subgroups.keys():
-                lines.append(f"    style {subgroup_name} {style_str}")
+                declared_id = self._subgroup_render_ids.get((parent_category, subgroup_name), subgroup_name)
+                if declared_id in styled_subgraph_ids:
+                    continue
+                styled_subgraph_ids.add(declared_id)
+                lines.append(f"    style {declared_id} {style_str}")
 
         lines.extend([])
 
