@@ -57,6 +57,12 @@ class ComponentGraph(BaseGraph):
         Returns:
             str: Complete Mermaid graph as string
         """
+        # Start each render pass with a clean subgraph-id collision set (see
+        # BaseGraph._reset_declared_subgraph_ids). Category ids are fixed and
+        # reappear on every call; without this, a second call to build_graph()
+        # on the same instance would see its own first-pass ids as already
+        # taken and rename them for no reason.
+        self._reset_declared_subgraph_ids()
 
         # Load graph configuration and category styles
         _, graph_preamble = self.config_loader.get_graph_config("component")

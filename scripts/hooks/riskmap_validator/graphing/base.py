@@ -84,6 +84,16 @@ class BaseGraph:
         self.controls: dict[str, ControlNode] = {}
         self.risks: dict[str, RiskNode] = {}
 
+        # Subgraph ids actually written by _create_subgraph_section, across
+        # every call made against this instance. Cluster naming (_find_node_
+        # clusters) derives a candidate id independently per call/category, so
+        # two different categories can legitimately derive the identical
+        # candidate (same common prefix, or same positional fallback index).
+        # _create_subgraph_section is the single place that turns a candidate
+        # into a declared "subgraph <id>" line, so it is the only place that
+        # can see -- and must guarantee -- that no id is declared twice.
+        self._declared_subgraph_ids: set[str] = set()
+
         self.component_by_category: dict[str, list[str]] = dict()
         self.component_by_subcategory: dict[str, dict[str, list[str]]] = dict()
         self.control_by_category: dict[str, list[str]] = dict()
@@ -103,6 +113,39 @@ class BaseGraph:
 
         if isinstance(risks, dict) and all(isinstance(node, RiskNode) for node in risks.values()):
             self.risks = risks
+
+    def _reset_declared_subgraph_ids(self) -> None:
+        """
+        Clear subgraph-id collision tracking at the start of a render pass.
+
+        _declared_subgraph_ids accumulates every id _create_subgraph_section
+        has written for this instance. Scoped to the instance's whole
+        lifetime rather than to a single render pass, that history leaks
+        across calls: a category id that legitimately reappears every render
+        (categories don't change between calls) gets misread as an
+        already-taken id left over from a prior pass and is disambiguated
+        for no reason -- see _create_subgraph_section's docstring for why
+        that disambiguation exists in the first place.
+
+        Every subclass method that begins a fresh render pass over the same
+        instance must call this first. That includes both a graph type's own
+        top-level build method (e.g. ComponentGraph.build_graph) and any
+        finer-grained method that can be invoked as an independent pass by a
+        composing graph type -- ControlGraph._get_subgraph is called
+        separately for its controls and components passes, and again by
+        RiskGraph reusing an already-built ControlGraph instance, so it
+        resets here rather than only in ControlGraph.build_controls_graph.
+        Resetting is safe in every case because the ids in play never share
+        a namespace across the graph types that render through this method:
+        control ids, component ids, and risk ids each carry a fixed,
+        distinct prefix.
+
+        ControlGraph additionally tracks cluster-specific bookkeeping
+        (_processed_subgroups, _subgroup_render_ids) that is not shared
+        state declared here; ControlGraph._get_subgraph resets those itself
+        at the same point.
+        """
+        self._declared_subgraph_ids.clear()
 
     def to_mermaid(self, output_format: str = "markdown"):
         lines = self.graph
@@ -258,6 +301,13 @@ class BaseGraph:
                 else:
                     subgroup_name = f"{node_category_prefix}Subgroup{i + 1}"
 
+                # NOTE: this name is derived from this call's own cluster list
+                # only and is not guaranteed unique across separate calls (one
+                # per category -- see ControlGraph._find_optimal_subgroupings).
+                # Two categories can legitimately derive the identical
+                # candidate here. That collision is resolved downstream, at
+                # actual declaration time, by _create_subgraph_section -- see
+                # its docstring for why the fix lives there and not here.
                 result[subgroup_name] = cluster_list
 
         return result
@@ -419,11 +469,44 @@ class BaseGraph:
 
         Returns:
             List of Mermaid syntax lines for the subgraph section
+
+        Note:
+            A Mermaid graph with two "subgraph <id>" declarations sharing the
+            same <id> fails to render. Callers derive `category` independently
+            per invocation (see _find_node_clusters), so two different callers
+            can legitimately request the same id -- most notably, one
+            per-category call to cluster-derived subgroup naming can collide
+            with another. This method is the single place every DYNAMICALLY
+            (cluster-)derived subgraph id is turned into a declaration, so it
+            is the only place that can guarantee that specific invariant for
+            those ids: on collision, it declares the requested content under
+            a disambiguated id instead of silently overwriting or dropping
+            it. It is NOT the only place a literal "subgraph <id>" line is
+            written in this codebase -- fixed-id containers (e.g. the
+            top-level "controls"/"components"/"risks" wrappers, and each
+            parent category's own container line in _get_nested_subgraph /
+            _get_nested_subgraph_new) are written directly and never
+            registered here, because their ids are schema-fixed and cannot
+            collide the way a derived cluster name can. The return type stays
+            list[str] (not the (lines, id) tuple that would make the actual
+            id explicit) because callers -- including test harnesses -- treat
+            the return value as the literal rendered lines; the id actually
+            used is always recoverable from the first line.
         """
+        subgraph_id = category
+        if subgraph_id in self._declared_subgraph_ids:
+            suffix = 2
+            while (candidate_id := f"{category}{suffix}") in self._declared_subgraph_ids:
+                suffix += 1
+            subgraph_id = candidate_id
+        self._declared_subgraph_ids.add(subgraph_id)
+
         lines = []
-        lines.append(f'{indent}subgraph {category} ["{category_name}"]')
+        lines.append(f'{indent}subgraph {subgraph_id} ["{category_name}"]')
 
         # Special case for governance controls (can be extended for other categories)
+        # Keyed on the logical category, not the disambiguated id: this is a
+        # business-logic special case unrelated to collision handling.
         if category == "controlsGovernance":
             lines.append(f"{indent}    direction LR")
 

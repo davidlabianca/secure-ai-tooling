@@ -51,6 +51,8 @@ Test structure
 --------------
 1. TestCheckCategoryStyleCoverage — pure-function tests.
 2. TestCLIWiring — subprocess end-to-end tests against validate_riskmap.py.
+2a. TestBothInvocationShapesReachTheGuard — --force vs --file corpus
+    selection reaching the same guard (components_path binding regression).
 3. TestSchemaCategoryResolution — cwd-relative schema-category resolution.
 4. TestFlattenedModuleLayout — the CI-flattened module layout.
 5. TestSchemaUnavailableFailsLoud — an unreadable schema is never a pass.
@@ -634,6 +636,148 @@ class TestCLIWiring:
 
 
 # ===========================================================================
+# 2a. Both invocation shapes reach the guard (components_path binding)
+# ===========================================================================
+
+
+def _run_file(cwd: Path, components_path: Path, *extra_args: str) -> subprocess.CompletedProcess:
+    """Run validate_riskmap.py --file <components_path>, mirroring _run()'s --force form."""
+    return subprocess.run(
+        [sys.executable, str(_SCRIPT), "--file", str(components_path), "--allow-isolated", *extra_args],
+        capture_output=True,
+        text=True,
+        cwd=str(cwd),
+    )
+
+
+def _write_components_only(path: Path, components: dict[str, Any]) -> Path:
+    """Write a components.yaml body to an arbitrary path, not necessarily under risk-map/yaml/.
+
+    Used to build a --file corpus that lives outside the default corpus
+    location, so a guard bound to the hardcoded default path (rather than the
+    corpus --file actually names) has nothing to find there.
+    """
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(yaml.dump(components), encoding="utf-8")
+    return path
+
+
+class TestBothInvocationShapesReachTheGuard:
+    """
+    Category style check (ADR-030 D1, Consequences), pinned under both of the
+    shapes that select a corpus: --force (the default corpus) and --file (an
+    explicitly named one).
+
+    The guard's own eligibility gate checks only whether the resolved
+    components-file path exists and validator.components is populated — the
+    path's content is never read, both sides of the style comparison come
+    from the schema and mermaid-styles.yaml instead. Under --force, the
+    binding this gate ought to use (components_file) and the repo's hardcoded
+    default location happen to be identical, so a test there alone cannot
+    tell the two apart. Under --file naming a corpus outside that default
+    location, they diverge: a gate bound to the hardcoded default finds
+    nothing there and the guard silently drops out — no pass line, no
+    could-not-run line, nothing — which is a guard gone fail-open by way of
+    just not running. test_style_check_runs_under_file_flag_outside_the_default_location
+    below is the one of the two that can actually catch that.
+    """
+
+    def test_style_check_runs_under_force_default_corpus(self, tmp_path):
+        """
+        Given: a synthetic corpus at the default location, fully styled
+        When: validate_riskmap.py --force --allow-isolated runs
+        Then: the guard is reached and reports success (not skipped, not
+              crashed with an unhandled exception)
+        """
+        _write_corpus(tmp_path, _FOUR_CATEGORY_COMPONENTS, _FOUR_CATEGORY_CONTROLS, _FULLY_STYLED_MERMAID)
+        result = _run(tmp_path)
+        combined = result.stdout + result.stderr
+
+        assert "Category style check passed" in combined, (
+            f"Expected the guard to run and pass under --force; got exit {result.returncode}\n"
+            f"stdout: {result.stdout}\nstderr: {result.stderr}"
+        )
+        assert result.returncode == 0, (
+            f"Expected exit 0; got {result.returncode}\nstdout: {result.stdout}\nstderr: {result.stderr}"
+        )
+
+    def test_style_check_runs_under_file_flag_outside_the_default_location(self, tmp_path):
+        """
+        Given: a cwd with schema + mermaid-styles.yaml in their usual places
+               but NO components.yaml at the default location, and a --file
+               corpus living somewhere else entirely, fully styled
+        When: validate_riskmap.py --file <that corpus> --allow-isolated runs
+        Then: the guard is reached and reports success against the --file
+              corpus, consistent with the adjacent category/subcategory
+              nesting guard (validate_riskmap.py:396) — not silently skipped
+              because the default location has nothing at it
+
+        This is the discriminating case: a gate that checks the hardcoded
+        default path rather than the corpus --file names would find that
+        default path absent here and drop out of the guard entirely, with no
+        pass line and no could-not-run line printed. Silence is itself the
+        failure this test catches — it is indistinguishable from a pass by
+        exit code alone, which is why the assertion is on the presence of
+        the pass line, not just on returncode.
+        """
+        default_components = tmp_path / "risk-map" / "yaml" / "components.yaml"
+        category_ids = [entry["id"] for entry in _FOUR_CATEGORY_COMPONENTS["categories"]]
+        _write_components_schema_stub(tmp_path, category_ids)
+        (tmp_path / "risk-map" / "yaml").mkdir(parents=True, exist_ok=True)
+        write_mermaid_styles(tmp_path / "risk-map" / "yaml", _FULLY_STYLED_MERMAID)
+
+        custom_components = _write_components_only(
+            tmp_path / "custom-corpus" / "components.yaml", _FOUR_CATEGORY_COMPONENTS
+        )
+
+        assert not default_components.exists(), (
+            "Fixture bug: the default components.yaml location must stay empty for this "
+            "test to discriminate between the two candidate path bindings."
+        )
+
+        result = _run_file(tmp_path, custom_components)
+        combined = result.stdout + result.stderr
+
+        assert "Category style check passed" in combined, (
+            f"Expected the guard to run against the --file corpus and pass, not skip silently; "
+            f"got exit {result.returncode}\nstdout: {result.stdout}\nstderr: {result.stderr}"
+        )
+        assert result.returncode == 0, (
+            f"Expected exit 0; got {result.returncode}\nstdout: {result.stdout}\nstderr: {result.stderr}"
+        )
+
+    def test_style_check_fails_loud_under_file_flag_when_schema_is_unavailable(self, tmp_path):
+        """
+        Given: the same --file-outside-default-location layout, but with no
+               components.schema.json for the guard's schema-categories oracle
+        When: validate_riskmap.py --file <that corpus> --allow-isolated --block runs
+        Then: the guard reports an explicit could-not-run error (not a silent
+              skip, not a silent pass) and --block promotes it to exit 1
+
+        Pins that the fix for the --file shape does not trade a NameError for
+        a quiet fail-open: a gate that only checks path existence must still
+        surface a missing oracle as a failure once it is reached.
+        """
+        (tmp_path / "risk-map" / "yaml").mkdir(parents=True, exist_ok=True)
+        write_mermaid_styles(tmp_path / "risk-map" / "yaml", _FULLY_STYLED_MERMAID)
+        custom_components = _write_components_only(
+            tmp_path / "custom-corpus" / "components.yaml", _FOUR_CATEGORY_COMPONENTS
+        )
+
+        result = _run_file(tmp_path, custom_components, "--block")
+        combined = result.stdout + result.stderr
+
+        assert "Category style check could not run" in combined, (
+            f"Expected an explicit could-not-run error when the schema is unavailable "
+            f"under --file; got exit {result.returncode}\nstdout: {result.stdout}\nstderr: {result.stderr}"
+        )
+        assert result.returncode == 1, (
+            f"Expected --block to promote the could-not-run failure to exit 1; "
+            f"got {result.returncode}\nstdout: {result.stdout}\nstderr: {result.stderr}"
+        )
+
+
+# ===========================================================================
 # 2b. Styles-loader fallback disclosure + the guard/rendering split
 # ===========================================================================
 
@@ -1098,6 +1242,13 @@ TestCLIWiring (subprocess): 11 tests
   survives --quiet; structurally invalid and unparseable styles files +
   --block -> exit 1, and structurally invalid without --block -> could-not-run
   and no success line.
+
+TestBothInvocationShapesReachTheGuard (subprocess): 3 tests
+- --force over the default corpus reaches the guard and passes; --file
+  naming a corpus outside the default location also reaches it and passes
+  rather than silently skipping (the case that discriminates a components_file
+  binding from one hardcoded to the default path); --file with the schema
+  oracle unavailable still fails loud, and --block promotes it to exit 1.
 
 TestLoaderFallbackDisclosure (unit): 6 tests
 - a valid file and the live styles file are not fallback; missing,
