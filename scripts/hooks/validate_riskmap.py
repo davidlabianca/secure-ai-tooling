@@ -437,7 +437,7 @@ def main() -> None:
         # styleless category — the failure mode this guard exists to catch
         # (ADR-030 Consequences). The schema path itself is resolved
         # cwd-relatively, like every other input here.
-        if components_path.exists() and validator.components:
+        if components_file.exists() and validator.components:
             try:
                 schema_categories = _get_schema_categories()
                 styles_loader = MermaidConfigLoader()
