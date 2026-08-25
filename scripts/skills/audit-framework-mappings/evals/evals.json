@@ -158,12 +158,13 @@
     {
       "id": 15,
       "prompt": "This is a candidate-mode audit: I'm drafting a new risk (entity type: risk) that is not yet in the corpus. Candidate value: stride: Tampering. Is it conformant?",
-      "expected_output": "The value passes format compliance (bare PascalCase, a valid member of the closed six-value STRIDE enum, correctly unversioned) and structural compliance (STRIDE's applicableTo includes risks). No live-verify step is run or claimed: STRIDE is a closed, unversioned enum with no external evolving registry to check currency against, so the enum-membership check already performed is its complete verification. Reports the candidate as clean and explicitly states live-verify is not applicable rather than omitting it.",
+      "expected_output": "The value passes format compliance (bare PascalCase, a valid member of the closed six-value STRIDE alternation, correctly unversioned) and structural compliance (STRIDE's applicableTo includes risks). No live-verify step is run or claimed: STRIDE is a closed literal set, unversioned, with no external evolving registry to check currency against, so the membership check already performed is its complete verification. Reports the candidate as clean, stating exactly \"live-verify not applicable (closed literal set, unversioned, no registry)\" rather than omitting the item.",
       "expectations": [
         "Recognizes this as candidate mode (per Scope)",
-        "Confirms Tampering is well-formed: bare PascalCase, a valid member of the closed STRIDE enum, no version token",
+        "Confirms Tampering is well-formed: bare PascalCase, a valid member of the closed STRIDE literal set, no version token",
         "Confirms applicableTo: STRIDE is valid on risks",
-        "States explicitly that no live-verify step is run for this value, and grounds that in the closed-enum/no-external-registry exception naming STRIDE as the current instance",
+        "States explicitly that no live-verify step is run for this value, and grounds that in the closed-literal-and-unversioned exception naming STRIDE as the current instance -- not in STRIDE being a JSON-schema 'enum' (SKILL.md is explicit that STRIDE's pinned form is a regex pattern, not an enum keyword)",
+        "Uses SKILL.md's mandated output phrase for this case: \"live-verify not applicable (closed literal set, unversioned, no registry)\", not \"closed enum\" or \"enum-membership check\"",
         "Does not silently omit the live-verify checklist item -- reports it as explicitly not applicable rather than leaving it out",
         "Recommends accepting the candidate value"
       ]
@@ -211,13 +212,14 @@
     {
       "id": 19,
       "prompt": "This is a candidate-mode audit: I'm drafting a new control (entity type: control) that is not yet in the corpus. Candidate value: nist-ai-rmf: MEASURE-9.9@1.0. Is it conformant and current?",
-      "expected_output": "The value passes format/version compliance (well-formed (GOVERN|MAP|MEASURE|MANAGE)-#.#@1.0 pattern) and structural compliance (NIST AI RMF applies to controls; correct entity type). But it fails live verification: NIST AI RMF's MEASURE function only has categories 1 through 4 (subcategories such as MEASURE-2.1 through MEASURE-2.13, MEASURE-4.1 through MEASURE-4.3) -- there is no MEASURE-9 category, so MEASURE-9.9 does not exist. Because this is candidate mode, live-verify applies to every proposed value, and NIST AI RMF does not qualify for the closed-unversioned-enum exemption (it is a version-pinned, open-ended regex space like MITRE ATLAS). Recommends rejecting or correcting the candidate value rather than accepting it on form alone.",
+      "expected_output": "The value passes format/version compliance (well-formed (GOVERN|MAP|MEASURE|MANAGE)-#.#@1.0 pattern) and structural compliance (NIST AI RMF applies to controls; correct entity type). But it fails live verification: NIST AI RMF's MEASURE function only has categories 1 through 4 (subcategories such as MEASURE-2.1 through MEASURE-2.13, MEASURE-4.1 through MEASURE-4.3) -- there is no MEASURE-9 category, so MEASURE-9.9 does not exist. Because this is candidate mode, live-verify applies to every proposed value, and NIST AI RMF does not qualify for the closed-literal-set/unversioned exemption: its pattern's subcategory numbers admit new values indefinitely without a schema change (a numeric component, same disqualifying reason as MITRE ATLAS, OWASP, and EU AI Act) -- unlike STRIDE's fixed six-way literal alternation, which has no such numeric component. Recommends rejecting or correcting the candidate value rather than accepting it on form alone.",
       "expectations": [
         "Recognizes this as candidate mode (per Scope) with a stated entity type (control)",
         "Confirms the value passes format/version compliance (correct (GOVERN|MAP|MEASURE|MANAGE)-#.#@1.0 pattern)",
         "Confirms structural compliance: NIST AI RMF's applicableTo includes controls, so the framework is valid for this entity type",
         "Live-verifies the identifier against NIST AI RMF and finds no MEASURE-9 category exists (the MEASURE function tops out at category 4)",
-        "Does NOT treat NIST AI RMF as exempt from live-verify -- it is a version-pinned, open-ended pattern (like MITRE ATLAS, OWASP, EU AI Act), not a closed unversioned enum like STRIDE",
+        "Does NOT treat NIST AI RMF as exempt from live-verify -- its pattern's subcategory numbers admit new values indefinitely, the same numeric-component disqualifying reason SKILL.md gives for MITRE ATLAS, OWASP, and EU AI Act -- unlike STRIDE's closed, unversioned literal alternation",
+        "Grounds NIST's disqualification in the numeric-component reason (matching SKILL.md's attribution of that reason to MITRE ATLAS/NIST/OWASP/EU AI Act), not in NIST's pattern also being version-pinned -- SKILL.md attributes the version-token reason to ISO 22989 specifically, as a distinct, independent ground",
         "Does NOT accept the candidate merely because its form and applicableTo are correct",
         "Proves the live-verify trigger is not specific to MITRE ATLAS by correctly running and failing it for a different framework"
       ]
@@ -240,14 +242,14 @@
     {
       "id": 21,
       "prompt": "This is a candidate-mode audit: I'm drafting a new risk (entity type: risk) that is not yet in the corpus. Candidate values: mitre-atlas: AML.T0020@5.0.1, AML.T0043@5.0.1, AML.T0051@5.0.1; stride: Spoofing, Tampering, Repudiation. Is this set conformant on selectivity?",
-      "expected_output": "Each of the 6 values individually passes format/structural compliance (3 real, well-formed AML.T####@5.0.1 techniques, correct class for a risk, no crossover or parent/sub-technique collisions; 3 valid bare-PascalCase STRIDE enum members, correct applicableTo for a risk). Step 3 (selectivity compliance) is evaluated per framework, not as a total across frameworks: mitre-atlas has 3 values and stride has 3 values, each under the soft cap of 4 -- so selectivity passes with no flag, even though 6 total values were proposed across the two frameworks combined. Live-verifies the 3 ATLAS techniques as real and current; STRIDE values need no live-verify (closed unversioned enum). Recommends accepting the full set as conformant.",
+      "expected_output": "Each of the 6 values individually passes format/structural compliance (3 real, well-formed AML.T####@5.0.1 techniques, correct class for a risk, no crossover or parent/sub-technique collisions; 3 valid bare-PascalCase STRIDE literal-set members, correct applicableTo for a risk). Step 3 (selectivity compliance) is evaluated per framework, not as a total across frameworks: mitre-atlas has 3 values and stride has 3 values, each under the soft cap of 4 -- so selectivity passes with no flag, even though 6 total values were proposed across the two frameworks combined. Live-verifies the 3 ATLAS techniques as real and current; for the STRIDE values, states \"live-verify not applicable (closed literal set, unversioned, no registry)\". Recommends accepting the full set as conformant.",
       "expectations": [
         "Recognizes this as candidate mode (per Scope) with a stated entity type (risk) and a full set of values spanning two frameworks (mitre-atlas and stride)",
         "Confirms each of the 3 MITRE ATLAS values and 3 STRIDE values individually passes format/version and structural compliance",
         "Runs selectivity compliance per framework, not as a combined total: 3 mitre-atlas values and 3 stride values, each independently under the soft cap of 4",
         "Does NOT flag the set for exceeding the soft cap, even though 6 total candidate values were proposed, because neither framework individually exceeds 4",
         "Live-verifies the 3 MITRE ATLAS techniques against the source framework and confirms all are real and current",
-        "States that the STRIDE values require no live-verify, grounded in the closed-enum/no-external-registry exception",
+        "States that the STRIDE values require no live-verify, using SKILL.md's mandated phrase \"live-verify not applicable (closed literal set, unversioned, no registry)\" grounded in the closed-literal-and-unversioned exception, not \"closed enum\" or an \"enum-membership check\"",
         "Recommends accepting the full set as conformant, demonstrating the selectivity check is per-framework rather than a total-across-frameworks count"
       ]
     },
@@ -263,6 +265,19 @@
         "Does NOT issue a final, unconditional accept or a definitive selectivity-clean verdict for the set",
         "Asks the caller to confirm the complete intended set of candidate values before finalizing the selectivity verdict, per the candidate-mode checklist's incomplete-set clause",
         "Treats the per-value format/structural/live-verify results as passing so far while explicitly flagging the overall selectivity verdict as provisional pending the complete set"
+      ]
+    },
+    {
+      "id": 23,
+      "prompt": "Hypothetical scenario, not a real registered framework -- testing your reasoning, not a corpus lookup: imagine frameworks.yaml registered a new framework 'owasp-asvs-chapters', pinned as a fixed regex alternation of exactly nine literal chapter names (e.g. '^(Encoding|Validation|Cryptography|...)$'), unversioned, with no numeric or wildcard component -- so it mechanically passes the closed-literal-and-unversioned proxy test the same way STRIDE does. But OWASP ASVS is a real, actively maintained standard whose editors periodically rename or retire chapters between releases, independent of whether this repo ever bumps a version token for it. Given a candidate value 'owasp-asvs-chapters: Cryptography' for a new risk, should live-verify be skipped for this value?",
+      "expected_output": "No -- live-verify still applies. The candidate value mechanically passes the closed-literal-and-unversioned proxy test, but the proxy is explicitly a stand-in for the real question (is there an external process that can add, retire, or rename a member independent of this repo's own schema or version), and the scenario states outright that such a process exists for this hypothetical framework. Per SKILL.md, the override runs one direction only: the real question can pull a framework into requiring live-verify even when the mechanical proxy says exempt, never the reverse. The response does not treat the proxy's pass as sufficient once the real question is known to say otherwise.",
+      "expectations": [
+        "Recognizes that the hypothetical framework mechanically passes the closed-literal-and-unversioned proxy test (fixed finite alternation, no numeric/wildcard component, unversioned)",
+        "Does NOT conclude the proxy's pass is sufficient on its own to skip live-verify",
+        "Explicitly reasons from the real underlying question (an external process that can add/retire/rename members independent of this repo's schema or version) rather than stopping at the mechanical test",
+        "Concludes live-verify still applies, because the scenario states an external revision process exists for this hypothetical framework",
+        "States or implies that the override is one-directional -- the real question can only add a live-verify requirement the proxy would have skipped, never remove one the proxy would have required",
+        "Does not treat this hypothetical as license to skip live-verify for any framework not currently registered in frameworks.yaml"
       ]
     }
   ]
