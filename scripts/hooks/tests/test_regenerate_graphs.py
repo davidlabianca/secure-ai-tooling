@@ -17,8 +17,9 @@ remains:
 
 Test Coverage:
 ==============
-Total Tests: 19
-- Trigger behaviour:      5  (components triggers; controls/risks/unrelated/empty don't)
+Total Tests: 20
+- Trigger behaviour:      6  (components triggers, alone and mixed with
+                              non-triggering files; controls/risks/unrelated/empty don't)
 - Failure modes:          4  (generation failure, git-add failure, success, rc propagation)
 - Git-add alignment:      2  (correct file pair, not called for unrelated file)
 - Edge cases:             4  (repo-relative path, absolute path, duplicate argv,
@@ -160,6 +161,35 @@ class TestTriggerBehaviour:
 
         assert result == 0
         mock_run.assert_not_called()
+
+    def test_components_alongside_non_triggering_files_generates_exactly_once(self):
+        """
+        A triggering file mixed with non-triggering ones generates once, not zero or twice.
+
+        Given: pre-commit passes ["risk-map/yaml/controls.yaml",
+               "risk-map/yaml/components.yaml", "README.md"] — the argv shape a
+               commit touching several files actually produces
+        When: main() is called
+        Then: the validate_riskmap command runs exactly once, both diagram files
+              are git-added, and main() returns 0
+
+        The single-file cases above cannot see this. Each pins argv to one class
+        of file, so a selector keying off argv[0] (which would generate nothing
+        here) or one re-running per matching entry passes all of them.
+        """
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = _make_subprocess_mock(0)
+
+            result = main([CONTROLS_YAML, COMPONENTS_YAML, "README.md"])
+
+        assert result == 0
+
+        subprocess_calls = [c.args[0] for c in mock_run.call_args_list]
+
+        assert subprocess_calls.count(CMD_RISK_MAP) == 1, (
+            f"expected exactly one risk-map-graph generation, got: {subprocess_calls}"
+        )
+        assert GIT_ADD_RISK_MAP in subprocess_calls, "git add for risk-map-graph missing"
 
     def test_empty_argv_triggers_no_generation(self):
         """

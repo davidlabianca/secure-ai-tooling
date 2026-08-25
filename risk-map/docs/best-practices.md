@@ -83,12 +83,15 @@ python scripts/hooks/validate_riskmap.py --to-graph ./debug-graph.md --debug --f
 
 ### 12. Use the cross-reference tables to validate mappings
 
-When adding or modifying controls, regenerate the cross-reference tables to verify your mappings are logical:
+When adding or modifying controls, preview the cross-reference tables to verify your mappings are logical.
+Send the output to a scratch directory with `--output-dir`: without it these commands write into the tracked
+`risk-map/tables/`, leaving a dirty tree that the `regenerate-tables` pre-commit hook would have produced
+anyway when you commit the YAML.
 
 ```bash
-# Regenerate the control-to-risk and control-to-component cross-references
-python scripts/hooks/yaml_to_markdown.py controls --format xref-risks
-python scripts/hooks/yaml_to_markdown.py controls --format xref-components
+# Preview the control-to-risk and control-to-component cross-references
+python scripts/hooks/yaml_to_markdown.py controls --format xref-risks --output-dir /tmp/xref-preview
+python scripts/hooks/yaml_to_markdown.py controls --format xref-components --output-dir /tmp/xref-preview
 ```
 
 ### 13. Run all validations locally before pushing

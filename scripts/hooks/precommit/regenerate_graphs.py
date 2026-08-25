@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Git pre-commit hook that regenerates the component Mermaid graph when components.yaml changes.
+Pre-commit framework hook that regenerates the component Mermaid graph when components.yaml changes.
 
 Invoked by the pre-commit framework with staged filenames as positional argv (pass_filenames:
 true). Regenerates the graph via validate_riskmap.py and git-adds it so it lands in the same

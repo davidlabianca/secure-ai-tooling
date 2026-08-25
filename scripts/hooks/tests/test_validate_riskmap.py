@@ -8,7 +8,7 @@ graph generation for the component relationship visualization.
 
 Test Coverage:
 ==============
-Total Tests: 98 across 9 test classes.
+Total Tests: 102 across 10 test classes.
 
 Line-number annotations against validate_riskmap.py have been dropped from
 this list: they were stale by hundreds of lines and nothing kept them
@@ -29,12 +29,16 @@ rather than replaced with another number that nothing enforces. Measure with
    - --mermaid-format/-m flag (long and short form)
    - Combined argument parsing
 
-2. TestFileFlagHelpText - `--file` documents where it is not valid - 3 tests
+2. TestRemovedGraphFlagsRejected - #477's removed flags stay removed - 4 tests
+   - --to-controls-graph/-c and --to-risk-graph/-r each exit 2, so a stub
+     that parsed one and generated nothing could not pass silently
+
+3. TestFileFlagHelpText - `--file` documents where it is not valid - 3 tests
    - --file's own help names every combination it is rejected in
    - `--help` exits 0 and carries the constraints with its epilog intact
    - the module docstring's --file entry has not drifted from --help
 
-3. TestMainValidation - Validation orchestration - 10 tests
+4. TestMainValidation - Validation orchestration - 10 tests
    - Validation success with force mode
    - Validation failure detection
    - No YAML files to validate
@@ -47,7 +51,7 @@ rather than replaced with another number that nothing enforces. Measure with
    - the corpus is parsed exactly once per run, and opened exactly twice
      (the second read is a tracked deferral; see the test's docstring)
 
-4. TestMainFileFlag - `--file PATH` end-to-end wiring - 32 tests
+5. TestMainFileFlag - `--file PATH` end-to-end wiring - 32 tests
    - --file selects the corpus directly, without routing through
      get_staged_yaml_files, and works outside a git repository
    - End-to-end: the corpus content decides the outcome, parametrised over
@@ -70,7 +74,7 @@ rather than replaced with another number that nothing enforces. Measure with
      either the parse or the checking phase still reaches the crash banner
    - The corpus a run announces is the corpus it validated
 
-5. TestParseCorpus - the parse step, directly - 13 tests
+6. TestParseCorpus - the parse step, directly - 13 tests
    - a well-formed corpus parses; every malformed shape, a missing file
      included, raises CorpusParseError with the original failure chained
    - defect-shaped exceptions raised during the parse propagate unchanged
@@ -79,18 +83,18 @@ rather than replaced with another number that nothing enforces. Measure with
    - reached directly because every main() test that mocks
      ComponentEdgeValidator makes the parse unreachable
 
-6. TestMainGraphGeneration - Graph output - 4 tests
+7. TestMainGraphGeneration - Graph output - 4 tests
    - Component graph generation
    - Mermaid format output for component graph
    - Component graph error handling
    - Debug flag passed to ComponentGraph
 
-7. TestMainErrorHandling - Exception handling - 3 tests
+8. TestMainErrorHandling - Exception handling - 3 tests
    - KeyboardInterrupt handling (exit code 2)
    - Unexpected exceptions (exit code 2)
    - Validator initialization errors (exit code 2)
 
-8. TestMainLifecycleMode - `--mode lifecycle` short-circuit hook - 8 tests
+9. TestMainLifecycleMode - `--mode lifecycle` short-circuit hook - 8 tests
    - Pins the dedicated lifecycle-only entrypoint introduced to fix PR #277
      reviewer feedback (item 2): the lifecycle uniqueness check must be
      reachable on lifecycle-only commits without going through the
@@ -101,7 +105,7 @@ rather than replaced with another number that nothing enforces. Measure with
      silently discarding --file; the docstring records what that test
      does not decide.
 
-9. TestProductionInvocations - characterization of the shipped command
+10. TestProductionInvocations - characterization of the shipped command
    forms - 13 tests. Green today by design; they lock what CI and
    pre-commit observe so the --file work cannot change it silently.
    - --block on the real corpus for each staged trigger file, including the
@@ -399,6 +403,45 @@ class TestParseArgs:
         assert args.to_graph == Path("graph.md")
         assert args.debug is True
         assert args.mermaid_format is True
+
+
+# ============================================================================
+# TestRemovedGraphFlagsRejected — #477's flags are errors, not silent no-ops
+# ============================================================================
+#
+# --to-controls-graph/-c and --to-risk-graph/-r were removed with their
+# generators. Nothing else pins their absence: the removal shows up in this
+# suite only as tests that no longer exist, and a deleted test asserts nothing.
+# Re-adding either flag as a stub that parsed and did nothing would leave the
+# whole suite green while a caller's `-r out.md` wrote no file and reported
+# success.
+#
+# The short forms are asserted alongside the long ones because -c and -r are
+# currently unclaimed; a later flag taking either letter would make these cases
+# fail loudly, which is the intended signal — the reuse is fine, but it needs a
+# deliberate edit here rather than silently restoring an old spelling.
+# ============================================================================
+
+
+class TestRemovedGraphFlagsRejected:
+    """The control and risk graph flags removed by #477 must exit non-zero."""
+
+    @pytest.mark.parametrize(
+        "flag",
+        ["--to-controls-graph", "-c", "--to-risk-graph", "-r"],
+    )
+    def test_removed_graph_flag_is_rejected(self, flag):
+        """
+        Each removed graph flag makes argparse exit 2 rather than parse.
+
+        Given: Script called with a flag #477 removed, plus an output path
+        When: parse_args() is called
+        Then: argparse raises SystemExit(2), its unrecognised-argument code
+        """
+        with patch("sys.argv", ["script.py", flag, "out.md"]), pytest.raises(SystemExit) as exc_info:
+            parse_args()
+
+        assert exc_info.value.code == 2, f"`{flag}` must be rejected with argparse's exit code 2"
 
 
 # ============================================================================
