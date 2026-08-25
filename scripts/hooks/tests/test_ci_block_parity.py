@@ -1536,7 +1536,22 @@ _COMPONENTS: dict[str, Any] = {
 
 
 def _write_riskmap_corpus(base: Path, poisoned: bool) -> None:
-    """Corpus for validate_riskmap.py; poison = controls↔components mirror drift."""
+    """Corpus for validate_riskmap.py; poison = controls↔components mirror drift.
+
+    Also copies the two real-repo oracles the ADR-030 category style guard
+    reads (components.schema.json, mermaid-styles.yaml). That guard is
+    fail-loud when either is missing, so without them --block promotes a
+    "could not run" message and the probe exits 1 for a reason that has
+    nothing to do with parity.
+
+    Copying the real files rather than hand-authoring synthetic stand-ins
+    buys fidelity to the repo's own pair, not mutual consistency: if the
+    schema's category enum and the styles file ever diverge upstream, these
+    probes fail here exactly as the guard fails in CI, naming the offending
+    category. A synthetic pair would stay internally consistent forever —
+    that is its defect, not its virtue, because it would keep reporting
+    parity while the shipped corpus renders unstyled.
+    """
     yaml_dir = _yaml_dir(base)
     components = (
         ["componentAlpha", "componentProbeDoesNotExist"] if poisoned else ["componentAlpha", "componentBeta"]
@@ -1556,6 +1571,8 @@ def _write_riskmap_corpus(base: Path, poisoned: bool) -> None:
     (yaml_dir / "components.yaml").write_text(yaml.dump(_COMPONENTS), encoding="utf-8")
     (yaml_dir / "controls.yaml").write_text(yaml.dump(controls), encoding="utf-8")
     (yaml_dir / "risks.yaml").write_text(yaml.dump({"risks": []}), encoding="utf-8")
+    _copy_repo_file(base, "risk-map/schemas/components.schema.json")
+    _copy_repo_file(base, "risk-map/yaml/mermaid-styles.yaml")
 
 
 def _write_framework_refs_corpus(base: Path, poisoned: bool) -> None:
