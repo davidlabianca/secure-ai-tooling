@@ -21,6 +21,10 @@ Test Coverage:
    - Handling non-dict edges structure
    - Handling non-list to_edges/from_edges
    - Successful parsing with valid data
+   - Return-shape contract: .document carries the raw parsed YAML
+     (categories included), .components carries the component mapping,
+     and both come from a single open() call per parse (PR #499 review;
+     closes issue #477's second-read gap)
 
 2. parse_controls_yaml() Function (PREVIOUSLY UNTESTED):
    - Default file path handling
@@ -47,6 +51,7 @@ Test Coverage:
 Coverage Target: 95%+ for utils.py (up from 47%)
 """
 
+import builtins
 import subprocess
 import sys
 import tempfile
@@ -295,7 +300,7 @@ class TestParseComponentsYAML:
         with open(temp_yaml_file, "w") as f:
             yaml.dump(yaml_data, f)
 
-        components = parse_components_yaml(temp_yaml_file)
+        components = parse_components_yaml(temp_yaml_file).components
 
         # Should only have the valid component
         assert len(components) == 1
@@ -328,7 +333,7 @@ class TestParseComponentsYAML:
         with open(temp_yaml_file, "w") as f:
             yaml.dump(yaml_data, f)
 
-        components = parse_components_yaml(temp_yaml_file)
+        components = parse_components_yaml(temp_yaml_file).components
 
         # Should only have the valid component
         assert len(components) == 1
@@ -362,7 +367,7 @@ class TestParseComponentsYAML:
         with open(temp_yaml_file, "w") as f:
             yaml.dump(yaml_data, f)
 
-        components = parse_components_yaml(temp_yaml_file)
+        components = parse_components_yaml(temp_yaml_file).components
 
         assert len(components) == 1
         assert "comp1" in components
@@ -393,7 +398,7 @@ class TestParseComponentsYAML:
         with open(temp_yaml_file, "w") as f:
             yaml.dump(yaml_data, f)
 
-        components = parse_components_yaml(temp_yaml_file)
+        components = parse_components_yaml(temp_yaml_file).components
 
         assert len(components) == 1
         assert "comp1" in components
@@ -426,7 +431,7 @@ class TestParseComponentsYAML:
         with open(temp_yaml_file, "w") as f:
             yaml.dump(yaml_data, f)
 
-        components = parse_components_yaml(temp_yaml_file)
+        components = parse_components_yaml(temp_yaml_file).components
 
         assert len(components) == 1
         assert "comp1" in components
@@ -457,7 +462,7 @@ class TestParseComponentsYAML:
         with open(temp_yaml_file, "w") as f:
             yaml.dump(yaml_data, f)
 
-        components = parse_components_yaml(temp_yaml_file)
+        components = parse_components_yaml(temp_yaml_file).components
 
         assert len(components) == 1
         assert "comp1" in components
@@ -488,7 +493,7 @@ class TestParseComponentsYAML:
         with open(temp_yaml_file, "w") as f:
             yaml.dump(yaml_data, f)
 
-        components = parse_components_yaml(temp_yaml_file)
+        components = parse_components_yaml(temp_yaml_file).components
 
         assert len(components) == 1
         assert "comp1" in components
@@ -517,7 +522,7 @@ class TestParseComponentsYAML:
         with open(temp_yaml_file, "w") as f:
             yaml.dump(yaml_data, f)
 
-        components = parse_components_yaml(temp_yaml_file)
+        components = parse_components_yaml(temp_yaml_file).components
 
         assert len(components) == 1
         assert "comp1" in components
@@ -546,7 +551,7 @@ class TestParseComponentsYAML:
         with open(temp_yaml_file, "w") as f:
             yaml.dump(yaml_data, f)
 
-        components = parse_components_yaml(temp_yaml_file)
+        components = parse_components_yaml(temp_yaml_file).components
 
         assert len(components) == 1
         assert components["comp1"].to_edges == []
@@ -574,7 +579,7 @@ class TestParseComponentsYAML:
         with open(temp_yaml_file, "w") as f:
             yaml.dump(yaml_data, f)
 
-        components = parse_components_yaml(temp_yaml_file)
+        components = parse_components_yaml(temp_yaml_file).components
 
         assert len(components) == 1
         assert components["comp1"].to_edges == []
@@ -593,7 +598,7 @@ class TestParseComponentsYAML:
         with open(temp_yaml_file, "w") as f:
             yaml.dump(valid_components_yaml, f)
 
-        components = parse_components_yaml(temp_yaml_file)
+        components = parse_components_yaml(temp_yaml_file).components
 
         assert len(components) == 3
         assert "comp1" in components
@@ -615,6 +620,110 @@ class TestParseComponentsYAML:
         assert comp2.subcategory == "Training"
         assert comp2.to_edges == []
         assert comp2.from_edges == ["comp1"]
+
+    # Return-shape contract tests (PR #499 review; closes issue #477's second-read gap)
+    #
+    # parse_components_yaml() used to return the components mapping alone,
+    # which forced validate_riskmap.py's category/subcategory nesting check to
+    # re-open the file for the `categories:` block parse_components_yaml
+    # discarded — a second read that could observe a different file state than
+    # the first (see test_main_opens_the_corpus_exactly_once_per_run and
+    # test_main_nesting_check_survives_a_stray_second_read_observing_different_content
+    # in test_validate_riskmap.py). It now returns both the raw parsed
+    # document and the components mapping from one read, so every caller that
+    # needs either can get both without opening the file again.
+
+    def test_parse_components_result_exposes_the_raw_document(self, temp_yaml_file, valid_components_yaml):
+        """
+        Test that the result carries the raw parsed YAML document, categories included.
+
+        Given: A YAML file with a top-level `categories:` block alongside `components:`
+        When: parse_components_yaml() is called
+        Then: The result's .document is the same structure yaml.safe_load would
+              produce from that file, with the categories block intact
+
+        .document is what lets a caller build category_to_subcategories
+        without re-opening the file; this pins that the block survives the
+        parse rather than being dropped along with everything else that is
+        not a component field.
+        """
+        valid_components_yaml["categories"] = [
+            {"id": "Data", "subcategory": [{"id": "Storage"}]},
+            {"id": "Model", "subcategory": [{"id": "Training"}]},
+        ]
+        with open(temp_yaml_file, "w") as f:
+            yaml.dump(valid_components_yaml, f)
+
+        result = parse_components_yaml(temp_yaml_file)
+
+        assert result.document == valid_components_yaml, (
+            f"result.document must equal the file's parsed content; got {result.document!r}"
+        )
+        assert result.document["categories"] == valid_components_yaml["categories"], (
+            "the categories block must survive into result.document unchanged"
+        )
+
+    def test_parse_components_result_components_matches_the_component_mapping(
+        self, temp_yaml_file, valid_components_yaml
+    ):
+        """
+        Test that the result's .components is the same mapping the function used to return directly.
+
+        Given: A YAML file with valid component data
+        When: parse_components_yaml() is called
+        Then: result.components is a dict[str, ComponentNode] keyed and
+              populated exactly as the pre-#499 return value was
+
+        This is the compatibility half of the contract: every existing
+        caller that only wants the components mapping reaches it at
+        .components, unchanged in content and shape.
+        """
+        with open(temp_yaml_file, "w") as f:
+            yaml.dump(valid_components_yaml, f)
+
+        result = parse_components_yaml(temp_yaml_file)
+
+        assert set(result.components) == {"comp1", "comp2", "comp3"}
+        comp1 = result.components["comp1"]
+        assert comp1.title == "Component 1"
+        assert comp1.category == "Data"
+        assert comp1.to_edges == ["comp2"]
+        assert comp1.from_edges == ["comp3"]
+
+    def test_parse_components_reads_the_file_exactly_once(
+        self, temp_yaml_file, valid_components_yaml, monkeypatch
+    ):
+        """
+        Test that a single call to parse_components_yaml opens the file exactly once.
+
+        Given: A valid components YAML file
+        When: parse_components_yaml() is called
+        Then: builtins.open is called exactly once against that path
+
+        .document and .components must come from the same read, or the
+        contract this replaces the two-read design with is nominal only.
+        Counting the opens is what makes that a fact instead of an
+        assumption about how the parse is written internally.
+        """
+        with open(temp_yaml_file, "w") as f:
+            yaml.dump(valid_components_yaml, f)
+
+        opened: list[str] = []
+        real_open = builtins.open
+
+        def counting_open(file, *args, **kwargs):
+            opened.append(str(file))
+            return real_open(file, *args, **kwargs)
+
+        monkeypatch.setattr(builtins, "open", counting_open)
+
+        parse_components_yaml(temp_yaml_file)
+
+        matching = [path for path in opened if Path(path) == temp_yaml_file]
+        assert len(matching) == 1, (
+            f"parse_components_yaml must open the file exactly once per call; opened "
+            f"{len(matching)} time(s). All files opened: {opened!r}"
+        )
 
 
 class TestParseControlsYAML:
