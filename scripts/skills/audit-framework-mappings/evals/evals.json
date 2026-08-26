@@ -3,11 +3,11 @@
   "evals": [
     {
       "id": 1,
-      "prompt": "Audit this control mapping value: mitre-atlas: [AML.M0028]. Is it conformant?",
-      "expected_output": "Flags the missing version pin — ADR-027 requires AML.M0028@5.0.1 — deferring to the style guide's pinned pattern.",
+      "prompt": "Audit this control mapping value: mitre-atlas: [AML.M0007]. Is it conformant?",
+      "expected_output": "Flags the missing version pin — ADR-027 requires AML.M0007@5.0.1 — deferring to the style guide's pinned pattern.",
       "expectations": [
         "Flags that the value is missing its version pin (@5.0.1) required by ADR-027",
-        "States the correct form is AML.M0028@5.0.1",
+        "States the correct form is AML.M0007@5.0.1",
         "Treats the framework-mappings-style-guide as the authoritative source rather than an unversioned form"
       ]
     },
@@ -105,14 +105,179 @@
     },
     {
       "id": 11,
-      "prompt": "This is a targeted audit of a single control's mappings (not a whole-corpus sweep). Audit this mapping for identifier currency: mitre-atlas: [AML.M9999@5.0.1]. The value is well-formed and correctly a mitigation (not a technique) for a control — is it a real, current MITRE ATLAS identifier?",
-      "expected_output": "The value passes every structural check (well-formed AML.M####@5.0.1 pattern; correct mitigation-on-control class, no crossover) but fails live verification: MITRE ATLAS currently has only ~32 mitigations (AML.M0000 through roughly AML.M0031); AML.M9999 is far outside that range and does not exist. Because this is a targeted single-entity audit, live web verification applies; recommends removing or correcting the mapping rather than accepting it on form alone.",
+      "prompt": "This is a targeted audit of a single control's mappings (not a whole-corpus sweep). Audit controlAdversarialTrainingAndTesting's MITRE ATLAS mapping for identifier currency: mitre-atlas: [AML.M9999@5.0.1]. The value is well-formed and correctly a mitigation (not a technique) for a control — is it a real, current MITRE ATLAS identifier?",
+      "expected_output": "The value passes every structural check (well-formed AML.M####@5.0.1 pattern; correct mitigation-on-control class, no crossover) but fails live verification: MITRE ATLAS v5.0.1 has only 26 mitigations (AML.M0000 through AML.M0025); AML.M9999 is far outside that range and does not exist. Because this is a targeted single-entity audit of an existing corpus control (controlAdversarialTrainingAndTesting), live web verification applies; recommends removing or correcting the mapping rather than accepting it on form alone.",
       "expectations": [
         "Confirms the value passes the structural/format check (correct AML.M####@5.0.1 pattern)",
         "Confirms no technique/mitigation crossover (a mitigation is correct for a control) -- the case is designed so only live verification can fail it, not the structural crossover check",
         "Live-verifies the identifier against the source framework and finds it does not exist / is not current",
         "Does NOT accept the mapping as conformant merely because its form and class are correct",
-        "Recognizes this as a targeted single-entity audit (per Scope) where live verification is expected, not a whole-corpus sweep that would skip it"
+        "Recognizes this as a targeted single-entity audit (per Scope) naming a specific entity id already in the corpus (controlAdversarialTrainingAndTesting), where live verification is expected, not a whole-corpus sweep that would skip it"
+      ]
+    },
+    {
+      "id": 12,
+      "prompt": "This is a candidate-mode audit: I'm drafting a new risk (entity type: risk) that is not yet in the corpus, and want to check a candidate mapping before I submit the PR. Candidate value: mitre-atlas: AML.T9999@5.0.1. Is it a real, current MITRE ATLAS technique?",
+      "expected_output": "The value passes format/version compliance (well-formed AML.T####@5.0.1 pattern) and structural compliance (a technique is the correct class for a risk, no crossover), but fails live verification: MITRE ATLAS v5.0.1's top-level techniques run only up to AML.T0086; AML.T9999 is far outside that range and does not exist. Because this is candidate mode, live-verify applies to every proposed value; recommends rejecting the candidate rather than accepting it on form alone.",
+      "expectations": [
+        "Recognizes this as candidate mode (per Scope) — a value for an entity not yet in the corpus, not a corpus id lookup",
+        "Confirms the value passes format/version compliance (correct AML.T####@5.0.1 pattern)",
+        "Confirms no technique/mitigation crossover (a technique is correct for a risk) -- structural compliance passes",
+        "Live-verifies the identifier against MITRE ATLAS and finds it does not exist / is not current",
+        "Does NOT accept the candidate as conformant merely because its form and class are correct",
+        "Recommends rejecting or correcting the candidate value before it is submitted in a PR"
+      ]
+    },
+    {
+      "id": 13,
+      "prompt": "This is a candidate-mode audit: I'm drafting a new risk (entity type: risk) that is not yet in the corpus. Candidate value: mitre-atlas: AML.T0031@5.0.1. Is it conformant and current?",
+      "expected_output": "The value passes format/version compliance, structural compliance (technique is correct for a risk, no crossover), and live verification: AML.T0031 (Erode AI Model Integrity, per MITRE ATLAS) is a real, current MITRE ATLAS technique. Reports the candidate as clean and recommends accepting it.",
+      "expectations": [
+        "Recognizes this as candidate mode (per Scope)",
+        "Confirms the value passes format/version compliance (correct AML.T####@5.0.1 pattern)",
+        "Confirms no technique/mitigation crossover (a technique is correct for a risk)",
+        "Live-verifies the identifier and confirms it is a real, current MITRE ATLAS technique",
+        "Reports the candidate as passing all checklist items and recommends accepting it",
+        "Does not skip or omit the live-verify step just because the value is well-formed",
+        "Cites the technique's correct current name as sourced from MITRE ATLAS itself (Erode AI Model Integrity) as evidence of a genuine external lookup, rather than treating the value's absence from the local risks.yaml/controls.yaml as proof that live verification occurred"
+      ]
+    },
+    {
+      "id": 14,
+      "prompt": "This is a candidate-mode audit: I'm drafting a new risk (entity type: risk) that is not yet in the corpus. Candidate value: mitre-atlas: AML.M0007@5.0.1. Is it conformant?",
+      "expected_output": "The value passes format/version compliance (well-formed AML.M####@5.0.1 pattern) but fails structural compliance: AML.M0007 is a mitigation, and risks map only to techniques (AML.T####), never mitigations (AML.M####) -- this is a technique/mitigation crossover violation, independent of whether the identifier is real or current. Recommends the candidate be replaced with an actual technique or removed; live-verify of AML.M0007's currency is moot once the structural check has already failed the value for the wrong class.",
+      "expectations": [
+        "Recognizes this as candidate mode (per Scope) and uses the stated entity type (risk) to run the structural checklist",
+        "Confirms the value's format/version pattern is well-formed (correct AML.M####@5.0.1 pattern)",
+        "Runs the full structural compliance checklist in candidate mode, not just the well-formedness check",
+        "Flags the technique/mitigation crossover: a mitigation (AML.M####) is not valid on a risk, which takes only techniques (AML.T####)",
+        "Does not accept the candidate merely because its form is correct",
+        "Treats the structural failure as sufficient grounds to reject the candidate, independent of live-verify"
+      ]
+    },
+    {
+      "id": 15,
+      "prompt": "This is a candidate-mode audit: I'm drafting a new risk (entity type: risk) that is not yet in the corpus. Candidate value: stride: Tampering. Is it conformant?",
+      "expected_output": "The value passes format compliance (bare PascalCase, a valid member of the closed six-value STRIDE alternation, correctly unversioned) and structural compliance (STRIDE's applicableTo includes risks). No live-verify step is run or claimed: STRIDE is a closed literal set, unversioned, with no external evolving registry to check currency against, so the membership check already performed is its complete verification. Reports the candidate as clean, stating exactly \"live-verify not applicable (closed literal set, unversioned, no registry)\" rather than omitting the item.",
+      "expectations": [
+        "Recognizes this as candidate mode (per Scope)",
+        "Confirms Tampering is well-formed: bare PascalCase, a valid member of the closed STRIDE literal set, no version token",
+        "Confirms applicableTo: STRIDE is valid on risks",
+        "States explicitly that no live-verify step is run for this value, and grounds that in the closed-literal-and-unversioned exception naming STRIDE as the current instance -- not in STRIDE being a JSON-schema 'enum' (SKILL.md is explicit that STRIDE's pinned form is a regex pattern, not an enum keyword)",
+        "Uses SKILL.md's mandated output phrase for this case: \"live-verify not applicable (closed literal set, unversioned, no registry)\", not \"closed enum\" or \"enum-membership check\"",
+        "Does not silently omit the live-verify checklist item -- reports it as explicitly not applicable rather than leaving it out",
+        "Recommends accepting the candidate value"
+      ]
+    },
+    {
+      "id": 16,
+      "prompt": "This is a candidate-mode audit: I'm drafting a new control (entity type: control) that is not yet in the corpus. Candidate value: mitre-atlas: AML.T0043@5.0.1. Is it conformant?",
+      "expected_output": "The value passes format/version compliance (well-formed AML.T####@5.0.1 pattern) but fails structural compliance: AML.T0043 is a technique, and controls map only to mitigations (AML.M####), never techniques (AML.T####) -- this is a technique/mitigation crossover violation, independent of whether the identifier is real or current. Recommends the candidate be replaced with an actual mitigation or removed; live-verify of AML.T0043's currency is moot once the structural check has already failed the value for the wrong class.",
+      "expectations": [
+        "Recognizes this as candidate mode (per Scope) and uses the stated entity type (control) to run the structural checklist",
+        "Confirms the value's format/version pattern is well-formed (correct AML.T####@5.0.1 pattern)",
+        "Runs the full structural compliance checklist in candidate mode, not just the well-formedness check",
+        "Flags the technique/mitigation crossover: a technique (AML.T####) is not valid on a control, which takes only mitigations (AML.M####)",
+        "Does not accept the candidate merely because its form is correct",
+        "Treats the structural failure as sufficient grounds to reject the candidate, independent of live-verify"
+      ]
+    },
+    {
+      "id": 17,
+      "prompt": "This is a candidate-mode audit: I'm drafting a new entity that is not yet in the corpus and want to check a candidate mapping before I submit the PR. Candidate value: mitre-atlas: AML.T0051@5.0.1. Is it conformant?",
+      "expected_output": "Halts before running the structural compliance checklist: the entity type (risk, control, or persona) was not stated, and step 2 (structural compliance, including the technique/mitigation crossover check) cannot be evaluated without knowing the entity type. Asks the caller to state the entity type rather than assuming one and proceeding.",
+      "expectations": [
+        "Recognizes this as candidate mode (per Scope)",
+        "Notices that the entity type (risk, control, or persona) was not stated in the prompt",
+        "Halts before evaluating structural compliance rather than silently assuming or defaulting to an entity type (e.g., risk)",
+        "Explicitly asks the caller to state the entity type before the audit can proceed",
+        "Does not produce a pass/fail verdict on structural compliance or an overall accept/reject recommendation without first getting the entity type",
+        "Grounds the halt in the Candidate mode checklist's explicit instruction: 'If the entity type is not stated, halt and ask the caller for it -- never infer, default, or silently proceed'"
+      ]
+    },
+    {
+      "id": 18,
+      "prompt": "This is a candidate-mode audit: I'm drafting a new risk (entity type: risk) that is not yet in the corpus, covering LLM prompt-based manipulation end to end. I want to propose the full set of MITRE ATLAS candidate values together: AML.T0051@5.0.1, AML.T0054@5.0.1, AML.T0056@5.0.1, AML.T0057@5.0.1, AML.T0068@5.0.1. Is this set conformant?",
+      "expected_output": "Each of the 5 values individually passes format/version compliance (well-formed AML.T####@5.0.1) and structural compliance (all are techniques, correct class for a risk; no parent/sub-technique collisions among them; no crossover). But step 3 (selectivity compliance), run against the full set of 5 proposed together, flags exceeding the soft limit of 4 mappings per framework -- this is a per-framework count across the whole candidate set, not a per-value check, so every value can pass individually while the set still fails. Recommends trimming to the 4 (or fewer) most directly relevant values and dropping or deferring the rest, each defensible with a one-sentence rationale, rather than accepting all 5 as-is.",
+      "expectations": [
+        "Recognizes this as candidate mode (per Scope) with a stated entity type (risk) and a full set of 5 candidate values proposed together",
+        "Confirms each of the 5 values passes format/version compliance individually (correct AML.T####@5.0.1 pattern)",
+        "Confirms each value passes structural compliance individually (technique is correct class for a risk; no parent/sub-technique collisions; no technique/mitigation crossover)",
+        "Runs step 3 (selectivity compliance) against the full set of 5 values together, not each value in isolation",
+        "Flags that 5 MITRE ATLAS mappings on a single risk exceeds the soft limit of 4 per framework",
+        "Does NOT let individual structural/format passes excuse or skip the over-cap flag -- treats selectivity as a separate, still-applicable check",
+        "Recommends trimming the set to the most directly relevant values (4 or fewer) rather than accepting all 5 unchanged"
+      ]
+    },
+    {
+      "id": 19,
+      "prompt": "This is a candidate-mode audit: I'm drafting a new control (entity type: control) that is not yet in the corpus. Candidate value: nist-ai-rmf: MEASURE-9.9@1.0. Is it conformant and current?",
+      "expected_output": "The value passes format/version compliance (well-formed (GOVERN|MAP|MEASURE|MANAGE)-#.#@1.0 pattern) and structural compliance (NIST AI RMF applies to controls; correct entity type). But it fails live verification: NIST AI RMF's MEASURE function only has categories 1 through 4 (subcategories such as MEASURE-2.1 through MEASURE-2.13, MEASURE-4.1 through MEASURE-4.3) -- there is no MEASURE-9 category, so MEASURE-9.9 does not exist. Because this is candidate mode, live-verify applies to every proposed value, and NIST AI RMF does not qualify for the closed-literal-set/unversioned exemption: its pattern's subcategory numbers admit new values indefinitely without a schema change (a numeric component, same disqualifying reason as MITRE ATLAS, OWASP, and EU AI Act) -- unlike STRIDE's fixed six-way literal alternation, which has no such numeric component. Recommends rejecting or correcting the candidate value rather than accepting it on form alone.",
+      "expectations": [
+        "Recognizes this as candidate mode (per Scope) with a stated entity type (control)",
+        "Confirms the value passes format/version compliance (correct (GOVERN|MAP|MEASURE|MANAGE)-#.#@1.0 pattern)",
+        "Confirms structural compliance: NIST AI RMF's applicableTo includes controls, so the framework is valid for this entity type",
+        "Live-verifies the identifier against NIST AI RMF and finds no MEASURE-9 category exists (the MEASURE function tops out at category 4)",
+        "Does NOT treat NIST AI RMF as exempt from live-verify -- its pattern's subcategory numbers admit new values indefinitely, the same numeric-component disqualifying reason SKILL.md gives for MITRE ATLAS, OWASP, and EU AI Act -- unlike STRIDE's closed, unversioned literal alternation",
+        "Grounds NIST's disqualification in the numeric-component reason (matching SKILL.md's attribution of that reason to MITRE ATLAS/NIST/OWASP/EU AI Act), not in NIST's pattern also being version-pinned -- SKILL.md attributes the version-token reason to ISO 22989 specifically, as a distinct, independent ground",
+        "Does NOT accept the candidate merely because its form and applicableTo are correct",
+        "Proves the live-verify trigger is not specific to MITRE ATLAS by correctly running and failing it for a different framework"
+      ]
+    },
+    {
+      "id": 20,
+      "prompt": "I'm drafting a new control that detects adversarial or anomalous queries before they reach the model, not yet in the corpus. It's meant to block inputs that deviate from normal, benign patterns before inference happens. Candidate value: mitre-atlas: AML.M0015@5.0.1. Is this conformant?",
+      "expected_output": "Recognizes 'a new control' in the prose as stating the entity type (control) without the literal substring 'entity type', so it proceeds normally rather than halting to ask. The value passes format/version compliance (well-formed AML.M####@5.0.1 pattern), structural compliance (a mitigation is the correct class for a control, no crossover), and live verification: AML.M0015 (Adversarial Input Detection, per MITRE ATLAS) is a real, current mitigation whose stated scope — detecting and blocking adversarial or atypical inputs before they reach the model — directly matches the described control's purpose, satisfying the direct-relevance selectivity check rather than merely being related. Reports the candidate as clean and recommends accepting it.",
+      "expectations": [
+        "Recognizes this as candidate mode (per Scope) despite the prompt never using the literal substring 'entity type'",
+        "Correctly infers the entity type is 'control' from the prose ('I'm drafting a new control...') rather than halting to ask for it",
+        "Does NOT trigger the halt-and-ask rule, since the entity type was in fact conveyed, just not via the literal phrase 'entity type: X'",
+        "Confirms the value passes format/version compliance (correct AML.M####@5.0.1 pattern)",
+        "Confirms no technique/mitigation crossover (a mitigation is correct for a control)",
+        "Live-verifies the identifier and confirms it is a real, current MITRE ATLAS mitigation, citing its name (Adversarial Input Detection) as evidence of a genuine external lookup",
+        "Confirms the mapping is directly relevant (per Selectivity compliance), not merely related, since AML.M0015's own scope of detecting adversarial/atypical inputs before the model matches the control's stated purpose",
+        "Recommends accepting the candidate value"
+      ]
+    },
+    {
+      "id": 21,
+      "prompt": "This is a candidate-mode audit: I'm drafting a new risk (entity type: risk) that is not yet in the corpus. Candidate values: mitre-atlas: AML.T0020@5.0.1, AML.T0043@5.0.1, AML.T0051@5.0.1; stride: Spoofing, Tampering, Repudiation. Is this set conformant on selectivity?",
+      "expected_output": "Each of the 6 values individually passes format/structural compliance (3 real, well-formed AML.T####@5.0.1 techniques, correct class for a risk, no crossover or parent/sub-technique collisions; 3 valid bare-PascalCase STRIDE literal-set members, correct applicableTo for a risk). Step 3 (selectivity compliance) is evaluated per framework, not as a total across frameworks: mitre-atlas has 3 values and stride has 3 values, each under the soft cap of 4 -- so selectivity passes with no flag, even though 6 total values were proposed across the two frameworks combined. Live-verifies the 3 ATLAS techniques as real and current; for the STRIDE values, states \"live-verify not applicable (closed literal set, unversioned, no registry)\". Recommends accepting the full set as conformant.",
+      "expectations": [
+        "Recognizes this as candidate mode (per Scope) with a stated entity type (risk) and a full set of values spanning two frameworks (mitre-atlas and stride)",
+        "Confirms each of the 3 MITRE ATLAS values and 3 STRIDE values individually passes format/version and structural compliance",
+        "Runs selectivity compliance per framework, not as a combined total: 3 mitre-atlas values and 3 stride values, each independently under the soft cap of 4",
+        "Does NOT flag the set for exceeding the soft cap, even though 6 total candidate values were proposed, because neither framework individually exceeds 4",
+        "Live-verifies the 3 MITRE ATLAS techniques against the source framework and confirms all are real and current",
+        "States that the STRIDE values require no live-verify, using SKILL.md's mandated phrase \"live-verify not applicable (closed literal set, unversioned, no registry)\" grounded in the closed-literal-and-unversioned exception, not \"closed enum\" or an \"enum-membership check\"",
+        "Recommends accepting the full set as conformant, demonstrating the selectivity check is per-framework rather than a total-across-frameworks count"
+      ]
+    },
+    {
+      "id": 22,
+      "prompt": "This is a candidate-mode audit: I'm drafting a new risk (entity type: risk) that is not yet in the corpus. Here's one candidate value for now, though there could be a few more before I'm done adding values for this same risk: mitre-atlas: AML.T0043@5.0.1. Is it conformant?",
+      "expected_output": "The value itself passes format/version compliance (well-formed AML.T####@5.0.1 pattern), structural compliance (technique is correct class for a risk, no crossover), and live verification (AML.T0043, Craft Adversarial Data, is a real, current MITRE ATLAS technique). But because the caller signals more candidate values may follow for this same risk/framework combination, the audit does not give an unconditional final selectivity verdict -- it reports the per-value checks as passing so far, but notes the selectivity verdict as provisional and asks the caller to confirm the complete intended set before finalizing it, since a later addition could push the framework's count over the soft cap of 4.",
+      "expectations": [
+        "Recognizes this as candidate mode (per Scope) with a stated entity type (risk)",
+        "Confirms AML.T0043@5.0.1 passes format/version compliance and structural compliance individually (technique correct for a risk, no crossover)",
+        "Live-verifies AML.T0043 and confirms it is a real, current MITRE ATLAS technique",
+        "Notices the caller's signal that more candidate values may follow ('there could be a few more before I'm done'), a paraphrase rather than either of SKILL.md's own literal example phrases",
+        "Does NOT issue a final, unconditional accept or a definitive selectivity-clean verdict for the set",
+        "Asks the caller to confirm the complete intended set of candidate values before finalizing the selectivity verdict, per the candidate-mode checklist's incomplete-set clause",
+        "Treats the per-value format/structural/live-verify results as passing so far while explicitly flagging the overall selectivity verdict as provisional pending the complete set"
+      ]
+    },
+    {
+      "id": 23,
+      "prompt": "Hypothetical scenario, not a real registered framework -- testing your reasoning, not a corpus lookup: imagine frameworks.yaml registered a new framework 'owasp-asvs-chapters', pinned as a fixed regex alternation of exactly nine literal chapter names (e.g. '^(Encoding|Validation|Cryptography|...)$'), unversioned, with no numeric or wildcard component -- so it mechanically passes the closed-literal-and-unversioned proxy test the same way STRIDE does. But OWASP ASVS is a real, actively maintained standard whose editors periodically rename or retire chapters between releases, independent of whether this repo ever bumps a version token for it. Given a candidate value 'owasp-asvs-chapters: Cryptography' for a new risk, should live-verify be skipped for this value?",
+      "expected_output": "No -- live-verify still applies. The candidate value mechanically passes the closed-literal-and-unversioned proxy test, but the proxy is explicitly a stand-in for the real question (is there an external process that can add, retire, or rename a member independent of this repo's own schema or version), and the scenario states outright that such a process exists for this hypothetical framework. Per SKILL.md, the override runs one direction only: the real question can pull a framework into requiring live-verify even when the mechanical proxy says exempt, never the reverse. The response does not treat the proxy's pass as sufficient once the real question is known to say otherwise.",
+      "expectations": [
+        "Recognizes that the hypothetical framework mechanically passes the closed-literal-and-unversioned proxy test (fixed finite alternation, no numeric/wildcard component, unversioned)",
+        "Does NOT conclude the proxy's pass is sufficient on its own to skip live-verify",
+        "Explicitly reasons from the real underlying question (an external process that can add/retire/rename members independent of this repo's schema or version) rather than stopping at the mechanical test",
+        "Concludes live-verify still applies, because the scenario states an external revision process exists for this hypothetical framework",
+        "States or implies that the override is one-directional -- the real question can only add a live-verify requirement the proxy would have skipped, never remove one the proxy would have required",
+        "Does not treat this hypothetical as license to skip live-verify for any framework not currently registered in frameworks.yaml"
       ]
     }
   ]
