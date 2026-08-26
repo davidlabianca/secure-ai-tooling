@@ -24,7 +24,7 @@
 
 ## Composition
 
-`control-creator` produces the draft that `control-critic` adversarially stress-tests, and that `content-reviewer` (in `diff`/`full` mode) gates at submission. It consults the `classical-lexicon`, `altitude-check`, and `mapping-selection` skills as its authoring discipline. It does not itself invoke the critic or the reviewer; a caller routes creator → `control-critic` → `content-reviewer`.
+`control-creator` produces the draft that `control-critic` adversarially stress-tests, and that `content-reviewer` (in `diff`/`full` mode) gates at submission. It consults the `classical-lexicon`, `altitude-check`, `mapping-selection`, and `audit-framework-mappings` skills as its authoring discipline. It does not itself invoke the critic or the reviewer; a caller routes creator → `control-critic` → `content-reviewer`.
 
 ---
 
@@ -85,6 +85,14 @@ Use the **mapping-selection** skill to choose components and risks — it ground
 
 Use the **mapping-selection** skill — it carries the NIST AI RMF function cheat-sheet (GOVERN / MAP / MEASURE / MANAGE), the MITRE mitigation-vs-technique rule, and the over-mapping guard. Map selectively — a defensible one-sentence rationale per mapping, soft cap of 4 per framework. Controls map to **mitigations** in MITRE ATLAS (`AML.M####`), never techniques; NIST AI RMF uses the subcategory-level id. Do not hand-spell mapping values — they are version-pinned; generate them with `scripts/framework_mapping_maintainer.py` (per ADR-027). If you cannot run it, state the intended mappings and mark them for tool-generation.
 
+**Before you finalize the mappings, stop and run the verification step — do not skip straight from selection to a finished list.** `mapping-selection` governs which mappings belong; it does not confirm an identifier is current or correctly formatted. That confirmation is a separate, mandatory action:
+
+1. Read `scripts/skills/audit-framework-mappings/SKILL.md`, scoped to this control's id only (its "targeted" mode — not a full corpus sweep).
+2. Run its **structural check** on each candidate identifier (well-formed against the style guide's pinned pattern) and its **live-verify identifier currency** check (the identifier actually exists in the source framework — this is the check that catches a plausible-looking but fabricated id).
+3. State, in your output, that you ran this step and what it found for each identifier — not just that mapping-selection chose it. A mapping presented with no verification statement attached has not been through this step.
+
+Do not present a mapping in the Proposed entry as final until this verification has actually run and its result is incorporated — a candidate that fails currency verification gets dropped or marked `[needs-verification]`, not silently kept.
+
 ### 7. Record counterfactuals and reciprocity
 
 - **Counterfactuals:** list the alternatives you rejected — a title you discarded, a term you regrounded, a broader/narrower scope you considered — and why. This is what lets a reviewer trust the draft.
@@ -104,6 +112,7 @@ Read these as needed rather than reinventing their rules:
 - The **classical-lexicon** skill — terminology grounding.
 - The **altitude-check** skill — the packaged altitude tests and the novelty/absorb check.
 - The **mapping-selection** skill — component/risk/framework-mapping selection with the NIST function cheat-sheet.
+- The **audit-framework-mappings** skill — targeted, single-entity verification that selected mapping identifiers are current and correctly formatted.
 
 When these guides already state a rule, reference it as the source; do not paraphrase it into a competing version, so the guides and this agent stay in sync.
 

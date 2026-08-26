@@ -1,0 +1,71 @@
+{
+  "agent_name": "control-creator",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "We need a control that makes sure an agent's system instructions/config can't be silently overwritten by a compromised upstream config service. Just a rough idea — can you draft the controls.yaml entry?",
+      "expected_output": "Produces a schema-conformant controls.yaml entry (objective-level title/description around agent system-instruction integrity, e.g. detecting/preventing unauthorized modification of an agent's operating instructions) plus all six output-contract sections in order: Proposed entry, Schema note, Counterfactuals, Maintainer flags, Reciprocal edits, Validation commands.",
+      "expectations": [
+        "Produces all six output-contract sections, in order: Proposed entry, Schema note, Counterfactuals, Maintainer flags, Reciprocal edits, Validation",
+        "Proposed entry is a fenced controls.yaml block with id, title, description (prose array), category, personas, components, and risks fields present",
+        "Schema note states the new control id must be added to the enum in controls.schema.json",
+        "Validation section lists the three commands: validate_control_risk_references.py --force, validate_riskmap.py --force, and check-jsonschema"
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "Draft a control that requires MCP servers to validate JSON-RPC message schemas before dispatching them to the agent's tool-call handler.",
+      "expected_output": "Runs the T6 novelty/absorb check against the real, live corpus and finds this idea is already covered by the existing controlInputValidationAndSanitization (whose componentOrchestrationInputHandling locus already reaches this exact boundary) — recommends augmenting that control's description rather than drafting a new, separately-titled entry. Generalizes the idea to the role/locus (tool/service invocation input validation) throughout, keeping MCP only as an example of the protocol this applies to, whether presented as a new draft or an augmentation.",
+      "expectations": [
+        "Grounds the T6 novelty/absorb judgment in the real, live risk-map/yaml/controls.yaml — names controlInputValidationAndSanitization as the specific real entry this overlaps with, with evidence (e.g. its componentOrchestrationInputHandling locus, its existing riskInsecureIntegratedComponent linkage)",
+        "Recommends augmenting the existing control (a new description bullet, no new id) rather than drafting a separately-titled, separately-idd new entry",
+        "Nowhere in the proposed change does 'MCP' or any other specific product/protocol name appear as the defining term — MCP appears, if at all, only as an inline example",
+        "States explicitly that this is a maintainer judgment call (absorb vs. standalone), not a unilateral decision — even when recommending absorb, per control-creator's surface-don't-decide boundary on contested scope calls"
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "Add a control: 'emit signed telemetry spans with correlation IDs to an OTel collector for every agent tool call.'",
+      "expected_output": "Identifies the signed-span/correlation-ID/OTel-collector language as implementation detail, not an objective (altitude-check T1 failure), and separately runs the T6 novelty/absorb check against the real, live corpus. Finds this objective is already covered by the existing controlAgentObservability — recommends augmenting that control's description with the OTel/signed-span mechanism as an example, rather than drafting a new, separately-titled entry. The corrected, objective-level framing (auditable/traceable agent tool-call activity) appears in the augmentation text, and the correction is explained, not silently substituted.",
+      "expectations": [
+        "Identifies the signed-span/correlation-ID/OTel-collector language as implementation detail, not an objective (altitude-check T1 failure), and explains the correction rather than silently substituting the wording",
+        "Grounds the T6 novelty/absorb judgment in the real, live risk-map/yaml/controls.yaml — names controlAgentObservability as the specific real entry this overlaps with, with evidence (e.g. its existing objective language, its already-listed risks)",
+        "Recommends augmenting the existing control (a new description bullet, no new id) with the OTel/signed-span mechanism demoted to an example, rather than drafting a separately-titled, separately-idd new entry",
+        "The augmentation's added text is framed at the objective level (auditable/traceable agent tool-call activity), not as the mechanism restated"
+      ]
+    },
+    {
+      "id": 4,
+      "prompt": "Draft a control that restricts an agent's outbound network calls to an explicit egress allowlist, and select its framework mappings.",
+      "expected_output": "Drafts the control and uses mapping-selection to propose candidate framework mappings, generated via scripts/framework_mapping_maintainer.py rather than hand-spelled. For any mapping it cannot independently verify with real confidence, it omits the mapping and flags it for maintainer/tool confirmation rather than presenting an unverified guess as final — it does not fabricate or force a mapping just to fill the slot.",
+      "expectations": [
+        "Uses mapping-selection to propose candidate framework mappings for the control (e.g. a NIST AI RMF subcategory and/or a MITRE ATLAS mitigation) before finalizing the draft",
+        "Mapping values are generated via scripts/framework_mapping_maintainer.py (or explicitly marked for tool-generation), not hand-spelled from memory",
+        "For any mapping whose currency/fit isn't independently confirmed with certainty, the response either omits it (per the style guide's 'omit rather than force' rule) or explicitly flags it in Maintainer flags as needing confirmation — it is not presented as settled fact with no caveat either way",
+        "Does not present an unverified or low-confidence mapping in the Proposed entry as settled fact with no caveat"
+      ]
+    },
+    {
+      "id": 5,
+      "prompt": "Use ONLY the control list below to judge overlap with the existing corpus — not the live risk-map/yaml/controls.yaml, which changes over time (per ADR-033 Amendment 2026-07-30, this is a pinned eval fixture, not corpus content):\n\n- controlToolCredentialLifecycleManagement — issue, rotate, and revoke credentials granted to agent tool integrations, scoping credential lifetime to the session or task that requested them so a credential does not remain valid after the agent's task concludes.\n- controlAgentActionAuthorizationGating — require an explicit authorization decision (human or policy engine) before an agent executes a high-consequence action.\n- controlModelOutputProvenanceLabeling — attach provenance metadata to model-generated output.\n- controlDataRetentionScheduling — enforce a defined retention and deletion schedule for stored data, including agent-collected data.\n- controlThirdPartyToolVettingProcess — vet and approve third-party tools before they are made available for agent invocation.\n- controlAgentReasoningTraceLogging — capture the agent's reasoning trace for later audit.\n\nWe need a control that makes sure agents rotate and revoke the credentials they use to call tools, so a credential doesn't linger valid after a session ends. Draft it.",
+      "expected_output": "Recognizes that controlToolCredentialLifecycleManagement in the fixture already covers session-scoped tool-credential rotation and revocation — since the match is unambiguous (near-verbatim overlap in the fixture's own text, no residual gap), recommends clearly against drafting a new, competing entry rather than silently drafting one. Because the overlap is this clear-cut, a direct recommendation is appropriate (control-creator reserves open-ended 'maintainer must decide' framing for genuinely contested calls, not unambiguous ones), but the response still invites the requester to name any uncovered residual angle rather than treating the question as permanently closed.",
+      "expectations": [
+        "Uses only the fixture list provided in the prompt, not the live controls.yaml, to judge overlap",
+        "Identifies controlToolCredentialLifecycleManagement as covering essentially the same capability the prompt is asking for, citing the fixture's own text as evidence",
+        "Does not silently draft a new, competing controls.yaml entry for this request",
+        "Recommends against drafting a new control and invites the requester to name any genuinely uncovered angle, rather than treating the question as unappealable"
+      ]
+    },
+    {
+      "id": 6,
+      "prompt": "Does controlAgentExecutionBounds, as it exists today in risk-map/yaml/controls.yaml, already address riskRunawayAgentToolLoops? I was about to draft a new control for that.",
+      "expected_output": "Confirms controlAgentExecutionBounds is a real entry in the live controls.yaml, already lists riskRunawayAgentToolLoops among its risks, and advises against drafting a duplicate control for the same objective.",
+      "expectations": [
+        "Confirms controlAgentExecutionBounds exists in the real risk-map/yaml/controls.yaml and grounds the answer in that live corpus, not a fixture",
+        "States that its risks list already includes riskRunawayAgentToolLoops",
+        "Cites at least one other real field from that entry (e.g. category controlsApplication, the second risk riskEconomicDenialOfWallet, or the MITRE ATLAS mapping AML.M0004@5.0.1)",
+        "Advises against drafting a new, duplicate control and instead points to extending or confirming the existing entry"
+      ]
+    }
+  ]
+}
