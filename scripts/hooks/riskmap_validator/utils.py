@@ -10,14 +10,129 @@ Dependencies:
 """
 
 import subprocess
+from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 import yaml
 
 from .models import ComponentNode, ControlNode
 
 
-def parse_components_yaml(file_path: Path = None) -> dict[str, ComponentNode]:
+@dataclass(frozen=True)
+class ComponentsParseResult:
+    """
+    Result of parsing a components corpus in a single physical read.
+
+    Attributes:
+        document: The raw parsed YAML document (categories block included).
+        components: Dict mapping component IDs to ComponentNode objects,
+            built from document["components"].
+
+    Carrying both off one read lets a caller that also needs the top-level
+    `categories:` block (e.g. the category/subcategory nesting check) reach
+    it without re-opening the file — a second read that could observe a
+    different file state than the first (issue #477).
+    """
+
+    document: dict[str, Any]
+    components: dict[str, ComponentNode]
+
+
+def _build_components(document: dict[str, Any], file_path: Path) -> dict[str, ComponentNode]:
+    """
+    Build the component ID -> ComponentNode mapping from an already-parsed document.
+
+    Args:
+        document: Parsed YAML document, expected to carry a top-level
+            "components" list.
+        file_path: Path the document was read from, for KeyError messages.
+
+    Returns:
+        Dict mapping component IDs to ComponentNode objects. Components
+        missing a required field (id, title, category) or carrying a
+        non-string value for one are skipped rather than raising.
+
+    Raises:
+        KeyError: If document has no top-level "components" key.
+    """
+    try:
+        raw_components = document["components"]
+    except KeyError as e:
+        raise KeyError(f"Missing required field in {file_path}: {e}")
+
+    components: dict[str, ComponentNode] = {}
+
+    for component in raw_components:
+        component_id: str | None = component.get("id")
+        if not component_id:
+            continue
+
+        if not isinstance(component_id, str):
+            continue
+
+        # Get component title
+        component_title: str | None = component.get("title")
+        if not component_title:
+            continue
+
+        if not isinstance(component_title, str):
+            continue
+
+        # Get component category
+        category: str | None = component.get("category")
+        if not category:
+            continue
+
+        if not isinstance(category, str):
+            continue
+
+        subcategory: str | None = component.get("subcategory")
+
+        # Get edges with default empty lists
+        edges = component.get("edges", {})
+        if not isinstance(edges, dict):
+            edges = {}
+
+        # Ensure edges are lists
+        to_edges = edges.get("to", [])
+        from_edges = edges.get("from", [])
+
+        if not isinstance(to_edges, list):
+            to_edges = []
+
+        if not isinstance(from_edges, list):
+            from_edges = []
+
+        # Create ComponentNode with validation
+        components[component_id] = ComponentNode(
+            title=component_title,
+            category=category,
+            subcategory=subcategory,
+            to_edges=[str(edge) for edge in to_edges if edge],
+            from_edges=[str(edge) for edge in from_edges if edge],
+        )
+
+    return components
+
+
+def parse_components_yaml(file_path: Path = None) -> ComponentsParseResult:
+    """
+    Parse components.yaml in one physical read.
+
+    Args:
+        file_path: Path to components YAML file. Defaults to
+            risk-map/yaml/components.yaml
+
+    Returns:
+        ComponentsParseResult carrying the raw document and the parsed
+        component mapping, both drawn from the same read.
+
+    Raises:
+        FileNotFoundError: If the components file doesn't exist
+        yaml.YAMLError: If YAML parsing fails
+        KeyError: If required fields are missing
+    """
     if file_path is None:
         file_path = Path("risk-map/yaml/components.yaml")
 
@@ -27,65 +142,12 @@ def parse_components_yaml(file_path: Path = None) -> dict[str, ComponentNode]:
     try:
         with open(file_path, "r", encoding="utf-8") as f:
             data = yaml.safe_load(f)
-
-        components = {}
-
-        for i, component in enumerate(data["components"]):
-            component_id: str | None = component.get("id")
-            if not component_id:
-                continue
-
-            if not isinstance(component_id, str):
-                continue
-
-            # Get component title
-            component_title: str | None = component.get("title")
-            if not component_title:
-                continue
-
-            if not isinstance(component_title, str):
-                continue
-
-            # Get component category
-            category: str | None = component.get("category")
-            if not category:
-                continue
-
-            if not isinstance(category, str):
-                continue
-
-            subcategory: str | None = component.get("subcategory")
-
-            # Get edges with default empty lists
-            edges = component.get("edges", {})
-            if not isinstance(edges, dict):
-                edges = {}
-
-            # Ensure edges are lists
-            to_edges = edges.get("to", [])
-            from_edges = edges.get("from", [])
-
-            if not isinstance(to_edges, list):
-                to_edges = []
-
-            if not isinstance(from_edges, list):
-                from_edges = []
-
-            # Create ComponentNode with validation
-            components[component_id] = ComponentNode(
-                title=component_title,
-                category=category,
-                subcategory=subcategory,
-                to_edges=[str(edge) for edge in to_edges if edge],
-                from_edges=[str(edge) for edge in from_edges if edge],
-            )
-
-        return components
-
     except yaml.YAMLError as e:
         raise yaml.YAMLError(f"Error parsing components YAML: {e}")
-    except KeyError as e:
-        raise KeyError(f"Missing required field in {file_path}: {e}")
+
+    components = _build_components(data, file_path)
+
+    return ComponentsParseResult(document=data, components=components)
 
 
 def parse_controls_yaml(file_path: Path = None) -> dict[str, ControlNode]:

@@ -354,14 +354,16 @@ def main() -> None:
         # Category/subcategory nesting check (ADR-018 D6 / task 2.3.9).
         # Runs regardless of whether the mirror check found issues so both sets
         # of warnings are visible before the exit decision below. Both halves of
-        # the comparison come from components_file, so this check applies to a
-        # --file corpus as it does to the default one.
-        if components_file.exists() and validator.components:
+        # the comparison come from components_file: validator.components from
+        # validator.parse_corpus()'s component mapping, category_to_subcategories
+        # from validator.document, the raw document parsed in that same call.
+        # Reusing that single read (rather than re-opening components_file here)
+        # closes the gap where the file could change between two separate reads
+        # of it (issue #477).
+        if validator.components:
             try:
-                with open(components_file, encoding="utf-8") as _fh:
-                    _components_data = yaml.safe_load(_fh)
                 category_to_subcategories: dict[str, set[str]] = {}
-                for _cat in _components_data.get("categories", []):
+                for _cat in validator.document.get("categories", []):
                     _cat_id = _cat.get("id")
                     if not isinstance(_cat_id, str):
                         continue
