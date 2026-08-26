@@ -709,11 +709,17 @@ class TestParseComponentsYAML:
         register here. This test establishes only that parse_components_yaml
         does not call builtins.open() twice — it is not, by itself, proof
         that .document and .components are drawn from a single physical
-        read. That mechanism-independent guarantee is enforced separately by
+        read. The mechanism-independent guarantee is enforced separately in
+        test_validate_riskmap.py: test_main_opens_the_corpus_exactly_once_per_run
+        counts every physical read of the corpus with a subprocess-isolated
+        sys.addaudithook, which fires uniformly under Path.read_text,
+        io.open, builtins.open and os.open, so it is the primary chokepoint
+        regardless of API or read order;
         test_main_nesting_check_is_blind_to_the_corpus_changing_after_the_parse_returns
-        in test_validate_riskmap.py, which rewrites the corpus on disk after
-        the parse returns and checks the outcome, regardless of which API a
-        stray second read would use.
+        additionally poisons the corpus on disk right after its first
+        physical read and checks the nesting check's outcome, catching the
+        narrower case where a single read still feeds the two checks from
+        different data.
         """
         with open(temp_yaml_file, "w") as f:
             yaml.dump(valid_components_yaml, f)

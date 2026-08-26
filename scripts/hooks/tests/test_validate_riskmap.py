@@ -8,7 +8,7 @@ graph generation for the component relationship visualization.
 
 Test Coverage:
 ==============
-Total Tests: 103 across 10 test classes.
+Total Tests: 104 across 10 test classes.
 
 Line-number annotations against validate_riskmap.py have been dropped from
 this list: they were stale by hundreds of lines and nothing kept them
@@ -48,12 +48,16 @@ rather than replaced with another number that nothing enforces. Measure with
    - Validator initialization with correct options
    - components.yaml is validated on a controls-only commit, and the staged
      set is requested with target_file None (regression fence; green today)
-   - the corpus is parsed exactly once per run, and pins that it must be
-     opened exactly once — the category/subcategory nesting check must not
-     re-open the file (currently fails: it does)
-   - the nesting check must evaluate the same document the components were
-     built from: rewriting the corpus on disk after the parse returns,
-     through any API a re-read might use, must not change its findings
+   - the corpus is parsed exactly once per run (validated_corpus_paths
+     fixture), and opened exactly once physically per run, counted by a
+     subprocess-isolated sys.addaudithook rather than a named-API spy so a
+     second read cannot hide behind a renamed seam or a different read
+     order (currently fails: production opens it twice)
+   - the nesting check must evaluate the same physical read the components
+     were built from: poisoning the corpus on disk immediately after its
+     first real read, through whichever of builtins.open/io.open/
+     Path.read_text performs it, must not change the nesting check's
+     findings, and the poison must be confirmed to have actually fired
      (currently fails)
 
 5. TestMainFileFlag - `--file PATH` end-to-end wiring - 32 tests
@@ -79,7 +83,7 @@ rather than replaced with another number that nothing enforces. Measure with
      either the parse or the checking phase still reaches the crash banner
    - The corpus a run announces is the corpus it validated
 
-6. TestParseCorpus - the parse step, directly - 13 tests
+6. TestParseCorpus - the parse step, directly - 14 tests
    - a well-formed corpus parses; every malformed shape, a missing file
      included, raises CorpusParseError with the original failure chained
    - defect-shaped exceptions raised during the parse propagate unchanged
@@ -87,6 +91,9 @@ rather than replaced with another number that nothing enforces. Measure with
    - validate_loaded stores the corpus it was handed, every call
    - reached directly because every main() test that mocks
      ComponentEdgeValidator makes the parse unreachable
+   - validate_file (validator.py:224) must extract .components from the
+     future parse_components_yaml result shape rather than treating the
+     whole result as the components mapping (currently fails)
 
 7. TestMainGraphGeneration - Graph output - 4 tests
    - Component graph generation
@@ -127,6 +134,7 @@ rather than replaced with another number that nothing enforces. Measure with
 """
 
 import builtins
+import io
 import shutil
 import subprocess
 import sys
@@ -624,6 +632,157 @@ class TestFileFlagHelpText:
             )
 
 
+# ============================================================================
+# Corpus open-count test infrastructure (PR #499 second-pass review, issue #477)
+# ============================================================================
+#
+# A sys.addaudithook() callback has no unregister API -- once installed it
+# stays for the life of the interpreter. Running the counted invocation of
+# main() in a short-lived subprocess, rather than in-process under
+# monkeypatch, keeps that installation from leaking into every test that
+# runs after this one in the same pytest session.
+#
+# CPython emits the "open" audit event beneath every one of Path.read_text,
+# io.open, builtins.open and os.open (verified on Python 3.14.4). Counting
+# it, filtered to the resolved corpus path, is what makes this a real
+# chokepoint: a builtins.open-only spy (this test's previous mechanism) is
+# blind to Path.read_text, and a spy pinned to a class method
+# (ComponentEdgeValidator.parse_corpus, also a previous mechanism here) is
+# blind to a second read reached through a renamed or restructured seam.
+#
+# Both blind spots were demonstrated against this suite before this
+# rewrite: a scratch implementation that hoists an early
+# `components_file.read_text()` ahead of parse_corpus (two physical reads,
+# differently ordered) opened the corpus twice but a builtins.open spy saw
+# one; a scratch implementation that renames the read to
+# ComponentEdgeValidator.parse_corpus_result while the nesting check's
+# re-read switches from open() to read_text() also opened the corpus twice
+# but a spy pinned to parse_corpus saw zero calls, let alone two. The audit
+# hook below counts both correctly at 2, regardless of read order or which
+# API performed either read.
+_CORPUS_OPEN_AUDIT_RUNNER = """
+import sys
+from pathlib import Path
+
+corpus_target = str(Path("{corpus}").resolve())
+hits = []
+
+
+def _hook(event, args):
+    if event != "open" or not args:
+        return
+    try:
+        resolved = str(Path(str(args[0])).resolve())
+    except (OSError, ValueError, TypeError):
+        return
+    if resolved == corpus_target:
+        hits.append(resolved)
+
+
+sys.addaudithook(_hook)
+
+sys.path.insert(0, {scripts_hooks_dir!r})
+import validate_riskmap
+
+sys.argv = ["script.py", "--force"]
+try:
+    validate_riskmap.main()
+except SystemExit as exc:
+    code = exc.code
+else:
+    code = None
+
+print(f"__EXIT__={{code}}")
+print(f"__OPENS__={{len(hits)}}")
+"""
+
+
+# ============================================================================
+# Differential-read poison test infrastructure (PR #499 second-pass review,
+# issue #477)
+# ============================================================================
+#
+# _install_corpus_read_poisoner patches the physical read primitives
+# themselves -- builtins.open, io.open and Path.read_text -- rather than a
+# named production method. A spy pinned to
+# ComponentEdgeValidator.parse_corpus, which an earlier version of this test
+# used, is blind to a second read reached through any other seam
+# (parse_corpus_result, a fresh helper, anything else); these three are not
+# a seam a refactor can route around, because every way Python reads a
+# file's bytes goes through one of them.
+#
+# Each wrapper lets the real read complete first and captures its content
+# before touching the file: poisoning happens only after the genuine
+# physical read returns, so a single-read implementation's one read is
+# never itself corrupted. Only read-mode calls are intercepted -- write
+# calls (including the poison write triggered here) pass straight through
+# untouched. Without that mode guard, the poison write's own on-disk
+# mutation recurses into the same wrapper and raises: Path.read_text opens
+# for 'r' via io.open internally, and write_text opens for 'w' via the same
+# function, so an unguarded wrapper misreads the write as a second physical
+# read of the corpus and tries to .read() a handle opened for writing
+# (confirmed against a scratch reproduction: `io.UnsupportedOperation: not
+# readable`).
+def _install_corpus_read_poisoner(monkeypatch, corpus_target: Path, poisoned_content: str) -> list[bool]:
+    """
+    Rig builtins.open, io.open and Path.read_text so the first genuine physical
+    read of corpus_target returns real content, then the file is rewritten to
+    poisoned_content on disk.
+
+    Returns a list that gains one element the moment that first read
+    happens. Assert it is non-empty before trusting any outcome assertion
+    downstream of it -- an empty list means the poison was never reachable
+    and the test proved nothing.
+    """
+    triggered: list[bool] = []
+
+    def _is_corpus(path_like) -> bool:
+        try:
+            return Path(path_like).resolve() == corpus_target
+        except (OSError, ValueError, TypeError):
+            return False
+
+    def _poison_once() -> None:
+        if not triggered:
+            triggered.append(True)
+            corpus_target.write_text(poisoned_content, encoding="utf-8")
+
+    real_builtins_open = builtins.open
+    real_io_open = io.open
+    real_read_text = Path.read_text
+
+    def open_wrapper(file, *args, **kwargs):
+        mode = str(args[0] if args else kwargs.get("mode", "r"))
+        if not _is_corpus(file) or not mode.startswith("r"):
+            return real_builtins_open(file, *args, **kwargs)
+        with real_builtins_open(file, *args, **kwargs) as fh:
+            content = fh.read()
+        _poison_once()
+        return io.BytesIO(content) if "b" in mode else io.StringIO(content)
+
+    def io_open_wrapper(file, *args, **kwargs):
+        mode = str(args[0] if args else kwargs.get("mode", "r"))
+        if not _is_corpus(file) or not mode.startswith("r"):
+            return real_io_open(file, *args, **kwargs)
+        with real_io_open(file, *args, **kwargs) as fh:
+            content = fh.read()
+        _poison_once()
+        return io.BytesIO(content) if "b" in mode else io.StringIO(content)
+
+    def read_text_wrapper(self_path, *args, **kwargs):
+        if not _is_corpus(self_path):
+            return real_read_text(self_path, *args, **kwargs)
+        content = real_read_text(self_path, *args, **kwargs)
+        _poison_once()
+        return content
+
+    monkeypatch.setattr(builtins, "open", open_wrapper)
+    monkeypatch.setattr(io, "open", io_open_wrapper)
+    monkeypatch.setattr(Path, "read_text", read_text_wrapper)
+
+    return triggered
+
+
 class TestMainValidation:
     """Tests for main() validation orchestration."""
 
@@ -916,151 +1075,177 @@ class TestMainValidation:
             f"a window for the file to change between them."
         )
 
-    def test_main_opens_the_corpus_exactly_once_per_run(self, tmp_path, monkeypatch):
+    def test_main_opens_the_corpus_exactly_once_per_run(self, tmp_path):
         """
-        Test that the corpus file is read exactly once per run.
+        Test that the corpus file is physically read exactly once per run.
 
         Given: A tmp cwd holding a clean components corpus
-        When:  main() is called with --force
-        Then:  components.yaml is opened exactly once
+        When:  main() is called with --force, in a subprocess that counts
+               CPython's own "open" audit event against the resolved corpus
+               path (see _CORPUS_OPEN_AUDIT_RUNNER's module comment for why
+               a subprocess and why an audit hook rather than a
+               monkeypatched spy)
+        Then:  Exactly one physical read of that path is observed
 
         One read means one file state: the ComponentNode map validated for
         edge consistency and the `categories:` block the nesting check
-        compares components against both come from the same open() call, so
-        there is no window in which the file can change between them.
-        parse_components_yaml (utils.py) returns both the parsed document and
-        the component mapping from that single read; validate_riskmap.py
-        builds category_to_subcategories from the returned document instead
-        of re-opening components.yaml.
+        compares components against both come from the same physical read,
+        so there is no window in which the file can change between them.
+        Today's production does not guarantee this: it opens the corpus
+        twice, once in parse_corpus and again for the nesting check's own
+        `categories:` read, which is exactly the gap PR #499's reviewer
+        reproduced as manufactured nesting/promotion failures on a clean
+        corpus (issue #477).
 
         The count is exact, not a maximum, so a regression in either
         direction is caught: dropping below one would mean the corpus was
-        never actually read (parse_components_yaml stubbed out or the check
-        skipped silently), and rising above one reopens the same window this
-        test closes — two reads of a file that can change on disk between
-        them, which manufactured nesting/promotion failures on a clean
-        corpus (PR #499 review; issue #477).
+        never actually read, and rising above one reopens the window this
+        test exists to close, whatever API performs the extra read and
+        whenever in the run it happens.
 
-        Counts file opens, not parse calls;
+        Counts physical opens, not parse calls;
         test_main_parses_the_corpus_exactly_once_per_run holds the parse
-        count. The two tests now agree because there is only one read left
-        to count.
+        count, which a correct single-read implementation may still call
+        more than once against the same in-memory result without touching
+        the file again.
         """
         _write_repo_layout_corpus(tmp_path, _CLEAN_LOCAL_COMPONENTS, _CLEAN_LOCAL_CONTROLS)
-        monkeypatch.chdir(tmp_path)
 
-        opened: list[str] = []
-        real_open = builtins.open
+        scripts_hooks_dir = str(Path(__file__).resolve().parent.parent)
+        runner_source = _CORPUS_OPEN_AUDIT_RUNNER.format(
+            corpus=str(DEFAULT_COMPONENTS_FILE),
+            scripts_hooks_dir=scripts_hooks_dir,
+        )
+        runner_path = tmp_path / "_corpus_open_audit_runner.py"
+        runner_path.write_text(runner_source, encoding="utf-8")
 
-        def counting_open(file, *args, **kwargs):
-            opened.append(str(file))
-            return real_open(file, *args, **kwargs)
+        result = subprocess.run(
+            [sys.executable, str(runner_path)],
+            capture_output=True,
+            text=True,
+            cwd=str(tmp_path),
+        )
 
-        monkeypatch.setattr(builtins, "open", counting_open)
+        assert result.returncode == 0, (
+            f"the audit-hook runner subprocess must exit cleanly; got {result.returncode}. "
+            f"stdout: {result.stdout!r} stderr: {result.stderr!r}"
+        )
 
-        with patch("sys.argv", ["script.py", "--force"]):
-            with pytest.raises(SystemExit) as exc_info:
-                main()
+        stdout_lines = result.stdout.splitlines()
+        exit_line = next((line for line in stdout_lines if line.startswith("__EXIT__=")), None)
+        opens_line = next((line for line in stdout_lines if line.startswith("__OPENS__=")), None)
+        assert exit_line is not None and opens_line is not None, (
+            f"the runner must report both result markers; got stdout: {result.stdout!r}"
+        )
 
-        assert exc_info.value.code == 0
-        # Resolved comparison: an implementation that resolves the corpus path before
-        # opening it (the adjacent skip_repo_scoped logic already does this) would open
-        # an absolute path that never equals the unresolved DEFAULT_COMPONENTS_FILE,
-        # producing a false "never opened" failure. Resolving both sides against the
-        # tmp cwd this test chdir'd into makes the comparison agnostic to which spelling
-        # main() happens to open.
-        corpus_target = DEFAULT_COMPONENTS_FILE.resolve()
-        corpus_opens = [path for path in opened if Path(path).resolve() == corpus_target]
-        assert len(corpus_opens) == 1, (
-            f"The corpus must be opened exactly once per run; it was opened "
-            f"{len(corpus_opens)} time(s). A second open reintroduces the window for the file "
-            f"to change between the components parse and the nesting check's categories read. "
-            f"All files opened: {opened!r}"
+        main_exit_code = exit_line.split("=", 1)[1]
+        open_count = int(opens_line.split("=", 1)[1])
+
+        assert main_exit_code == "0", (
+            f"main() must exit 0 on a clean corpus; the runner reported {main_exit_code!r}. "
+            f"Full stdout: {result.stdout!r}"
+        )
+        assert open_count == 1, (
+            f"the corpus must be opened exactly once per run, counted by CPython's own 'open' "
+            f"audit event rather than by intercepting a named API; it was opened {open_count} "
+            f"time(s). A second physical read -- through open(), io.open(), Path.read_text(), "
+            f"os.open(), or any other API -- reopens the window for the file to change between "
+            f"the components parse and the nesting check's categories read."
         )
 
     def test_main_nesting_check_is_blind_to_the_corpus_changing_after_the_parse_returns(
         self, tmp_path, monkeypatch, capsys
     ):
         """
-        Test that the nesting check cannot observe the corpus changing after the parse.
+        Test that the nesting check cannot observe the corpus changing after its first read.
 
-        Given: A tmp cwd holding a clean components corpus. Once
-               ComponentEdgeValidator.parse_corpus returns, the test rewrites
-               components.yaml on disk with a `categories:` block declaring
-               neither category the real components use
+        Given: A tmp cwd holding a clean components corpus, wired via
+               _install_corpus_read_poisoner so the first physical read of
+               it -- through whichever of builtins.open, io.open or
+               Path.read_text the implementation uses -- is followed by a
+               disk rewrite to a `categories:` block declaring neither
+               category the real components use
         When:  main() is called with --force --block
-        Then:  Exit code 0, and stdout shows the nesting check actually ran
-               and reported no findings — not that it was silently skipped
+        Then:  Exit code 0, stdout shows the nesting check actually ran and
+               reported no findings, and the poison is confirmed to have
+               fired
 
-        This is the failure PR #499's reviewer reproduced directly: a second
-        read of components.yaml, after the components parse, observing
+        This is the failure PR #499's reviewer reproduced directly: a
+        second read of components.yaml, after the first, observing
         different (but individually valid) content manufactured
         nesting/promotion findings on a corpus that has none, and --block
         turned that into exit 1 (issue #477).
 
-        The poison is a real rewrite of the file on disk, done from outside
-        parse_corpus rather than by intercepting a named read function. That
-        is deliberate: an earlier version of this test monkeypatched
-        builtins.open, which pathlib does not consult — Path.read_text() and
-        io.open() bind to the file descriptor beneath the builtins name, so
-        that spy recorded zero calls for either and a nesting-check rewrite
-        that swapped `open()` for `components_file.read_text()` passed the
-        entire suite with the #477 defect fully alive (confirmed on Python
-        3.14.4). Rewriting the file on disk instead means any second read —
-        through open(), io.open(), Path.read_text(), os.open(), or anything
-        else — observes the poison; only a genuine single read, one that
-        never touches the file again after parse_corpus returns, is blind to
-        it.
+        Non-vacuity: an earlier version of this test monkeypatched
+        ComponentEdgeValidator.parse_corpus and asserted only the outcome.
+        A scratch implementation that reads the corpus through a renamed
+        method (parse_corpus_result) while the nesting check's own re-read
+        moved from open() to read_text() left that patch target uncalled --
+        the poison was never written, and the old test passed at exit 0
+        having exercised nothing (reproduced directly: `poison_applied`
+        stayed empty, and the run still reported 2 manufactured nesting
+        issues under a spy pinned to builtins.open alone). The `poisoned`
+        assertion below closes that gap: it fails loudly if the corpus is
+        never physically read at all, rather than passing by default.
 
-        The open-count test (test_main_opens_the_corpus_exactly_once_per_run)
-        pins how many times the file is opened but is a proxy: an
-        implementation could satisfy that count while still comparing the
-        nesting check against something other than what the components were
-        built from, if the single read and the categories block it returns
-        were not the same read. This test checks the outcome that count is a
-        proxy for. The stdout assertion additionally rules out a fix that
-        makes the check exit 0 by having its `except Exception` skip branch
-        swallow a poison-triggered parse failure instead of the check
-        genuinely finding nothing to report.
+        This test does not, by itself, catch every second-read shape. A
+        scratch implementation that hoists an early
+        `components_file.read_text()` ahead of the components parse, and
+        feeds the nesting check from that early result, is immune to it:
+        the poison lands after the FIRST physical read, and in that shape
+        the first read is the one feeding the nesting check, so it is
+        captured before the disk changes underneath it, while the
+        components parse's later read observes the poisoned `categories:`
+        block harmlessly (parse_components_yaml never looks at
+        `categories:`). Reproduced directly against that scratch shape:
+        this test passes at exit 0 with the poison confirmed applied, even
+        though the corpus was genuinely read twice. That is exactly why
+        test_main_opens_the_corpus_exactly_once_per_run is the primary
+        chokepoint for read *ordering* -- it counts every physical read of
+        the corpus regardless of when in the run each one happens, so it
+        fails on that same scratch shape at open_count == 2 -- and this
+        test's job is narrower: given that a read happened, prove nothing
+        after it can change the answer.
         """
         _write_repo_layout_corpus(tmp_path, _CLEAN_LOCAL_COMPONENTS, _CLEAN_LOCAL_CONTROLS)
         monkeypatch.chdir(tmp_path)
 
-        # Only the `categories:` block matters here: the nesting check's
+        # `components:` carries the real, unmodified list forward so a second
+        # physical read that happens to feed component parsing (rather than
+        # nesting) still parses cleanly instead of raising KeyError -- a
+        # crash would exit 2, not 1, and hide the mismatch this test checks
+        # for. Only `categories:` needs to differ: the nesting check's
         # source data extracts nothing else from it (validate_riskmap.py
         # builds category_to_subcategories from
         # `_components_data.get("categories", [])` alone). Declaring a
         # category neither real component uses manufactures a Class 1
-        # mismatch for both components, without needing to forge an
-        # alternate `components:` list at all. `_NESTING_DIRTY_COMPONENTS` is
-        # not used here because it shares _CLEAN_LOCAL_COMPONENTS's
-        # categories block; only its components differ, and a second read
-        # that only replaces `categories:` would not reach them.
-        poisoned_content = yaml.dump({"categories": [{"id": "catOther", "subcategory": [{"id": "subOther"}]}]})
-        real_parse_corpus = ComponentEdgeValidator.parse_corpus
-
-        def poisoning_parse_corpus(self, file_path):
-            # Rewrite only after the real parse has returned, so a genuine
-            # single read already has everything it needs before the
-            # corpus changes underneath it.
-            result = real_parse_corpus(self, file_path)
-            Path(file_path).write_text(poisoned_content, encoding="utf-8")
-            return result
-
-        monkeypatch.setattr(ComponentEdgeValidator, "parse_corpus", poisoning_parse_corpus)
+        # mismatch for both components.
+        poisoned_content = yaml.dump(
+            {
+                "components": _CLEAN_LOCAL_COMPONENTS["components"],
+                "categories": [{"id": "catOther", "subcategory": [{"id": "subOther"}]}],
+            }
+        )
+        corpus_target = DEFAULT_COMPONENTS_FILE.resolve()
+        poisoned = _install_corpus_read_poisoner(monkeypatch, corpus_target, poisoned_content)
 
         with patch("sys.argv", ["script.py", "--force", "--block"]):
             with pytest.raises(SystemExit) as exc_info:
                 main()
 
         captured = capsys.readouterr()
+
+        assert poisoned, (
+            "the poison wrapper never observed a physical read of the corpus; nothing was "
+            "proven, because the seam this test targets was never exercised"
+        )
         assert exc_info.value.code == 0, (
-            "The corpus changing on disk after the components parse returned must not "
-            f"manufacture nesting findings; got exit {exc_info.value.code}. stdout: {captured.out!r}"
+            "The corpus changing on disk after its first physical read must not manufacture "
+            f"nesting findings; got exit {exc_info.value.code}. stdout: {captured.out!r}"
         )
         assert "✅ Category/subcategory nesting check passed" in captured.out, (
             "the nesting check must actually run and report success against the components "
-            f"the parse returned, not be silently skipped; stdout: {captured.out!r}"
+            f"the first read returned, not be silently skipped; stdout: {captured.out!r}"
         )
 
 
@@ -2479,6 +2664,67 @@ class TestParseCorpus:
 
         with pytest.raises(defect):
             ComponentEdgeValidator(verbose=False).parse_corpus(corpus)
+
+    def test_validate_file_reads_components_off_the_new_parse_result_shape(self, tmp_path, monkeypatch):
+        """
+        Test that validate_file (validator.py:224) extracts .components rather than
+        treating the whole parse_components_yaml result as the components mapping.
+
+        Given: parse_components_yaml stubbed to return the future contract --
+               an object carrying both .document (raw parsed YAML) and
+               .components (the ComponentNode mapping) -- rather than
+               today's bare dict
+        When:  validate_file() is called
+        Then:  It still validates successfully, and validator.components
+               ends up holding the dict from .components, not the result
+               object itself
+
+        RED by design: production parse_components_yaml still returns a
+        bare dict (test_utils.py's .document/.components contract tests are
+        pinned to a return shape it does not implement yet), and
+        validate_file's current body --
+        `self.validate_loaded(parse_components_yaml(file_path), file_path)`
+        -- passes whatever parse_components_yaml returns straight through
+        unchanged. Against this stand-in it hands validate_loaded the whole
+        result object as `components`; validate_loaded stores it verbatim
+        (`self.components = components`), and the first membership check
+        (`find_missing_components`, which calls `components.keys()`) raises
+        AttributeError, because the result object has no `.keys()`.
+
+        This is call site three of parse_components_yaml (after main() and
+        this class's other direct calls, both already covered by
+        RED contract expectations elsewhere): two review passes named
+        validator.py:224 as an unpinned consumer of the return-shape change
+        and nothing closed it before this test.
+        """
+        corpus = _write_custom_components(tmp_path, _CLEAN_LOCAL_COMPONENTS)
+
+        class _StandInParseResult:
+            """Stands in for the future parse_components_yaml return shape."""
+
+            def __init__(self, document, components):
+                self.document = document
+                self.components = components
+
+        real_parse = riskmap_validator.validator.parse_components_yaml
+
+        def stand_in_parse(file_path=None):
+            return _StandInParseResult(document={"categories": []}, components=real_parse(file_path))
+
+        monkeypatch.setattr(riskmap_validator.validator, "parse_components_yaml", stand_in_parse)
+
+        validator = ComponentEdgeValidator(verbose=False)
+        result = validator.validate_file(corpus)
+
+        assert result is True, (
+            "a clean corpus must still validate once parse_components_yaml returns .document/.components"
+        )
+        assert isinstance(validator.components, dict), (
+            "validate_file must extract .components from the parse result before handing it to "
+            f"validate_loaded; validator.components is a {type(validator.components).__name__}, "
+            "meaning the whole result object leaked through instead"
+        )
+        assert set(validator.components) == {"componentLocalA", "componentLocalB"}
 
 
 class TestMainGraphGeneration:
