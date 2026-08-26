@@ -2670,26 +2670,37 @@ class TestParseCorpus:
         Test that validate_file (validator.py:224) extracts .components rather than
         treating the whole parse_components_yaml result as the components mapping.
 
-        Given: parse_components_yaml stubbed to return the future contract --
-               an object carrying both .document (raw parsed YAML) and
-               .components (the ComponentNode mapping) -- rather than
-               today's bare dict
+        Given: parse_components_yaml stubbed to return the .document/.components
+               contract (an object carrying both the raw parsed YAML and the
+               ComponentNode mapping)
         When:  validate_file() is called
         Then:  It still validates successfully, and validator.components
                ends up holding the dict from .components, not the result
                object itself
 
-        RED by design: production parse_components_yaml still returns a
-        bare dict (test_utils.py's .document/.components contract tests are
-        pinned to a return shape it does not implement yet), and
-        validate_file's current body --
-        `self.validate_loaded(parse_components_yaml(file_path), file_path)`
-        -- passes whatever parse_components_yaml returns straight through
-        unchanged. Against this stand-in it hands validate_loaded the whole
-        result object as `components`; validate_loaded stores it verbatim
-        (`self.components = components`), and the first membership check
-        (`find_missing_components`, which calls `components.keys()`) raises
-        AttributeError, because the result object has no `.keys()`.
+        The stand-in must hand validate_file a genuine dict via .components,
+        built from a real parse rather than a hand-rolled fixture. It cannot
+        do that by feeding the live parse_components_yaml's return value
+        into `.components` unconditionally, because that return value's own
+        shape depends on whether utils.py's .document/.components contract
+        has landed: pre-contract it is already the bare dict this stand-in
+        needs, post-contract it is itself a ComponentsParseResult wrapping
+        that dict one level down. Picking either treatment unconditionally
+        breaks the other side -- `.components=real_parse(file_path)` double-
+        wraps once the contract lands (a nested result object where a dict
+        belongs), and `.components=real_parse(file_path).components` raises
+        AttributeError before the contract lands (a bare dict has no
+        .components to unwrap). Normalizing with getattr keeps the stand-in
+        correct on both sides of that landing, so this test pins only what
+        it names: validate_file's own extraction, not utils.py's contract
+        state.
+
+        If validate_file regresses to handing validate_loaded the whole
+        parse result instead of `result.components`, validate_loaded stores
+        it verbatim (`self.components = components`), and the first
+        membership check (`find_missing_components`, which calls
+        `components.keys()`) raises AttributeError, because a
+        ComponentsParseResult has no `.keys()`.
 
         This is call site three of parse_components_yaml (after main() and
         this class's other direct calls, both already covered by
@@ -2700,7 +2711,7 @@ class TestParseCorpus:
         corpus = _write_custom_components(tmp_path, _CLEAN_LOCAL_COMPONENTS)
 
         class _StandInParseResult:
-            """Stands in for the future parse_components_yaml return shape."""
+            """Stands in for the parse_components_yaml return shape."""
 
             def __init__(self, document, components):
                 self.document = document
@@ -2709,7 +2720,13 @@ class TestParseCorpus:
         real_parse = riskmap_validator.validator.parse_components_yaml
 
         def stand_in_parse(file_path=None):
-            return _StandInParseResult(document={"categories": []}, components=real_parse(file_path))
+            raw = real_parse(file_path)
+            # Normalize across both sides of the utils.py contract landing:
+            # a bare dict has no .components (pre-contract, use raw itself);
+            # a ComponentsParseResult does (post-contract, unwrap it). Either
+            # way `components` ends up the genuine dict this stand-in needs.
+            components = getattr(raw, "components", raw)
+            return _StandInParseResult(document={"categories": []}, components=components)
 
         monkeypatch.setattr(riskmap_validator.validator, "parse_components_yaml", stand_in_parse)
 
