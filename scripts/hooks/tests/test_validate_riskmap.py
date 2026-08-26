@@ -48,11 +48,13 @@ rather than replaced with another number that nothing enforces. Measure with
    - Validator initialization with correct options
    - components.yaml is validated on a controls-only commit, and the staged
      set is requested with target_file None (regression fence; green today)
-   - the corpus is parsed exactly once per run, and opened exactly once —
-     the category/subcategory nesting check no longer re-opens the file
-   - the nesting check evaluates the same document the components were
-     built from, even when a stray second read of the corpus would observe
-     different content
+   - the corpus is parsed exactly once per run, and pins that it must be
+     opened exactly once — the category/subcategory nesting check must not
+     re-open the file (currently fails: it does)
+   - the nesting check must evaluate the same document the components were
+     built from: rewriting the corpus on disk after the parse returns,
+     through any API a re-read might use, must not change its findings
+     (currently fails)
 
 5. TestMainFileFlag - `--file PATH` end-to-end wiring - 32 tests
    - --file selects the corpus directly, without routing through
@@ -125,7 +127,6 @@ rather than replaced with another number that nothing enforces. Measure with
 """
 
 import builtins
-import io
 import shutil
 import subprocess
 import sys
@@ -962,7 +963,14 @@ class TestMainValidation:
                 main()
 
         assert exc_info.value.code == 0
-        corpus_opens = [path for path in opened if Path(path) == DEFAULT_COMPONENTS_FILE]
+        # Resolved comparison: an implementation that resolves the corpus path before
+        # opening it (the adjacent skip_repo_scoped logic already does this) would open
+        # an absolute path that never equals the unresolved DEFAULT_COMPONENTS_FILE,
+        # producing a false "never opened" failure. Resolving both sides against the
+        # tmp cwd this test chdir'd into makes the comparison agnostic to which spelling
+        # main() happens to open.
+        corpus_target = DEFAULT_COMPONENTS_FILE.resolve()
+        corpus_opens = [path for path in opened if Path(path).resolve() == corpus_target]
         assert len(corpus_opens) == 1, (
             f"The corpus must be opened exactly once per run; it was opened "
             f"{len(corpus_opens)} time(s). A second open reintroduces the window for the file "
@@ -970,67 +978,89 @@ class TestMainValidation:
             f"All files opened: {opened!r}"
         )
 
-    def test_main_nesting_check_survives_a_stray_second_read_observing_different_content(
-        self, tmp_path, monkeypatch
+    def test_main_nesting_check_is_blind_to_the_corpus_changing_after_the_parse_returns(
+        self, tmp_path, monkeypatch, capsys
     ):
         """
-        Test that the nesting check's findings track the components, not a second read.
+        Test that the nesting check cannot observe the corpus changing after the parse.
 
-        Given: A tmp cwd holding a clean components corpus, arranged so that
-               any open() of components.yaml past the first returns a
-               document whose `categories:` block declares neither category
-               the real components use
+        Given: A tmp cwd holding a clean components corpus. Once
+               ComponentEdgeValidator.parse_corpus returns, the test rewrites
+               components.yaml on disk with a `categories:` block declaring
+               neither category the real components use
         When:  main() is called with --force --block
-        Then:  Exit code 0 — the run reports no nesting findings
+        Then:  Exit code 0, and stdout shows the nesting check actually ran
+               and reported no findings — not that it was silently skipped
 
-        This is the failure PR #499's reviewer reproduced directly: returning
-        a different valid document from a second read manufactured
-        nesting/promotion findings against a corpus with none, and --block
-        turned that into exit 1 (issue #477). The open-count test only pins
-        how many times the file is opened; an implementation that opens it
-        once but — through a caching layer, or a helper that itself opens
-        the file twice internally — still lets the nesting check compare
-        against something other than what the components were built from
-        would satisfy that count while reintroducing exactly this failure.
-        This test fails on the failure itself: if a second open of
-        components.yaml occurs for any reason, it observes content that
-        would manufacture warnings, and a fix that reads the document once
-        and reuses it for both the components and the nesting check never
-        triggers that second open at all.
+        This is the failure PR #499's reviewer reproduced directly: a second
+        read of components.yaml, after the components parse, observing
+        different (but individually valid) content manufactured
+        nesting/promotion findings on a corpus that has none, and --block
+        turned that into exit 1 (issue #477).
+
+        The poison is a real rewrite of the file on disk, done from outside
+        parse_corpus rather than by intercepting a named read function. That
+        is deliberate: an earlier version of this test monkeypatched
+        builtins.open, which pathlib does not consult — Path.read_text() and
+        io.open() bind to the file descriptor beneath the builtins name, so
+        that spy recorded zero calls for either and a nesting-check rewrite
+        that swapped `open()` for `components_file.read_text()` passed the
+        entire suite with the #477 defect fully alive (confirmed on Python
+        3.14.4). Rewriting the file on disk instead means any second read —
+        through open(), io.open(), Path.read_text(), os.open(), or anything
+        else — observes the poison; only a genuine single read, one that
+        never touches the file again after parse_corpus returns, is blind to
+        it.
+
+        The open-count test (test_main_opens_the_corpus_exactly_once_per_run)
+        pins how many times the file is opened but is a proxy: an
+        implementation could satisfy that count while still comparing the
+        nesting check against something other than what the components were
+        built from, if the single read and the categories block it returns
+        were not the same read. This test checks the outcome that count is a
+        proxy for. The stdout assertion additionally rules out a fix that
+        makes the check exit 0 by having its `except Exception` skip branch
+        swallow a poison-triggered parse failure instead of the check
+        genuinely finding nothing to report.
         """
         _write_repo_layout_corpus(tmp_path, _CLEAN_LOCAL_COMPONENTS, _CLEAN_LOCAL_CONTROLS)
         monkeypatch.chdir(tmp_path)
 
-        # Only the `categories:` block matters here: the nesting check's re-read
-        # extracts nothing else from it (validate_riskmap.py builds
-        # category_to_subcategories from `_components_data.get("categories", [])`
-        # alone). Declaring a category neither real component uses means a stray
-        # second read manufactures a Class 1 mismatch for both, without needing to
-        # forge an alternate `components:` list at all. `_NESTING_DIRTY_COMPONENTS`
-        # is not used here because it shares _CLEAN_LOCAL_COMPONENTS's categories
-        # block; only its components differ, and the vulnerable code path never
-        # looks at those on a second read.
-        stray_read_content = yaml.dump({"categories": [{"id": "catOther", "subcategory": [{"id": "subOther"}]}]})
-        real_open = builtins.open
-        open_count = {"n": 0}
+        # Only the `categories:` block matters here: the nesting check's
+        # source data extracts nothing else from it (validate_riskmap.py
+        # builds category_to_subcategories from
+        # `_components_data.get("categories", [])` alone). Declaring a
+        # category neither real component uses manufactures a Class 1
+        # mismatch for both components, without needing to forge an
+        # alternate `components:` list at all. `_NESTING_DIRTY_COMPONENTS` is
+        # not used here because it shares _CLEAN_LOCAL_COMPONENTS's
+        # categories block; only its components differ, and a second read
+        # that only replaces `categories:` would not reach them.
+        poisoned_content = yaml.dump({"categories": [{"id": "catOther", "subcategory": [{"id": "subOther"}]}]})
+        real_parse_corpus = ComponentEdgeValidator.parse_corpus
 
-        def flaky_open(file, *args, **kwargs):
-            if Path(file) == DEFAULT_COMPONENTS_FILE:
-                open_count["n"] += 1
-                if open_count["n"] > 1:
-                    return io.StringIO(stray_read_content)
-            return real_open(file, *args, **kwargs)
+        def poisoning_parse_corpus(self, file_path):
+            # Rewrite only after the real parse has returned, so a genuine
+            # single read already has everything it needs before the
+            # corpus changes underneath it.
+            result = real_parse_corpus(self, file_path)
+            Path(file_path).write_text(poisoned_content, encoding="utf-8")
+            return result
 
-        monkeypatch.setattr(builtins, "open", flaky_open)
+        monkeypatch.setattr(ComponentEdgeValidator, "parse_corpus", poisoning_parse_corpus)
 
         with patch("sys.argv", ["script.py", "--force", "--block"]):
             with pytest.raises(SystemExit) as exc_info:
                 main()
 
+        captured = capsys.readouterr()
         assert exc_info.value.code == 0, (
-            "A stray second read of components.yaml observed different (but individually "
-            "valid) content and manufactured nesting findings on a corpus that has none; "
-            "the nesting check must be built from the same read the components came from."
+            "The corpus changing on disk after the components parse returned must not "
+            f"manufacture nesting findings; got exit {exc_info.value.code}. stdout: {captured.out!r}"
+        )
+        assert "✅ Category/subcategory nesting check passed" in captured.out, (
+            "the nesting check must actually run and report success against the components "
+            f"the parse returned, not be silently skipped; stdout: {captured.out!r}"
         )
 
 

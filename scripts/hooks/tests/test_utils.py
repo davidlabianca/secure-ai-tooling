@@ -22,9 +22,10 @@ Test Coverage:
    - Handling non-list to_edges/from_edges
    - Successful parsing with valid data
    - Return-shape contract: .document carries the raw parsed YAML
-     (categories included), .components carries the component mapping,
-     and both come from a single open() call per parse (PR #499 review;
-     closes issue #477's second-read gap)
+     (categories included), .components carries the component mapping;
+     builtins.open is called once per parse (a proxy fence — the
+     mechanism-independent guarantee lives in test_validate_riskmap.py)
+     (PR #499 review; closes issue #477's second-read gap)
 
 2. parse_controls_yaml() Function (PREVIOUSLY UNTESTED):
    - Default file path handling
@@ -623,15 +624,17 @@ class TestParseComponentsYAML:
 
     # Return-shape contract tests (PR #499 review; closes issue #477's second-read gap)
     #
-    # parse_components_yaml() used to return the components mapping alone,
-    # which forced validate_riskmap.py's category/subcategory nesting check to
+    # parse_components_yaml() currently returns the components mapping alone,
+    # which forces validate_riskmap.py's category/subcategory nesting check to
     # re-open the file for the `categories:` block parse_components_yaml
-    # discarded — a second read that could observe a different file state than
+    # discards — a second read that can observe a different file state than
     # the first (see test_main_opens_the_corpus_exactly_once_per_run and
-    # test_main_nesting_check_survives_a_stray_second_read_observing_different_content
-    # in test_validate_riskmap.py). It now returns both the raw parsed
-    # document and the components mapping from one read, so every caller that
-    # needs either can get both without opening the file again.
+    # test_main_nesting_check_is_blind_to_the_corpus_changing_after_the_parse_returns
+    # in test_validate_riskmap.py). The tests below pin the return shape that
+    # closes the gap: both the raw parsed document and the components mapping
+    # from one read, so every caller that needs either can get both without
+    # opening the file again. Production does not implement this yet; these
+    # tests fail until it does.
 
     def test_parse_components_result_exposes_the_raw_document(self, temp_yaml_file, valid_components_yaml):
         """
@@ -694,16 +697,23 @@ class TestParseComponentsYAML:
         self, temp_yaml_file, valid_components_yaml, monkeypatch
     ):
         """
-        Test that a single call to parse_components_yaml opens the file exactly once.
+        Test that a single call to parse_components_yaml opens the file exactly once through builtins.open.
 
         Given: A valid components YAML file
         When: parse_components_yaml() is called
         Then: builtins.open is called exactly once against that path
 
-        .document and .components must come from the same read, or the
-        contract this replaces the two-read design with is nominal only.
-        Counting the opens is what makes that a fact instead of an
-        assumption about how the parse is written internally.
+        This counts builtins.open calls specifically, not every way a file
+        can be read: pathlib's Path.read_text() and io.open() do not route
+        through the builtins name, so a second read using either would not
+        register here. This test establishes only that parse_components_yaml
+        does not call builtins.open() twice — it is not, by itself, proof
+        that .document and .components are drawn from a single physical
+        read. That mechanism-independent guarantee is enforced separately by
+        test_main_nesting_check_is_blind_to_the_corpus_changing_after_the_parse_returns
+        in test_validate_riskmap.py, which rewrites the corpus on disk after
+        the parse returns and checks the outcome, regardless of which API a
+        stray second read would use.
         """
         with open(temp_yaml_file, "w") as f:
             yaml.dump(valid_components_yaml, f)
