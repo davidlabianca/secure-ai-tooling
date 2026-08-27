@@ -35,10 +35,9 @@ hooks show `(no files to check) Skipped` in the output.
 12. **Issue Template Validation** — `validate_issue_templates.py` runs when
     anything under `.github/ISSUE_TEMPLATE/` or `scripts/TEMPLATES/` is
     staged (including the files just regenerated in step 11).
-13. **Graph Regeneration** — `regenerate_graphs.py` produces risk-map graph,
-    controls graph, and controls-to-risk graph (3 markdown + 3 mermaid outputs)
-    based on which of `components.yaml`, `controls.yaml`, `risks.yaml` is
-    staged. Each output pair is `git add`-ed on success.
+13. **Graph Regeneration** — `regenerate_graphs.py` produces the component
+    relationship graph (1 markdown + 1 mermaid output) when `components.yaml`
+    is staged. The output pair is `git add`-ed on success.
 14. **Table Regeneration** — `regenerate_tables.py` regenerates 8 table
     outputs across 4 triggers (see `scripts/docs/table-generation.md`).
 15. **SVG Regeneration** — `regenerate_svgs.py` converts staged

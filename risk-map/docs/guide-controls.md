@@ -158,8 +158,6 @@ The validation will check:
 
 **Note**: When you commit changes to `controls.yaml`, the pre-commit hook automatically generates:
 
-- Updated control graph at `./risk-map/diagrams/controls-graph.md`
-- Updated risk graph at `./risk-map/diagrams/controls-to-risk-graph.md`
 - All 4 control table formats in `./risk-map/tables/` (full, summary, xref-risks, xref-components)
 
 All files are automatically staged for your commit.

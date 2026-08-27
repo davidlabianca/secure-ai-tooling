@@ -20,10 +20,13 @@ Covers three of the ADR's testable requirements:
 
   D3 (`--block` is prohibited on graph-generation invocations)
       No workflow step may pass `--block` on an invocation that also passes
-      `--to-graph`, `--to-controls-graph`, or `--to-risk-graph`. The warn-only
-      `sys.exit` in `validate_riskmap.py` precedes every emission block, so the
-      pairing terminates the process before any graph file is written and
-      misattributes a content warning as a generation failure.
+      a graph-emission flag (GRAPH_EMISSION_FLAGS below — `--to-graph` is the
+      only one left; ADR-037 D3 also named `--to-controls-graph` and
+      `--to-risk-graph`, removed along with those graph generators in #477).
+      The warn-only `sys.exit` in `validate_riskmap.py` precedes every
+      emission block, so the pairing terminates the process before any graph
+      file is written and misattributes a content warning as a generation
+      failure.
 
   D4 (non-vacuity)
       Asserting that the string `--block` appears in a workflow proves the
@@ -85,7 +88,7 @@ Reaching variable-built invocations
 builds the command through shell variables::
 
     VALIDATE_CMD="validate_riskmap.py"
-    GENERATE_ARGS=("--to-graph" "--to-controls-graph" "--to-risk-graph")
+    GENERATE_ARGS=("--to-graph")
     ...
     gen_args="${GENERATE_ARGS[$i]}"
     if ! python3 ${VALIDATE_CMD} --force ${gen_args} "${temp_file}"; then
@@ -96,6 +99,10 @@ and array assignments and expands `${VAR}` / `$VAR` / `${ARR[$i]}` references
 before classifying a command. Array references expand to the union of the
 array's elements — a deliberate over-approximation: for a prohibition, seeing
 a flag that only *might* be on the command line is the safe direction to err.
+`GENERATE_ARGS` held three graph-emission flags before #477 removed the
+control and risk graph generators; the array survives at one element so the
+expansion path (as opposed to a scalar assignment) stays exercised against
+the real workflow, not just the synthetic multi-element fixture below.
 
 `TestParserFidelity` locks that this expansion actually happens, so D3 cannot
 pass by failing to see the invocation it is meant to police.
@@ -226,10 +233,14 @@ _WORKFLOW_DIR = _REPO_ROOT / ".github" / "workflows"
 # here extends the invariant to it on both surfaces at once.
 STRICTNESS_FLAGS = frozenset({"--block"})
 
-# Graph-emission flags named literally in ADR-037 D3. Each is confirmed to be a
-# real `validate_riskmap.py` option by test_graph_emission_flags_are_real, so a
-# flag rename cannot silently make the D3 prohibition vacuous.
-GRAPH_EMISSION_FLAGS = frozenset({"--to-graph", "--to-controls-graph", "--to-risk-graph"})
+# Graph-emission flags validate_riskmap.py currently accepts. Each is
+# confirmed to be a real option by test_graph_emission_flags_are_real, so a
+# flag rename cannot silently make the D3 prohibition vacuous. ADR-037 D3
+# also named --to-controls-graph and --to-risk-graph; both were removed
+# along with the control and risk graph generators (#477), and dropped here
+# so the set stays a live derivation rather than a stale transcription of
+# the ADR's original text.
+GRAPH_EMISSION_FLAGS = frozenset({"--to-graph"})
 
 # Filename suffixes GitHub Actions executes out of `.github/workflows/`. Both
 # are honoured identically, so a scan restricted to one of them is blind to a

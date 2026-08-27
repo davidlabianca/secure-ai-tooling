@@ -3,12 +3,13 @@
 **Status:** Accepted
 **Date:** 2026-04-25
 **Authors:** Architect agent, with maintainer review
+**Superseded in part by:** [Amendment 2026-08-20](#amendment-2026-08-20-mermaid-stylesschemajson-control-and-risk-sections-removed-not-pending) (below) — [D6](#d6-mermaid-stylesschemajson)'s framing of `graphTypes.control`/`graphTypes.risk` as pending a follow-up sweep, and its field-taxonomy table's `subgroupFill` and `graphTypes.{component,control,risk}` rows, are superseded. D1-D5, D6a, D6b, D7, and D8 (including its D6 rows, unaffected in substance) are unchanged.
 
 ---
 
 ## Context
 
-The five schemas in scope sit at `risk-map/schemas/{actor-access,impact-type,lifecycle-stage,frameworks,mermaid-styles}.schema.json`. Four are *taxonomy* schemas — closed reference tables that risks and controls `$ref` for their `lifecycleStage` / `impactType` / `actorAccess` / `mappings` fields. The fifth (`mermaid-styles.schema.json`) is a *configuration* schema for the diagram-styling YAML consumed by `MermaidConfigLoader` at `scripts/hooks/riskmap_validator/graphing/base.py`. Each of the four taxonomy schemas backs a small YAML data file (`risk-map/yaml/{actor-access,impact-type,lifecycle-stage,frameworks}.yaml`); `mermaid-styles.yaml` is the styling source for `MermaidConfigLoader` and is the most settled of the five (`additionalProperties: false` everywhere, hex-colour and stroke-pattern regexes throughout).
+The five schemas in scope sit at `risk-map/schemas/{actor-access,impact-type,lifecycle-stage,frameworks,mermaid-styles}.schema.json`. Four are *taxonomy* schemas — closed reference tables that risks and controls `$ref` for their `lifecycleStage` / `impactType` / `actorAccess` / `mappings` fields. The fifth (`mermaid-styles.schema.json`) is a *configuration* schema for the diagram-styling YAML consumed by `MermaidConfigLoader` at `scripts/hooks/riskmap_validator/graphing/graph_utils.py`. Each of the four taxonomy schemas backs a small YAML data file (`risk-map/yaml/{actor-access,impact-type,lifecycle-stage,frameworks}.yaml`); `mermaid-styles.yaml` is the styling source for `MermaidConfigLoader` and is the most settled of the five (`additionalProperties: false` everywhere, hex-colour and stroke-pattern regexes throughout).
 
 [ADR-014](014-yaml-content-security-posture.md) establishes the security posture; ADRs 015-017 set the rendering, reference, and authoring rules. The per-file schema ADRs ([ADR-018](018-components-schema.md), [ADR-019](019-risks-schema.md), [ADR-020](020-controls-schema.md), [ADR-021](021-personas-and-self-assessment-schema.md)) document the four main content schemas and are landed as `Draft`. This ADR documents the supporting schemas as a group, declares per-rule machine-enforcement, threads in the deliverables that ADRs 018-021 deferred to `frameworks.schema.json` (per-framework mapping-ID regex patterns), and proposes a sweep-wide close-out on the [ADR-017](017-yaml-prose-authoring-subset.md) D3 optional `<>()` schema reject pattern that all four sibling per-file schema ADRs deferred.
 
@@ -211,7 +212,7 @@ This deferral is recorded so a future contributor proposing removal encounters t
 
 ### D6. `mermaid-styles.schema.json`
 
-`mermaid-styles.schema.json` is the most settled of the five and is the only configuration schema in the group. It governs `risk-map/yaml/mermaid-styles.yaml`, which `MermaidConfigLoader` (`scripts/hooks/riskmap_validator/graphing/base.py`) parses into the styling parameters every Mermaid generator (`ComponentGraph`, `ControlGraph`, `RiskGraph`) emits.
+`mermaid-styles.schema.json` is the most settled of the five and is the only configuration schema in the group. It governs `risk-map/yaml/mermaid-styles.yaml`, which `MermaidConfigLoader` (`scripts/hooks/riskmap_validator/graphing/graph_utils.py`) parses into the styling parameters the `ComponentGraph` Mermaid generator emits. (`ControlGraph` and `RiskGraph` were removed per [#477](https://github.com/cosai-oasis/secure-ai-tooling/issues/477); the `graphTypes.control` / `graphTypes.risk` sections of the schema remain pending a follow-up sweep.)
 
 **Distinct shape.** Unlike the four taxonomy schemas, `mermaid-styles.schema.json` is **not** a closed-enum reference table. It is a configuration object with deeply-nested per-graph-type styling, hex-colour patterns, stroke-width regexes, and ELK-layout options. It carries `additionalProperties: false` at every level (lines 8, 19, 25, 73, 96, 131, 137, etc.), pinned hex-colour patterns (`^#[0-9A-Fa-f]{6}$`), pinned stroke-width patterns (`^\\d+px$`), and pinned dash-array patterns (`^\\d+\\s+\\d+$`). It is the only schema in the group with structural strictness comparable to [ADR-011](011-persona-site-data-schema-contract.md)'s `persona-site-data.schema.json`.
 
@@ -227,7 +228,7 @@ This deferral is recorded so a future contributor proposing removal encounters t
 | `sharedElements.componentCategories.<id>` | structured reference (implicit, against components category enum) | object with `fill`, `stroke`, `strokeWidth`, `subgroupFill` | schema (shape only); name-to-enum coupling not enforced (D6a) |
 | `graphTypes.{component,control,risk}.*` | metadata (config) | nested per-graph-type objects with `direction` enum, `flowchartConfig`, `specialStyling` | schema |
 
-**Consumers.** `MermaidConfigLoader` (`scripts/hooks/riskmap_validator/graphing/base.py`) loads the file via the singleton pattern. `ComponentGraph`, `ControlGraph`, and `RiskGraph` (`scripts/hooks/riskmap_validator/graphing/`) read the loader's resolved config and emit styling tokens into Mermaid front-matter and edge-style strings. `scripts/hooks/yaml_to_markdown.py` does **not** consume `mermaid-styles.yaml` directly — table generation is style-agnostic. Site renderer does not consume it either; the SPA's CSS is independent.
+**Consumers.** `MermaidConfigLoader` (`scripts/hooks/riskmap_validator/graphing/graph_utils.py`) loads the file via the singleton pattern. `ComponentGraph` (`scripts/hooks/riskmap_validator/graphing/`) reads the loader's resolved config and emits styling tokens into Mermaid front-matter; it emits no edge-style strings. `scripts/hooks/yaml_to_markdown.py` does **not** consume `mermaid-styles.yaml` directly — table generation is style-agnostic. Site renderer does not consume it either; the SPA's CSS is independent.
 
 #### D6a. The category-coupling gap (GAP-31)
 
@@ -333,3 +334,56 @@ Every machine-enforceable rule in scope is enforced or has a named conformance-s
 - **Sweep-wide [ADR-017](017-yaml-prose-authoring-subset.md) D3 revisit.** D7's deferral is indefinite. A future ADR that adopts the schema-side reject pattern globally cites this ADR for the deferred state; the trigger is either repeated lint regression or a new content surface that legitimately bans parentheticals.
 - **If a new framework is added** (`mitre-attack-rmf`, `nist-csf`, an extension of OWASP LLM), it lands as a coordinated edit: `frameworks.yaml` entry, `frameworks.schema.json` `id` enum extension, `definitions/framework-mapping-patterns` pattern entry, and (if the framework's value space is unconstrained like ISO 22989) an explicit decision to keep the value as bare `string`. This ADR records the pattern; the framework-content design call (which framework to add) lives in `risk-map/docs/design/`.
 - **If a new component category is added,** it lands as a coordinated edit: `components.schema.json` `category.id` enum extension (per [ADR-018](018-components-schema.md) D2), `components.yaml` category definition, and a `mermaid-styles.yaml` `sharedElements.componentCategories` styling entry. The D6a graceful fallback handles the transition window where styling has not yet been authored.
+
+---
+
+## Amendment 2026-08-20: `mermaid-styles.schema.json` control and risk sections removed, not pending
+
+**Status:** Draft (2026-08-20). Does not alter the Accepted status of D1-D8 above; supersedes only [D6](#d6-mermaid-stylesschemajson)'s "remain pending a follow-up sweep" framing and its field-taxonomy table's `subgroupFill` and `graphTypes.{component,control,risk}` rows. The corresponding [D8](#d8-per-rule-machine-enforcement-summary-across-all-five-schemas) rows are unaffected in substance — see D9 below.
+**Authors:** SWE agent, with maintainer review.
+
+### Context
+
+D6's intro (this ADR, 2026-04-25) states: "`ControlGraph` and `RiskGraph` were removed per [#477](https://github.com/cosai-oasis/secure-ai-tooling/issues/477); the `graphTypes.control` / `graphTypes.risk` sections of the schema remain pending a follow-up sweep." That sentence was accurate when #477's first commit (`5a5f597`) landed: it deleted the generators but deliberately left `mermaid-styles.schema.json` and `mermaid-styles.yaml` untouched, naming the sweep as the second commit's job.
+
+#477's second commit (`0d00870`) performed that sweep: it removed `graphTypes.control`, `graphTypes.risk`, and their schema definitions (`controlGraphType`, `riskGraphType`, `componentsContainer`, `controlsContainer`, `risksContainer`, `edgeStyle`, `edgeStyleWithDash`, `edgeStyleOptionalDash`) from `mermaid-styles.schema.json`, and dropped `subgroupFill` from the `componentCategory` definition (its only reader, `ComponentGraph`'s `dynamicSubgroup` branch, was removed in the same commit). D6's "pending a follow-up sweep" framing is now false — the sweep happened — and D6's field-taxonomy table and D8's corresponding rows describe schema shapes the schema no longer accepts.
+
+### D9. `mermaid-styles.schema.json` no longer has `control`/`risk` graph-type sections or `subgroupFill`
+
+**Verified against the current schema:**
+
+```
+$ python3 -c "
+import json, yaml
+from jsonschema import Draft7Validator
+schema = json.load(open('risk-map/schemas/mermaid-styles.schema.json'))
+cfg = yaml.safe_load(open('risk-map/yaml/mermaid-styles.yaml'))
+cfg['sharedElements']['componentCategories']['componentsInfrastructure']['subgroupFill'] = '#d4e6d4'
+cfg['graphTypes']['control'] = {'direction': 'LR'}
+errors = list(Draft7Validator(schema).iter_errors(cfg))
+for e in errors:
+    print('/'.join(str(p) for p in e.path), '-', e.message)
+"
+sharedElements/componentCategories/componentsInfrastructure - Additional properties are not allowed ('subgroupFill' was unexpected)
+graphTypes - Additional properties are not allowed ('control' was unexpected)
+```
+
+**Decision: correct D6's intro and the two D6/D8 table rows in place via this amendment, per the [ADR-026 amendment precedent](026-issue-template-domain.md#amendment-2026-05-21-component-categorysubcategory-valid-tuple-selector) and the [ADR-008 amendment precedent](008-sub-agent-orchestration.md#amendment-2026-07-12-draft-issue-comments-review-discipline-is-a-canonical-skill).** The original D6/D8 text stays in place (history is preserved); this amendment is the pointer a future reader follows to the current state:
+
+- D6's intro sentence "the `graphTypes.control` / `graphTypes.risk` sections of the schema remain pending a follow-up sweep" is superseded by: the sections were removed by #477's second commit, not deferred.
+- D6's field-taxonomy table row `sharedElements.componentCategories.<id>` — read "object with `fill`, `stroke`, `strokeWidth`" (drop `subgroupFill`).
+- D6's field-taxonomy table row `graphTypes.{component,control,risk}.*` — read `graphTypes.component.*` (drop `control`, `risk`; `graphTypes.required` is `["component"]` and the schema carries `additionalProperties: false`).
+- D8's two `D6 mermaid-styles` rows are unaffected in substance (they describe the semver/hex/stroke-width/dash-array regexes and the `additionalProperties: false` posture, both of which are unchanged and still `Machine-enforced (existing)`).
+
+D6a (the `componentCategories` ↔ `components.schema.json` category-enum coupling gap) and D6b (strictness preserved) are about the surviving `component` graph type and `componentCategories` shape; neither depended on `control`/`risk` and neither is affected by this amendment.
+
+### Consequences
+
+**Positive**
+
+- A reader who reaches D6 via the ADR-022 index no longer gets a stale "pending" claim or a field-taxonomy table describing rejected shapes.
+- The correction is scoped tightly (one sentence, two table cells) rather than requiring a rewrite of D6, D6a, D6b, or D8.
+
+**Negative**
+
+- A reader who skims only D6's original text without following the header's "Superseded in part by" pointer still sees the stale claim. Same residual risk the ADR-008 amendment named for its own precedent.

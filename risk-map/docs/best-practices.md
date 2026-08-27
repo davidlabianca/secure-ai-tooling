@@ -31,12 +31,6 @@ Generate graphs to see the impact of your changes:
 ```bash
 # Generate component relationship graph
 python scripts/hooks/validate_riskmap.py --to-graph ./preview-graph.md --force
-
-# Generate control-to-component relationship graph
-python scripts/hooks/validate_riskmap.py --to-controls-graph ./preview-controls.md --force
-
-# Generate controls-to-risk relationship graph
-python scripts/hooks/validate_riskmap.py --to-risk-graph ./preview-risks.md --force
 ```
 
 ### 4. Format files before committing
@@ -87,16 +81,17 @@ When graph generation produces unexpected results:
 python scripts/hooks/validate_riskmap.py --to-graph ./debug-graph.md --debug --force
 ```
 
-### 12. Use control graphs to validate mappings
+### 12. Use the cross-reference tables to validate mappings
 
-When adding or modifying controls, generate control graphs to verify your mappings are logical:
+When adding or modifying controls, preview the cross-reference tables to verify your mappings are logical.
+Send the output to a scratch directory with `--output-dir`: without it these commands write into the tracked
+`risk-map/tables/`, leaving a dirty tree that the `regenerate-tables` pre-commit hook would have produced
+anyway when you commit the YAML.
 
 ```bash
-# Generate control graph to verify your control mappings
-python scripts/hooks/validate_riskmap.py --to-controls-graph ./verify-controls.md --force
-
-# Generate risk graph to verify control-risk relationships
-python scripts/hooks/validate_riskmap.py --to-risk-graph ./verify-risks.md --force
+# Preview the control-to-risk and control-to-component cross-references
+python scripts/hooks/yaml_to_markdown.py controls --format xref-risks --output-dir /tmp/xref-preview
+python scripts/hooks/yaml_to_markdown.py controls --format xref-components --output-dir /tmp/xref-preview
 ```
 
 ### 13. Run all validations locally before pushing

@@ -44,10 +44,6 @@ class TestMermaidConfigLoader:
                 }
             },
             "sharedElements": {
-                "cssClasses": {
-                    "hidden": "display: none;",
-                    "allControl": "stroke:#4285f4,stroke-width:2px,stroke-dasharray: 5 5",
-                },
                 "componentCategories": {
                     "componentsData": {
                         "fill": "#fff5e6",
@@ -60,20 +56,6 @@ class TestMermaidConfigLoader:
                 "component": {
                     "direction": "TD",
                     "flowchartConfig": {"nodeSpacing": 25, "rankSpacing": 30},
-                },
-                "control": {
-                    "direction": "LR",
-                    "flowchartConfig": {"nodeSpacing": 25, "rankSpacing": 30},
-                    "specialStyling": {
-                        "componentsContainer": {
-                            "fill": "#f0f0f0",
-                            "stroke": "#666666",
-                        },
-                        "edgeStyles": {
-                            "allControlEdges": {"stroke": "#4285f4"},
-                            "multiEdgeStyles": [{"stroke": "#9c27b0"}],
-                        },
-                    },
                 },
             },
         }
@@ -142,10 +124,6 @@ class TestMermaidConfigLoader:
         loader = MermaidConfigLoader(missing_file)
 
         # Should fall back to emergency defaults
-        css_classes = loader.get_css_classes()
-        assert "hidden" in css_classes
-        assert "allControl" in css_classes
-
         categories = loader.get_component_category_styles()
         assert "componentsData" in categories
         assert "componentsInfrastructure" in categories
@@ -157,8 +135,8 @@ class TestMermaidConfigLoader:
         loader = MermaidConfigLoader(temp_config_file)
 
         # Test nested value retrieval
-        hidden_class = loader._get_safe_value("sharedElements", "cssClasses", "hidden")
-        assert hidden_class == "display: none;"
+        fill_color = loader._get_safe_value("sharedElements", "componentCategories", "componentsData", "fill")
+        assert fill_color == "#fff5e6"
 
         # Test missing value with default
         missing_value = loader._get_safe_value("nonexistent", "path", default="default_value")
@@ -176,11 +154,6 @@ class TestMermaidConfigLoader:
         assert isinstance(preamble, list)
         assert len(preamble) > 0
 
-        # Test control graph config
-        config, preamble = loader.get_graph_config("control")
-        assert config["direction"] == "LR"
-        assert "specialStyling" in config
-
     def test_create_flowchart_preamble(self, temp_config_file, valid_config_data):
         """Test flowchart preamble generation."""
         self.create_config_file(temp_config_file, valid_config_data)
@@ -192,20 +165,6 @@ class TestMermaidConfigLoader:
 
         assert isinstance(preamble, list)
         assert "graph TD" in preamble
-        assert any("classDef hidden" in line for line in preamble)
-        assert any("classDef allControl" in line for line in preamble)
-
-    def test_get_css_classes(self, temp_config_file, valid_config_data):
-        """Test CSS classes retrieval."""
-        self.create_config_file(temp_config_file, valid_config_data)
-
-        loader = MermaidConfigLoader(temp_config_file)
-        css_classes = loader.get_css_classes()
-
-        assert isinstance(css_classes, dict)
-        assert "hidden" in css_classes
-        assert "allControl" in css_classes
-        assert css_classes["hidden"] == "display: none;"
 
     def test_get_component_category_styles(self, temp_config_file, valid_config_data):
         """Test component category styles retrieval."""
@@ -217,28 +176,6 @@ class TestMermaidConfigLoader:
         assert isinstance(categories, dict)
         assert "componentsData" in categories
         assert categories["componentsData"]["fill"] == "#fff5e6"
-
-    def test_get_control_edge_styles(self, temp_config_file, valid_config_data):
-        """Test control edge styles retrieval."""
-        self.create_config_file(temp_config_file, valid_config_data)
-
-        loader = MermaidConfigLoader(temp_config_file)
-        edge_styles = loader.get_control_edge_styles()
-
-        assert isinstance(edge_styles, dict)
-        assert "allControlEdges" in edge_styles
-        assert "multiEdgeStyles" in edge_styles
-
-    def test_get_components_container_style(self, temp_config_file, valid_config_data):
-        """Test components container style retrieval."""
-        self.create_config_file(temp_config_file, valid_config_data)
-
-        loader = MermaidConfigLoader(temp_config_file)
-        container_style = loader.get_components_container_style()
-
-        assert isinstance(container_style, dict)
-        assert "fill" in container_style
-        assert container_style["fill"] == "#f0f0f0"
 
     def test_cache_clearing(self, temp_config_file, valid_config_data):
         """Test cache clearing functionality."""
@@ -282,12 +219,10 @@ class TestMermaidConfigLoader:
         assert "colors" in emergency_defaults["foundation"]
 
         # Check shared elements structure
-        assert "cssClasses" in emergency_defaults["sharedElements"]
         assert "componentCategories" in emergency_defaults["sharedElements"]
 
         # Check graph types structure
         assert "component" in emergency_defaults["graphTypes"]
-        assert "control" in emergency_defaults["graphTypes"]
 
 
 class TestMermaidConfigLoaderEdgeCases:
@@ -372,7 +307,7 @@ class TestMermaidConfigLoaderEdgeCases:
         loader._get_emergency_defaults = mock_emergency_defaults
 
         # Should fall back to default parameter
-        result = loader._get_safe_value("sharedElements", "cssClasses", default={"fallback": "value"})
+        result = loader._get_safe_value("sharedElements", "componentCategories", default={"fallback": "value"})
         assert result == {"fallback": "value"}
 
         # Restore original method
@@ -388,7 +323,7 @@ class TestMermaidConfigLoaderEdgeCases:
         valid_config = {
             "version": "1.0.0",
             "foundation": {"colors": {}},
-            "sharedElements": {"cssClasses": {}},
+            "sharedElements": {"componentCategories": {}},
             "graphTypes": {},
         }
         with open(temp_config_file, "w") as f:
@@ -403,9 +338,9 @@ class TestMermaidConfigLoaderEdgeCases:
         loader._config = "not_a_dict"
 
         # Should fall back to emergency defaults
-        css_classes = loader._get_safe_value("sharedElements", "cssClasses")
-        assert isinstance(css_classes, dict)
-        assert "hidden" in css_classes  # From emergency defaults
+        categories = loader._get_safe_value("sharedElements", "componentCategories")
+        assert isinstance(categories, dict)
+        assert "componentsData" in categories  # From emergency defaults
 
     def test_get_safe_value_both_defaults_fail_shortcircuit(self, temp_config_file):
         """
@@ -421,7 +356,7 @@ class TestMermaidConfigLoaderEdgeCases:
         valid_config = {
             "version": "1.0.0",
             "foundation": {"colors": {}},
-            "sharedElements": {"cssClasses": {}},
+            "sharedElements": {"componentCategories": {}},
             "graphTypes": {},
         }
         with open(temp_config_file, "w") as f:
@@ -479,253 +414,6 @@ class TestMermaidConfigLoaderEdgeCases:
 
         # Restore
         loader._get_safe_value = original_get_safe
-
-    def test_get_group_container_style_invalid_container_type(self):
-        """
-        Test _get_group_container_style() with invalid container_type.
-
-        Coverage: Line 417-418
-        """
-        loader = MermaidConfigLoader()
-
-        # Test with invalid container type
-        result = loader._get_group_container_style("invalidContainer", "control")
-        assert result == {}
-
-    def test_get_group_container_style_invalid_graph_type(self):
-        """
-        Test _get_group_container_style() with invalid graph_type.
-
-        Coverage: Line 420-421
-        """
-        loader = MermaidConfigLoader()
-
-        # Test with invalid graph type
-        result = loader._get_group_container_style("componentsContainer", "invalid_graph")
-        assert result == {}
-
-    def test_get_risk_control_edge_style_array_length_1(self):
-        """
-        Test get_risk_control_edge_style() with array of length 1 (modulo logic).
-
-        Coverage: Lines 472-473
-        """
-        loader = MermaidConfigLoader()
-
-        # Mock edge styles with single-element array
-        original_get_risk = loader.get_risk_edge_styles
-
-        def mock_risk_edges():
-            return {"riskControlEdges": [{"stroke": "#single", "strokeWidth": "1px"}]}
-
-        loader.get_risk_edge_styles = mock_risk_edges
-
-        # Test that modulo works for indices beyond array length
-        style0 = loader.get_risk_control_edge_style(0)
-        style1 = loader.get_risk_control_edge_style(1)
-        style5 = loader.get_risk_control_edge_style(5)
-
-        assert style0["stroke"] == "#single"
-        assert style1["stroke"] == "#single"  # index % 1 == 0
-        assert style5["stroke"] == "#single"  # index % 1 == 0
-
-        loader.get_risk_edge_styles = original_get_risk
-
-    def test_get_risk_control_edge_style_array_length_2_3(self):
-        """
-        Test get_risk_control_edge_style() with arrays of length 2 and 3.
-
-        Coverage: Lines 472-473
-        """
-        loader = MermaidConfigLoader()
-
-        # Test with 2-element array
-        def mock_risk_edges_2():
-            return {
-                "riskControlEdges": [
-                    {"stroke": "#first"},
-                    {"stroke": "#second"},
-                ]
-            }
-
-        loader.get_risk_edge_styles = mock_risk_edges_2
-
-        assert loader.get_risk_control_edge_style(0)["stroke"] == "#first"
-        assert loader.get_risk_control_edge_style(1)["stroke"] == "#second"
-        assert loader.get_risk_control_edge_style(2)["stroke"] == "#first"  # 2 % 2 == 0
-
-        # Test with 3-element array
-        def mock_risk_edges_3():
-            return {
-                "riskControlEdges": [
-                    {"stroke": "#uno"},
-                    {"stroke": "#dos"},
-                    {"stroke": "#tres"},
-                ]
-            }
-
-        loader.get_risk_edge_styles = mock_risk_edges_3
-
-        assert loader.get_risk_control_edge_style(0)["stroke"] == "#uno"
-        assert loader.get_risk_control_edge_style(1)["stroke"] == "#dos"
-        assert loader.get_risk_control_edge_style(2)["stroke"] == "#tres"
-        assert loader.get_risk_control_edge_style(3)["stroke"] == "#uno"  # 3 % 3 == 0
-
-    def test_get_risk_control_edge_style_empty_array(self):
-        """
-        Test get_risk_control_edge_style() with empty array fallback.
-
-        Coverage: Lines 474-476
-        """
-        loader = MermaidConfigLoader()
-
-        # Mock with empty array
-        def mock_empty_array():
-            return {"riskControlEdges": []}
-
-        loader.get_risk_edge_styles = mock_empty_array
-
-        # Should fallback to emergency default
-        style = loader.get_risk_control_edge_style(0)
-        assert style["stroke"] == "#e91e63"
-        assert style["strokeWidth"] == "2px"
-        assert style["strokeDasharray"] == "5 3"
-
-    def test_get_risk_control_edge_style_single_object(self):
-        """
-        Test get_risk_control_edge_style() with single object (backward compatibility).
-
-        Coverage: Lines 478-480
-        """
-        loader = MermaidConfigLoader()
-
-        # Mock with single dict object (old format)
-        def mock_single_object():
-            return {
-                "riskControlEdges": {
-                    "stroke": "#legacy",
-                    "strokeWidth": "3px",
-                    "strokeDasharray": "10 5",
-                }
-            }
-
-        loader.get_risk_edge_styles = mock_single_object
-
-        # Should return the single object regardless of index
-        style = loader.get_risk_control_edge_style(0)
-        assert style["stroke"] == "#legacy"
-        style5 = loader.get_risk_control_edge_style(5)
-        assert style5["stroke"] == "#legacy"
-
-    def test_get_risk_control_edge_style_no_config(self):
-        """
-        Test get_risk_control_edge_style() with no configuration.
-
-        Coverage: Lines 482-483
-        When riskControlEdges is neither list nor dict (e.g., None or missing),
-        the emergency default should be used.
-        """
-        loader = MermaidConfigLoader()
-
-        # Mock with riskControlEdges as None (neither list nor dict)
-        def mock_no_config():
-            return {"riskControlEdges": None}
-
-        loader.get_risk_edge_styles = mock_no_config
-
-        # Should use emergency default
-        style = loader.get_risk_control_edge_style(0)
-        assert style["stroke"] == "#e91e63"
-        assert style["strokeWidth"] == "2px"
-        assert style["strokeDasharray"] == "5 3"
-
-    def test_get_risk_control_edge_style_array_length_4_plus(self):
-        """
-        Test get_risk_control_edge_style() with array of length >= 4.
-
-        Coverage: Line 471
-        """
-        loader = MermaidConfigLoader()
-
-        # Mock with 4+ element array
-        def mock_risk_edges_4():
-            return {
-                "riskControlEdges": [
-                    {"stroke": "#color1"},
-                    {"stroke": "#color2"},
-                    {"stroke": "#color3"},
-                    {"stroke": "#color4"},
-                    {"stroke": "#color5"},
-                ]
-            }
-
-        loader.get_risk_edge_styles = mock_risk_edges_4
-
-        # Should use modulo 4 for indices
-        assert loader.get_risk_control_edge_style(0)["stroke"] == "#color1"
-        assert loader.get_risk_control_edge_style(1)["stroke"] == "#color2"
-        assert loader.get_risk_control_edge_style(2)["stroke"] == "#color3"
-        assert loader.get_risk_control_edge_style(3)["stroke"] == "#color4"
-        assert loader.get_risk_control_edge_style(4)["stroke"] == "#color1"  # 4 % 4 == 0
-        assert loader.get_risk_control_edge_style(7)["stroke"] == "#color4"  # 7 % 4 == 3
-
-    def test_get_risks_container_style(self):
-        """
-        Test get_risks_container_style() method.
-
-        Coverage: Line 396
-        """
-        loader = MermaidConfigLoader()
-
-        # Should call _get_group_container_style with correct params
-        result = loader.get_risks_container_style()
-        assert isinstance(result, dict)
-
-        # Test with custom graph_type
-        result2 = loader.get_risks_container_style(graph_type="control")
-        assert isinstance(result2, dict)
-
-    def test_get_controls_container_style(self):
-        """
-        Test get_controls_container_style() method.
-
-        Coverage: Line 401
-        """
-        loader = MermaidConfigLoader()
-
-        result = loader.get_controls_container_style()
-        assert isinstance(result, dict)
-
-        result2 = loader.get_controls_container_style(graph_type="risk")
-        assert isinstance(result2, dict)
-
-    def test_get_risk_category_styles(self):
-        """
-        Test get_risk_category_styles() method.
-
-        Coverage: Lines 436-437
-        """
-        loader = MermaidConfigLoader()
-
-        result = loader.get_risk_category_styles()
-        assert isinstance(result, dict)
-
-        # With emergency defaults, should have risk categories
-        assert "risks" in result
-
-    def test_get_risk_edge_styles(self):
-        """
-        Test get_risk_edge_styles() method.
-
-        Coverage: Lines 449-450
-        """
-        loader = MermaidConfigLoader()
-
-        result = loader.get_risk_edge_styles()
-        assert isinstance(result, dict)
-
-        # With emergency defaults, should have edge styles
-        assert "riskControlEdges" in result
 
 
 class TestUnionFind:
@@ -835,24 +523,6 @@ class TestMermaidConfigLoaderIntegration:
         graph_custom = ComponentGraph(forward_map, components, config_loader=custom_loader)
         assert graph_custom.config_loader is custom_loader
 
-    def test_control_graph_uses_config_loader(self):
-        """Test that ControlGraph properly uses MermaidConfigLoader."""
-        from riskmap_validator.graphing import ControlGraph
-        from riskmap_validator.models import ComponentNode, ControlNode
-
-        controls = {"ctrl1": ControlNode("Test", "controlsData", ["comp1"], [], [])}
-        components = {"comp1": ComponentNode("Test", "componentsData", [], [])}
-
-        # Should work with default config loader
-        graph = ControlGraph(controls, components)
-        assert hasattr(graph, "config_loader")
-        assert isinstance(graph.config_loader, MermaidConfigLoader)
-
-        # Should work with custom config loader
-        custom_loader = MermaidConfigLoader()
-        graph_custom = ControlGraph(controls, components, config_loader=custom_loader)
-        assert graph_custom.config_loader is custom_loader
-
 
 class TestMissingCategoryWarnings:
     """
@@ -873,7 +543,6 @@ class TestMissingCategoryWarnings:
             "version": "1.0.0",
             "foundation": {"colors": {}},
             "sharedElements": {
-                "cssClasses": {"hidden": "display: none;"},
                 "componentCategories": {
                     "componentsInfrastructure": {"fill": "#e6f3e6"},
                     "componentsModel": {"fill": "#ffe6e6"},
@@ -912,7 +581,6 @@ class TestMissingCategoryWarnings:
             "version": "1.0.0",
             "foundation": {"colors": {}},
             "sharedElements": {
-                "cssClasses": {"hidden": "display: none;"},
                 "componentCategories": cat_entries,
             },
             "graphTypes": {
@@ -1207,7 +875,6 @@ class TestBaseGraphEmitsCategoryWarnings:
             "version": "1.0.0",
             "foundation": {"colors": {}},
             "sharedElements": {
-                "cssClasses": {"hidden": "display: none;"},
                 "componentCategories": cat_entries,
             },
             "graphTypes": {

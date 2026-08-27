@@ -18,7 +18,7 @@ import pytest
 import yaml
 from referencing import Registry, Resource
 from referencing.jsonschema import DRAFT7
-from riskmap_validator.models import ComponentNode, ControlNode, RiskNode
+from riskmap_validator.models import ComponentNode
 from riskmap_validator.validator import ComponentEdgeValidator
 
 # ============================================================================
@@ -202,74 +202,6 @@ def base_uri(risk_map_schemas_dir: Path) -> str:
 # ============================================================================
 # Component and Control Fixtures
 # ============================================================================
-
-
-@pytest.fixture
-def sample_components():
-    """Sample component data for testing."""
-    return {
-        "componentDataSources": ComponentNode(
-            title="Data Sources", category="componentsData", to_edges=["componentDataValidation"], from_edges=[]
-        ),
-        "componentDataValidation": ComponentNode(
-            title="Data Validation",
-            category="componentsData",
-            to_edges=["componentModelTraining"],
-            from_edges=["componentDataSources"],
-        ),
-        "componentModelTraining": ComponentNode(
-            title="Model Training",
-            category="componentsModel",
-            to_edges=["componentModelDeployment"],
-            from_edges=["componentDataValidation"],
-        ),
-        "componentModelDeployment": ComponentNode(
-            title="Model Deployment",
-            category="componentsInfrastructure",
-            to_edges=[],
-            from_edges=["componentModelTraining"],
-        ),
-    }
-
-
-@pytest.fixture
-def sample_controls():
-    """Sample control data for testing."""
-    return {
-        "controlInputValidation": ControlNode(
-            title="Input Validation",
-            category="controlsData",
-            components=["componentDataSources", "componentDataValidation"],
-            risks=["riskDataPoisoning", "riskPromptInjection"],
-            personas=["personaModelCreator"],
-        ),
-        "controlModelIntegrity": ControlNode(
-            title="Model Integrity Management",
-            category="controlsModel",
-            components=["componentModelTraining", "componentModelDeployment"],
-            risks=["riskModelSourceTampering", "riskModelDeploymentTampering"],
-            personas=["personaModelCreator", "personaModelConsumer"],
-        ),
-        "controlUniversalSecurity": ControlNode(
-            title="Universal Security Controls",
-            category="controlsGovernance",
-            components=["all"],
-            risks=["all"],
-            personas=["personaModelCreator", "personaModelConsumer"],
-        ),
-    }
-
-
-@pytest.fixture
-def sample_risks():
-    """Sample risk data for testing."""
-    return {
-        "riskDataPoisoning": RiskNode(title="Data Poisoning", category="risks"),
-        "riskPromptInjection": RiskNode(title="Prompt Injection", category="risks"),
-        "riskModelSourceTampering": RiskNode(title="Model Source Tampering", category="risks"),
-        "riskModelDeploymentTampering": RiskNode(title="Model Deployment Tampering", category="risks"),
-        "OrphanRisk": RiskNode(title="Orphaned Risk", category="risks"),
-    }
 
 
 @pytest.fixture

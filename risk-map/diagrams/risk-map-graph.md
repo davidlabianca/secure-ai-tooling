@@ -9,8 +9,6 @@ config:
 
 graph TD
    %%{init: {'flowchart': {'nodeSpacing': 25, 'rankSpacing': 30, 'padding': 5, 'wrappingWidth': 250}}}%%
-    classDef hidden display: none;
-    classDef allControl stroke:#4285f4,stroke-width:2px,stroke-dasharray: 5 5
 
     subgraph componentsInfrastructure ["Infrastructure Components"]
         subgraph componentsData ["Data"]
