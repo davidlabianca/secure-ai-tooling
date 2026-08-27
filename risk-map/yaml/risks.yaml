@@ -3058,8 +3058,6 @@ risks:
     mappings:
       stride:
         - DenialOfService
-      mitre-atlas:
-        - AML.T0034.002@5.0.1
       owasp-top10-llm:
         - LLM10:2025
     lifecycleStage:
