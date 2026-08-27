@@ -3258,15 +3258,15 @@ class TestLiveCorpusInventory:
     FULLY MIGRATED (zero legacy values remaining).
 
     The TOTAL line reports blocks/values across BOTH legacy and pinned classes,
-    so it stays `96 blocks / 146 values` after migration; those numbers are a
+    so it stays `94 blocks / 144 values` after migration; those numbers are a
     corpus-scale sanity check, not a migration-progress signal. The real
     regression guard is per-framework `legacy=0`: if anyone reintroduces an
     unpinned/off-pattern value, its framework's `legacy=` count goes positive and
     test_live_corpus_fully_migrated_no_legacy fails.
 
     Breakdown (verified in-worktree):
-      risks:      65 blocks / 100 values
-      controls:   25 blocks /  40 values
+      risks:      64 blocks /  99 values
+      controls:   24 blocks /  39 values
       personas:    6 blocks /   6 values
       components:  0 blocks /   0 values
 
@@ -3293,16 +3293,18 @@ class TestLiveCorpusInventory:
 
     def test_live_corpus_report_contains_total_block_count(self):
         """
-        The report output contains the total framework-sub-block count: 96.
+        The report output contains the total framework-sub-block count: 94.
 
         Given: the 4 live consumer YAMLs
         When:  migrate --report-legacy is run
-        Then:  the string '96' appears in the report output
+        Then:  the string '94' appears in the report output
 
-        #343 plan §1 / issue body: "96 framework-sub-blocks across 4 consumer YAMLs."
-        This is a corpus-scale sanity check — the TOTAL counts legacy + pinned, so
-        it stays 96 after migration. The migration-completeness guard is
-        test_live_corpus_fully_migrated_no_legacy.
+        Corpus-scale sanity check — the TOTAL counts legacy + pinned, so it
+        tracks corpus size, not migration progress. Moved from 96 to 94 when
+        two invalid MITRE ATLAS mappings (AML.M0028 on controlAgentPluginPermissions,
+        AML.T0034.002 on riskRunawayAgentToolLoops — neither exists at the pinned
+        v5.0.1 edition) were removed rather than replaced. The migration-completeness
+        guard is test_live_corpus_fully_migrated_no_legacy.
         """
         args = ["migrate", "--report-legacy"]
         for f in _CONTENT_FILES:
@@ -3311,20 +3313,21 @@ class TestLiveCorpusInventory:
         result = _run(*args)
         assert result.returncode == 0
         combined_output = result.stdout + result.stderr
-        assert "96" in combined_output, (
-            f"Expected '96' (total legacy block count) in report output; got:\n{combined_output}"
+        assert "94" in combined_output, (
+            f"Expected '94' (total legacy block count) in report output; got:\n{combined_output}"
         )
 
     def test_live_corpus_report_contains_total_value_count(self):
         """
-        The report output contains the total value count: 146.
+        The report output contains the total value count: 144.
 
         Given: the 4 live consumer YAMLs
         When:  migrate --report-legacy is run
-        Then:  the string '146' appears in the report output
+        Then:  the string '144' appears in the report output
 
-        #343 plan §1 / issue body: "146 total values across 4 consumer YAMLs."
-        Corpus-scale sanity check (legacy + pinned); see
+        Corpus-scale sanity check (legacy + pinned), tracks corpus size. Moved
+        from 146 to 144 for the same two-mapping removal described in
+        test_live_corpus_report_contains_total_block_count. See
         test_live_corpus_fully_migrated_no_legacy for the completeness guard.
         """
         args = ["migrate", "--report-legacy"]
@@ -3334,8 +3337,8 @@ class TestLiveCorpusInventory:
         result = _run(*args)
         assert result.returncode == 0
         combined_output = result.stdout + result.stderr
-        assert "146" in combined_output, (
-            f"Expected '146' (total legacy value count) in report output; got:\n{combined_output}"
+        assert "144" in combined_output, (
+            f"Expected '144' (total legacy value count) in report output; got:\n{combined_output}"
         )
 
     def test_live_corpus_fully_migrated_no_legacy(self):
@@ -3426,7 +3429,7 @@ class TestLiveCorpusInventory:
 # - CLI migrate: happy path, idempotency, dry-run, comment preservation,
 #                sibling preservation, fail-loud on unmappable value
 # - CLI migrate --report-legacy: exits 0, no-write, non-empty inventory
-# - Live corpus inventory: 96 blocks / 146 values count pins (#343 plan §1)
+# - Live corpus inventory: 94 blocks / 144 values count pins (tracks corpus size)
 #
 # Spec ambiguity noted: the `update` verb's resolution logic is not fully
 # specified in ADR-027 D4a. The tests implement and test the "re-pin by
