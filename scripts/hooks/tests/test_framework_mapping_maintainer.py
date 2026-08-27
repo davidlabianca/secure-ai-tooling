@@ -3258,7 +3258,7 @@ class TestLiveCorpusInventory:
     FULLY MIGRATED (zero legacy values remaining).
 
     The TOTAL line reports blocks/values across BOTH legacy and pinned classes,
-    so it stays `94 blocks / 144 values` after migration; those numbers are a
+    so it stays `94 blocks / 142 values` after migration; those numbers are a
     corpus-scale sanity check, not a migration-progress signal. The real
     regression guard is per-framework `legacy=0`: if anyone reintroduces an
     unpinned/off-pattern value, its framework's `legacy=` count goes positive and
@@ -3266,7 +3266,7 @@ class TestLiveCorpusInventory:
 
     Breakdown (verified in-worktree):
       risks:      64 blocks /  99 values
-      controls:   24 blocks /  39 values
+      controls:   24 blocks /  37 values
       personas:    6 blocks /   6 values
       components:  0 blocks /   0 values
 
@@ -3303,7 +3303,10 @@ class TestLiveCorpusInventory:
         tracks corpus size, not migration progress. Moved from 96 to 94 when
         two invalid MITRE ATLAS mappings (AML.M0028 on controlAgentPluginPermissions,
         AML.T0034.002 on riskRunawayAgentToolLoops — neither exists at the pinned
-        v5.0.1 edition) were removed rather than replaced. The migration-completeness
+        v5.0.1 edition) were removed rather than replaced. Unchanged by the
+        subsequent GOVERN-6.2/MEASURE-2.11 fix (below) — that fix swapped one
+        value for another and removed two more, but never emptied a block
+        entirely, so the block count doesn't move. The migration-completeness
         guard is test_live_corpus_fully_migrated_no_legacy.
         """
         args = ["migrate", "--report-legacy"]
@@ -3319,15 +3322,24 @@ class TestLiveCorpusInventory:
 
     def test_live_corpus_report_contains_total_value_count(self):
         """
-        The report output contains the total value count: 144.
+        The report output contains the total value count: 142.
 
         Given: the 4 live consumer YAMLs
         When:  migrate --report-legacy is run
-        Then:  the string '144' appears in the report output
+        Then:  the string '142' appears in the report output
 
         Corpus-scale sanity check (legacy + pinned), tracks corpus size. Moved
-        from 146 to 144 for the same two-mapping removal described in
-        test_live_corpus_report_contains_total_block_count. See
+        from 146 to 144 for the two-mapping MITRE ATLAS removal described in
+        test_live_corpus_report_contains_total_block_count, then 144 to 142 for
+        a follow-on fix on the same two controls: GOVERN-6.2@1.0 (scoped to
+        third-party/supply-chain per the style guide, misapplied to internal
+        authorization/credential mechanics) was removed from both
+        controlAgentPluginPermissions and controlAgentCredentialIsolation, and
+        controlAgentPluginPermissions' MEASURE-2.11@1.0 (fairness/bias — no
+        relation to least-privilege permission scoping) was replaced with
+        MEASURE-2.7@1.0 (security and resilience evaluation, matching the
+        mapping-selection skill's own worked example for this control shape).
+        The swap is value-count-neutral; the two removals are the -2. See
         test_live_corpus_fully_migrated_no_legacy for the completeness guard.
         """
         args = ["migrate", "--report-legacy"]
@@ -3337,8 +3349,8 @@ class TestLiveCorpusInventory:
         result = _run(*args)
         assert result.returncode == 0
         combined_output = result.stdout + result.stderr
-        assert "144" in combined_output, (
-            f"Expected '144' (total legacy value count) in report output; got:\n{combined_output}"
+        assert "142" in combined_output, (
+            f"Expected '142' (total legacy value count) in report output; got:\n{combined_output}"
         )
 
     def test_live_corpus_fully_migrated_no_legacy(self):
@@ -3429,7 +3441,7 @@ class TestLiveCorpusInventory:
 # - CLI migrate: happy path, idempotency, dry-run, comment preservation,
 #                sibling preservation, fail-loud on unmappable value
 # - CLI migrate --report-legacy: exits 0, no-write, non-empty inventory
-# - Live corpus inventory: 94 blocks / 144 values count pins (tracks corpus size)
+# - Live corpus inventory: 94 blocks / 142 values count pins (tracks corpus size)
 #
 # Spec ambiguity noted: the `update` verb's resolution logic is not fully
 # specified in ADR-027 D4a. The tests implement and test the "re-pin by
