@@ -536,8 +536,6 @@ controls:
       - riskAgenticDelegationConfusedDeputy
       - riskCrossTenantCredentialPropagation
     mappings:
-      mitre-atlas:
-        - AML.M0028@5.0.1
       nist-ai-rmf:
         - MEASURE-2.11@1.0
         - GOVERN-6.2@1.0
