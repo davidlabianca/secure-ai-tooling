@@ -117,12 +117,6 @@ python scripts/hooks/validate_riskmap.py --force
 # Optional: Generate component graph to visualize your changes
 python scripts/hooks/validate_riskmap.py --to-graph ./preview-graph.md --force
 
-# Optional: Generate control-to-component graph to visualize control relationships
-python scripts/hooks/validate_riskmap.py --to-controls-graph ./preview-controls.md --force
-
-# Optional: Generate controls-to-risk graph to visualize risk relationships
-python scripts/hooks/validate_riskmap.py --to-risk-graph ./preview-risks.md --force
-
 # Format YAML files (auto-runs in pre-commit but useful for preview)
 npx prettier --write risk-map/yaml/components.yaml
 

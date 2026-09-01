@@ -21,6 +21,11 @@ Test Coverage:
    - Handling non-dict edges structure
    - Handling non-list to_edges/from_edges
    - Successful parsing with valid data
+   - Return-shape contract: .document carries the raw parsed YAML
+     (categories included), .components carries the component mapping;
+     builtins.open is called once per parse (a proxy fence — the
+     mechanism-independent guarantee lives in test_validate_riskmap.py)
+     (PR #499 review; closes issue #477's second-read gap)
 
 2. parse_controls_yaml() Function (PREVIOUSLY UNTESTED):
    - Default file path handling
@@ -34,18 +39,7 @@ Test Coverage:
    - Handling non-list personas
    - Empty controls file handling
 
-3. parse_risks_yaml() Function (PREVIOUSLY UNTESTED):
-   - Default file path handling
-   - FileNotFoundError when file doesn't exist
-   - YAML parsing errors
-   - KeyError when required fields missing
-   - Default category handling
-   - Handling controls list
-   - Handling personas list
-   - Non-list validation for controls/personas
-   - Empty risks file handling
-
-4. get_staged_yaml_files() Function:
+3. get_staged_yaml_files() Function:
    - Force check mode with existing file
    - Force check mode with non-existent file
    - Normal mode with staged files
@@ -58,6 +52,7 @@ Test Coverage:
 Coverage Target: 95%+ for utils.py (up from 47%)
 """
 
+import builtins
 import subprocess
 import sys
 import tempfile
@@ -75,7 +70,6 @@ from riskmap_validator.utils import (  # noqa: E402
     get_staged_yaml_files,
     parse_components_yaml,
     parse_controls_yaml,
-    parse_risks_yaml,
 )
 
 
@@ -307,7 +301,7 @@ class TestParseComponentsYAML:
         with open(temp_yaml_file, "w") as f:
             yaml.dump(yaml_data, f)
 
-        components = parse_components_yaml(temp_yaml_file)
+        components = parse_components_yaml(temp_yaml_file).components
 
         # Should only have the valid component
         assert len(components) == 1
@@ -340,7 +334,7 @@ class TestParseComponentsYAML:
         with open(temp_yaml_file, "w") as f:
             yaml.dump(yaml_data, f)
 
-        components = parse_components_yaml(temp_yaml_file)
+        components = parse_components_yaml(temp_yaml_file).components
 
         # Should only have the valid component
         assert len(components) == 1
@@ -374,7 +368,7 @@ class TestParseComponentsYAML:
         with open(temp_yaml_file, "w") as f:
             yaml.dump(yaml_data, f)
 
-        components = parse_components_yaml(temp_yaml_file)
+        components = parse_components_yaml(temp_yaml_file).components
 
         assert len(components) == 1
         assert "comp1" in components
@@ -405,7 +399,7 @@ class TestParseComponentsYAML:
         with open(temp_yaml_file, "w") as f:
             yaml.dump(yaml_data, f)
 
-        components = parse_components_yaml(temp_yaml_file)
+        components = parse_components_yaml(temp_yaml_file).components
 
         assert len(components) == 1
         assert "comp1" in components
@@ -438,7 +432,7 @@ class TestParseComponentsYAML:
         with open(temp_yaml_file, "w") as f:
             yaml.dump(yaml_data, f)
 
-        components = parse_components_yaml(temp_yaml_file)
+        components = parse_components_yaml(temp_yaml_file).components
 
         assert len(components) == 1
         assert "comp1" in components
@@ -469,7 +463,7 @@ class TestParseComponentsYAML:
         with open(temp_yaml_file, "w") as f:
             yaml.dump(yaml_data, f)
 
-        components = parse_components_yaml(temp_yaml_file)
+        components = parse_components_yaml(temp_yaml_file).components
 
         assert len(components) == 1
         assert "comp1" in components
@@ -500,7 +494,7 @@ class TestParseComponentsYAML:
         with open(temp_yaml_file, "w") as f:
             yaml.dump(yaml_data, f)
 
-        components = parse_components_yaml(temp_yaml_file)
+        components = parse_components_yaml(temp_yaml_file).components
 
         assert len(components) == 1
         assert "comp1" in components
@@ -529,7 +523,7 @@ class TestParseComponentsYAML:
         with open(temp_yaml_file, "w") as f:
             yaml.dump(yaml_data, f)
 
-        components = parse_components_yaml(temp_yaml_file)
+        components = parse_components_yaml(temp_yaml_file).components
 
         assert len(components) == 1
         assert "comp1" in components
@@ -558,7 +552,7 @@ class TestParseComponentsYAML:
         with open(temp_yaml_file, "w") as f:
             yaml.dump(yaml_data, f)
 
-        components = parse_components_yaml(temp_yaml_file)
+        components = parse_components_yaml(temp_yaml_file).components
 
         assert len(components) == 1
         assert components["comp1"].to_edges == []
@@ -586,7 +580,7 @@ class TestParseComponentsYAML:
         with open(temp_yaml_file, "w") as f:
             yaml.dump(yaml_data, f)
 
-        components = parse_components_yaml(temp_yaml_file)
+        components = parse_components_yaml(temp_yaml_file).components
 
         assert len(components) == 1
         assert components["comp1"].to_edges == []
@@ -605,7 +599,7 @@ class TestParseComponentsYAML:
         with open(temp_yaml_file, "w") as f:
             yaml.dump(valid_components_yaml, f)
 
-        components = parse_components_yaml(temp_yaml_file)
+        components = parse_components_yaml(temp_yaml_file).components
 
         assert len(components) == 3
         assert "comp1" in components
@@ -627,6 +621,125 @@ class TestParseComponentsYAML:
         assert comp2.subcategory == "Training"
         assert comp2.to_edges == []
         assert comp2.from_edges == ["comp1"]
+
+    # Return-shape contract tests (PR #499 review; closes issue #477's second-read gap)
+    #
+    # parse_components_yaml() currently returns the components mapping alone,
+    # which forces validate_riskmap.py's category/subcategory nesting check to
+    # re-open the file for the `categories:` block parse_components_yaml
+    # discards — a second read that can observe a different file state than
+    # the first (see test_main_opens_the_corpus_exactly_once_per_run and
+    # test_main_nesting_check_is_blind_to_the_corpus_changing_after_the_parse_returns
+    # in test_validate_riskmap.py). The tests below pin the return shape that
+    # closes the gap: both the raw parsed document and the components mapping
+    # from one read, so every caller that needs either can get both without
+    # opening the file again. Production does not implement this yet; these
+    # tests fail until it does.
+
+    def test_parse_components_result_exposes_the_raw_document(self, temp_yaml_file, valid_components_yaml):
+        """
+        Test that the result carries the raw parsed YAML document, categories included.
+
+        Given: A YAML file with a top-level `categories:` block alongside `components:`
+        When: parse_components_yaml() is called
+        Then: The result's .document is the same structure yaml.safe_load would
+              produce from that file, with the categories block intact
+
+        .document is what lets a caller build category_to_subcategories
+        without re-opening the file; this pins that the block survives the
+        parse rather than being dropped along with everything else that is
+        not a component field.
+        """
+        valid_components_yaml["categories"] = [
+            {"id": "Data", "subcategory": [{"id": "Storage"}]},
+            {"id": "Model", "subcategory": [{"id": "Training"}]},
+        ]
+        with open(temp_yaml_file, "w") as f:
+            yaml.dump(valid_components_yaml, f)
+
+        result = parse_components_yaml(temp_yaml_file)
+
+        assert result.document == valid_components_yaml, (
+            f"result.document must equal the file's parsed content; got {result.document!r}"
+        )
+        assert result.document["categories"] == valid_components_yaml["categories"], (
+            "the categories block must survive into result.document unchanged"
+        )
+
+    def test_parse_components_result_components_matches_the_component_mapping(
+        self, temp_yaml_file, valid_components_yaml
+    ):
+        """
+        Test that the result's .components is the same mapping the function used to return directly.
+
+        Given: A YAML file with valid component data
+        When: parse_components_yaml() is called
+        Then: result.components is a dict[str, ComponentNode] keyed and
+              populated exactly as the pre-#499 return value was
+
+        This is the compatibility half of the contract: every existing
+        caller that only wants the components mapping reaches it at
+        .components, unchanged in content and shape.
+        """
+        with open(temp_yaml_file, "w") as f:
+            yaml.dump(valid_components_yaml, f)
+
+        result = parse_components_yaml(temp_yaml_file)
+
+        assert set(result.components) == {"comp1", "comp2", "comp3"}
+        comp1 = result.components["comp1"]
+        assert comp1.title == "Component 1"
+        assert comp1.category == "Data"
+        assert comp1.to_edges == ["comp2"]
+        assert comp1.from_edges == ["comp3"]
+
+    def test_parse_components_reads_the_file_exactly_once(
+        self, temp_yaml_file, valid_components_yaml, monkeypatch
+    ):
+        """
+        Test that a single call to parse_components_yaml opens the file exactly once through builtins.open.
+
+        Given: A valid components YAML file
+        When: parse_components_yaml() is called
+        Then: builtins.open is called exactly once against that path
+
+        This counts builtins.open calls specifically, not every way a file
+        can be read: pathlib's Path.read_text() and io.open() do not route
+        through the builtins name, so a second read using either would not
+        register here. This test establishes only that parse_components_yaml
+        does not call builtins.open() twice — it is not, by itself, proof
+        that .document and .components are drawn from a single physical
+        read. The mechanism-independent guarantee is enforced separately in
+        test_validate_riskmap.py: test_main_opens_the_corpus_exactly_once_per_run
+        counts every physical read of the corpus with a subprocess-isolated
+        sys.addaudithook, which fires uniformly under Path.read_text,
+        io.open, builtins.open and os.open, so it is the primary chokepoint
+        regardless of API or read order;
+        test_main_nesting_check_is_blind_to_the_corpus_changing_after_the_parse_returns
+        additionally poisons the corpus on disk right after its first
+        physical read and checks the nesting check's outcome, catching the
+        narrower case where a single read still feeds the two checks from
+        different data.
+        """
+        with open(temp_yaml_file, "w") as f:
+            yaml.dump(valid_components_yaml, f)
+
+        opened: list[str] = []
+        real_open = builtins.open
+
+        def counting_open(file, *args, **kwargs):
+            opened.append(str(file))
+            return real_open(file, *args, **kwargs)
+
+        monkeypatch.setattr(builtins, "open", counting_open)
+
+        parse_components_yaml(temp_yaml_file)
+
+        matching = [path for path in opened if Path(path) == temp_yaml_file]
+        assert len(matching) == 1, (
+            f"parse_components_yaml must open the file exactly once per call; opened "
+            f"{len(matching)} time(s). All files opened: {opened!r}"
+        )
 
 
 class TestParseControlsYAML:
@@ -1068,376 +1181,6 @@ class TestParseControlsYAML:
         assert control2.components == ["all"]
         assert control2.risks == ["risk2", "risk3"]
         assert control2.personas == ["persona1", "persona2"]
-
-
-class TestParseRisksYAML:
-    """
-    Test parse_risks_yaml() function.
-
-    This function was previously COMPLETELY UNTESTED (lines 169-210).
-    Tests cover all error handling, default values, and validation logic.
-    """
-
-    @pytest.fixture
-    def temp_yaml_file(self):
-        """Create a temporary YAML file for testing."""
-        temp_file = tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False)
-        yield Path(temp_file.name)
-        Path(temp_file.name).unlink(missing_ok=True)
-
-    @pytest.fixture
-    def valid_risks_yaml(self):
-        """Provide valid risks YAML structure."""
-        return {
-            "risks": [
-                {
-                    "id": "risk1",
-                    "title": "Data Breach",
-                    "category": "Privacy",
-                    "controls": ["control1", "control2"],
-                    "personas": ["persona1"],
-                },
-                {
-                    "id": "risk2",
-                    "title": "Model Poisoning",
-                    "category": "Integrity",
-                    "controls": ["control3"],
-                    "personas": ["persona2"],
-                },
-            ]
-        }
-
-    # Default Path Handling Tests
-
-    def test_parse_risks_uses_default_path_when_none(self):
-        """
-        Test that default path is used when file_path=None.
-
-        Given: No file_path parameter provided
-        When: parse_risks_yaml() is called
-        Then: Uses default path 'risk-map/yaml/risks.yaml'
-        """
-        with patch("riskmap_validator.utils.Path") as mock_path_class:
-            mock_path = MagicMock()
-            mock_path.exists.return_value = False
-            mock_path_class.return_value = mock_path
-
-            with pytest.raises(FileNotFoundError, match="Risks file not found"):
-                parse_risks_yaml(file_path=None)
-
-            mock_path_class.assert_called_once_with("risk-map/yaml/risks.yaml")
-
-    # File Not Found Tests
-
-    def test_parse_risks_raises_error_when_file_not_found(self):
-        """
-        Test that FileNotFoundError is raised for non-existent file.
-
-        Given: A file path that doesn't exist
-        When: parse_risks_yaml() is called
-        Then: FileNotFoundError is raised with descriptive message
-        """
-        nonexistent_path = Path("/nonexistent/risks.yaml")
-
-        with pytest.raises(FileNotFoundError, match="Risks file not found"):
-            parse_risks_yaml(nonexistent_path)
-
-    # YAML Parsing Error Tests
-
-    def test_parse_risks_raises_error_on_malformed_yaml(self, temp_yaml_file):
-        """
-        Test that YAMLError is raised for malformed YAML.
-
-        Given: A YAML file with invalid syntax
-        When: parse_risks_yaml() is called
-        Then: yaml.YAMLError is raised
-        """
-        temp_yaml_file.write_text("invalid: [yaml: syntax")
-
-        with pytest.raises(yaml.YAMLError, match="Error parsing risks YAML"):
-            parse_risks_yaml(temp_yaml_file)
-
-    # Category Field Handling Tests
-
-    def test_parse_risks_handles_default_category(self, temp_yaml_file):
-        """
-        Test that missing category defaults to 'risks'.
-
-        Given: A risk without category field
-        When: parse_risks_yaml() is called
-        Then: Category defaults to 'risks'
-        """
-        yaml_data = {
-            "risks": [
-                {
-                    "id": "risk1",
-                    "title": "Risk Without Category",
-                    # Missing 'category' field
-                }
-            ]
-        }
-
-        with open(temp_yaml_file, "w") as f:
-            yaml.dump(yaml_data, f)
-
-        risks = parse_risks_yaml(temp_yaml_file)
-
-        assert len(risks) == 1
-        assert risks["risk1"].category == "risks"
-
-    def test_parse_risks_handles_explicit_category(self, temp_yaml_file):
-        """
-        Test that explicit category is preserved.
-
-        Given: A risk with explicit category field
-        When: parse_risks_yaml() is called
-        Then: Category is set to provided value
-        """
-        yaml_data = {
-            "risks": [
-                {
-                    "id": "risk1",
-                    "title": "Privacy Risk",
-                    "category": "Privacy",
-                }
-            ]
-        }
-
-        with open(temp_yaml_file, "w") as f:
-            yaml.dump(yaml_data, f)
-
-        risks = parse_risks_yaml(temp_yaml_file)
-
-        assert len(risks) == 1
-        assert risks["risk1"].category == "Privacy"
-
-    # Controls Field Handling Tests
-
-    def test_parse_risks_handles_controls_list(self, temp_yaml_file):
-        """
-        Test that controls list is preserved.
-
-        Given: A risk with controls list
-        When: parse_risks_yaml() is called
-        Then: Controls list is preserved (though not used in RiskNode)
-        """
-        yaml_data = {
-            "risks": [
-                {
-                    "id": "risk1",
-                    "title": "Risk With Controls",
-                    "controls": ["control1", "control2"],
-                }
-            ]
-        }
-
-        with open(temp_yaml_file, "w") as f:
-            yaml.dump(yaml_data, f)
-
-        risks = parse_risks_yaml(temp_yaml_file)
-
-        # Note: RiskNode doesn't store controls, but parsing should succeed
-        assert len(risks) == 1
-        assert risks["risk1"].title == "Risk With Controls"
-
-    def test_parse_risks_handles_non_list_controls(self, temp_yaml_file):
-        """
-        Test that non-list controls are converted to empty list.
-
-        Given: A risk with non-list controls
-        When: parse_risks_yaml() is called
-        Then: Controls is set to empty list (validation doesn't fail)
-        """
-        yaml_data = {
-            "risks": [
-                {
-                    "id": "risk1",
-                    "title": "Risk With Bad Controls",
-                    "controls": "not-a-list",
-                }
-            ]
-        }
-
-        with open(temp_yaml_file, "w") as f:
-            yaml.dump(yaml_data, f)
-
-        risks = parse_risks_yaml(temp_yaml_file)
-
-        assert len(risks) == 1
-
-    def test_parse_risks_handles_missing_controls(self, temp_yaml_file):
-        """
-        Test that missing controls field defaults to empty list.
-
-        Given: A risk without controls field
-        When: parse_risks_yaml() is called
-        Then: Controls defaults to empty list
-        """
-        yaml_data = {
-            "risks": [
-                {
-                    "id": "risk1",
-                    "title": "Risk Without Controls",
-                    # Missing 'controls' field
-                }
-            ]
-        }
-
-        with open(temp_yaml_file, "w") as f:
-            yaml.dump(yaml_data, f)
-
-        risks = parse_risks_yaml(temp_yaml_file)
-
-        assert len(risks) == 1
-
-    # Personas Field Handling Tests
-
-    def test_parse_risks_handles_personas_list(self, temp_yaml_file):
-        """
-        Test that personas list is preserved.
-
-        Given: A risk with personas list
-        When: parse_risks_yaml() is called
-        Then: Parsing succeeds (personas not stored in RiskNode)
-        """
-        yaml_data = {
-            "risks": [
-                {
-                    "id": "risk1",
-                    "title": "Risk With Personas",
-                    "personas": ["persona1", "persona2"],
-                }
-            ]
-        }
-
-        with open(temp_yaml_file, "w") as f:
-            yaml.dump(yaml_data, f)
-
-        risks = parse_risks_yaml(temp_yaml_file)
-
-        assert len(risks) == 1
-
-    def test_parse_risks_handles_non_list_personas(self, temp_yaml_file):
-        """
-        Test that non-list personas are converted to empty list.
-
-        Given: A risk with non-list personas
-        When: parse_risks_yaml() is called
-        Then: Parsing succeeds with validation
-        """
-        yaml_data = {
-            "risks": [
-                {
-                    "id": "risk1",
-                    "title": "Risk With Bad Personas",
-                    "personas": 123,
-                }
-            ]
-        }
-
-        with open(temp_yaml_file, "w") as f:
-            yaml.dump(yaml_data, f)
-
-        risks = parse_risks_yaml(temp_yaml_file)
-
-        assert len(risks) == 1
-
-    # Required Fields Tests
-
-    def test_parse_risks_raises_error_when_id_missing(self, temp_yaml_file):
-        """
-        Test that KeyError is raised when 'id' field is missing.
-
-        Given: A risk without 'id' field
-        When: parse_risks_yaml() is called
-        Then: KeyError is raised
-        """
-        yaml_data = {
-            "risks": [
-                {
-                    # Missing 'id' field
-                    "title": "Risk Without ID",
-                }
-            ]
-        }
-
-        with open(temp_yaml_file, "w") as f:
-            yaml.dump(yaml_data, f)
-
-        with pytest.raises(KeyError, match="Missing required field in risks.yaml"):
-            parse_risks_yaml(temp_yaml_file)
-
-    def test_parse_risks_raises_error_when_title_missing(self, temp_yaml_file):
-        """
-        Test that KeyError is raised when 'title' field is missing.
-
-        Given: A risk without 'title' field
-        When: parse_risks_yaml() is called
-        Then: KeyError is raised
-        """
-        yaml_data = {
-            "risks": [
-                {
-                    "id": "risk1",
-                    # Missing 'title' field
-                }
-            ]
-        }
-
-        with open(temp_yaml_file, "w") as f:
-            yaml.dump(yaml_data, f)
-
-        with pytest.raises(KeyError, match="Missing required field in risks.yaml"):
-            parse_risks_yaml(temp_yaml_file)
-
-    # Empty File Tests
-
-    def test_parse_risks_handles_empty_risks_list(self, temp_yaml_file):
-        """
-        Test that empty risks list is handled correctly.
-
-        Given: A YAML file with empty risks list
-        When: parse_risks_yaml() is called
-        Then: Returns empty dictionary
-        """
-        yaml_data = {"risks": []}
-
-        with open(temp_yaml_file, "w") as f:
-            yaml.dump(yaml_data, f)
-
-        risks = parse_risks_yaml(temp_yaml_file)
-
-        assert len(risks) == 0
-        assert risks == {}
-
-    # Successful Parsing Tests
-
-    def test_parse_risks_with_valid_data_succeeds(self, temp_yaml_file, valid_risks_yaml):
-        """
-        Test successful parsing of valid risks YAML.
-
-        Given: A YAML file with valid risk data
-        When: parse_risks_yaml() is called
-        Then: All risks are parsed correctly
-        """
-        with open(temp_yaml_file, "w") as f:
-            yaml.dump(valid_risks_yaml, f)
-
-        risks = parse_risks_yaml(temp_yaml_file)
-
-        assert len(risks) == 2
-        assert "risk1" in risks
-        assert "risk2" in risks
-
-        # Check risk1 details
-        risk1 = risks["risk1"]
-        assert risk1.title == "Data Breach"
-        assert risk1.category == "Privacy"
-
-        # Check risk2 details
-        risk2 = risks["risk2"]
-        assert risk2.title == "Model Poisoning"
-        assert risk2.category == "Integrity"
 
 
 class TestGetStagedYAMLFiles:

@@ -24,7 +24,7 @@ from typing import Any
 import yaml
 
 from .models import ComponentNode, ControlNode
-from .utils import parse_components_yaml
+from .utils import ComponentsParseResult, parse_components_yaml
 
 
 class EdgeValidationError(Exception):
@@ -64,6 +64,21 @@ class ComponentEdgeValidator:
         self.verbose = verbose
         self.components: dict[str, ComponentNode] = {}
         self.forward_map: dict[str, list[str]] = {}
+        # Raw parsed document from the most recent SUCCESSFUL parse_corpus() call,
+        # categories block included. Lets a caller (main()'s nesting check) reach
+        # the categories block from the single physical read parse_corpus already
+        # performed, instead of re-opening the corpus (issue #477).
+        #
+        # Staying paired with self.components is the caller's job, not this
+        # class's: parse_corpus sets both from one read, but validate_file and
+        # validate_loaded set components without touching document, and a failed
+        # parse_corpus leaves the previous corpus's document in place. Mixing
+        # those calls on one instance can pair a document with components it did
+        # not come from — which is issue #477's defect reached through state
+        # rather than through a second read. main() avoids it by construction:
+        # one fresh validator, one parse_corpus, and exit before any consumer
+        # runs if it fails.
+        self.document: dict[str, Any] = {}
 
     def log(self, message: str, level: str = "info") -> None:
         """Log messages if verbose enabled."""
@@ -185,8 +200,11 @@ class ComponentEdgeValidator:
         """
         Parse a components corpus, reporting any parse failure as one type.
 
-        Returns the corpus rather than storing it; pass the result to
-        validate_loaded.
+        Returns the components mapping rather than storing it; pass the
+        result to validate_loaded. The raw document parsed alongside it
+        (categories block included) is stashed on self.document, from the
+        same single physical read, for callers that need it (e.g. main()'s
+        category/subcategory nesting check).
 
         Args:
             file_path: Path to the components YAML file
@@ -199,7 +217,7 @@ class ComponentEdgeValidator:
                 whatever the underlying cause
         """
         try:
-            return parse_components_yaml(file_path)
+            result: ComponentsParseResult = parse_components_yaml(file_path)
         except (KeyError, TypeError, AttributeError, ValueError, yaml.YAMLError, OSError) as e:
             # One type for every unusable-input shape, so a caller reporting
             # "this file is bad" need not enumerate them (UnicodeDecodeError is
@@ -208,9 +226,17 @@ class ComponentEdgeValidator:
             # defects, not bad input, and must reach the caller's crash banner.
             raise CorpusParseError(f"{type(e).__name__}: {e}") from e
 
+        self.document = result.document
+        return result.components
+
     def validate_file(self, file_path: Path) -> bool:
         """
         Parse a YAML file and validate its component edge consistency.
+
+        Does NOT stash the raw document on self.document — only parse_corpus
+        does. A caller that needs the categories block must go through
+        parse_corpus; calling this on an instance whose document came from an
+        earlier parse leaves the two describing different corpora.
 
         Args:
             file_path: Path to YAML file
@@ -222,7 +248,8 @@ class ComponentEdgeValidator:
             Whatever parse_components_yaml raises for a file it cannot turn
             into components; parse_corpus collapses those to CorpusParseError.
         """
-        return self.validate_loaded(parse_components_yaml(file_path), file_path)
+        result = parse_components_yaml(file_path)
+        return self.validate_loaded(result.components, file_path)
 
     def validate_loaded(self, components: dict[str, ComponentNode], file_path: Path) -> bool:
         """
@@ -376,7 +403,7 @@ def check_controls_components_mirror(
         controls: Dict mapping control IDs to ControlNode objects, as returned
                   by parse_controls_yaml().
         component_ids: Set of valid top-level component IDs, typically
-                       set(parse_components_yaml(...).keys()).
+                       set(parse_components_yaml(...).components.keys()).
 
     Returns:
         List of human-readable warning strings, one per (control_id,
@@ -426,7 +453,8 @@ def check_category_subcategory_nesting(
 
     Args:
         components: Dict mapping component IDs to ComponentNode objects, as
-                    returned by parse_components_yaml().
+                    returned by parse_components_yaml().components (or by
+                    ComponentEdgeValidator.parse_corpus()).
         category_to_subcategories: Maps each top-level category ID to the set
                     of valid subcategory IDs declared under it.  Build this from
                     the YAML's top-level ``categories:`` block.

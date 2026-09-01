@@ -401,7 +401,7 @@ class TestCheckCategorySubcategoryNesting:
         from riskmap_validator.utils import parse_components_yaml  # noqa: E402
 
         components_path = _REPO_ROOT / "risk-map" / "yaml" / "components.yaml"
-        components = parse_components_yaml(components_path)
+        components = parse_components_yaml(components_path).components
 
         # Build the nesting map from the YAML's top-level categories block so
         # this test stays valid as new subcategories are added or removed.

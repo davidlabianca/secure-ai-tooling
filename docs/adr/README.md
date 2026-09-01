@@ -37,7 +37,7 @@ If a decision is about *how the Risk Map content model is shaped*, it belongs in
 | [019](019-risks-schema.md) | `risks.schema.json` design — `relevantQuestions` retirement, mapping patterns, BLOCK-02 input tightening | Accepted | 2026-04-25 |
 | [020](020-controls-schema.md) | `controls.schema.json` design — closed enums, controls↔components mirror, folded-bullet drift heuristic | Accepted | 2026-04-25 |
 | [021](021-personas-and-self-assessment-schema.md) | `personas.schema.json` design + `self-assessment.yaml` archiving (GAP-9) | Accepted | 2026-04-25 |
-| [022](022-supporting-schemas.md) | Supporting schemas grouped — actor-access, impact-type, lifecycle-stage, frameworks (mapping-ID regex), mermaid-styles | Accepted | 2026-04-25 |
+| [022](022-supporting-schemas.md) | Supporting schemas grouped — actor-access, impact-type, lifecycle-stage, frameworks (mapping-ID regex), mermaid-styles | Accepted (D6 control/risk framing superseded in part — [amendment](022-supporting-schemas.md#amendment-2026-08-20-mermaid-stylesschemajson-control-and-risk-sections-removed-not-pending) Draft) | 2026-04-25 |
 | 023 | Devcontainer dependency-pinning policy and lifecycle cadence | Reserved ([#248](https://github.com/cosai-oasis/secure-ai-tooling/issues/248)) | — |
 | [024](024-github-actions-pinning-posture.md) | GitHub Actions pinning posture | Accepted | 2026-05-01 |
 | [025](025-testing-strategy.md) | Testing strategy and posture across Python, site JS, schemas, and infrastructure | Accepted | 2026-05-05 |
@@ -51,6 +51,7 @@ If a decision is about *how the Risk Map content model is shaped*, it belongs in
 | [033](033-vendor-neutral-agent-skill-shipping.md) | Vendor-neutral shipping and lifecycle for CoSAI agents and skills — canonical-only neutral cloneable artifacts, the neutrality contract (machine-checkable denylist + framework-authority allowlist), consumer adaptation, required neutrality check, develop/eval/expand lifecycle | Accepted | 2026-07-08 |
 | [034](034-corpus-change-landing-sequence.md) | Dependency-ordered landing sequence for risk-map corpus changes | Accepted | 2026-07-09 |
 | [035](035-pinned-sources-manifest.md) | Pinned-sources manifest (`risk-map/yaml/sources.yaml`) for reproducible citation provenance — corpus-wide registry, disjoint-by-role sibling to `frameworks.yaml`, keep-and-flag fallback; implements ADR-031 D4 | Draft | 2026-07-22 |
+| [036](036-decoupled-component-graph-emission.md) | Decoupled component-graph emission — aspects, channels, and bands; a topological rewrite of the drawn graph so no edge crosses a top-level category cluster, with a flat/decoupled mode toggle as the rollback lever | Draft | 2026-07-22 |
 | [037](037-ci-validation-authority-and-block-parity.md) | CI as the enforcing gate for risk-map validation — `--block` parity between CI and pre-commit, strictness monotonicity, and the graph-generation prohibition | Draft | 2026-07-27 |
 
 ## Conventions

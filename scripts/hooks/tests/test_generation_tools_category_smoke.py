@@ -3,10 +3,12 @@
 Generation smoke tests: componentsExternalTools does not crash graph/table generation.
 
 ADR-030 (docs/adr/030-agentic-component-model.md), Consequences: "The
-landing commit is large — not a two-file edit. The atomic schema+YAML core
-drives the pre-commit generators to rebuild ~23 tracked artifacts from the
-corpus (7 diagrams + 4 SVGs + 12 tables under risk-map/)..." and Migration
-sequencing step 4 names "table/SVG regeneration" as part of consumer wiring.
+landing change is large. The atomic core drives the pre-commit generators
+to rebuild the tracked diagrams, SVGs, and tables under risk-map/, requires
+a mermaid-styles.yaml entry for the new category, and forces updates across
+the category-handling, nesting, rendering, models, and controls<->components
+mirror test suites." Migration sequencing step 4 names "table/SVG
+regeneration" as part of consumer wiring.
 
 This module exercises the ACTUAL generator entry points — the same ones the
 pre-commit hooks (scripts/hooks/precommit/regenerate_graphs.py,
@@ -22,15 +24,17 @@ installed — regenerate_svgs.py's own test suite (test_regenerate_svgs.py)
 covers that script's logic with a mocked subprocess, which is the coverage
 boundary for an external-binary dependency. This module instead covers the
 two generation layers that run natively in Python: the Mermaid-source
-generators (ComponentGraph/
-ControlGraph/RiskGraph, driving the risk-map/diagrams/*.mmd / *.md inputs
-that regenerate_svgs.py would otherwise convert) and the Markdown table
-generator (yaml_to_markdown.py, driving risk-map/tables/*.md).
+generator (ComponentGraph, driving the risk-map/diagrams/*.mermaid / *.md
+inputs that regenerate_svgs.py would otherwise convert) and the Markdown
+table generator (yaml_to_markdown.py, driving risk-map/tables/*.md). #499
+removed the other two Mermaid-source generators and their CLI flags along
+with the diagrams they produced; only the component graph survives as a
+generator this module can smoke-test.
 
 None of these generators crash on a 4th top-level
-category — ComponentGraph/ControlGraph group components generically by
-whatever `.category` string is present, and yaml_to_markdown.py's table
-columns just read `.get("category", "")`. These tests are regression guards,
+category — ComponentGraph groups components generically by whatever
+`.category` string is present, and yaml_to_markdown.py's table columns just
+read `.get("category", "")`. These tests are regression guards,
 not the tests that exercise componentsExternalTools-specific new behavior; that
 coverage — the mermaid style entry and the category style CI guard — lives in
 test_mermaid_styles_tools_category.py and test_category_style_guard.py
@@ -121,12 +125,12 @@ def synthetic_corpus(tmp_path: Path) -> Path:
 
 
 # ============================================================================
-# Mermaid graph generation (ComponentGraph / ControlGraph / RiskGraph via CLI)
+# Mermaid graph generation (ComponentGraph via CLI)
 # ============================================================================
 
 
 class TestGraphGenerationDoesNotCrashOnComponentsTools:
-    """validate_riskmap.py --to-graph / --to-controls-graph / --to-risk-graph."""
+    """validate_riskmap.py --to-graph."""
 
     def test_component_graph_generation_succeeds(self, synthetic_corpus: Path):
         """
@@ -158,66 +162,6 @@ class TestGraphGenerationDoesNotCrashOnComponentsTools:
         assert "componentsExternalTools" in content, (
             f"Expected 'componentsExternalTools' in graph output; got:\n{content}"
         )
-
-    def test_controls_graph_generation_succeeds(self, synthetic_corpus: Path):
-        """
-        Given: a synthetic corpus with a componentsExternalTools component and a
-               control mapped to it
-        When: validate_riskmap.py --to-controls-graph is run against it
-        Then: exit 0, and the output file contains 'componentsExternalTools'
-        """
-        out_file = synthetic_corpus / "controls_graph.md"
-        result = subprocess.run(
-            [
-                sys.executable,
-                str(_VALIDATE_SCRIPT),
-                "--force",
-                "--allow-isolated",
-                "--to-controls-graph",
-                str(out_file),
-                "--quiet",
-            ],
-            capture_output=True,
-            text=True,
-            cwd=str(synthetic_corpus),
-        )
-        assert result.returncode == 0, (
-            f"Expected exit 0 generating a controls graph with a componentsExternalTools "
-            f"component; got {result.returncode}\nstdout: {result.stdout}\nstderr: {result.stderr}"
-        )
-        assert out_file.is_file(), f"Expected graph output file at {out_file}"
-        content = out_file.read_text(encoding="utf-8")
-        assert "componentsExternalTools" in content, (
-            f"Expected 'componentsExternalTools' in controls graph output; got:\n{content}"
-        )
-
-    def test_risk_graph_generation_succeeds(self, synthetic_corpus: Path):
-        """
-        Given: a synthetic corpus with a componentsExternalTools component (risks.yaml
-               is empty; the risk graph should still generate without crashing)
-        When: validate_riskmap.py --to-risk-graph is run against it
-        Then: exit 0
-        """
-        out_file = synthetic_corpus / "risk_graph.md"
-        result = subprocess.run(
-            [
-                sys.executable,
-                str(_VALIDATE_SCRIPT),
-                "--force",
-                "--allow-isolated",
-                "--to-risk-graph",
-                str(out_file),
-                "--quiet",
-            ],
-            capture_output=True,
-            text=True,
-            cwd=str(synthetic_corpus),
-        )
-        assert result.returncode == 0, (
-            f"Expected exit 0 generating a risk graph with a componentsExternalTools "
-            f"component present; got {result.returncode}\nstdout: {result.stdout}\nstderr: {result.stderr}"
-        )
-        assert out_file.is_file(), f"Expected graph output file at {out_file}"
 
 
 # ============================================================================
@@ -344,11 +288,11 @@ class TestLiveCorpusGenerationBaseline:
 """
 Test Summary
 ============
-Total Tests: 6
+Total Tests: 4
 
-- TestGraphGenerationDoesNotCrashOnComponentsTools (3): component graph,
-  controls graph, risk graph — all via validate_riskmap.py subprocess CLI
-  against a synthetic componentsExternalTools corpus.
+- TestGraphGenerationDoesNotCrashOnComponentsTools (1): component graph via
+  validate_riskmap.py subprocess CLI against a synthetic
+  componentsExternalTools corpus.
 - TestTableGenerationDoesNotCrashOnComponentsTools (2): full + summary
   components tables via yaml_to_markdown.py subprocess CLI.
 - TestLiveCorpusGenerationBaseline (1): the live corpus still generates.

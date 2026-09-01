@@ -221,16 +221,16 @@ regenerated templates land in the same commit.
 ## 12. Graph Regeneration
 
 `regenerate-graphs` hook (`scripts/hooks/precommit/regenerate_graphs.py`)
-produces three Mermaid graph pairs based on which source yaml is staged:
+produces the component Mermaid graph pair when `components.yaml` is staged:
 
 | Trigger | Output `.md` + `.mermaid` |
 |---|---|
 | `components.yaml` | `risk-map/diagrams/risk-map-graph.{md,mermaid}` |
-| `components.yaml` OR `controls.yaml` | `risk-map/diagrams/controls-graph.{md,mermaid}` |
-| `components.yaml` OR `controls.yaml` OR `risks.yaml` | `risk-map/diagrams/controls-to-risk-graph.{md,mermaid}` |
 
-Each output pair is `git add`-ed on success. The wrapper delegates to
-`validate_riskmap.py --to-graph / --to-controls-graph / --to-risk-graph`.
+The output pair is `git add`-ed on success. The wrapper delegates to
+`validate_riskmap.py --to-graph`. Editing `controls.yaml` or `risks.yaml`
+alone no longer triggers this hook — the control and risk graph generators
+were removed per #477.
 
 ## 13. Table Regeneration
 

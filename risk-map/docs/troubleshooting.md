@@ -62,19 +62,7 @@ If you encounter issues with the automatic graph generation:
 python scripts/hooks/validate_riskmap.py --to-graph ./test-graph.md --force
 ```
 
-### 2. Control-to-component graph generation failed
-
-```
-❌ Control-to-component graph generation failed
-```
-
-**Fix**: Verify that both `controls.yaml` and `components.yaml` are accessible and properly formatted. Test manually:
-
-```bash
-python scripts/hooks/validate_riskmap.py --to-controls-graph ./test-controls.md --force
-```
-
-### 3. Generated graph not staged
+### 2. Generated graph not staged
 
 ```
 ⚠️ Warning: Could not stage generated graph
@@ -82,20 +70,13 @@ python scripts/hooks/validate_riskmap.py --to-controls-graph ./test-controls.md 
 
 **Fix**: Check file permissions and git repository status. Ensure `./risk-map/diagrams/` is writable (graph wrapper output location).
 
-### 4. Component layout seems suboptimal
+### 3. Component layout seems suboptimal
 
 **Fix**: Use debug mode to inspect graph structure:
 
 ```bash
 python scripts/hooks/validate_riskmap.py --to-graph ./debug-graph.md --debug --force
 ```
-
-### 5. Control graph looks cluttered or confusing
-
-**Fix**: The control graph uses automatic optimization. If results seem wrong, verify:
-- Control component references are accurate in `controls.yaml`
-- Component categories are correctly assigned in `components.yaml`
-- Test the graph generation manually to inspect the output
 
 ## Bypassing Validation (Not Recommended)
 

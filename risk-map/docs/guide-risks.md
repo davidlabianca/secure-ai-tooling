@@ -80,9 +80,7 @@ The `category` field is required and must be one of the following:
 - `risksRuntimeOutputSecurity` - Risks from insecure or malicious model outputs
   - Examples: `riskInsecureModelOutput`, `riskRogueActions`
 
-When adding a new risk, select the category that best describes where in the AI lifecycle the risk occurs. The category determines how the risk is grouped in the controls-to-risk visualization graph.
-
-**Note on visualization**: While risks are categorized individually in `risks.yaml`, the current `mermaid-styles.yaml` configuration applies a single visual style to all risk categories. Risk categories are grouped separately in the generated graphs but share the same pink color scheme.
+When adding a new risk, select the category that best describes where in the AI lifecycle the risk occurs.
 
 ## 3. Update Corresponding Controls
 
@@ -176,7 +174,6 @@ risks:
 
 **Note**: When you commit changes to `risks.yaml`, the pre-commit hook automatically generates:
 
-- Updated risk graph at `./risk-map/diagrams/controls-to-risk-graph.md`
 - Risk tables at `./risk-map/tables/risks-full.md` and `risks-summary.md`
 - Regenerated cross-reference at `./risk-map/tables/controls-xref-risks.md`
 
