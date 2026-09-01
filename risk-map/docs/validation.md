@@ -18,9 +18,6 @@ python scripts/hooks/validate_riskmap.py --to-graph ./my-graph.md --force
 
 # Generate component graph with debug annotations
 python scripts/hooks/validate_riskmap.py --to-graph ./debug-graph.md --debug --force
-
-# Generate control-to-component relationship graph
-python scripts/hooks/validate_riskmap.py --to-controls-graph ./controls-graph.md --force
 ```
 
 The validation script checks for:
@@ -29,38 +26,23 @@ The validation script checks for:
 - **No isolated components**: Components should have at least one `to` or `from` edge
 - **Valid component references**: All components referenced in edges must exist
 
-**Automatic Graph Generation**: The pre-commit framework invokes the `regenerate-graphs` hook (`scripts/hooks/precommit/regenerate_graphs.py`) when relevant files are staged. Each generated pair is staged with `git add` so it lands in the same commit (Mode B auto-stage):
+**Automatic Graph Generation**: The pre-commit framework invokes the `regenerate-graphs` hook (`scripts/hooks/precommit/regenerate_graphs.py`) when `components.yaml` is staged. The generated pair is staged with `git add` so it lands in the same commit (Mode B auto-stage):
 
 - **Component Graph**: When `components.yaml` is staged, generates `./risk-map/diagrams/risk-map-graph.md`
   - Uses Elk layout engine for automatic positioning and ranking
   - Organizes components into category-based subgraphs with configurable styling
-- **Control Graph**: When `components.yaml` OR `controls.yaml` is staged, generates `./risk-map/diagrams/controls-graph.md`
-  - Shows control-to-component relationships with optimization
-  - Dynamic component clustering and multi-edge styling
-- **Risk Graph**: When `components.yaml`, `controls.yaml` OR `risks.yaml` is staged, generates `./risk-map/diagrams/controls-to-risk-graph.md`
-  - Maps controls to risks they mitigate with component context
-  - Organizes risks into 5 color-coded category subgraphs
-  - Visualizes three-layer relationships: risks → controls → components
-- All generated graphs are automatically staged for inclusion in your commit
+
+The control-to-component and control-to-risk diagrams were withdrawn for low usage (#477); `controls-xref-components.md` and `controls-xref-risks.md` carry the same relationships in table form.
 
 _See [scripts documentation](../../scripts/README.md) for more information on the git hooks and validation._
 
 ## Manual Graph Generation
 
-Beyond automatic generation, you can manually generate both types of graphs using the validation script:
+Beyond automatic generation, you can manually generate the component graph using the validation script:
 
 ```bash
 # Generate component relationship graph
 python scripts/hooks/validate_riskmap.py --to-graph ./components.md --force
-
-# Generate control-to-component graph
-python scripts/hooks/validate_riskmap.py --to-controls-graph ./controls-graph.md --force
-
-# Generate control-to-risk relationship graph
-python scripts/hooks/validate_riskmap.py --to-risk-graph ./risk-graph.md --force
-
-# Generate all three graph types
-python scripts/hooks/validate_riskmap.py --to-graph ./components.md --to-controls-graph ./controls.md --to-risk-graph ./risk.md --force
 ```
 
 ## Framework versionId Generation
@@ -143,17 +125,6 @@ regardless of `--quiet`; only the generator's progress lines are suppressed.
 - Export risk catalog for documentation
 - Generate control mappings for compliance reports
 - Create cross-reference documentation
-
-**Control Graph Features:**
-
-- **Dynamic Component Clustering**: Automatically groups components that share multiple controls
-- **Category Optimization**: Maps controls to entire categories when they apply to all components in that category
-- **Multi-Edge Styling**: Uses different colors and patterns for controls with 3+ edges
-- **Consistent Styling**: Color-coded categories and visual hierarchy
-- **Mermaid Format**: Generates Mermaid-compatible diagrams ready for documentation
-
-**Example Control Graph Output:**
-The generated graph shows controls (grouped by category) connected to the components they protect, with optimization applied to reduce visual complexity while maintaining accuracy.
 
 ## Manual Control-to-Risk Reference Validation
 

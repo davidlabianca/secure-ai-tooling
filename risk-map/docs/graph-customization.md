@@ -1,10 +1,13 @@
 # Customizing Graph Appearance
 
-The CoSAI Risk Map system generates visual Mermaid graphs of component relationships and control-to-component mappings. You can fully customize the appearance of these graphs through the `risk-map/yaml/mermaid-styles.yaml` configuration file.
+The CoSAI Risk Map system generates a visual Mermaid graph of component relationships. You can fully customize its appearance through the `risk-map/yaml/mermaid-styles.yaml` configuration file.
 
 ## Understanding the Configuration Structure
 
-The `mermaid-styles.yaml` file uses a hierarchical structure with four main sections:
+The `mermaid-styles.yaml` file has four required top-level keys: `version`, `foundation`,
+`sharedElements`, and `graphTypes`. `version` is a schema-required semantic version
+string (e.g. `1.0.0`) and does not need its own section. The other three are described
+below.
 
 ### Foundation Design Tokens
 
@@ -13,56 +16,63 @@ Define semantic colors, stroke widths, and patterns used throughout the system:
 ```yaml
 foundation:
   colors:
-    primary: '#4285f4' # Google Blue - used for primary actions and "all" controls
-    success: '#34a853' # Google Green - used for success states and category mappings
-    accent: '#9c27b0' # Purple - first multi-edge style color
-    warning: '#ff9800' # Orange - second multi-edge style color
-    error: '#e91e63' # Pink - third multi-edge style color
+    primary: '#4285f4' # Google Blue - primary/brand color token
+    success: '#34a853' # Google Green - success color token
+    accent: '#9c27b0' # Purple - accent color token
+    warning: '#ff9800' # Orange - warning color token
+    error: '#e91e63' # Pink - error/emphasis color token
     neutral: '#333333' # Dark gray - used for borders and strokes
-    lightGray: '#f0f0f0' # Light gray - container backgrounds
-    darkGray: '#666666' # Medium gray - container borders
+    lightGray: '#f0f0f0' # Light gray - background color token
+    darkGray: '#666666' # Medium gray - border color token
   strokeWidths:
-    thin: '1px' # Subgroup borders
-    medium: '2px' # Standard component and control borders
-    thick: '3px' # Emphasis elements like container borders
+    thin: '1px' # Thin stroke width token
+    medium: '2px' # Medium stroke width token
+    thick: '3px' # Thick stroke width token
   strokePatterns:
     solid: '' # No dash pattern (solid lines)
     dashed: '5 5' # Standard dashed pattern
-    dotted: '8 4' # Dotted pattern for "all" control edges
-    longDash: '10 2' # Long dash pattern for multi-edge styles
-    longDashSpaced: '10 5' # Long dash with spacing for containers
+    dotted: '8 4' # Dotted dash pattern token
+    longDash: '10 2' # Long dash pattern token
+    longDashSpaced: '10 5' # Long dash pattern token, with spacing
 ```
+
+`foundation` is schema-required (`graph_utils.py`'s config loader checks for its presence)
+but nothing in the graphing pipeline reads its values: the component graph's actual
+colors, stroke widths, and dash patterns come from `sharedElements.componentCategories`
+below, set directly rather than derived from `foundation`. Editing `foundation.colors`
+or `foundation.strokeWidths` has no visible effect on the generated graph.
 
 ### Shared Elements
 
-Elements used by both component graphs and control graphs:
+Elements used by the component graph:
 
 ```yaml
 sharedElements:
-  cssClasses:
-    hidden: 'display: none;'
-    allControl: 'stroke:#4285f4,stroke-width:2px,stroke-dasharray: 5 5'
   componentCategories:
     componentsInfrastructure:
       fill: '#e6f3e6' # Light green for infrastructure components
       stroke: '#333333' # Dark gray border
       strokeWidth: '2px' # Medium border width
-      subgroupFill: '#d4e6d4' # Darker green for infrastructure subgroups
     componentsApplication:
       fill: '#e6f0ff' # Light blue for application components
       stroke: '#333333' # Dark gray border
       strokeWidth: '2px' # Medium border width
-      subgroupFill: '#e0f0ff' # Darker blue for application subgroups
     componentsModel:
       fill: '#ffe6e6' # Light red for model components
       stroke: '#333333' # Dark gray border
       strokeWidth: '2px' # Medium border width
-      subgroupFill: '#f0e6e6' # Darker red for model subgroups
+    componentsExternalTools:
+      fill: '#f3e6ff' # Light purple for tools components
+      stroke: '#333333' # Dark gray border
+      strokeWidth: '2px' # Medium border width
 ```
+
+All four component categories are **required** by `mermaid-styles.schema.json`; omitting any one fails
+schema validation.
 
 ### Graph Type Configurations
 
-Specific settings for component graphs and control graphs:
+Specific settings for the component graph:
 
 ```yaml
 graphTypes:
@@ -71,34 +81,13 @@ graphTypes:
     flowchartConfig:
       padding: 5 # Internal node padding
       wrappingWidth: 250 # Text wrapping width
-  control:
-    direction: 'LR' # Left-right layout optimized for control-to-component flow
-    flowchartConfig:
-      nodeSpacing: 25 # Space between nodes
-      rankSpacing: 150 # Space between ranks/levels
-      padding: 5 # Internal node padding
-      wrappingWidth: 250 # Text wrapping width
-    specialStyling:
-      edgeStyles:
-        multiEdgeStyles: # 4-color cycling system for controls with 3+ edges
-          - stroke: '#9c27b0' # Purple - solid
-            strokeWidth: '2px'
-          - stroke: '#ff9800' # Orange - dashed
-            strokeWidth: '2px'
-            strokeDasharray: '5 5'
-          - stroke: '#e91e63' # Pink - long dash
-            strokeWidth: '2px'
-            strokeDasharray: '10 2'
-          - stroke: '#C95792' # Magenta - long dash with spacing
-            strokeWidth: '2px'
-            strokeDasharray: '10 5'
 ```
 
 ## Common Customization Examples
 
 ### 1. Change Component Category Color Scheme
 
-To modify the color scheme for component categories (affects both graph types):
+To modify the color scheme for component categories:
 
 ```yaml
 sharedElements:
@@ -107,12 +96,10 @@ sharedElements:
       fill: '#e3f2fd' # Light blue instead of green
       stroke: '#333333'
       strokeWidth: '2px'
-      subgroupFill: '#bbdefb' # Darker blue for subgroups
     componentsApplication:
       fill: '#f3e5f5' # Light purple instead of blue
       stroke: '#333333'
       strokeWidth: '2px'
-      subgroupFill: '#e1bee7' # Darker purple for subgroups
 ```
 
 ### 2. Modify Graph Layout and Spacing
@@ -127,87 +114,6 @@ graphTypes:
       nodeSpacing: 40 # Increase space between nodes
       rankSpacing: 50 # Increase space between levels
       wrappingWidth: 300 # Allow wider text labels
-  control:
-    direction: 'TB' # Change to top-bottom layout
-```
-
-### 3. Customize Multi-Edge Control Styling
-
-To modify the 4-color cycling system for complex controls:
-
-```yaml
-graphTypes:
-  control:
-    specialStyling:
-      edgeStyles:
-        multiEdgeStyles:
-          - stroke: '#1976d2' # Blue theme
-            strokeWidth: '3px' # Thicker lines
-          - stroke: '#388e3c' # Green
-            strokeWidth: '3px'
-            strokeDasharray: '8 8'
-          - stroke: '#f57c00' # Orange
-            strokeWidth: '3px'
-            strokeDasharray: '12 4'
-          - stroke: '#7b1fa2' # Purple
-            strokeWidth: '3px'
-            strokeDasharray: '15 5'
-```
-
-### 4. Adjust Foundation Colors for Brand Consistency
-
-To align with organizational brand colors:
-
-```yaml
-foundation:
-  colors:
-    primary: '#0066cc' # Your brand primary color
-    success: '#00aa44' # Your brand success color
-    accent: '#6600cc' # Your brand accent color
-    neutral: '#404040' # Darker borders for better contrast
-```
-
-### 5. Customize Risk Category Appearance
-
-To modify colors for risk categories in the controls-to-risk graph:
-
-```yaml
-graphTypes:
-  risk:
-    specialStyling:
-      riskCategories:
-        risks:
-          fill: '#ffeef0' # Light pink background for risk category
-          stroke: '#e91e63' # Pink border for risk emphasis
-          strokeWidth: '2px'
-          subgroupFill: '#ffe0e6' # Darker pink for risk subgroups
-```
-
-**Note**: The current configuration uses a single `risks` category. Individual risk categories (like `risksSupplyChainAndDevelopment`, `risksDeploymentAndInfrastructure`, etc.) are defined in `risks.yaml` but share the same visual styling from this single `risks` configuration.
-
-### 6. Style All Three Graph Containers
-
-To create a consistent appearance across the risk graph's three layers:
-
-```yaml
-graphTypes:
-  risk:
-    specialStyling:
-      componentsContainer:
-        fill: '#e8f5e9' # Light green - bottom layer (components)
-        stroke: '#4caf50' # Green border
-        strokeWidth: '3px'
-        strokeDasharray: '10 5'
-      controlsContainer:
-        fill: '#e3f2fd' # Light blue - middle layer (controls)
-        stroke: '#2196f3' # Blue border
-        strokeWidth: '3px'
-        strokeDasharray: '10 5'
-      risksContainer:
-        fill: '#fce4ec' # Light pink - top layer (risks)
-        stroke: '#e91e63' # Pink border
-        strokeWidth: '3px'
-        strokeDasharray: '10 5'
 ```
 
 ## Testing Your Customizations
@@ -224,14 +130,11 @@ graphTypes:
    git commit -m "Update graph styling"
    ```
 
-3. **Generate test graphs** to preview your changes:
+3. **Generate a test graph** to preview your changes:
 
    ```bash
    # Generate component graph with your styling
    python3 scripts/hooks/validate_riskmap.py --to-graph test-component.md --force
-
-   # Generate control graph with your styling
-   python3 scripts/hooks/validate_riskmap.py --to-controls-graph test-control.md --force
    ```
 
 4. **View the results** by opening the generated Markdown files in a compatible viewer (see Visualizing Graphs below).
@@ -288,7 +191,7 @@ python scripts/hooks/validate_riskmap.py --to-graph ./test.md --mermaid-format -
 
 ## Advanced Customization Tips
 
-- **Consistent color schemes**: Use the `foundation.colors` section to define a palette, then reference these colors throughout the configuration
+- **Consistent color schemes**: Set colors directly on each `sharedElements.componentCategories` entry. `foundation.colors` is not read by the graph renderer, and the YAML has no anchor/alias mechanism, so there is no way to define a palette in `foundation` and reference it elsewhere in the file
 - **Accessibility**: Choose colors with sufficient contrast ratios for accessibility compliance
 - **Testing**: Generate graphs with diverse content (few vs. many components/controls) to ensure your styling works across different scenarios
 - **Version control**: Document your customization rationale in commit messages for future reference

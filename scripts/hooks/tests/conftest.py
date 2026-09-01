@@ -18,7 +18,7 @@ import pytest
 import yaml
 from referencing import Registry, Resource
 from referencing.jsonschema import DRAFT7
-from riskmap_validator.models import ComponentNode, ControlNode, RiskNode
+from riskmap_validator.models import ComponentNode
 from riskmap_validator.validator import ComponentEdgeValidator
 
 # ============================================================================
@@ -202,74 +202,6 @@ def base_uri(risk_map_schemas_dir: Path) -> str:
 # ============================================================================
 # Component and Control Fixtures
 # ============================================================================
-
-
-@pytest.fixture
-def sample_components():
-    """Sample component data for testing."""
-    return {
-        "componentDataSources": ComponentNode(
-            title="Data Sources", category="componentsData", to_edges=["componentDataValidation"], from_edges=[]
-        ),
-        "componentDataValidation": ComponentNode(
-            title="Data Validation",
-            category="componentsData",
-            to_edges=["componentModelTraining"],
-            from_edges=["componentDataSources"],
-        ),
-        "componentModelTraining": ComponentNode(
-            title="Model Training",
-            category="componentsModel",
-            to_edges=["componentModelDeployment"],
-            from_edges=["componentDataValidation"],
-        ),
-        "componentModelDeployment": ComponentNode(
-            title="Model Deployment",
-            category="componentsInfrastructure",
-            to_edges=[],
-            from_edges=["componentModelTraining"],
-        ),
-    }
-
-
-@pytest.fixture
-def sample_controls():
-    """Sample control data for testing."""
-    return {
-        "controlInputValidation": ControlNode(
-            title="Input Validation",
-            category="controlsData",
-            components=["componentDataSources", "componentDataValidation"],
-            risks=["riskDataPoisoning", "riskPromptInjection"],
-            personas=["personaModelCreator"],
-        ),
-        "controlModelIntegrity": ControlNode(
-            title="Model Integrity Management",
-            category="controlsModel",
-            components=["componentModelTraining", "componentModelDeployment"],
-            risks=["riskModelSourceTampering", "riskModelDeploymentTampering"],
-            personas=["personaModelCreator", "personaModelConsumer"],
-        ),
-        "controlUniversalSecurity": ControlNode(
-            title="Universal Security Controls",
-            category="controlsGovernance",
-            components=["all"],
-            risks=["all"],
-            personas=["personaModelCreator", "personaModelConsumer"],
-        ),
-    }
-
-
-@pytest.fixture
-def sample_risks():
-    """Sample risk data for testing."""
-    return {
-        "riskDataPoisoning": RiskNode(title="Data Poisoning", category="risks"),
-        "riskPromptInjection": RiskNode(title="Prompt Injection", category="risks"),
-        "riskModelSourceTampering": RiskNode(title="Model Source Tampering", category="risks"),
-        "riskModelDeploymentTampering": RiskNode(title="Model Deployment Tampering", category="risks"),
-        "OrphanRisk": RiskNode(title="Orphaned Risk", category="risks"),
-    }
 
 
 @pytest.fixture
@@ -715,21 +647,6 @@ def build_mermaid_styles(styled_categories: tuple[str, ...] | list[str] | None =
     """
     categories = tuple(styled_categories) if styled_categories is not None else _REAL_COMPONENT_CATEGORIES
     flowchart_config = {"nodeSpacing": 25, "rankSpacing": 30, "padding": 5, "wrappingWidth": 250}
-    components_container = {
-        "fill": "#f0f0f0",
-        "stroke": "#666666",
-        "strokeWidth": "3px",
-        "strokeDasharray": "10 5",
-    }
-    controls_container = {"fill": "#f0f0f0", "stroke": "#666666", "strokeWidth": "3px"}
-    multi_edge_styles = [
-        {"stroke": "#9c27b0", "strokeWidth": "2px"},
-        {"stroke": "#ff9800", "strokeWidth": "2px", "strokeDasharray": "5 5"},
-        {"stroke": "#e91e63", "strokeWidth": "2px", "strokeDasharray": "10 2"},
-        {"stroke": "#c95792", "strokeWidth": "2px", "strokeDasharray": "10 5"},
-    ]
-    all_control_edges = {"stroke": "#4285f4", "strokeWidth": "3px", "strokeDasharray": "8 4"}
-    subgraph_edges = {"stroke": "#34a853", "strokeWidth": "2px"}
 
     return {
         "version": "1.0.0",
@@ -754,16 +671,11 @@ def build_mermaid_styles(styled_categories: tuple[str, ...] | list[str] | None =
             },
         },
         "sharedElements": {
-            "cssClasses": {
-                "hidden": "display: none;",
-                "allControl": "stroke:#4285f4,stroke-width:2px,stroke-dasharray: 5 5",
-            },
             "componentCategories": {
                 category: {
                     "fill": "#e6f3e6",
                     "stroke": "#333333",
                     "strokeWidth": "2px",
-                    "subgroupFill": "#d4e6d4",
                 }
                 for category in categories
             },
@@ -773,47 +685,6 @@ def build_mermaid_styles(styled_categories: tuple[str, ...] | list[str] | None =
                 "direction": "TD",
                 "flowchartConfig": flowchart_config,
                 "specialStyling": {},
-            },
-            "control": {
-                "direction": "LR",
-                "flowchartConfig": flowchart_config,
-                "specialStyling": {
-                    "componentsContainer": components_container,
-                    "controlsContainer": controls_container,
-                    "edgeStyles": {
-                        "allControlEdges": all_control_edges,
-                        "subgraphEdges": subgraph_edges,
-                        "multiEdgeStyles": multi_edge_styles,
-                    },
-                },
-            },
-            "risk": {
-                "direction": "TD",
-                "flowchartConfig": flowchart_config,
-                "specialStyling": {
-                    "riskCategories": {
-                        "risks": {
-                            "fill": "#ffeef0",
-                            "stroke": "#e91e63",
-                            "strokeWidth": "2px",
-                            "subgroupFill": "#ffe0e6",
-                        }
-                    },
-                    "componentsContainer": components_container,
-                    "controlsContainer": controls_container,
-                    "risksContainer": {"fill": "#f0f0f0", "stroke": "#666666", "strokeWidth": "3px"},
-                    "edgeStyles": {
-                        "riskControlEdges": [
-                            {"stroke": "#e91e63", "strokeWidth": "2px", "strokeDasharray": "5 3"},
-                            {"stroke": "#d81b60", "strokeWidth": "2px", "strokeDasharray": "8 4"},
-                            {"stroke": "#c2185b", "strokeWidth": "2px", "strokeDasharray": "10 2"},
-                            {"stroke": "#ad1457", "strokeWidth": "2px", "strokeDasharray": "12 5"},
-                        ],
-                        "allControlEdges": all_control_edges,
-                        "subgraphEdges": subgraph_edges,
-                        "multiEdgeStyles": multi_edge_styles,
-                    },
-                },
             },
         },
     }

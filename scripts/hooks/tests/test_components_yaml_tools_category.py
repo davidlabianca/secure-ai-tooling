@@ -337,7 +337,7 @@ class TestNestingCheckCoversComponentsTools:
         """
         from riskmap_validator.utils import parse_components_yaml
 
-        components = parse_components_yaml(_COMPONENTS_YAML)
+        components = parse_components_yaml(_COMPONENTS_YAML).components
 
         with open(_COMPONENTS_YAML, encoding="utf-8") as fh:
             data = yaml.safe_load(fh)
@@ -365,7 +365,7 @@ class TestNestingCheckCoversComponentsTools:
         from riskmap_validator.utils import parse_components_yaml
         from riskmap_validator.validator import check_category_subcategory_nesting
 
-        components = parse_components_yaml(_COMPONENTS_YAML)
+        components = parse_components_yaml(_COMPONENTS_YAML).components
         if "componentTools" not in components:
             pytest.fail("componentTools not found in parsed live corpus")
 

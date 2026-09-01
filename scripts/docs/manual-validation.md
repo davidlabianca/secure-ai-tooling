@@ -90,10 +90,8 @@ self-scan the repo regardless of what files you pass.
 To regenerate derivatives (graphs, tables, SVGs) without staging a commit:
 
 ```bash
-# Graphs (components, controls, risks)
+# Component graph
 python3 scripts/hooks/validate_riskmap.py --to-graph risk-map/diagrams/risk-map-graph.md -m --quiet
-python3 scripts/hooks/validate_riskmap.py --to-controls-graph risk-map/diagrams/controls-graph.md -m --quiet
-python3 scripts/hooks/validate_riskmap.py --to-risk-graph risk-map/diagrams/controls-to-risk-graph.md -m --quiet
 
 # Tables
 python3 scripts/hooks/yaml_to_markdown.py components --all-formats --quiet

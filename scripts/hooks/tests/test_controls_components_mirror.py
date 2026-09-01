@@ -473,7 +473,7 @@ class TestCheckControlsComponentsMirror:
         components_path = _REPO_ROOT / "risk-map" / "yaml" / "components.yaml"
         controls_path = _REPO_ROOT / "risk-map" / "yaml" / "controls.yaml"
 
-        components = parse_components_yaml(components_path)
+        components = parse_components_yaml(components_path).components
         controls = parse_controls_yaml(controls_path)
         component_ids = set(components.keys())
 

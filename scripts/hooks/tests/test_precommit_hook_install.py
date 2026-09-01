@@ -21,7 +21,9 @@ scripts/hooks/tests/precommit_parity.sh.
 import re
 from pathlib import Path
 
+import pytest
 import yaml
+from packaging.version import Version
 
 # Repo root is four levels up from this file (scripts/hooks/tests/<here>).
 REPO_ROOT = Path(__file__).parent.parent.parent.parent
@@ -151,19 +153,44 @@ class TestRequiredHookIds:
 # Local wrapper hook contracts
 # ===========================================================================
 
-# (id, expected entry substring, expected files regex substring, pass_filenames)
+# (id, expected entry substring, expected files regex value, pass_filenames)
 # Substring match keeps the test stable against minor wording changes.
+#
+# regenerate-graphs and regenerate-tables are checked by full-string equality
+# (see _EXACT_FILES_VALUE_HOOK_IDS below), not substring search: their `files:`
+# value contains alternation syntax -- `(components|controls|risks|...)` -- as
+# its actual, intended content. Searching for that same alternation text with
+# re.search() does not check for the literal text; it *evaluates* the
+# alternation, so the assertion is satisfied by any one branch matching
+# anywhere in the string. That made the guard vacuous: it stayed green when
+# commit 1 narrowed regenerate-graphs's trigger from three forms to one,
+# because the surviving `components` branch alone still matched. Full-string
+# equality has no such ambiguity, and both hooks' entire `files:` value is
+# load-bearing (there is no incidental wrapper text to tolerate drift in), so
+# equality is the right contract here.
+#
+# regenerate-svgs's `\.\(mmd\|mermaid\)` avoids this particular trap: the
+# parens and pipe are backslash-escaped, so re.search matches them as literal
+# characters rather than evaluating an alternation. It is left as-is because it
+# does not have the bug described above -- not because the assertion is strong.
+# It pins only the extension, so retargeting the hook away from
+# risk-map/diagrams/ keeps it green. The same is true of the other entries
+# matched by fragment. Strengthening those is a separate change, and the
+# durable form is a fires-on/does-not-fire-on assertion over concrete paths
+# (as TestMappingValidatorOracleTrigger does) rather than a longer substring.
+_EXACT_FILES_VALUE_HOOK_IDS = {"regenerate-graphs", "regenerate-tables"}
+
 _WRAPPER_CONTRACTS = [
     (
         "regenerate-graphs",
         "scripts/hooks/precommit/regenerate_graphs.py",
-        "(components|controls|risks)",
+        r"^risk-map/yaml/components\.yaml$",
         True,
     ),
     (
         "regenerate-tables",
         "scripts/hooks/precommit/regenerate_tables.py",
-        "(components|controls|risks|personas)",
+        r"^risk-map/yaml/(components|controls|risks|personas)\.yaml$",
         True,
     ),
     (
@@ -202,9 +229,14 @@ class TestWrapperHookContracts:
                 f"Hook `{hook_id}` entry must reference `{entry_substr}`; got: {hook.get('entry')!r}"
             )
             files_value = hook.get("files", "")
-            assert re.search(files_substr, files_value), (
-                f"Hook `{hook_id}` files regex must contain `{files_substr}`; got: {files_value!r}"
-            )
+            if hook_id in _EXACT_FILES_VALUE_HOOK_IDS:
+                assert files_value == files_substr, (
+                    f"Hook `{hook_id}` files value must equal `{files_substr}` exactly; got: {files_value!r}"
+                )
+            else:
+                assert re.search(files_substr, files_value), (
+                    f"Hook `{hook_id}` files regex must contain `{files_substr}`; got: {files_value!r}"
+                )
             assert hook.get("pass_filenames") is pass_filenames, (
                 f"Hook `{hook_id}` pass_filenames must be {pass_filenames}; got: {hook.get('pass_filenames')!r}"
             )
@@ -1444,3 +1476,208 @@ class TestMappingValidatorOracleTrigger:
                     f"`{hook_id}` files: regex {files_regex!r} must match consumer "
                     f"YAML `{yaml_path}` (default scanned-content set)."
                 )
+
+
+# ===========================================================================
+# rev: pin alignment sentinel (ADR-005 § Addendum 2026-08-19, issue #382)
+# ===========================================================================
+
+# Maps each dual-versioned upstream hook repo to its requirements.txt pip
+# package name. Keyed by repo URL so a third dual-versioned tool is a
+# one-line addition (YAGNI: only the two real tools are registered).
+_DUAL_VERSIONED_REPOS: dict[str, str] = {
+    "https://github.com/python-jsonschema/check-jsonschema": "check-jsonschema",
+    "https://github.com/astral-sh/ruff-pre-commit": "ruff",
+}
+
+
+def _repo_blocks_by_url(repo_url: str) -> list[dict]:
+    """Return every top-level `repo:` block in the config matching repo_url.
+
+    A single repo URL can appear more than once (check-jsonschema has two
+    blocks: the schema-pair hooks and the check-metaschema hook), so this
+    returns a list rather than assuming uniqueness.
+    """
+    config = _load_config()
+    return [repo for repo in config.get("repos", []) if repo.get("repo") == repo_url]
+
+
+def _requirements_pin(package: str) -> str:
+    """Return the `==` pinned version for `package` in requirements.txt.
+
+    Raises AssertionError (via a failed match) if the package isn't pinned —
+    callers should always find a pin, since both dual-versioned packages are
+    also direct project dependencies per ADR-005 Addendum 2026-08-19.
+    """
+    content = REQUIREMENTS_PATH.read_text(encoding="utf-8")
+    match = re.search(rf"^{re.escape(package)}==(\S+)$", content, re.MULTILINE)
+    assert match, f"`{package}` must be pinned with `==` in requirements.txt"
+    return match.group(1)
+
+
+def _rev_is_behind(rev: object, requirements_version: str, repo_url: str) -> bool:
+    """Return True if `rev` is a version older than `requirements_version`.
+
+    Pure comparison helper: no file I/O, so it is unit-testable against
+    synthetic strings. Uses packaging.version.Version for numeric-aware
+    ordering (e.g. 0.37.10 > 0.37.4, which plain string comparison gets
+    wrong: "0.37.10" < "0.37.4" lexicographically).
+
+    `rev` is coerced to `str` first because an unquoted YAML value like
+    `0.38` loads as a Python float, and Version() rejects non-str input
+    with a TypeError rather than a clean assertion failure. A non-PEP440
+    rev (git SHA, branch name) raises InvalidVersion naturally — that still
+    fails the test, which is the fail-safe behavior we want.
+    """
+    rev_version = Version(str(rev))
+    requirements_pin_version = Version(requirements_version)
+    return rev_version < requirements_pin_version
+
+
+def _collect_rev_pin_failures(dual_versioned_repos: dict[str, str]) -> list[str]:
+    """Return one human-readable failure string per repo whose rev: pin is behind.
+
+    Args:
+        dual_versioned_repos: mapping of repo URL -> requirements.txt pip
+            package name (see _DUAL_VERSIONED_REPOS for the real shape).
+
+    Returns an empty list when every dual-versioned repo block's rev is at
+    or ahead of its requirements.txt pin.
+    """
+    failures: list[str] = []
+    for repo_url, pip_package in dual_versioned_repos.items():
+        requirements_version = _requirements_pin(pip_package)
+        blocks = _repo_blocks_by_url(repo_url)
+        assert blocks, f"No `{repo_url}` repo block found in .pre-commit-config.yaml"
+
+        for block in blocks:
+            raw_rev = block.get("rev")
+            assert raw_rev, f"`{repo_url}` repo block missing `rev:`"
+
+            if _rev_is_behind(raw_rev, requirements_version, repo_url):
+                failures.append(
+                    f"`{repo_url}` rev: pin is behind requirements.txt "
+                    f"(`{raw_rev}` < `{pip_package}=={requirements_version}`); "
+                    f"Dependabot's pre-commit ecosystem PR supplies the matching "
+                    f"bump, or run `pre-commit autoupdate` to realign manually."
+                )
+
+    return failures
+
+
+class TestRevPinAlignment:
+    """
+    PR-blocking alignment sentinel for dual-versioned upstream hook pins
+    (ADR-005 § Addendum 2026-08-19, issue #382).
+
+    check-jsonschema and ruff are each pinned twice: once as a `rev:` on an
+    upstream pre-commit repo block, and once as an `==` pin in requirements.txt.
+    The two pins are advanced by independent, asynchronous streams — separate
+    Dependabot ecosystem PRs (`pip` vs. `pre-commit`) landing at different
+    times — so this sentinel uses a direction-aware tolerance: it FAILS when a
+    `rev:` pin is *behind* its requirements.txt pin, and tolerates a `rev:`
+    pin that is *ahead* or equal. See the addendum's D2 for the transient-ahead
+    window rationale behind choosing direction-aware over exact-match.
+
+    This test is hermetic: it only parses the two tracked files, no network
+    call.
+    """
+
+    def test_check_jsonschema_both_blocks_agree_with_each_other(self):
+        """
+        Given: .pre-commit-config.yaml, which declares check-jsonschema twice
+               (the per-yaml schema-pair block and the check-metaschema block)
+        When:  comparing the `rev:` value on each block
+        Then:  both blocks have a non-empty `rev:` and the two revs are identical
+        """
+        repo_url = "https://github.com/python-jsonschema/check-jsonschema"
+        blocks = _repo_blocks_by_url(repo_url)
+        assert len(blocks) == 2, (
+            f"Expected exactly two `{repo_url}` repo blocks (schema-pair hooks + "
+            f"check-metaschema); found {len(blocks)}. Update this test if the "
+            f"config's block count intentionally changed."
+        )
+        revs = [block.get("rev") for block in blocks]
+        for i, rev in enumerate(revs):
+            assert rev, (
+                f"`{repo_url}` repo block {i} is missing a non-empty `rev:` key "
+                f"(got {rev!r}). Every dual-versioned repo block must pin a rev "
+                f"before it can be compared for agreement."
+            )
+        assert len(set(revs)) == 1, (
+            f"The two check-jsonschema repo blocks in .pre-commit-config.yaml must pin "
+            f"the same rev; found disagreeing revs {sorted(map(str, revs))!r}. Run "
+            f"`pre-commit autoupdate` and ensure both blocks land on the same version."
+        )
+
+    def test_rev_pins_are_not_behind_requirements_txt(self):
+        """
+        Given: .pre-commit-config.yaml rev: pins and requirements.txt == pins
+               for check-jsonschema and ruff
+        When:  comparing each rev against its requirements.txt version via
+               _collect_rev_pin_failures (numeric version comparison, so e.g.
+               0.37.10 > 0.37.4 compares correctly)
+        Then:  the rev is >= the requirements.txt pin for every dual-versioned
+               repo block (the helper returns no failures)
+
+        Direction-aware tolerance (ADR-005 § Addendum 2026-08-19 D2): a rev
+        that is *ahead* of requirements.txt is tolerated (only stale, not
+        wrong); a rev that is *behind* fails, naming the Dependabot pre-commit
+        channel and `pre-commit autoupdate` as the fix. The comparison
+        contract itself (behind/ahead/equal, numeric ordering) is pinned
+        against synthetic inputs in TestRevIsBehindHelper below.
+        """
+        failures = _collect_rev_pin_failures(_DUAL_VERSIONED_REPOS)
+        assert not failures, "rev: pin(s) behind requirements.txt:\n" + "\n".join(f"  - {f}" for f in failures)
+
+
+# ===========================================================================
+# Synthetic unit tests for the rev-vs-requirements comparison contract
+# (adversarial-review hardening, issue #382)
+# ===========================================================================
+#
+# The tests above exercise _rev_is_behind only against live repo state, which
+# means a mutation to the comparison operator (e.g. `<` -> `>` or `!=`) or a
+# deletion of the failure-append would still leave the suite green as long as
+# the live drift happens to match. These tests pin the contract against
+# synthetic version strings so the core comparison logic is unit-tested
+# independent of whatever .pre-commit-config.yaml / requirements.txt currently
+# contain.
+
+
+class TestRevIsBehindHelper:
+    """
+    Direct unit tests for the pure `_rev_is_behind` helper.
+
+    Covers the three-way direction contract (behind/ahead/equal) plus a
+    numeric-ordering case that plain string comparison would get wrong.
+    """
+
+    @pytest.mark.parametrize(
+        "rev, requirements_version, expected_behind",
+        [
+            # Behind: rev is strictly older than requirements.txt -> violation.
+            ("0.37.1", "0.37.4", True),
+            # Ahead: rev is newer than requirements.txt -> tolerated.
+            ("0.38.0", "0.37.4", False),
+            # Equal: rev matches requirements.txt exactly -> tolerated.
+            ("0.16.0", "0.16.0", False),
+            # Numeric ordering, ahead: "0.37.10" < "0.37.4" as strings, but
+            # 0.37.10 > 0.37.4 as versions -> must be tolerated, not flagged.
+            ("0.37.10", "0.37.4", False),
+            # Numeric ordering, behind: "0.9.0" > "0.10.0" as strings, but
+            # 0.9.0 < 0.10.0 as versions -> must be flagged as a violation.
+            ("0.9.0", "0.10.0", True),
+        ],
+    )
+    def test_behind_ahead_equal_contract(self, rev, requirements_version, expected_behind):
+        """
+        Given: a synthetic rev and requirements.txt version pair
+        When:  _rev_is_behind is called directly (no file I/O)
+        Then:  it returns True only when rev is strictly behind, honoring
+               numeric (not lexicographic) version ordering
+        """
+        result = _rev_is_behind(rev, requirements_version, repo_url="https://example.invalid/repo")
+        assert result is expected_behind, (
+            f"_rev_is_behind({rev!r}, {requirements_version!r}) returned {result!r}, expected {expected_behind!r}"
+        )

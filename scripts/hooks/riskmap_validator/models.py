@@ -165,31 +165,3 @@ class ControlNode:
             and self.risks == other.risks
             and self.personas == other.personas
         )
-
-
-class RiskNode:
-    """
-    Represents a risk with title and category for graph generation.
-    """
-
-    def __init__(self, title: str, category: str = "") -> None:
-        """
-        Initialize risk with validation.
-
-        Args:
-            title: Risk title
-            category: Risk category (optional)
-        """
-        if not isinstance(title, str) or not title.strip():
-            raise TypeError("Risk 'title' must be a non-empty string.")
-        self.title: str = title
-
-        if not isinstance(category, str):
-            raise TypeError("Risk 'category' must be a string.")
-        self.category: str = category
-
-    def __repr__(self) -> str:
-        return f"RiskNode(title='{self.title}', category='{self.category}')"
-
-    def __str__(self) -> str:
-        return f"Risk '{self.title}' (Category: {self.category or 'Unknown'})"

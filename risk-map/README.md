@@ -57,9 +57,7 @@ The framework is organized into a set of YAML files for easy reading and JSON sc
 - **SVG Files (`.svg`)**: Automatically generated graphical visualizations
   - svg/
     - `risk-map-graph.svg`: Component relationship visualization showing the complete AI system architecture
-    - `controls-graph.svg`: Control-to-component mapping visualization
-    - `controls-to-risk-graph.svg`: Control-to-risk mapping visualization
-    - `map.svg`: Legacy comprehensive visualization (being phased out in favor of the above focused diagrams)
+    - `map.svg`: Legacy comprehensive visualization, retained alongside the focused component diagram above
 
 ## Background
 
@@ -105,7 +103,7 @@ We made several design choices while creating this visualization:
 
    This expansion enables practitioners to better understand the security implications at each stage of agent operation, from receiving user input through reasoning and planning to executing actions via external tools.
 
-2. **Control mapping visualizations:** The framework now includes automated generation of control-to-risk and control-to-component mapping diagrams, providing clear traceability between security controls and the risks they mitigate. See the [Control Mapping](#control-mapping) section below for details.
+2. **Control mapping cross-reference tables:** The framework includes automated generation of control-to-risk and control-to-component cross-reference tables, providing clear traceability between security controls and the risks they mitigate. See the [Control Mapping](#control-mapping) section below for details.
 
 ### Future directions
 
@@ -116,11 +114,11 @@ While significant progress has been made, opportunities for continued enhancemen
 
 ## Control Mapping
 
-The CoSAI Risk Map includes comprehensive mapping between controls, risks, and components, providing traceability throughout the AI security lifecycle. These mappings are automatically generated from the YAML definitions and visualized as interactive diagrams.
+The CoSAI Risk Map includes comprehensive mapping between controls, risks, and components, providing traceability throughout the AI security lifecycle. These mappings are automatically generated from the YAML definitions and published as cross-reference tables. Dedicated control-to-risk and control-to-component diagrams were withdrawn for low usage; the tables below carry the same relationships.
 
 ### Control-to-Risk Mapping
 
-The control-to-risk mapping ([`controls-to-risk-graph.svg`](./svg/controls-to-risk-graph.svg)) shows which security controls address specific risks. This visualization helps practitioners:
+The control-to-risk cross-reference ([`controls-xref-risks.md`](./tables/controls-xref-risks.md)) shows which security controls address specific risks. This helps practitioners:
 
 - **Identify applicable controls**: Quickly find which controls mitigate a specific risk
 - **Assess coverage**: Understand which risks have multiple defense layers
@@ -130,19 +128,19 @@ Each control in [`controls.yaml`](./yaml/controls.yaml) includes a `risks` field
 
 ### Control-to-Component Mapping
 
-The control-to-component mapping ([`controls-graph.svg`](./svg/controls-graph.svg)) illustrates where in the AI system lifecycle each control should be applied. This helps teams:
+The control-to-component cross-reference ([`controls-xref-components.md`](./tables/controls-xref-components.md)) illustrates where in the AI system lifecycle each control should be applied. This helps teams:
 
 - **Assign ownership**: Clarify which teams are responsible for implementing specific controls
 - **Understand scope**: See which components are affected by a control implementation
 - **Trace impacts**: Analyze how control changes affect different parts of the system
 
-Each control specifies applicable `components` and `personas` (Model Creator or Model Consumer), enabling role-based security guidance.
+Each control specifies applicable `components` and `personas`, enabling role-based security guidance.
 
 ### Automated Generation
 
 These mappings are automatically generated and validated through the project's development workflow:
 
-- **Pre-commit hooks**: When YAML files are modified, corresponding Mermaid diagrams and SVG visualizations are regenerated
+- **Pre-commit hooks**: When YAML files are modified, the corresponding cross-reference tables are regenerated
 - **CI/CD validation**: GitHub Actions ensure all mappings remain consistent with the YAML definitions
 - **Bidirectional validation**: The framework validates that component edges, risk references, and control mappings are correctly cross-referenced
 
