@@ -536,11 +536,8 @@ controls:
       - riskAgenticDelegationConfusedDeputy
       - riskCrossTenantCredentialPropagation
     mappings:
-      mitre-atlas:
-        - AML.M0028@5.0.1
       nist-ai-rmf:
-        - MEASURE-2.11@1.0
-        - GOVERN-6.2@1.0
+        - MEASURE-2.7@1.0
       owasp-top10-llm:
         - LLM06:2025
     lifecycleStage:
@@ -890,7 +887,6 @@ controls:
         - LLM06:2025
       nist-ai-rmf:
         - MEASURE-2.10@1.0
-        - GOVERN-6.2@1.0
     lifecycleStage:
       - deployment
       - runtime
