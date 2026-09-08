@@ -1,0 +1,99 @@
+{
+  "agent_name": "component-creator",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "We think agents need a dedicated component for storing and retrieving conversation history and learned facts across sessions and turns, so the agent doesn't lose context between interactions. Can you draft the components.yaml entry?",
+      "expected_output": "Runs the C1 absorb-or-decompose check against the real, live risk-map/yaml/components.yaml and finds this already covered by componentMemory, whose description states almost verbatim the same capability ('Memory allows a model or agent to retain context and learn facts across interactions'). Recommends against drafting a new, separately-idd component, points to componentMemory by id, and cites at least one real control from controls.yaml that already lists componentMemory in its components field (e.g. controlAgentCredentialIsolation, controlIsolatedConfidentialComputing, or controlAgentPluginPermissions) as evidence this locus already carries governance weight.",
+      "expectations": [
+        "Grounds the C1 absorb-or-decompose judgment in the real, live risk-map/yaml/components.yaml -- names componentMemory as the specific real entry this overlaps with, quoting or closely paraphrasing its actual description text ('retain context and learn facts across interactions') as evidence, not just asserting overlap",
+        "Does not draft a new, separately-idd components.yaml entry for this request; clearly recommends against creating one",
+        "Cites at least one real control from risk-map/yaml/controls.yaml that already lists componentMemory in its components field (controlAgentCredentialIsolation, controlIsolatedConfidentialComputing, or controlAgentPluginPermissions) as evidence this locus already carries governance weight",
+        "The recommendation against a new component is not phrased as an unchallengeable, process-ending refusal -- it does not shut down a reasonable follow-up question, even though (because the overlap is unambiguous) it is not required to proactively invite one"
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "Our agent platform runs its own MCP-compatible tool server that hosts and exposes tool integrations to the agent. We want a components.yaml entry for the tool server itself -- the hosting/runtime layer, not just the tools it exposes. Can you draft it?",
+      "expected_output": "Runs the C1 check against the real, live components.yaml and correctly declines to absorb this into componentTools -- that entry's existing description ('the external APIs and services an agent uses... least-privilege permissions... deceptive descriptions on third-party tools') covers the agent's use of tools, not the deployment/runtime substrate that hosts and serves a tool server process. Draws on the same structural pattern the corpus already uses elsewhere to separate a deployment/infrastructure-layer component from the logical component it serves (componentModelServing, category componentsInfrastructure/subcategory componentsModelDeployment, feeding into componentTheModel) and drafts a new, analogously-titled 'Tool Serving Infrastructure' component. Generalizes away from 'MCP' throughout, keeping it only as an inline example. Places the new entry in category componentsInfrastructure with subcategory componentsModelDeployment (the only schema-valid infrastructure subcategory besides componentsData), while flagging as a maintainer question that the subcategory's title ('Model deployment components') is a stretch for a tool-hosting element. Sets edges.to including componentTools and states the required reciprocal edit on componentTools.edges.from. Produces all six output-contract sections in order.",
+      "expectations": [
+        "Grounds the C1 judgment in the real, live components.yaml -- explicitly reasons that componentTools's existing description (the agent's use of tools, least-privilege, tool-description trust) does not already cover a deployment/hosting locus, so this cannot cleanly absorb into componentTools",
+        "Relies on the real structural precedent already present in components.yaml that separates a deployment/infrastructure-layer node from the logical component it serves (citing componentModelServing -- category componentsInfrastructure, subcategory componentsModelDeployment -- as distinct from componentTheModel) to justify drafting tool-hosting infrastructure as its own new node rather than folding it into componentTools",
+        "Generalizes away from 'MCP' as the defining term -- MCP appears, if at all, only as an inline example, not in the drafted id, title, or the defining sentence of the description",
+        "Places the new component's category as componentsInfrastructure with subcategory componentsModelDeployment -- the only schema-valid infrastructure subcategory (besides componentsData) available under the schema's if/then block -- and does not leave category or subcategory unset or invalid",
+        "States the required reciprocal edge edit explicitly: edges.to includes componentTools, and componentTools gains the new component's id in its own edges.from",
+        "Flags, as a maintainer question rather than deciding it unilaterally, that the chosen subcategory's title ('Model deployment components') is an imperfect terminological fit for a tool-hosting infrastructure element -- surfaces the tension rather than silently picking it with no comment",
+        "Produces all six output-contract sections, in order: Proposed entry, Schema note, Reciprocal edge edits, Counterfactuals, Maintainer flags, Blast-radius + validation"
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "We want to add a 'Pinecone' component representing the vector database our agent's RAG pipeline queries for embeddings. Can you draft the components.yaml entry?",
+      "expected_output": "Runs C2 (role, not product) and recognizes 'Pinecone' names a specific vector-database product, not an architectural role; generalizes it to the RAG/embedding retrieval content locus. Cross-checks against the real, live components.yaml and finds this generalized role is already covered by componentRAGContent, whose description already names 'curated knowledge to ground [the agent's] responses' and 'data poisoning' as its named security risk -- a vector database storing embeddings for retrieval is a concrete instance of exactly this. Recommends against drafting a new, separately-idd component; states that componentRAGContent's existing data-poisoning framing already covers vector-database/embedding-store poisoning as an instance, with 'Pinecone' noted only as an example implementation, not a defining term.",
+      "expectations": [
+        "Identifies 'Pinecone' as a specific product name, not an architectural role, and explicitly generalizes it (e.g. to a vector/embedding retrieval store or similarly role-level language) rather than drafting a component identified by the product name",
+        "Grounds the absorb judgment in the real, live components.yaml -- names componentRAGContent as the specific real entry this overlaps with, citing its actual description text (curated knowledge for RAG, data poisoning as the named security risk) as evidence",
+        "Does not draft a new, separately-idd components.yaml entry titled after or centered on 'Pinecone' or a generic new 'vector database' role",
+        "Nowhere does 'Pinecone' appear as the defining term of the recommendation -- it appears, if at all, only as an inline example of an implementation of the existing componentRAGContent role"
+      ]
+    },
+    {
+      "id": 4,
+      "prompt": "Please update componentTools in components.yaml to add its MITRE ATLAS mapping (something like AML.T0010@5.0.1) and NIST AI RMF mapping (something like MEASURE-1.1@1.0), since it clearly should have framework mappings the same way controls and risks do.",
+      "expected_output": "Declines to populate the mappings field on componentTools despite the explicit push. Cites the guardrail directly: components.schema.json already defines an optional mappings field (per ADR-018 D6 + ADR-027) but no component in the live corpus populates it today, and beginning to populate component mappings is a maintainer rollout/governance call, not something to preempt unilaterally on a single edit. Surfaces this explicitly as a maintainer flag rather than adding the mappings field, and does not add AML.T0010@5.0.1 or MEASURE-1.1@1.0 to the draft.",
+      "expectations": [
+        "Does not add a mappings field, or any mitre-atlas/nist-ai-rmf entry, to the drafted/edited componentTools entry, even though the user explicitly asked for it",
+        "Explicitly states that no component in the current live corpus populates the mappings field and that beginning to do so is a maintainer governance/rollout call, not a decision to make unilaterally on a single edit -- grounds the refusal in this stated rationale rather than a bare 'no'",
+        "Surfaces the request as a maintainer flag (the output-contract's Maintainer flags section, or a clearly equivalent surfaced note) rather than silently dropping it with no explanation",
+        "Does not present the specific proposed identifiers (AML.T0010@5.0.1, MEASURE-1.1@1.0) as verified, correct, or otherwise settled -- since the entire field is being deferred, these values are not validated or adopted"
+      ]
+    },
+    {
+      "id": 5,
+      "prompt": "We want a policy-enforcement component that sits between the agent's reasoning core and the orchestration layer: every action the reasoning core wants to hand off for execution has to get an explicit allow/deny decision from this gate before it proceeds. Draft the components.yaml entry.",
+      "expected_output": "Clears C1 (cannot cleanly absorb into componentReasoningCore's passing mention of mandatory-confirmation guardrails, nor into componentOrchestrationInputHandling's data-validation-and-normalization-only scope; naming it separately tells a reader where an authorization-gating control attaches). Drafts a new component (e.g. componentAgentActionAuthorizationGate) with edges.to including componentOrchestrationInputHandling and edges.from including componentReasoningCore, correctly identifying that this sits directly between two components that today share a real, live direct edge (componentReasoningCore.edges.to already includes componentOrchestrationInputHandling, and componentOrchestrationInputHandling.edges.from already includes componentReasoningCore). Explicitly applies the in-line-insertion guidance from Workflow step 6: considers whether that existing direct edge should be removed so flow is routed through the new gate, and flags the removal plus its migration impact (which risks/controls currently sit on that direct edge) for the maintainer, rather than silently leaving the direct edge in place as a bypass. States the reciprocal edits on both real neighboring components.",
+      "expectations": [
+        "Clears C1: explicitly reasons that this does not cleanly absorb into either componentReasoningCore (whose mandatory-confirmation mention is a guardrail example within its own description, not a distinct enforcement node) or componentOrchestrationInputHandling (whose scope is data validation/normalization, not authorization decisions) -- cites the real description text of at least one of these two components as evidence",
+        "Sets edges to place the new component between componentReasoningCore and componentOrchestrationInputHandling specifically (edges.from including componentReasoningCore, edges.to including componentOrchestrationInputHandling, or an equivalent placement between these two specific real neighbors)",
+        "Correctly identifies, using the real live components.yaml, that componentReasoningCore.edges.to already includes componentOrchestrationInputHandling and componentOrchestrationInputHandling.edges.from already includes componentReasoningCore today -- i.e. recognizes this is a genuine in-line insertion between two components that already share a direct edge, not a fresh addition with no prior connection",
+        "Per Workflow step 6, explicitly considers or raises whether the existing direct componentReasoningCore-to-componentOrchestrationInputHandling edge should be removed so flow routes through the new gate, and flags this removal -- with its migration impact, i.e. the risks/controls currently attached to that direct edge -- for the maintainer, rather than silently leaving the bypassable direct edge in place with no comment",
+        "States the required reciprocal edge edits explicitly on both real neighboring components, not just the new component's own edges block",
+        "Places category and subcategory in a schema-valid combination per the if/then block in components.schema.json, and does not leave either field unset"
+      ]
+    },
+    {
+      "id": 6,
+      "prompt": "We're drafting a components.yaml entry for a 'Reasoning State Checkpoint Store' -- it periodically writes the agent's intermediate reasoning/planning state to disk so a crashed agent session can resume where it left off. Please set category to componentsInfrastructure and subcategory to componentsAgent, since it's disk storage specifically for agent state.",
+      "expected_output": "Recognizes the requested category/subcategory pairing (componentsInfrastructure + componentsAgent) violates the real, live components.schema.json's if/then constraint -- componentsInfrastructure only accepts componentsData or componentsModelDeployment as its subcategory; componentsAgent is valid only under componentsApplication. Does not comply with the invalid pairing as given; corrects it -- most defensibly by recategorizing to componentsApplication/componentsAgent, since neither valid Infrastructure subcategory is a good semantic fit for agent-session-state checkpointing and componentsApplication/componentsAgent already houses the other agent-runtime-state components -- and explains the correction by citing the schema's if/then block rather than silently substituting a different pairing with no comment. May separately raise whether this idea absorbs into an existing component (e.g. componentMemory) under C1; either resolution is acceptable as long as the final category/subcategory pairing delivered is schema-valid.",
+      "expectations": [
+        "Explicitly identifies that componentsInfrastructure + componentsAgent is NOT a valid category/subcategory pairing under the real components.schema.json's if/then block (componentsInfrastructure only accepts componentsData or componentsModelDeployment as its subcategory) -- states this as the reason for not complying with the request as given",
+        "Does not produce a final draft carrying the invalid componentsInfrastructure/componentsAgent pairing -- the delivered category/subcategory combination is schema-valid",
+        "Explains the correction rather than silently substituting a different pairing with no comment",
+        "If the response also raises whether this idea absorbs into an existing component (e.g. componentMemory) under C1, that determination does not need to reach a specific answer to pass this case -- but if it drafts a new entry, the drafted category/subcategory pairing must be schema-valid",
+        "Cites the schema's if/then mechanism itself (not just a bare assertion that the requested pairing is 'wrong') as the grounds for the correction"
+      ]
+    },
+    {
+      "id": 7,
+      "prompt": "Does componentMemory, as it exists today in risk-map/yaml/components.yaml, already address cross-tenant memory isolation? I was about to draft a new 'Memory Isolation Boundary' component for that.",
+      "expected_output": "Confirms componentMemory is a real entry in the live components.yaml and that its description already names cross-user/cross-tenant memory isolation as one of the security exposures it covers ('Data loss through improper isolation: Sensitive data may be disclosed due to inadequate memory isolation between different users and contexts'). Cites at least one real control already attached to componentMemory whose subject matter is specifically tenant/credential isolation (controlAgentCredentialIsolation or controlIsolatedConfidentialComputing) as further evidence. Advises against drafting a separate 'Memory Isolation Boundary' component, recommending instead that isolation-specific controls or risks attach to the existing componentMemory node.",
+      "expectations": [
+        "Confirms componentMemory exists in the real, live risk-map/yaml/components.yaml and grounds the answer in that live corpus, not an invented or fixture source",
+        "Quotes or closely paraphrases componentMemory's actual description text naming cross-user/cross-context memory isolation as an already-covered concern (the 'Data loss through improper isolation... between different users and contexts' bullet)",
+        "Cites at least one real control from risk-map/yaml/controls.yaml whose components field already lists componentMemory and whose subject matter is isolation/tenant-scoping (controlAgentCredentialIsolation or controlIsolatedConfidentialComputing) as supporting evidence",
+        "Advises against drafting a new, separately-idd 'Memory Isolation Boundary' (or similarly named) component and instead recommends attaching isolation-specific concerns to the existing componentMemory entry"
+      ]
+    },
+    {
+      "id": 8,
+      "prompt": "Use ONLY the fixture in scripts/agents-evals/component-creator/fixtures/components-fixture.md to judge whether this is a new component -- not the live, growing risk-map/yaml/components.yaml, which changes over time (per ADR-033 Amendment 2026-07-30, this is a pinned eval fixture, not corpus content).\n\nWe want to add a component for a plugin marketplace / third-party tool registry that agents browse and pull new tool integrations from at runtime. Does this already fit an existing fixture entry, or is it new?",
+      "expected_output": "Uses only the fixture's five entries to judge overlap, not the live components.yaml. Recognizes componentFixtureToolInvocation already covers this -- its text is deliberately broad enough to name 'however those integrations are discovered, registered, or pulled into the agent's available tool set,' which is exactly what a plugin marketplace/registry does. Recommends against drafting a new, separately-idd component.",
+      "expectations": [
+        "Uses only the fixture list at scripts/agents-evals/component-creator/fixtures/components-fixture.md to judge overlap, not the live components.yaml",
+        "Identifies componentFixtureToolInvocation as covering essentially the same capability, citing the fixture's own text (the explicit mention of tool discovery/registration) as evidence",
+        "Does not silently draft a new, separately-idd components.yaml entry for the plugin marketplace/registry idea",
+        "Recommends against drafting a new component, pointing to componentFixtureToolInvocation as the entry that already covers it"
+      ]
+    }
+  ]
+}
