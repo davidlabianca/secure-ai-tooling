@@ -69,7 +69,7 @@
       "expectations": [
         "Uses only the fixture's pinned category/subcategory taxonomy table to judge schema validity, not the live components.schema.json",
         "Explicitly identifies that componentsInfrastructure + componentsAgent is NOT a valid pairing under the fixture's taxonomy table (componentsInfrastructure only accepts componentsData or componentsModelDeployment there) -- states this as the reason for not complying with the request as given",
-        "Does not produce a final draft carrying the invalid componentsInfrastructure/componentsAgent pairing -- the delivered category/subcategory combination is valid under the fixture's table",
+        "Affirmatively identifies at least one category/subcategory pairing that IS valid under the fixture's table, and never delivers or endorses the invalid componentsInfrastructure/componentsAgent pairing. Producing no placement at all does NOT satisfy this: a response that reaches an absorb verdict and therefore drafts no new component must still state which pairing the request should have used, so that placement competence is demonstrated rather than sidestepped",
         "Names the lawful placement explicitly rather than leaving the correction implicit or unstated. If a new component is drafted, explicitly names the corrected pairing it delivers (e.g. componentsApplication/componentsAgent). If the verdict is absorb, so that no new component carries a pairing, explicitly names the lawful pairing(s) the invalid request should have used -- the point is that the correction is stated, not that a draft is produced",
         "Cites the fixture's taxonomy table itself (not just a bare assertion that the requested pairing is 'wrong') as the grounds for the correction"
       ]
