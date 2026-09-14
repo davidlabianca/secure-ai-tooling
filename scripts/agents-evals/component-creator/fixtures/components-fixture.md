@@ -38,7 +38,7 @@ extended.
 
 ## Deliberate coverage gaps
 
-The fixture is deliberately built so that no entry above covers either of the following loci,
+The fixture is deliberately built so that no entry above covers any of the following loci,
 grounding a "keep as new" verdict for eval cases proposing them:
 
 - **Tool-hosting/serving infrastructure.** No entry represents the deployment/runtime substrate that
@@ -51,6 +51,12 @@ grounding a "keep as new" verdict for eval cases proposing them:
   `componentFixtureReasoningCore` selects and plans actions but does not gate their execution;
   `componentFixtureOrchestrationGateway` validates and normalizes the request but, per its own
   description above, explicitly does not evaluate authorization.
+- **Audit/telemetry record storage.** No entry represents the durable store that other components
+  write audit and telemetry records to for later review. `componentFixtureMemoryStore` holds context
+  that is read back into the agent's reasoning, so its failure mode is poisoning of retained context;
+  an audit record is written and is *not* consumed by the agent, so its failure mode is alteration,
+  truncation, or unauthorized read of the record. `componentFixtureReasoningCore` and
+  `componentFixtureOrchestrationGateway` emit such records but do not retain them.
 
 ## Fixture edges
 
