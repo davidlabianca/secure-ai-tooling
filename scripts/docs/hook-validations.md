@@ -262,7 +262,8 @@ SVGs under `risk-map/svg/` via `npx mmdc`, then `git add`s each output.
 
 1. `CHROMIUM_PATH` env var (if set and non-empty) — explicit override
 2. On Linux ARM64: recursive search under `$PLAYWRIGHT_BROWSERS_PATH`
-   (default `~/.cache/ms-playwright`) for `headless_shell` then `chrome`
+   (default `~/.cache/ms-playwright`) for `chrome-headless-shell` (Playwright
+   >=1.63) then `headless_shell` (pre-1.63) then `chrome`
 3. Otherwise: mmdc's bundled auto-detect
 
 One shared puppeteer config is written per invocation and cleaned up in a
