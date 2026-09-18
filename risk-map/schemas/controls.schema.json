@@ -109,7 +109,9 @@
             "controlAIComponentPatchManagement",
             "controlAuditRecordRepositoryIndependence",
             "controlAuditTrailCompleteness",
-            "controlAuditTrailIntegrityVerification"
+            "controlAuditTrailIntegrityVerification",
+            "controlMemoryReferentRevalidation",
+            "controlGenerativeModelAlignment"
           ]
         },
         "title": { "type": "string", "maxLength": 100 },

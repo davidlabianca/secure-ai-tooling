@@ -516,6 +516,7 @@ controls:
       - riskRogueActions
       - riskUnconsentedAgentAction
       - riskConsentFatigue
+      - riskErroneousAgentAction
   - id: controlAgentPluginPermissions
     title: Agent Permissions
     description:
@@ -561,6 +562,8 @@ controls:
       - riskOverScopedToolAuthority
       - riskConsentFatigue
       - riskImplicitCrossBoundaryTrust
+      - riskAgentMemoryPoisoning
+      - riskErroneousAgentAction
     mappings:
       mitre-atlas:
         - AML.M0028@5.0.1
@@ -710,6 +713,7 @@ controls:
       - riskUnconsentedAgentAction
       - riskOverScopedToolAuthority
       - riskImplicitCrossBoundaryTrust
+      - riskErroneousAgentAction
   - id: controlIsolatedConfidentialComputing
     title: Isolated and Confidential Computing
     description:
@@ -1972,6 +1976,7 @@ controls:
       - riskRogueActions
       - riskConsentFatigue
       - riskUnconsentedAgentAction
+      - riskErroneousAgentAction
     lifecycleStage:
       - development
       - runtime
@@ -2225,6 +2230,7 @@ controls:
       - riskAgenticDelegationConfusedDeputy
       - riskRogueActions
       - riskAuditTrailTampering
+      - riskAgentMemoryPoisoning
     mappings:
       nist-ai-rmf:
         - MEASURE-2.7@1.0
@@ -2284,6 +2290,7 @@ controls:
       - componentToolServer
     risks:
       - riskPromptInjection
+      - riskAgentMemoryPoisoning
     mappings:
       owasp-top10-llm:
         - LLM01:2025
@@ -3263,3 +3270,127 @@ controls:
           NIST Special Publication 800-53 Revision 5: Security and Privacy Controls for Information
           Systems and Organizations
         url: https://doi.org/10.6028/NIST.SP.800-53r5
+  - id: controlMemoryReferentRevalidation
+    title: Memory Referent Revalidation
+    description:
+      - >
+        Re-validate, at the moment an agent's memory item is read for use, any content
+        that item references but does not itself hold — a link, a file path, a shared
+        document, or another pointer to a resource whose contents live outside the
+        memory store. A validation performed once, when the item was written, certifies
+        only what the reference resolved to at that time; it does not certify what
+        the reference resolves to now. This closes a time-of-check-to-time-of-use gap:
+        content legitimate when a memory item was authored can be altered afterward
+        by whoever controls the referenced resource, and a store that verifies only
+        at write time has no way to detect the substitution.
+      - >
+        At write time, when a memory item is first accepted, record a digest or
+        provenance record of any referent it points to, so a later check has
+        something concrete to verify against. At read time, when the item is
+        fetched for use, re-resolve the referent and re-run that same check —
+        the provenance and integrity check applied when the item was first
+        accepted, not a fresh and independent judgment — against what is
+        retrieved now. Fail closed and treat the item as untrusted if the
+        referent no longer passes, or can no longer be resolved at all. Where
+        no write-time digest or provenance record exists to check against,
+        treat the referent as untrusted content and apply
+        {{controlUntrustedContextContainment}}'s containment to it rather than
+        assuming validity. This holds regardless of the referent's form — a
+        linked document, an externally editable note, a co-authored file, or
+        any other resource a memory item can point at without embedding its
+        content — because the exposure is the mutable pointer, not any one
+        resource type.
+      - >
+        On a fail-closed rejection or quarantine, log the memory item and the
+        referent that failed to resolve or re-verify as an auditable event, consistent
+        with {{controlAgentObservability}}'s logging of agent activity.
+      - >
+        This control is distinct from {{controlRetrievalAndVectorSystemIntegrity}},
+        which verifies content at ingestion and binds it with signing and digests
+        that certify an item as written — those checks say nothing about a referent
+        that changes after that write. It is distinct from {{controlUntrustedContextContainment}},
+        which labels untrusted context by provenance and gates the actions it may
+        drive, but does not itself re-evaluate a referenced item's content at the
+        moment of use. It is distinct from {{controlAgentPluginPermissions}}, which
+        bounds what an agent may do with a memory item once it is read, not whether
+        the item's content is still what it claimed to be when it was written.
+    category: controlsApplication
+    personas:
+      - personaAgenticProvider
+      - personaApplicationDeveloper
+      - personaPlatformProvider
+    components:
+      - componentMemory
+    risks:
+      - riskAgentMemoryPoisoning
+    mappings:
+      nist-ai-rmf:
+        - MEASURE-2.7@1.0
+    lifecycleStage:
+      - runtime
+    impactType:
+      - integrity
+      - safety
+    actorAccess:
+      - external
+      - agent
+  - id: controlGenerativeModelAlignment
+    title: Generative Model Alignment
+    description:
+      - >
+        Ensure a generative model's own decision-making — the choices and
+        outputs it produces, including the actions it proposes for execution
+        where it drives an agent — is aligned with the operator's intended
+        objectives and policies through how the model is trained, tuned and
+        evaluated, and that its trained disposition when operating beyond the
+        conditions under which it was validated is to refuse or defer rather
+        than to produce an erroneous or harmful result.
+      - >
+        This is a property established in the model itself, before it is served, and
+        verified on an ongoing basis — distinct from controls that intercept or filter
+        what the model has already produced.
+      - >
+        Examples include:
+      - - >
+          Alignment techniques applied during training or fine-tuning, such as
+          supervised fine-tuning, reinforcement learning from human or AI feedback
+          (RLHF/RLAIF), and targeted safety-context distillation.
+        - >
+          Structured evaluation of the deployed model's validity, reliability, and safety
+          margins against documented use conditions, with the limits of its
+          generalizability recorded rather than assumed.
+        - >
+          Trained refusal and deferral behavior — the model's disposition,
+          established in training and verified in evaluation, to decline or
+          defer rather than produce an output when a request falls outside its
+          validated conditions — so that safe failure is a property of the
+          model itself and not only of downstream enforcement.
+    category: controlsModel
+    personas:
+      - personaModelProvider
+      - personaModelServing
+      - personaAgenticProvider
+    components:
+      - componentTheModel
+      - componentModelTrainingTuning
+      - componentModelEvaluation
+      - componentReasoningCore
+    risks:
+      - riskErroneousAgentAction
+    mappings:
+      mitre-atlas:
+        - AML.M0022@5.0.1
+      nist-ai-rmf:
+        - MEASURE-2.5@1.0
+        - MEASURE-2.6@1.0
+      eu-ai-act:
+        - Article 15(1)@2024
+        - Article 15(4)@2024
+    lifecycleStage:
+      - model-training
+      - evaluation
+      - runtime
+    impactType:
+      - safety
+      - integrity
+      - reliability

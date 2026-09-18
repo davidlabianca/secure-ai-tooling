@@ -98,6 +98,10 @@
 | controlFederatedUserAuthentication           | Federated User Authentication                     | componentApplication                         | Application                                             |
 | controlFederatedUserAuthentication           | Federated User Authentication                     | componentApplicationInputHandling            | Application Input Handling                              |
 | controlFederatedUserAuthentication           | Federated User Authentication                     | componentIdentityProvider                    | Identity Provider                                       |
+| controlGenerativeModelAlignment              | Generative Model Alignment                        | componentModelEvaluation                     | Model Evaluation                                        |
+| controlGenerativeModelAlignment              | Generative Model Alignment                        | componentModelTrainingTuning                 | Training and Tuning                                     |
+| controlGenerativeModelAlignment              | Generative Model Alignment                        | componentReasoningCore                       | Agent Reasoning Core                                    |
+| controlGenerativeModelAlignment              | Generative Model Alignment                        | componentTheModel                            | The Model                                               |
 | controlInboundNetworkExposureAndSegmentation | Inbound Network Exposure and Segmentation         | componentAgentNetworkPolicyEnforcementPoint  | Agent Network Policy Enforcement Point                  |
 | controlInboundNetworkExposureAndSegmentation | Inbound Network Exposure and Segmentation         | componentModelServing                        | Model Serving Infrastructure & Policy Enforcement Point |
 | controlInboundNetworkExposureAndSegmentation | Inbound Network Exposure and Segmentation         | componentOrchestrationInputHandling          | Orchestration Input Handling                            |
@@ -123,6 +127,7 @@
 | controlIsolatedConfidentialComputing         | Isolated and Confidential Computing               | componentModelServing                        | Model Serving Infrastructure & Policy Enforcement Point |
 | controlIsolatedConfidentialComputing         | Isolated and Confidential Computing               | componentModelTrainingTuning                 | Training and Tuning                                     |
 | controlIsolatedConfidentialComputing         | Isolated and Confidential Computing               | componentReasoningCore                       | Agent Reasoning Core                                    |
+| controlMemoryReferentRevalidation            | Memory Referent Revalidation                      | componentMemory                              | Model Memory                                            |
 | controlMessageAndPayloadResourceLimits       | Message and Payload Resource Limits               | componentAgentToolTransport                  | Agent Tool Transport Channel                            |
 | controlMessageAndPayloadResourceLimits       | Message and Payload Resource Limits               | componentModelServing                        | Model Serving Infrastructure & Policy Enforcement Point |
 | controlMessageAndPayloadResourceLimits       | Message and Payload Resource Limits               | componentOrchestrationInputHandling          | Orchestration Input Handling                            |

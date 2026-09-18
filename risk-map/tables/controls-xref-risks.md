@@ -35,6 +35,7 @@
 | controlAgentObservability                    | Agent Observability                               | riskAgentDelegationChainOpacity            | Agent Delegation Chain Opacity                             |
 | controlAgentObservability                    | Agent Observability                               | riskAgenticDelegationConfusedDeputy        | Agentic Delegation Confused Deputy                         |
 | controlAgentObservability                    | Agent Observability                               | riskBrokenAuthorizationEnforcement         | Broken Authorization Enforcement for Agent Resource Access |
+| controlAgentObservability                    | Agent Observability                               | riskErroneousAgentAction                   | Erroneous Agent Action                                     |
 | controlAgentObservability                    | Agent Observability                               | riskImplicitCrossBoundaryTrust             | Implicit Cross-Boundary Trust                              |
 | controlAgentObservability                    | Agent Observability                               | riskLongLivedSessionStateWeakness          | Long-Lived Session State Weakness                          |
 | controlAgentObservability                    | Agent Observability                               | riskOverScopedToolAuthority                | Over-Scoped Tool Authority                                 |
@@ -45,11 +46,13 @@
 | controlAgentObservability                    | Agent Observability                               | riskToolRegistryTampering                  | Tool Registry Tampering                                    |
 | controlAgentObservability                    | Agent Observability                               | riskUnconsentedAgentAction                 | Unconsented Agent Action Execution                         |
 | controlAgentObservability                    | Agent Observability                               | riskZombieShadowMCPServers                 | Zombie / Shadow MCP Servers                                |
+| controlAgentPluginPermissions                | Agent Permissions                                 | riskAgentMemoryPoisoning                   | Agent Memory Poisoning                                     |
 | controlAgentPluginPermissions                | Agent Permissions                                 | riskAgenticDelegationConfusedDeputy        | Agentic Delegation Confused Deputy                         |
 | controlAgentPluginPermissions                | Agent Permissions                                 | riskBrokenAuthorizationEnforcement         | Broken Authorization Enforcement for Agent Resource Access |
 | controlAgentPluginPermissions                | Agent Permissions                                 | riskConcentratedAccessCorrelation          | Concentrated Access Enabling Cross-Service Correlation     |
 | controlAgentPluginPermissions                | Agent Permissions                                 | riskConsentFatigue                         | Consent Fatigue in Human Approval Gates                    |
 | controlAgentPluginPermissions                | Agent Permissions                                 | riskCrossTenantCredentialPropagation       | Cross-Tenant Credential Propagation                        |
+| controlAgentPluginPermissions                | Agent Permissions                                 | riskErroneousAgentAction                   | Erroneous Agent Action                                     |
 | controlAgentPluginPermissions                | Agent Permissions                                 | riskImplicitCrossBoundaryTrust             | Implicit Cross-Boundary Trust                              |
 | controlAgentPluginPermissions                | Agent Permissions                                 | riskInsecureIntegratedComponent            | Insecure Integrated Component                              |
 | controlAgentPluginPermissions                | Agent Permissions                                 | riskOverScopedToolAuthority                | Over-Scoped Tool Authority                                 |
@@ -59,6 +62,7 @@
 | controlAgentPluginPermissions                | Agent Permissions                                 | riskUnconsentedAgentAction                 | Unconsented Agent Action Execution                         |
 | controlAgentPluginPermissions                | Agent Permissions                                 | riskUnsandboxedCodeExecution               | Unsandboxed Execution of Model-Generated Code              |
 | controlAgentPluginUserControl                | Agent User Control                                | riskConsentFatigue                         | Consent Fatigue in Human Approval Gates                    |
+| controlAgentPluginUserControl                | Agent User Control                                | riskErroneousAgentAction                   | Erroneous Agent Action                                     |
 | controlAgentPluginUserControl                | Agent User Control                                | riskRogueActions                           | Rogue Actions                                              |
 | controlAgentPluginUserControl                | Agent User Control                                | riskSensitiveDataDisclosure                | Sensitive Data Disclosure                                  |
 | controlAgentPluginUserControl                | Agent User Control                                | riskUnconsentedAgentAction                 | Unconsented Agent Action Execution                         |
@@ -96,12 +100,14 @@
 | controlExternalizedAuthorizationDecisioning  | Externalized Authorization Decisioning            | riskAgenticDelegationConfusedDeputy        | Agentic Delegation Confused Deputy                         |
 | controlExternalizedAuthorizationDecisioning  | Externalized Authorization Decisioning            | riskRogueActions                           | Rogue Actions                                              |
 | controlFederatedUserAuthentication           | Federated User Authentication                     | riskAgentIdentitySpoofing                  | Agent Identity Spoofing                                    |
+| controlGenerativeModelAlignment              | Generative Model Alignment                        | riskErroneousAgentAction                   | Erroneous Agent Action                                     |
 | controlInboundNetworkExposureAndSegmentation | Inbound Network Exposure and Segmentation         | riskExcessiveNetworkExposure               | Excessive Network Exposure                                 |
 | controlInboundNetworkExposureAndSegmentation | Inbound Network Exposure and Segmentation         | riskInsecureIntegratedComponent            | Insecure Integrated Component                              |
 | controlInboundNetworkExposureAndSegmentation | Inbound Network Exposure and Segmentation         | riskMCPTransportHijacking                  | MCP Transport Hijacking                                    |
 | controlInboundNetworkExposureAndSegmentation | Inbound Network Exposure and Segmentation         | riskZombieShadowMCPServers                 | Zombie / Shadow MCP Servers                                |
 | controlIncidentResponseManagement            | Incident Response Management                      | all                                        | All Risks                                                  |
 | controlInformedAgentConsentSurface           | Informed Agent Consent Surface                    | riskConsentFatigue                         | Consent Fatigue in Human Approval Gates                    |
+| controlInformedAgentConsentSurface           | Informed Agent Consent Surface                    | riskErroneousAgentAction                   | Erroneous Agent Action                                     |
 | controlInformedAgentConsentSurface           | Informed Agent Consent Surface                    | riskRogueActions                           | Rogue Actions                                              |
 | controlInformedAgentConsentSurface           | Informed Agent Consent Surface                    | riskToolSourceProvenance                   | Tool Source Provenance                                     |
 | controlInformedAgentConsentSurface           | Informed Agent Consent Surface                    | riskUnconsentedAgentAction                 | Unconsented Agent Action Execution                         |
@@ -131,6 +137,7 @@
 | controlIsolatedConfidentialComputing         | Isolated and Confidential Computing               | riskOrchestratorRouteHijacking             | Orchestrator/Route Hijack                                  |
 | controlIsolatedConfidentialComputing         | Isolated and Confidential Computing               | riskUnsandboxedCodeExecution               | Unsandboxed Execution of Model-Generated Code              |
 | controlIsolatedConfidentialComputing         | Isolated and Confidential Computing               | riskUntrustedHostToolRuntimeExposure       | Untrusted Host Tool Runtime Exposure                       |
+| controlMemoryReferentRevalidation            | Memory Referent Revalidation                      | riskAgentMemoryPoisoning                   | Agent Memory Poisoning                                     |
 | controlMessageAndPayloadResourceLimits       | Message and Payload Resource Limits               | riskDenialOfMLService                      | Denial of ML Service                                       |
 | controlModelAndDataAccessControls            | Model and Data Access Controls                    | riskAcceleratorAndSystemSideChannels       | Accelerator and System Side-channels                       |
 | controlModelAndDataAccessControls            | Model and Data Access Controls                    | riskAdapterPEFTInjection                   | Adapter/PEFT Injection                                     |
@@ -186,6 +193,7 @@
 | controlOutputValidationAndSanitization       | Output Validation and Sanitization                | riskSensitiveDataDisclosure                | Sensitive Data Disclosure                                  |
 | controlProductGovernance                     | Product Governance                                | all                                        | All Risks                                                  |
 | controlRedTeaming                            | Red Teaming                                       | all                                        | All Risks                                                  |
+| controlResourceAuthorizationEnforcement      | Resource Authorization Enforcement                | riskAgentMemoryPoisoning                   | Agent Memory Poisoning                                     |
 | controlResourceAuthorizationEnforcement      | Resource Authorization Enforcement                | riskAgenticDelegationConfusedDeputy        | Agentic Delegation Confused Deputy                         |
 | controlResourceAuthorizationEnforcement      | Resource Authorization Enforcement                | riskAuditTrailTampering                    | Audit Trail Tampering                                      |
 | controlResourceAuthorizationEnforcement      | Resource Authorization Enforcement                | riskBrokenAuthorizationEnforcement         | Broken Authorization Enforcement for Agent Resource Access |
@@ -243,6 +251,7 @@
 | controlTrustedPolicyEnforcementPoint         | Trusted Policy Enforcement Point                  | riskInsecureIntegratedComponent            | Insecure Integrated Component                              |
 | controlTrustedPolicyEnforcementPoint         | Trusted Policy Enforcement Point                  | riskPromptInjection                        | Prompt Injection                                           |
 | controlTrustedPolicyEnforcementPoint         | Trusted Policy Enforcement Point                  | riskRogueActions                           | Rogue Actions                                              |
+| controlUntrustedContextContainment           | Untrusted Context Containment                     | riskAgentMemoryPoisoning                   | Agent Memory Poisoning                                     |
 | controlUntrustedContextContainment           | Untrusted Context Containment                     | riskPromptInjection                        | Prompt Injection                                           |
 | controlUserDataManagement                    | User Data Management                              | riskExcessiveDataHandlingDuringInference   | Excessive Data Handling During Inference                   |
 | controlUserDataManagement                    | User Data Management                              | riskPromptResponseCachePoisoning           | Prompt/Response Cache Poisoning                            |

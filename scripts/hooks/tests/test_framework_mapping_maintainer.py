@@ -3258,20 +3258,21 @@ class TestLiveCorpusInventory:
     FULLY MIGRATED (zero legacy values remaining).
 
     The TOTAL line reports blocks/values across BOTH legacy and pinned classes,
-    so it stays `96 blocks / 146 values` after migration; those numbers are a
-    corpus-scale sanity check, not a migration-progress signal. The real
-    regression guard is per-framework `legacy=0`: if anyone reintroduces an
-    unpinned/off-pattern value, its framework's `legacy=` count goes positive and
-    test_live_corpus_fully_migrated_no_legacy fails.
+    so it tracks corpus size, not migration progress — it moves whenever the
+    corpus grows and is re-pinned at each retune. See
+    test_live_corpus_report_contains_total_block_count and
+    test_live_corpus_report_contains_total_value_count for the current pinned
+    figures and their derivation. The real regression guard is per-framework
+    `legacy=0`: if anyone reintroduces an unpinned/off-pattern value, its
+    framework's `legacy=` count goes positive and
+    test_live_corpus_fully_migrated_no_legacy fails — that is the test that
+    actually detects drift; the TOTAL-line tests below are a corpus-scale
+    sanity check on top of it.
 
-    Breakdown (verified in-worktree):
-      risks:      65 blocks / 100 values
-      controls:   25 blocks /  40 values
-      personas:    6 blocks /   6 values
-      components:  0 blocks /   0 values
-
-    ADR-027 D4 / #343 plan §1. The tests search for numbers in the report output
-    rather than matching exact whitespace, so the report format may evolve.
+    ADR-027 D4 / #343 plan §1. The tests anchor on the CLI's documented
+    `TOTAL: <N> blocks / <M> values` output contract (see
+    scripts/framework_mapping_maintainer.py's _run_report_legacy), not a bare
+    substring, so a coincidental subtotal match cannot produce a false pass.
     """
 
     def test_live_corpus_report_exits_zero(self):
@@ -3293,17 +3294,27 @@ class TestLiveCorpusInventory:
 
     def test_live_corpus_report_contains_total_block_count(self):
         """
-        The report output contains the total framework-sub-block count: 172.
+        The report output contains the total framework-sub-block count: 178.
 
         Given: the 4 live consumer YAMLs
         When:  migrate --report-legacy is run
-        Then:  the string '172' appears in the report output
+        Then:  the 'TOTAL:' line reports 178 blocks
 
         #343 plan §1 / issue body recorded 96 framework-sub-blocks across 4 consumer
         YAMLs; the decomposition's controls and risks landing raised it to 172. The
         TOTAL counts legacy + pinned, so this number tracks corpus size, not
         migration progress — it moves whenever the corpus grows. The
         migration-completeness guard is test_live_corpus_fully_migrated_no_legacy.
+        The jo5iah #524-#527 Layer 4 additions moved it again, 172 → 178. Four
+        entries are net-new in this diff (controlMemoryReferentRevalidation: 1
+        block/1 value; controlGenerativeModelAlignment: 3 blocks/5 values;
+        riskAgentMemoryPoisoning: 2 blocks/2 values; riskErroneousAgentAction:
+        0 blocks/0 values), contributing +6 blocks. The gain is smaller than
+        four new entries suggests because riskErroneousAgentAction deliberately
+        carries no mappings block at all — no registered framework is
+        risk-applicable to a non-adversarial threat source, so the entry
+        carries a classical externalReferences anchor instead, and the plan's
+        non-empty-mappings criterion was waived for it on the record.
         """
         args = ["migrate", "--report-legacy"]
         for f in _CONTENT_FILES:
@@ -3312,23 +3323,32 @@ class TestLiveCorpusInventory:
         result = _run(*args)
         assert result.returncode == 0
         combined_output = result.stdout + result.stderr
-        assert "172" in combined_output, (
-            f"Expected '172' (total block count) in report output; got:\n{combined_output}"
+        assert "TOTAL: 178 blocks / 253 values" in combined_output, (
+            f"Expected 'TOTAL: 178 blocks / 253 values' line in report output; got:\n{combined_output}"
         )
 
     def test_live_corpus_report_contains_total_value_count(self):
         """
-        The report output contains the total value count: 245.
+        The report output contains the total value count: 253.
 
         Given: the 4 live consumer YAMLs
         When:  migrate --report-legacy is run
-        Then:  the string '245' appears in the report output
+        Then:  the 'TOTAL:' line reports 253 values
 
         #343 plan §1 / issue body recorded 146 total values across 4 consumer YAMLs;
         the decomposition's controls and risks landing raised it to 245. Corpus-scale
         sanity check (legacy + pinned), so it tracks corpus size rather than migration
         progress; see test_live_corpus_fully_migrated_no_legacy for the completeness
-        guard.
+        guard. The jo5iah #524-#527 Layer 4 additions moved it again, 245 → 253. Four
+        entries are net-new in this diff (controlMemoryReferentRevalidation: 1
+        block/1 value; controlGenerativeModelAlignment: 3 blocks/5 values;
+        riskAgentMemoryPoisoning: 2 blocks/2 values; riskErroneousAgentAction:
+        0 blocks/0 values), contributing +8 values. The gain is smaller than
+        four new entries suggests because riskErroneousAgentAction deliberately
+        carries no mappings block at all — no registered framework is
+        risk-applicable to a non-adversarial threat source, so the entry
+        carries a classical externalReferences anchor instead, and the plan's
+        non-empty-mappings criterion was waived for it on the record.
         """
         args = ["migrate", "--report-legacy"]
         for f in _CONTENT_FILES:
@@ -3337,8 +3357,8 @@ class TestLiveCorpusInventory:
         result = _run(*args)
         assert result.returncode == 0
         combined_output = result.stdout + result.stderr
-        assert "245" in combined_output, (
-            f"Expected '245' (total value count) in report output; got:\n{combined_output}"
+        assert "TOTAL: 178 blocks / 253 values" in combined_output, (
+            f"Expected 'TOTAL: 178 blocks / 253 values' line in report output; got:\n{combined_output}"
         )
 
     def test_live_corpus_fully_migrated_no_legacy(self):
@@ -3353,7 +3373,7 @@ class TestLiveCorpusInventory:
         #343: the load-bearing regression guard. A newly-introduced unpinned /
         off-pattern / out-of-enum value classifies as legacy, so its framework's
         `legacy=` count goes positive and this test fails — catching corpus drift
-        away from the pinned form that the substring count checks cannot.
+        away from the pinned form that the TOTAL-line checks cannot.
         """
         args = ["migrate", "--report-legacy"]
         for f in _CONTENT_FILES:
@@ -3429,7 +3449,8 @@ class TestLiveCorpusInventory:
 # - CLI migrate: happy path, idempotency, dry-run, comment preservation,
 #                sibling preservation, fail-loud on unmappable value
 # - CLI migrate --report-legacy: exits 0, no-write, non-empty inventory
-# - Live corpus inventory: 96 blocks / 146 values count pins (#343 plan §1)
+# - Live corpus inventory: TOTAL blocks/values count pins, re-pinned at each
+#   corpus retune (current figures: TestLiveCorpusInventory, #343 plan §1)
 #
 # Spec ambiguity noted: the `update` verb's resolution logic is not fully
 # specified in ADR-027 D4a. The tests implement and test the "re-pin by

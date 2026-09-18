@@ -71,7 +71,9 @@
             "riskCredentialAtRestExposure",
             "riskExcessiveNetworkExposure",
             "riskConfidentialComputingAttestationBypass",
-            "riskAuditTrailTampering"
+            "riskAuditTrailTampering",
+            "riskAgentMemoryPoisoning",
+            "riskErroneousAgentAction"
           ]
         },
         "title": { "type": "string", "maxLength": 120 },

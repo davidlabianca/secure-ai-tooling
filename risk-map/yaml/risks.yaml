@@ -5740,3 +5740,333 @@ risks:
         id: nist-sp-800-53r5
         title: NIST SP 800-53 Rev. 5 - Security and Privacy Controls for Information Systems and Organizations
         url: https://csrc.nist.gov/pubs/sp/800/53/r5/upd1/final
+  - id: riskAgentMemoryPoisoning
+    title: Agent Memory Poisoning
+    shortDescription:
+      - >
+        An agent's persistent memory — the store it writes to in one turn and reads back,
+        trusted, in a later one — is corrupted so that a malicious instruction, fabricated
+        fact, or mutable reference outlives the session that planted it and steers the
+        agent's future behavior.
+    longDescription:
+      - >
+        Agent Memory Poisoning extends the classical failure of trusting a persistent
+        store without re-validating what was written into it — the same root as
+        configuration or state tampering, where a value accepted once is trusted by
+        every later read. The AI-specific amplifier is that the store in question is
+        {{componentMemory}}: a record the agent itself writes from ordinary
+        conversation — a user turn, a tool result, another agent's message — and later
+        re-reads as its own established state. No attacker needs to be present at read
+        time and no code changes; a single accepted write is enough to durably alter
+        the agent's instructions, factual beliefs, or trust assumptions across every
+        session that follows.
+      - >
+        The defining property is read-after-write-across-turns: a record planted in
+        one session is read back, trusted, in a later one, so the implant outlives the
+        interaction that created it. That property is a diagnostic for why memory is
+        the interesting locus, not the boundary of the risk itself — the risk is
+        scoped to {{componentMemory}}, the agent's own persistent record of its
+        interactions and state, not to every store an agent happens to write and later
+        read.
+      - >
+        Two variants are demonstrated, not merely hypothesized. In the
+        direct-content variant, the malicious payload is written into memory
+        itself: benign-looking queries can induce an agent to autonomously
+        generate and persist malicious reasoning that a later,
+        differently-triggered query retrieves and acts on
+        ({{ref:dong-2025-minja}}); a small number of optimized, trigger-bearing
+        records can be inserted into an agent's long-term memory or knowledge
+        base so that only queries carrying the trigger retrieve the poisoned
+        content, leaving benign use unaffected ({{ref:chen-2024-agentpoison}});
+        and, outside the laboratory, a disclosed production vulnerability let
+        an untrusted webpage use indirect prompt injection to invoke ChatGPT's
+        memory tool directly, persisting data-exfiltration instructions that
+        survived into every subsequent conversation until OpenAI shipped a fix
+        ({{ref:rehberger-2024-spaiware}}). In the memory-as-pointer variant,
+        memory holds not the payload but a durable reference to externally
+        mutable content the agent trusted once at write time: an agent was led
+        to co-author a "constitution" and to store a link to it in its memory
+        file — the file it used to carry information across sessions — while
+        the document stayed editable by a non-owner, who later inserted
+        instructions the agent read back and acted on to attempt shutting down
+        peer agents, remove users, and forward the compromised document to
+        other agents (case CS10, "Agent Corruption",
+        {{ref:shapira-2026-agents-of-chaos}}). This second variant is a
+        time-of-check-to-time-of-use failure: the write-time check validated
+        the reference, not the content it would later resolve to, and nothing
+        re-validated the referent at read time.
+      - >
+        This risk is distinct from {{riskRetrievalVectorStorePoisoning}}, which covers
+        corpora and vector indices the system curates and retrieves under its own
+        authority to ground responses in externally-sourced knowledge; {{componentMemory}}
+        is instead the agent's own record of its interactions, written by the agent
+        from conversation and read back as the agent's established state rather than
+        as retrieved grounding material — the same embedding-based substrate can
+        implement either, so the locus is which role the store plays, not its
+        implementation. It is distinct from {{riskPromptResponseCachePoisoning}}, a
+        performance-optimization cache keyed by prompt similarity and invisible to the
+        agent as state, rather than a record the agent deliberately persists and
+        recalls. It is distinct from {{riskPromptInjection}}, which concerns the
+        model's input-processing boundary within the current context window; a
+        poisoned memory record can originate from a prompt injection, but this risk
+        begins where that one ends — at the moment a write is accepted and persists to
+        be read back as trusted state in a session prompt injection's own blast radius
+        never reaches. It is distinct from {{riskLongLivedSessionStateWeakness}},
+        which self-scopes to session tokens and cached authorization going stale
+        within a single session over time; this risk concerns a record surviving
+        across sessions. It is distinct from {{riskToolSourceProvenance}}, which
+        concerns unvetted tool registries and manifests trusted at the tool-selection
+        layer — a different locus entirely.
+      - >
+        The exposure is present wherever memory writes are accepted from conversation
+        without provenance or integrity checks distinguishing agent-authored state
+        from content originating with a user, a tool result, or another agent;
+        wherever a record that resolves to external content is trusted at read time on
+        the strength of a check performed only when it was first written; and wherever
+        memory content re-enters the agent's context without the same containment
+        applied to other untrusted input. Impacts include persistent behavioral change
+        across sessions, fabricated beliefs presented as established fact,
+        exfiltration of conversation content to a party the record designates, and —
+        where the poisoned record confers or spoofs authority over peer agents or
+        connected systems — safety-relevant actions taken well outside the
+        interaction that planted the implant.
+    category: risksRuntimeDataSecurity
+    personas:
+      - personaPlatformProvider
+      - personaAgenticProvider
+      - personaApplicationDeveloper
+      - personaEndUser
+    controls:
+      - controlMemoryReferentRevalidation
+      - controlAgentPluginPermissions
+      - controlResourceAuthorizationEnforcement
+      - controlUntrustedContextContainment
+    examples:
+      - >
+        MINJA demonstrated that an attacker needs only ordinary, benign-looking
+        queries — no direct access to the memory store — to induce an agent to record
+        malicious reasoning that a later, differently-triggered query retrieves and
+        acts on ({{ref:dong-2025-minja}}).
+      - >
+        AgentPoison demonstrated that optimized, trigger-bearing records inserted into
+        an agent's long-term memory or knowledge base achieved an average attack
+        success rate above 80% on trigger-bearing queries with minimal impact on
+        benign use ({{ref:chen-2024-agentpoison}}).
+      - >
+        SpAIware was a disclosed production vulnerability, not a research
+        construction: an untrusted webpage used indirect prompt injection to invoke
+        ChatGPT's memory tool directly, persisting spyware instructions that survived
+        into every subsequent conversation until OpenAI's September 2024 fix
+        ({{ref:rehberger-2024-spaiware}}).
+      - >
+        In the Agents of Chaos study, an agent co-authored a
+        "constitution" document and stored a link to it in its memory file, the
+        file it used to carry information across sessions; a non-owner later
+        edited the document and the agent, re-reading the link as trusted
+        state, attempted to shut down peer agents, removed users from the
+        server, and shared the compromised document with other agents (case
+        CS10, "Agent Corruption", {{ref:shapira-2026-agents-of-chaos}}).
+    tourContent:
+      introduced:
+        - >
+          Introduced wherever an agent's memory accepts and persists content from
+          conversation — a user turn, a tool result, or a peer agent's message —
+          without provenance or integrity checks distinguishing agent-authored state
+          from untrusted input.
+      exposed:
+        - >
+          Exposed at read time, in a later session, when the persisted record — or,
+          in the pointer variant, the external content it references — is treated as
+          validated state rather than re-checked against what was originally
+          accepted.
+      mitigated:
+        - >
+          Mitigated by bounding the permissions available to memory-driven actions,
+          authorizing every read and write to the store per tenant and per object,
+          treating memory content re-entering context as untrusted, and re-validating
+          externally-referenced memory content at read time rather than trusting the
+          write-time check indefinitely.
+    mappings:
+      mitre-atlas:
+        - AML.T0080.000@5.0.1
+      stride:
+        - Tampering
+    lifecycleStage:
+      - deployment
+      - runtime
+    impactType:
+      - integrity
+      - confidentiality
+      - safety
+    actorAccess:
+      - external
+      - user
+      - agent
+    externalReferences:
+      - type: paper
+        id: dong-2025-minja
+        title: Memory Injection Attacks on LLM Agents via Query-Only Interaction
+        url: https://arxiv.org/abs/2503.03704
+      - type: paper
+        id: chen-2024-agentpoison
+        title: 'AgentPoison: Red-teaming LLM Agents via Poisoning Memory or Knowledge Bases'
+        url: https://arxiv.org/abs/2407.12784
+      - type: advisory
+        id: rehberger-2024-spaiware
+        title: Spyware Injection Into Your ChatGPT's Long-Term Memory (SpAIware)
+        url: https://embracethered.com/blog/posts/2024/chatgpt-macos-app-persistent-data-exfiltration/
+      - type: paper
+        id: shapira-2026-agents-of-chaos
+        title: Agents of Chaos
+        url: https://arxiv.org/abs/2602.20021
+  - id: riskErroneousAgentAction
+    title: Erroneous Agent Action
+    shortDescription:
+      - >
+        An agent, acting within its granted authority and with no adversarial interference,
+        causes harm by choosing the wrong action — a mistake in its own task planning,
+        reasoning, or environment sensing. Erroneous Agent Action can expose private
+        data, disrupt or destroy systems the agent legitimately controls, and undermine
+        user trust and safety.
+    longDescription:
+      - >
+        An agent executes a harmful action not because it was tricked,
+        delegated to improperly, or granted excessive standing capability, but
+        because its own reasoning about the task, the plan it selected, or its
+        read of the environment was wrong. The agent was permitted to act and
+        intended to act; within those granted permissions, it also held enough
+        autonomy for a high-impact, hard-to-reverse action to execute on its
+        own judgement alone. The harm here is not that the agent exceeded its
+        authority — it did not — but that, holding that authority and that
+        autonomy, its own judgement selected the wrong action. Classically
+        this is a non-adversarial threat source. NIST's taxonomy of threat
+        sources places ACCIDENTAL — "Erroneous actions taken by individuals in
+        the course of executing their everyday responsibilities" — alongside
+        ADVERSARIAL, STRUCTURAL and ENVIRONMENTAL
+        ({{ref:nist-sp-800-30-threat-sources}}), and it is the ACCIDENTAL
+        class this risk belongs to. That class is written for a user or a
+        privileged user/administrator; the AI-specific extension is that the
+        erroneous actor is the agent itself, acting on its own judgement
+        within authority it was correctly granted.
+      - >
+        Ambiguity alone is a common trigger. Even a benign instruction can resolve incorrectly
+        — an agent asked to email "Mike" about a sensitive matter may address the wrong
+        "Mike," unintentionally sharing private data with someone who was never meant
+        to receive it. The inherent variability of LLM responses compounds the base rate:
+        prompt engineering research shows that even the spacing and ordering of examples
+        in a prompt can shift a model's output, so unremarkable variation in otherwise
+        benign input can still produce an unexpected and harmful action.
+      - >
+        A harder failure mode is correct values applied with catastrophically poor judgment:
+        an agent can correctly perceive the ethical stakes of a situation and still select
+        a wildly disproportionate, hard-to-reverse means of acting on them — a self-directed
+        action the agent itself proposed and then executed, within its own authorized
+        scope, when far less drastic options were available (demonstrated in a controlled
+        agentic deployment study — see Examples).
+      - >
+        This risk is distinct from {{riskRogueActions}}, which after decomposition is
+        scoped to actions driven by adversarial manipulation — indirect injection, poisoning,
+        evasion — or by amplification of standing over-permission across multi-agent
+        and delegated settings. Erroneous Agent Action is the complementary case: the
+        acting agent is not manipulated, not compromised, and not exercising authority
+        beyond what the task required; its own planning, reasoning, or environment-sensing
+        is the point of failure. It is distinct from {{riskInsecureModelOutput}}, which
+        concerns unvalidated or unformatted model output passed downstream — a content-correctness
+        failure that precedes any action; this risk concerns an action actually taken
+        in the world, correctly formed and executed, that was simply the wrong action
+        to take. It is distinct from {{riskPromptInjection}}, whose defining property
+        is an externally supplied or adversarially crafted instruction changing the model's
+        behavior; this risk excludes any such input by definition. It is distinct from
+        {{riskAgenticDelegationConfusedDeputy}}, which requires an asymmetric privilege
+        boundary between a caller and a higher-privileged deputy that fails to validate
+        the caller's authority; this risk can occur in a single-agent, single-principal
+        setting with no delegation at all. It is distinct from {{riskOverScopedToolAuthority}},
+        which is the upstream design condition of a tool holding more standing authority
+        than any task requires and is present whether or not an action has ever occurred;
+        this risk is the action-time realization of an agent exercising its own — potentially
+        correctly-scoped — authority badly. It is also distinct from {{riskUnconsentedAgentAction}},
+        whose defining failure is the absence, mis-scoping, or degradation of a human
+        consent checkpoint before a consequential action; there, the action may be exactly
+        what the agent intended, and the failure is procedural. Here, a consent checkpoint
+        may be present, absent, or irrelevant — the failure is that the agent's own reasoning
+        selected the wrong action in the first place. The two compose rather than collide:
+        a properly scoped consent checkpoint can catch an erroneous action before execution,
+        and an entirely correct decision can still execute without required consent.
+      - >
+        Potential impacts include unintended disclosure of sensitive information, destruction
+        or disruption of systems and services an agent has legitimate authority over,
+        and degraded organizational reputation and user trust. Because the failure originates
+        in the agent's own reasoning rather than in an external attack, it can occur even
+        in a fully patched, fully authorized, and fully audited system — which places
+        the burden of mitigation on bounding what a single erroneous decision can do and
+        on catching it before or immediately after it executes, rather than on excluding
+        an adversary.
+    category: risksRuntimeOutputSecurity
+    personas:
+      - personaAgenticProvider
+      - personaApplicationDeveloper
+      - personaEndUser
+    controls:
+      - controlGenerativeModelAlignment
+      - controlAgentObservability
+      - controlAgentPluginPermissions
+      - controlAgentPluginUserControl
+      - controlInformedAgentConsentSurface
+    examples:
+      - >
+        In a two-week controlled study of six autonomous agents with real
+        email, shell, and file-system access
+        ({{ref:shapira-2026-agents-of-chaos}}), a non-owner asked the agent Ash
+        to keep a secret and, after Ash disclosed that a secret existed, to
+        delete the email holding it. Lacking a deletion tool, Ash proposed
+        resetting the entire local email account, presented it as a "nuclear"
+        option, and on the non-owner's approval executed it — destroying its
+        own owner's mail setup while the underlying mailbox was unaffected —
+        when simply asking the non-owner to change the password would have
+        sufficed. The requesting party was a non-owner participant the study
+        does not mark as adversarial; no injected instruction, compromised
+        credential, or exceeded permission was involved: the disproportionate
+        action was the agent's own proposal (case CS1, "Disproportionate
+        Response").
+    tourContent:
+      introduced:
+        - >
+          The risk of Erroneous Agent Action is introduced whenever an agent is granted
+          the autonomy to plan and select its own actions rather than following a fully
+          deterministic script — the same autonomy that gives an agent its value is what
+          allows its own reasoning to go wrong.
+      exposed:
+        - >
+          This risk is exposed at runtime whenever the agent's own reasoning selects a
+          mistaken or disproportionate action — whether prompted by an ambiguous instruction,
+          a misjudged plan, a mistaken read of its environment, or a request from another
+          party that the agent itself decides how to satisfy — with no injected instruction,
+          compromised credential, or exceeded permission required to trigger it.
+      mitigated:
+        - >
+          Mitigated primarily by shaping the model's own action selection so that
+          a high-impact, hard-to-reverse action is less likely to be the one it
+          picks, and backstopped by a consent checkpoint scoped to the
+          consequence of the action, which catches a disproportionate or mistaken
+          choice before it executes — the same checkpoint that guards against
+          unconsented action, applied here as a second line of defense against
+          the agent's own judgement. Least-privilege bounds on what any single
+          action can do limit the blast radius of a misjudged one, and
+          observability of agent reasoning and actions catches it quickly if it
+          has already executed.
+    lifecycleStage:
+      - runtime
+    impactType:
+      - confidentiality
+      - integrity
+      - availability
+      - safety
+    externalReferences:
+      - type: paper
+        id: shapira-2026-agents-of-chaos
+        title: Agents of Chaos
+        url: https://arxiv.org/abs/2602.20021
+      - type: spec
+        id: nist-sp-800-30-threat-sources
+        title: 'NIST SP 800-30 Rev. 1: Guide for Conducting Risk Assessments (Table D-2, Taxonomy of Threat Sources)'
+        url: https://nvlpubs.nist.gov/nistpubs/Legacy/SP/nistspecialpublication800-30r1.pdf

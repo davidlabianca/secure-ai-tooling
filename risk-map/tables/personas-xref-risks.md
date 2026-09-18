@@ -2,6 +2,7 @@
 |:----------------------------|:-----------------------------------------|:-------------------------------------------|:-----------------------------------------------------------|
 | personaAgenticProvider      | Agentic Platform and Framework Providers | riskAgentDelegationChainOpacity            | Agent Delegation Chain Opacity                             |
 | personaAgenticProvider      | Agentic Platform and Framework Providers | riskAgentIdentitySpoofing                  | Agent Identity Spoofing                                    |
+| personaAgenticProvider      | Agentic Platform and Framework Providers | riskAgentMemoryPoisoning                   | Agent Memory Poisoning                                     |
 | personaAgenticProvider      | Agentic Platform and Framework Providers | riskAgenticDelegationConfusedDeputy        | Agentic Delegation Confused Deputy                         |
 | personaAgenticProvider      | Agentic Platform and Framework Providers | riskAgenticToolSupplyChain                 | Agentic Tool Supply Chain Compromise                       |
 | personaAgenticProvider      | Agentic Platform and Framework Providers | riskAuditTrailTampering                    | Audit Trail Tampering                                      |
@@ -14,6 +15,7 @@
 | personaAgenticProvider      | Agentic Platform and Framework Providers | riskCredentialAtRestExposure               | Credential At-Rest Exposure                                |
 | personaAgenticProvider      | Agentic Platform and Framework Providers | riskCrossTenantCredentialPropagation       | Cross-Tenant Credential Propagation                        |
 | personaAgenticProvider      | Agentic Platform and Framework Providers | riskDataPoisoning                          | Data Poisoning                                             |
+| personaAgenticProvider      | Agentic Platform and Framework Providers | riskErroneousAgentAction                   | Erroneous Agent Action                                     |
 | personaAgenticProvider      | Agentic Platform and Framework Providers | riskExcessiveNetworkExposure               | Excessive Network Exposure                                 |
 | personaAgenticProvider      | Agentic Platform and Framework Providers | riskImplicitCrossBoundaryTrust             | Implicit Cross-Boundary Trust                              |
 | personaAgenticProvider      | Agentic Platform and Framework Providers | riskInsecureIntegratedComponent            | Insecure Integrated Component                              |
@@ -37,6 +39,7 @@
 | personaApplicationDeveloper | Application Developer                    | riskAdapterPEFTInjection                   | Adapter/PEFT Injection                                     |
 | personaApplicationDeveloper | Application Developer                    | riskAgentDelegationChainOpacity            | Agent Delegation Chain Opacity                             |
 | personaApplicationDeveloper | Application Developer                    | riskAgentIdentitySpoofing                  | Agent Identity Spoofing                                    |
+| personaApplicationDeveloper | Application Developer                    | riskAgentMemoryPoisoning                   | Agent Memory Poisoning                                     |
 | personaApplicationDeveloper | Application Developer                    | riskAgenticDelegationConfusedDeputy        | Agentic Delegation Confused Deputy                         |
 | personaApplicationDeveloper | Application Developer                    | riskAgenticToolSupplyChain                 | Agentic Tool Supply Chain Compromise                       |
 | personaApplicationDeveloper | Application Developer                    | riskAuditTrailTampering                    | Audit Trail Tampering                                      |
@@ -51,6 +54,7 @@
 | personaApplicationDeveloper | Application Developer                    | riskDataPoisoning                          | Data Poisoning                                             |
 | personaApplicationDeveloper | Application Developer                    | riskDenialOfMLService                      | Denial of ML Service                                       |
 | personaApplicationDeveloper | Application Developer                    | riskEconomicDenialOfWallet                 | Economic Denial of Wallet                                  |
+| personaApplicationDeveloper | Application Developer                    | riskErroneousAgentAction                   | Erroneous Agent Action                                     |
 | personaApplicationDeveloper | Application Developer                    | riskEvaluationBenchmarkManipulation        | Evaluation/Benchmark Manipulation                          |
 | personaApplicationDeveloper | Application Developer                    | riskExcessiveDataHandlingDuringInference   | Excessive Data Handling During Inference                   |
 | personaApplicationDeveloper | Application Developer                    | riskExcessiveNetworkExposure               | Excessive Network Exposure                                 |
@@ -91,6 +95,7 @@
 | personaEndUser              | AI System Users                          | riskAdapterPEFTInjection                   | Adapter/PEFT Injection                                     |
 | personaEndUser              | AI System Users                          | riskAgentDelegationChainOpacity            | Agent Delegation Chain Opacity                             |
 | personaEndUser              | AI System Users                          | riskAgentIdentitySpoofing                  | Agent Identity Spoofing                                    |
+| personaEndUser              | AI System Users                          | riskAgentMemoryPoisoning                   | Agent Memory Poisoning                                     |
 | personaEndUser              | AI System Users                          | riskAgenticDelegationConfusedDeputy        | Agentic Delegation Confused Deputy                         |
 | personaEndUser              | AI System Users                          | riskAuditTrailTampering                    | Audit Trail Tampering                                      |
 | personaEndUser              | AI System Users                          | riskBrokenAuthorizationEnforcement         | Broken Authorization Enforcement for Agent Resource Access |
@@ -104,6 +109,7 @@
 | personaEndUser              | AI System Users                          | riskDataPoisoning                          | Data Poisoning                                             |
 | personaEndUser              | AI System Users                          | riskDenialOfMLService                      | Denial of ML Service                                       |
 | personaEndUser              | AI System Users                          | riskEconomicDenialOfWallet                 | Economic Denial of Wallet                                  |
+| personaEndUser              | AI System Users                          | riskErroneousAgentAction                   | Erroneous Agent Action                                     |
 | personaEndUser              | AI System Users                          | riskEvaluationBenchmarkManipulation        | Evaluation/Benchmark Manipulation                          |
 | personaEndUser              | AI System Users                          | riskExcessiveDataHandlingDuringInference   | Excessive Data Handling During Inference                   |
 | personaEndUser              | AI System Users                          | riskFederatedDistributedTrainingPrivacy    | Federated/Distributed Training Privacy                     |
@@ -168,6 +174,7 @@
 | personaPlatformProvider     | AI Platform Provider                     | riskAdapterPEFTInjection                   | Adapter/PEFT Injection                                     |
 | personaPlatformProvider     | AI Platform Provider                     | riskAgentDelegationChainOpacity            | Agent Delegation Chain Opacity                             |
 | personaPlatformProvider     | AI Platform Provider                     | riskAgentIdentitySpoofing                  | Agent Identity Spoofing                                    |
+| personaPlatformProvider     | AI Platform Provider                     | riskAgentMemoryPoisoning                   | Agent Memory Poisoning                                     |
 | personaPlatformProvider     | AI Platform Provider                     | riskAgenticDelegationConfusedDeputy        | Agentic Delegation Confused Deputy                         |
 | personaPlatformProvider     | AI Platform Provider                     | riskAgenticToolSupplyChain                 | Agentic Tool Supply Chain Compromise                       |
 | personaPlatformProvider     | AI Platform Provider                     | riskAuditTrailTampering                    | Audit Trail Tampering                                      |

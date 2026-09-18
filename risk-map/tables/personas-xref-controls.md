@@ -22,12 +22,14 @@
 | personaAgenticProvider      | Agentic Platform and Framework Providers | controlDelegatedAuthorizationIntegrity       | Delegated Authorization Integrity                 |
 | personaAgenticProvider      | Agentic Platform and Framework Providers | controlExternalizedAuthorizationDecisioning  | Externalized Authorization Decisioning            |
 | personaAgenticProvider      | Agentic Platform and Framework Providers | controlFederatedUserAuthentication           | Federated User Authentication                     |
+| personaAgenticProvider      | Agentic Platform and Framework Providers | controlGenerativeModelAlignment              | Generative Model Alignment                        |
 | personaAgenticProvider      | Agentic Platform and Framework Providers | controlInboundNetworkExposureAndSegmentation | Inbound Network Exposure and Segmentation         |
 | personaAgenticProvider      | Agentic Platform and Framework Providers | controlIncidentResponseManagement            | Incident Response Management                      |
 | personaAgenticProvider      | Agentic Platform and Framework Providers | controlInformedAgentConsentSurface           | Informed Agent Consent Surface                    |
 | personaAgenticProvider      | Agentic Platform and Framework Providers | controlInputValidationAndSanitization        | Input Validation and Sanitization                 |
 | personaAgenticProvider      | Agentic Platform and Framework Providers | controlInterComponentTransportSecurity       | Inter-Component Transport Security                |
 | personaAgenticProvider      | Agentic Platform and Framework Providers | controlIsolatedConfidentialComputing         | Isolated and Confidential Computing               |
+| personaAgenticProvider      | Agentic Platform and Framework Providers | controlMemoryReferentRevalidation            | Memory Referent Revalidation                      |
 | personaAgenticProvider      | Agentic Platform and Framework Providers | controlMessageAndPayloadResourceLimits       | Message and Payload Resource Limits               |
 | personaAgenticProvider      | Agentic Platform and Framework Providers | controlNetworkEgressControl                  | Network Egress Control                            |
 | personaAgenticProvider      | Agentic Platform and Framework Providers | controlOrchestratorAndRouteIntegrity         | Orchestrator and Route Integrity                  |
@@ -71,6 +73,7 @@
 | personaApplicationDeveloper | Application Developer                    | controlInputValidationAndSanitization        | Input Validation and Sanitization                 |
 | personaApplicationDeveloper | Application Developer                    | controlInterComponentTransportSecurity       | Inter-Component Transport Security                |
 | personaApplicationDeveloper | Application Developer                    | controlIsolatedConfidentialComputing         | Isolated and Confidential Computing               |
+| personaApplicationDeveloper | Application Developer                    | controlMemoryReferentRevalidation            | Memory Referent Revalidation                      |
 | personaApplicationDeveloper | Application Developer                    | controlMessageAndPayloadResourceLimits       | Message and Payload Resource Limits               |
 | personaApplicationDeveloper | Application Developer                    | controlModelRegistryIntegrity                | Model Registry and Discovery Integrity            |
 | personaApplicationDeveloper | Application Developer                    | controlNetworkEgressControl                  | Network Egress Control                            |
@@ -136,6 +139,7 @@
 | personaGovernance           | AI System Governance                     | controlUserPoliciesAndEducation              | User Policies and Education                       |
 | personaGovernance           | AI System Governance                     | controlVulnerabilityManagement               | Vulnerability Management                          |
 | personaModelProvider        | Model Provider                           | controlAdversarialTrainingAndTesting         | Adversarial Training and Testing                  |
+| personaModelProvider        | Model Provider                           | controlGenerativeModelAlignment              | Generative Model Alignment                        |
 | personaModelProvider        | Model Provider                           | controlIncidentResponseManagement            | Incident Response Management                      |
 | personaModelProvider        | Model Provider                           | controlModelAndDataAccessControls            | Model and Data Access Controls                    |
 | personaModelProvider        | Model Provider                           | controlModelAndDataIntegrityManagement       | Model and Data Integrity Management               |
@@ -153,6 +157,7 @@
 | personaModelServing         | AI Model Serving                         | controlAuthenticationSchemeHardening         | Authentication Scheme Hardening                   |
 | personaModelServing         | AI Model Serving                         | controlComponentIdentityAuthentication       | Component Identity Authentication                 |
 | personaModelServing         | AI Model Serving                         | controlComponentIdentityProvenance           | Component Identity Provenance                     |
+| personaModelServing         | AI Model Serving                         | controlGenerativeModelAlignment              | Generative Model Alignment                        |
 | personaModelServing         | AI Model Serving                         | controlInboundNetworkExposureAndSegmentation | Inbound Network Exposure and Segmentation         |
 | personaModelServing         | AI Model Serving                         | controlIncidentResponseManagement            | Incident Response Management                      |
 | personaModelServing         | AI Model Serving                         | controlInputValidationAndSanitization        | Input Validation and Sanitization                 |
@@ -199,6 +204,7 @@
 | personaPlatformProvider     | AI Platform Provider                     | controlInputValidationAndSanitization        | Input Validation and Sanitization                 |
 | personaPlatformProvider     | AI Platform Provider                     | controlInterComponentTransportSecurity       | Inter-Component Transport Security                |
 | personaPlatformProvider     | AI Platform Provider                     | controlIsolatedConfidentialComputing         | Isolated and Confidential Computing               |
+| personaPlatformProvider     | AI Platform Provider                     | controlMemoryReferentRevalidation            | Memory Referent Revalidation                      |
 | personaPlatformProvider     | AI Platform Provider                     | controlMessageAndPayloadResourceLimits       | Message and Payload Resource Limits               |
 | personaPlatformProvider     | AI Platform Provider                     | controlModelAndDataExecutionIntegrity        | Model and Data Execution Integrity                |
 | personaPlatformProvider     | AI Platform Provider                     | controlModelRegistryIntegrity                | Model Registry and Discovery Integrity            |
