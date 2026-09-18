@@ -129,12 +129,13 @@ CHROMIUM_PATH=""
 # Check Playwright cache first
 PLAYWRIGHT_PATH="${PLAYWRIGHT_BROWSERS_PATH:-$HOME/.cache/ms-playwright}"
 if [[ -d "$PLAYWRIGHT_PATH" ]]; then
-    # Search for headless_shell or chrome binaries
+    # Search for chrome-headless-shell (Playwright >=1.63), headless_shell
+    # (pre-1.63 spelling), or the full chrome browser
     while IFS= read -r -d '' chromium_file; do
         CHROMIUM_FOUND=true
         CHROMIUM_PATH="$chromium_file"
         break
-    done < <(find "$PLAYWRIGHT_PATH" -type f \( -name "headless_shell" -o -name "chrome" \) -print0 2>/dev/null)
+    done < <(find "$PLAYWRIGHT_PATH" -type f \( -name "chrome-headless-shell" -o -name "headless_shell" -o -name "chrome" \) -print0 2>/dev/null)
 fi
 
 # Check system paths if not found in Playwright cache

@@ -18,7 +18,7 @@ block regardless of outcome.
 
 Test Coverage:
 ==============
-Total Tests: 42
+Total Tests: 49
 - Helper functions:         13  (TestPuppeteerConfig, TestPathMatching)
 - Happy path / main:         5  (TestMainHappyPath)
 - Filtering:                 3  (TestFiltering)
@@ -26,7 +26,7 @@ Total Tests: 42
 - Env handling:              3  (TestEnvHandling)
 - Cleanup:                   1  (TestCleanup)
 - Subprocess call shape:     2  (TestSubprocessCallShape)
-- Chromium discovery:       11  (TestChromiumDiscovery)
+- Chromium discovery:       18  (TestChromiumDiscovery)
 
 Coverage Target: 90%+ of regenerate_svgs.py
 """
@@ -743,8 +743,33 @@ class TestChromiumDiscovery:
 
     This class covers the priority-ordered Chromium discovery logic:
       1. CHROMIUM_PATH env var (explicit override)
-      2. On Linux ARM64: search Playwright cache for headless_shell then chrome
+      2. On Linux ARM64: search Playwright cache for a headless shell binary,
+         preferring it over the full chrome browser, by SPELLING PRIORITY:
+           a. "chrome-headless-shell" (Playwright >=1.63, e.g. revision 1243,
+              which also arch-suffixes its directory, e.g.
+              chrome-headless-shell-linux-arm64/) — checked first
+           b. "headless_shell" (Playwright <1.63, e.g. chromium revision
+              1234) — checked second, for backward compatibility with
+              caches that predate the 1.63 rename
+           c. "chrome" (full browser) — checked last, as fallback when no
+              headless-shell binary of either spelling is present
       3. None — fall back to mmdc auto-detection
+
+    Contract notes (see PR discussion for why "pick the newest revision" was
+    dropped from this contract):
+      - Playwright's revision numbering is neither monotonic nor fixed-width
+        across versions (six-digit commit-position revisions pre-dating a
+        scheme change, four-digit short build numbers after it), so there is
+        no sound "newest wins" rule to test against. The real fix is the
+        rename handled by spelling priority above, not revision arithmetic.
+      - The result of discovery is always a FILE, never a directory —
+        Path.rglob matches by name regardless of entry type, so this must be
+        filtered explicitly.
+      - Repeated calls against an unchanged cache must be deterministic
+        (same path every time). Which specific revision wins when multiple
+        revisions of the SAME spelling coexist is explicitly out of scope
+        and deferred; only cross-spelling priority and call-to-call stability
+        are pinned here.
     """
 
     def test_chromium_path_env_set_returns_env_value_verbatim(self, monkeypatch, tmp_path):
@@ -1018,6 +1043,306 @@ class TestChromiumDiscovery:
 
         assert result == str(binary)
 
+    def test_linux_aarch64_new_layout_chrome_headless_shell_only_returns_it(self, monkeypatch, tmp_path):
+        """
+        On Linux aarch64 with only the new-style chrome-headless-shell binary in
+        cache, return its path.
+
+        Playwright 1.63.0 renamed the headless binary from headless_shell to
+        chrome-headless-shell and arch-suffixed its directory (chromium
+        revision 1243). A fresh install of this cache shape must still be
+        discovered.
+
+        Given: CHROMIUM_PATH unset; Linux aarch64; Playwright cache contains
+               only chromium_headless_shell-1243/chrome-headless-shell-linux-arm64/
+               chrome-headless-shell (no old-style headless_shell, no full
+               chrome binary anywhere in the cache)
+        When: _discover_chromium() is called
+        Then: returns the absolute path to chrome-headless-shell
+        """
+        monkeypatch.delenv("CHROMIUM_PATH", raising=False)
+        monkeypatch.setenv("PLAYWRIGHT_BROWSERS_PATH", str(tmp_path))
+
+        binary = (
+            tmp_path
+            / "chromium_headless_shell-1243"
+            / "chrome-headless-shell-linux-arm64"
+            / "chrome-headless-shell"
+        )
+        binary.parent.mkdir(parents=True)
+        binary.write_text("")
+        binary.chmod(0o755)
+
+        with (
+            patch("regenerate_svgs.platform.system", return_value="Linux"),
+            patch("regenerate_svgs.platform.machine", return_value="aarch64"),
+        ):
+            result = _discover_chromium()
+
+        assert result == str(binary)
+
+    def test_linux_aarch64_chrome_headless_shell_preferred_over_full_chrome_when_both_exist(
+        self, monkeypatch, tmp_path
+    ):
+        """
+        New-style chrome-headless-shell is preferred over the full chrome browser.
+
+        Given: CHROMIUM_PATH unset; Linux aarch64; Playwright cache has both a
+               chrome-headless-shell binary (chromium_headless_shell-1243/...)
+               and a full chrome browser binary (chromium-1243/...) at the same
+               revision — the realistic shape of a fresh `npx playwright
+               install` on 1.63.0, which installs both packages
+        When: _discover_chromium() is called
+        Then: returns the absolute path to chrome-headless-shell, not the full
+              chrome browser
+        """
+        monkeypatch.delenv("CHROMIUM_PATH", raising=False)
+        monkeypatch.setenv("PLAYWRIGHT_BROWSERS_PATH", str(tmp_path))
+
+        shell = (
+            tmp_path
+            / "chromium_headless_shell-1243"
+            / "chrome-headless-shell-linux-arm64"
+            / "chrome-headless-shell"
+        )
+        shell.parent.mkdir(parents=True)
+        shell.write_text("")
+        shell.chmod(0o755)
+
+        full_chrome = tmp_path / "chromium-1243" / "chrome-linux-arm64" / "chrome"
+        full_chrome.parent.mkdir(parents=True)
+        full_chrome.write_text("")
+        full_chrome.chmod(0o755)
+
+        with (
+            patch("regenerate_svgs.platform.system", return_value="Linux"),
+            patch("regenerate_svgs.platform.machine", return_value="aarch64"),
+        ):
+            result = _discover_chromium()
+
+        assert result == str(shell)
+
+    def test_linux_aarch64_upgraded_cache_new_spelling_wins_over_stale_old_spelling(self, monkeypatch, tmp_path):
+        """
+        REGRESSION PIN: an upgraded cache holding both an old-spelling and a
+        new-spelling revision must resolve to the new spelling, not the stale
+        old-spelling binary.
+
+        `npx playwright install` normally garbage-collects revisions no longer
+        referenced by a `.links/` entry, so after a 1.62.1 -> 1.63.0 bump most
+        caches hold only revision 1243. Both revisions still coexist when that
+        GC is skipped (PLAYWRIGHT_SKIP_BROWSER_GC=1) or another checkout's
+        `.links` entry still pins 1234 — this test covers that cache state:
+        1234 (old headless_shell) and 1243 (new chrome-headless-shell).
+        This is resolved by SPELLING PRIORITY (chrome-headless-shell is
+        checked before headless_shell), not by comparing revision numbers —
+        1234 and 1243 happen to be numerically close and neither is "newest"
+        by any sound cross-scheme rule (see class docstring). Picking the
+        stale binary means SVG regeneration silently keeps using a
+        superseded, potentially-removed-on-next-cleanup Chromium build instead
+        of the one the current Playwright version actually manages.
+
+        Given: CHROMIUM_PATH unset; Linux aarch64; Playwright cache contains
+               BOTH chromium_headless_shell-1234/chrome-linux/headless_shell
+               (old spelling, stale) AND chromium_headless_shell-1243/
+               chrome-headless-shell-linux-arm64/chrome-headless-shell (new
+               spelling, current)
+        When: _discover_chromium() is called
+        Then: returns the absolute path to the chrome-headless-shell binary
+              (new spelling), not the headless_shell binary (old spelling) —
+              because chrome-headless-shell is checked first, not because its
+              revision number is larger
+        """
+        monkeypatch.delenv("CHROMIUM_PATH", raising=False)
+        monkeypatch.setenv("PLAYWRIGHT_BROWSERS_PATH", str(tmp_path))
+
+        stale = tmp_path / "chromium_headless_shell-1234" / "chrome-linux" / "headless_shell"
+        stale.parent.mkdir(parents=True)
+        stale.write_text("")
+        stale.chmod(0o755)
+
+        current = (
+            tmp_path
+            / "chromium_headless_shell-1243"
+            / "chrome-headless-shell-linux-arm64"
+            / "chrome-headless-shell"
+        )
+        current.parent.mkdir(parents=True)
+        current.write_text("")
+        current.chmod(0o755)
+
+        with (
+            patch("regenerate_svgs.platform.system", return_value="Linux"),
+            patch("regenerate_svgs.platform.machine", return_value="aarch64"),
+        ):
+            result = _discover_chromium()
+
+        assert result == str(current), (
+            f"expected the new-spelling chrome-headless-shell ({current}), got stale pick: {result}"
+        )
+
+    def test_linux_aarch64_multiple_same_spelling_revisions_is_deterministic(self, monkeypatch, tmp_path):
+        """
+        When multiple revisions of the SAME spelling (chrome-headless-shell)
+        coexist, repeated discovery calls return the identical path.
+
+        Playwright's revision numbering is not monotonic or fixed-width
+        across versions (e.g. playwright-core 1.20.0 uses six-digit
+        commit-position revision 978106, while 1.62.1 and 1.63.0 use
+        four-digit short build numbers 1234 and 1243), so there is no sound
+        "pick the newest" rule to pin here (see class docstring). This test
+        pins only that the pick is STABLE across repeated calls against an
+        unchanged cache — it deliberately does NOT assert which of the two
+        same-spelling revisions wins; that tie-break is out of scope.
+
+        Given: CHROMIUM_PATH unset; Linux aarch64; Playwright cache contains
+               two chrome-headless-shell binaries at same-width revisions
+               1243 and 1252 (a realistic same-spelling upgrade within the
+               1.63.x line)
+        When: _discover_chromium() is called twice in succession against the
+              unchanged cache
+        Then: both calls return the identical path, and that path is one of
+              the two chrome-headless-shell binaries created
+        """
+        monkeypatch.delenv("CHROMIUM_PATH", raising=False)
+        monkeypatch.setenv("PLAYWRIGHT_BROWSERS_PATH", str(tmp_path))
+
+        rev_a = (
+            tmp_path
+            / "chromium_headless_shell-1243"
+            / "chrome-headless-shell-linux-arm64"
+            / "chrome-headless-shell"
+        )
+        rev_a.parent.mkdir(parents=True)
+        rev_a.write_text("")
+        rev_a.chmod(0o755)
+
+        rev_b = (
+            tmp_path
+            / "chromium_headless_shell-1252"
+            / "chrome-headless-shell-linux-arm64"
+            / "chrome-headless-shell"
+        )
+        rev_b.parent.mkdir(parents=True)
+        rev_b.write_text("")
+        rev_b.chmod(0o755)
+
+        with (
+            patch("regenerate_svgs.platform.system", return_value="Linux"),
+            patch("regenerate_svgs.platform.machine", return_value="aarch64"),
+        ):
+            first = _discover_chromium()
+            second = _discover_chromium()
+
+        assert first == second, f"repeated calls against an unchanged cache must agree: {first!r} != {second!r}"
+        assert first in (str(rev_a), str(rev_b)), (
+            f"result must be one of the two chrome-headless-shell binaries, got {first!r}"
+        )
+
+    def test_linux_aarch64_old_only_cache_real_1_62_layout_returns_headless_shell(self, monkeypatch, tmp_path):
+        """
+        A cache holding only the pre-1.63 Playwright headless-shell package
+        layout still resolves to headless_shell (backward compatibility).
+
+        Uses the REAL Playwright 1.62.x package directory naming
+        (chromium_headless_shell-<rev>/chrome-linux/headless_shell). Other
+        fixtures in this file use a chromium-<rev>/... directory prefix for
+        headless_shell fixtures to isolate pure spelling-priority behaviour
+        from directory naming — that shape is not an actual Playwright
+        package directory name. This test pins the real-world shape so a
+        genuine pre-1.63 cache is not left uncovered.
+
+        Given: CHROMIUM_PATH unset; Linux aarch64; Playwright cache contains
+               only chromium_headless_shell-1234/chrome-linux/headless_shell
+               (no chrome-headless-shell, no full chrome binary anywhere)
+        When: _discover_chromium() is called
+        Then: returns the absolute path to headless_shell
+        """
+        monkeypatch.delenv("CHROMIUM_PATH", raising=False)
+        monkeypatch.setenv("PLAYWRIGHT_BROWSERS_PATH", str(tmp_path))
+
+        binary = tmp_path / "chromium_headless_shell-1234" / "chrome-linux" / "headless_shell"
+        binary.parent.mkdir(parents=True)
+        binary.write_text("")
+        binary.chmod(0o755)
+
+        with (
+            patch("regenerate_svgs.platform.system", return_value="Linux"),
+            patch("regenerate_svgs.platform.machine", return_value="aarch64"),
+        ):
+            result = _discover_chromium()
+
+        assert result == str(binary)
+
+    def test_linux_aarch64_new_layout_full_chrome_only_returns_it(self, monkeypatch, tmp_path):
+        """
+        A fresh arch-suffixed cache holding only the full chrome browser (no
+        shell binary of either spelling) still falls back to chrome.
+
+        Playwright 1.63.0's full-browser package directory is also
+        arch-suffixed (chrome-linux-arm64, not chrome-linux). A cache in this
+        shape with no headless-shell package installed at all must still
+        resolve to the full chrome binary rather than returning None.
+
+        Given: CHROMIUM_PATH unset; Linux aarch64; Playwright cache contains
+               only chromium-1243/chrome-linux-arm64/chrome (no
+               chrome-headless-shell, no headless_shell)
+        When: _discover_chromium() is called
+        Then: returns the absolute path to chrome
+        """
+        monkeypatch.delenv("CHROMIUM_PATH", raising=False)
+        monkeypatch.setenv("PLAYWRIGHT_BROWSERS_PATH", str(tmp_path))
+
+        binary = tmp_path / "chromium-1243" / "chrome-linux-arm64" / "chrome"
+        binary.parent.mkdir(parents=True)
+        binary.write_text("")
+        binary.chmod(0o755)
+
+        with (
+            patch("regenerate_svgs.platform.system", return_value="Linux"),
+            patch("regenerate_svgs.platform.machine", return_value="aarch64"),
+        ):
+            result = _discover_chromium()
+
+        assert result == str(binary)
+
+    def test_linux_aarch64_directory_named_chrome_is_not_returned(self, monkeypatch, tmp_path):
+        """
+        A directory literally named 'chrome' (no chrome file, no shell of
+        either spelling anywhere in the cache) must not be returned by
+        discovery.
+
+        Path.rglob matches entries by name regardless of type, so a naive
+        `rglob("chrome")` picks up directories as well as files. The result
+        of discovery must always be a file (see class docstring); a
+        directory being returned would make mmdc's executablePath point at a
+        non-executable directory.
+
+        Given: CHROMIUM_PATH unset; Linux aarch64; Playwright cache contains
+               a directory named "chrome" (e.g. a partial-extraction
+               artifact) but no chrome file and no headless-shell binary of
+               either spelling
+        When: _discover_chromium() is called
+        Then: does NOT return the directory path — returns None, since no
+              valid binary exists anywhere in this cache
+        """
+        monkeypatch.delenv("CHROMIUM_PATH", raising=False)
+        monkeypatch.setenv("PLAYWRIGHT_BROWSERS_PATH", str(tmp_path))
+
+        bogus_dir = tmp_path / "chromium-1243" / "chrome-linux-arm64" / "chrome"
+        bogus_dir.mkdir(parents=True)
+
+        with (
+            patch("regenerate_svgs.platform.system", return_value="Linux"),
+            patch("regenerate_svgs.platform.machine", return_value="aarch64"),
+        ):
+            result = _discover_chromium()
+
+        assert result != str(bogus_dir), "a directory must never be returned as the discovered binary"
+        assert result is None, (
+            "no valid binary exists in this cache; discovery must return None, not the directory"
+        )
+
 
 # ===========================================================================
 # Test Summary
@@ -1025,7 +1350,7 @@ class TestChromiumDiscovery:
 """
 Test Summary
 ============
-Total Tests: 42
+Total Tests: 49
 - Helper functions:         13  (TestPuppeteerConfig x5, TestPathMatching x8)
 - Happy path / main:         5  (TestMainHappyPath)
 - Filtering:                 3  (TestFiltering)
@@ -1033,7 +1358,7 @@ Total Tests: 42
 - Env handling:              3  (TestEnvHandling)
 - Cleanup:                   1  (TestCleanup)
 - Subprocess call shape:     2  (TestSubprocessCallShape)
-- Chromium discovery:       11  (TestChromiumDiscovery)
+- Chromium discovery:       18  (TestChromiumDiscovery)
 
 Coverage Areas:
 - _build_puppeteer_config: None, empty string, and set path branches
@@ -1052,10 +1377,17 @@ Coverage Areas:
 - Per-file ordering: mmdc precedes git add for each file
 - _discover_chromium: CHROMIUM_PATH priority 1 (set/empty/wins-over-cache)
 - _discover_chromium: no ARM64 discovery on darwin or linux x86_64
-- _discover_chromium: headless_shell found on linux aarch64
+- _discover_chromium: headless_shell found on linux aarch64 (algorithm-focused fixture shape)
 - _discover_chromium: chrome fallback when headless_shell absent
 - _discover_chromium: returns None when cache is empty
 - _discover_chromium: headless_shell preferred over chrome when both present
 - _discover_chromium: PLAYWRIGHT_BROWSERS_PATH env controls cache root
 - _discover_chromium: default ~/.cache/ms-playwright used when PLAYWRIGHT_BROWSERS_PATH unset
+- _discover_chromium: new-spelling chrome-headless-shell found (fresh 1.63+ layout)
+- _discover_chromium: chrome-headless-shell preferred over full chrome when both present
+- _discover_chromium: upgraded cache — new spelling wins over stale old spelling (not revision math)
+- _discover_chromium: same-spelling multi-revision pick is deterministic across repeated calls
+- _discover_chromium: old-only cache in the REAL Playwright 1.62 directory layout
+- _discover_chromium: new arch-suffixed layout with only the full chrome browser present
+- _discover_chromium: a directory named "chrome" is never returned (result must be a file)
 """

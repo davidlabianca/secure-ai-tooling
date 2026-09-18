@@ -81,7 +81,7 @@ The repository handles Mermaid diagrams with different approaches for local deve
 Discovery order:
 
 1. `CHROMIUM_PATH` env var (if set and non-empty) — explicit override
-2. On Linux ARM64: `$PLAYWRIGHT_BROWSERS_PATH` (or `~/.cache/ms-playwright`) is searched recursively for `headless_shell` then `chrome`
+2. On Linux ARM64: `$PLAYWRIGHT_BROWSERS_PATH` (or `~/.cache/ms-playwright`) is searched recursively for `chrome-headless-shell` (Playwright >=1.63) then `headless_shell` (pre-1.63) then `chrome`
 3. Otherwise: mmdc's bundled detection (works on Mac / Windows / Linux x64 with system Chrome)
 
 For Linux ARM64 contributors, install Playwright Chromium once:
