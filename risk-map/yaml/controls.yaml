@@ -714,6 +714,8 @@ controls:
       - riskOverScopedToolAuthority
       - riskImplicitCrossBoundaryTrust
       - riskErroneousAgentAction
+      - riskDeceptiveAgentReporting
+      - riskCrossAgentReputationPoisoning
   - id: controlIsolatedConfidentialComputing
     title: Isolated and Confidential Computing
     description:
@@ -2291,6 +2293,7 @@ controls:
     risks:
       - riskPromptInjection
       - riskAgentMemoryPoisoning
+      - riskCrossAgentReputationPoisoning
     mappings:
       owasp-top10-llm:
         - LLM01:2025

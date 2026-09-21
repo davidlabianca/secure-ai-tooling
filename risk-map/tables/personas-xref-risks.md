@@ -13,8 +13,10 @@
 | personaAgenticProvider      | Agentic Platform and Framework Providers | riskCovertChannelsInModelOutputs           | Covert Channels in Model Outputs                           |
 | personaAgenticProvider      | Agentic Platform and Framework Providers | riskCredentialAndTokenTheft                | Credential and Token Theft                                 |
 | personaAgenticProvider      | Agentic Platform and Framework Providers | riskCredentialAtRestExposure               | Credential At-Rest Exposure                                |
+| personaAgenticProvider      | Agentic Platform and Framework Providers | riskCrossAgentReputationPoisoning          | Cross-Agent Reputation Poisoning                           |
 | personaAgenticProvider      | Agentic Platform and Framework Providers | riskCrossTenantCredentialPropagation       | Cross-Tenant Credential Propagation                        |
 | personaAgenticProvider      | Agentic Platform and Framework Providers | riskDataPoisoning                          | Data Poisoning                                             |
+| personaAgenticProvider      | Agentic Platform and Framework Providers | riskDeceptiveAgentReporting                | Deceptive Agent Reporting                                  |
 | personaAgenticProvider      | Agentic Platform and Framework Providers | riskErroneousAgentAction                   | Erroneous Agent Action                                     |
 | personaAgenticProvider      | Agentic Platform and Framework Providers | riskExcessiveNetworkExposure               | Excessive Network Exposure                                 |
 | personaAgenticProvider      | Agentic Platform and Framework Providers | riskImplicitCrossBoundaryTrust             | Implicit Cross-Boundary Trust                              |
@@ -50,8 +52,10 @@
 | personaApplicationDeveloper | Application Developer                    | riskCovertChannelsInModelOutputs           | Covert Channels in Model Outputs                           |
 | personaApplicationDeveloper | Application Developer                    | riskCredentialAndTokenTheft                | Credential and Token Theft                                 |
 | personaApplicationDeveloper | Application Developer                    | riskCredentialAtRestExposure               | Credential At-Rest Exposure                                |
+| personaApplicationDeveloper | Application Developer                    | riskCrossAgentReputationPoisoning          | Cross-Agent Reputation Poisoning                           |
 | personaApplicationDeveloper | Application Developer                    | riskCrossTenantCredentialPropagation       | Cross-Tenant Credential Propagation                        |
 | personaApplicationDeveloper | Application Developer                    | riskDataPoisoning                          | Data Poisoning                                             |
+| personaApplicationDeveloper | Application Developer                    | riskDeceptiveAgentReporting                | Deceptive Agent Reporting                                  |
 | personaApplicationDeveloper | Application Developer                    | riskDenialOfMLService                      | Denial of ML Service                                       |
 | personaApplicationDeveloper | Application Developer                    | riskEconomicDenialOfWallet                 | Economic Denial of Wallet                                  |
 | personaApplicationDeveloper | Application Developer                    | riskErroneousAgentAction                   | Erroneous Agent Action                                     |
@@ -105,8 +109,10 @@
 | personaEndUser              | AI System Users                          | riskCovertChannelsInModelOutputs           | Covert Channels in Model Outputs                           |
 | personaEndUser              | AI System Users                          | riskCredentialAndTokenTheft                | Credential and Token Theft                                 |
 | personaEndUser              | AI System Users                          | riskCredentialAtRestExposure               | Credential At-Rest Exposure                                |
+| personaEndUser              | AI System Users                          | riskCrossAgentReputationPoisoning          | Cross-Agent Reputation Poisoning                           |
 | personaEndUser              | AI System Users                          | riskCrossTenantCredentialPropagation       | Cross-Tenant Credential Propagation                        |
 | personaEndUser              | AI System Users                          | riskDataPoisoning                          | Data Poisoning                                             |
+| personaEndUser              | AI System Users                          | riskDeceptiveAgentReporting                | Deceptive Agent Reporting                                  |
 | personaEndUser              | AI System Users                          | riskDenialOfMLService                      | Denial of ML Service                                       |
 | personaEndUser              | AI System Users                          | riskEconomicDenialOfWallet                 | Economic Denial of Wallet                                  |
 | personaEndUser              | AI System Users                          | riskErroneousAgentAction                   | Erroneous Agent Action                                     |
@@ -184,6 +190,7 @@
 | personaPlatformProvider     | AI Platform Provider                     | riskConsentFatigue                         | Consent Fatigue in Human Approval Gates                    |
 | personaPlatformProvider     | AI Platform Provider                     | riskCredentialAndTokenTheft                | Credential and Token Theft                                 |
 | personaPlatformProvider     | AI Platform Provider                     | riskCredentialAtRestExposure               | Credential At-Rest Exposure                                |
+| personaPlatformProvider     | AI Platform Provider                     | riskCrossAgentReputationPoisoning          | Cross-Agent Reputation Poisoning                           |
 | personaPlatformProvider     | AI Platform Provider                     | riskCrossTenantCredentialPropagation       | Cross-Tenant Credential Propagation                        |
 | personaPlatformProvider     | AI Platform Provider                     | riskDenialOfMLService                      | Denial of ML Service                                       |
 | personaPlatformProvider     | AI Platform Provider                     | riskEconomicDenialOfWallet                 | Economic Denial of Wallet                                  |

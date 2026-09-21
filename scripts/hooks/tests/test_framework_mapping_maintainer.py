@@ -3294,18 +3294,18 @@ class TestLiveCorpusInventory:
 
     def test_live_corpus_report_contains_total_block_count(self):
         """
-        The report output contains the total framework-sub-block count: 178.
+        The report output contains the total framework-sub-block count: 180.
 
         Given: the 4 live consumer YAMLs
         When:  migrate --report-legacy is run
-        Then:  the 'TOTAL:' line reports 178 blocks
+        Then:  the 'TOTAL:' line reports 180 blocks
 
         #343 plan §1 / issue body recorded 96 framework-sub-blocks across 4 consumer
         YAMLs; the decomposition's controls and risks landing raised it to 172. The
         TOTAL counts legacy + pinned, so this number tracks corpus size, not
         migration progress — it moves whenever the corpus grows. The
         migration-completeness guard is test_live_corpus_fully_migrated_no_legacy.
-        The jo5iah #524-#527 Layer 4 additions moved it again, 172 → 178. Four
+        ADR-034 D1's preceding landing group moved it again, 172 → 178 (#524, #527). Four
         entries are net-new in this diff (controlMemoryReferentRevalidation: 1
         block/1 value; controlGenerativeModelAlignment: 3 blocks/5 values;
         riskAgentMemoryPoisoning: 2 blocks/2 values; riskErroneousAgentAction:
@@ -3314,7 +3314,12 @@ class TestLiveCorpusInventory:
         carries no mappings block at all — no registered framework is
         risk-applicable to a non-adversarial threat source, so the entry
         carries a classical externalReferences anchor instead, and the plan's
-        non-empty-mappings criterion was waived for it on the record.
+        non-empty-mappings criterion was waived for it on the record. ADR-034 D1's
+        next landing group moved it again, 178 → 180 (#525, #526): two net-new
+        risks, riskDeceptiveAgentReporting
+        (1 mappings block, one stride value: Repudiation) and
+        riskCrossAgentReputationPoisoning (1 mappings block, three stride values:
+        Tampering, DenialOfService, ElevationOfPrivilege), contributing +2 blocks.
         """
         args = ["migrate", "--report-legacy"]
         for f in _CONTENT_FILES:
@@ -3323,23 +3328,23 @@ class TestLiveCorpusInventory:
         result = _run(*args)
         assert result.returncode == 0
         combined_output = result.stdout + result.stderr
-        assert "TOTAL: 178 blocks / 253 values" in combined_output, (
-            f"Expected 'TOTAL: 178 blocks / 253 values' line in report output; got:\n{combined_output}"
+        assert "TOTAL: 180 blocks / 257 values" in combined_output, (
+            f"Expected 'TOTAL: 180 blocks / 257 values' line in report output; got:\n{combined_output}"
         )
 
     def test_live_corpus_report_contains_total_value_count(self):
         """
-        The report output contains the total value count: 253.
+        The report output contains the total value count: 257.
 
         Given: the 4 live consumer YAMLs
         When:  migrate --report-legacy is run
-        Then:  the 'TOTAL:' line reports 253 values
+        Then:  the 'TOTAL:' line reports 257 values
 
         #343 plan §1 / issue body recorded 146 total values across 4 consumer YAMLs;
         the decomposition's controls and risks landing raised it to 245. Corpus-scale
         sanity check (legacy + pinned), so it tracks corpus size rather than migration
         progress; see test_live_corpus_fully_migrated_no_legacy for the completeness
-        guard. The jo5iah #524-#527 Layer 4 additions moved it again, 245 → 253. Four
+        guard. ADR-034 D1's preceding landing group moved it again, 245 → 253 (#524, #527). Four
         entries are net-new in this diff (controlMemoryReferentRevalidation: 1
         block/1 value; controlGenerativeModelAlignment: 3 blocks/5 values;
         riskAgentMemoryPoisoning: 2 blocks/2 values; riskErroneousAgentAction:
@@ -3348,7 +3353,11 @@ class TestLiveCorpusInventory:
         carries no mappings block at all — no registered framework is
         risk-applicable to a non-adversarial threat source, so the entry
         carries a classical externalReferences anchor instead, and the plan's
-        non-empty-mappings criterion was waived for it on the record.
+        non-empty-mappings criterion was waived for it on the record. ADR-034 D1's next landing
+        group moved it again, 253 → 257 (#525, #526): two net-new risks, riskDeceptiveAgentReporting
+        (one stride value: Repudiation) and riskCrossAgentReputationPoisoning
+        (three stride values: Tampering, DenialOfService, ElevationOfPrivilege),
+        contributing +4 values.
         """
         args = ["migrate", "--report-legacy"]
         for f in _CONTENT_FILES:
@@ -3357,8 +3366,8 @@ class TestLiveCorpusInventory:
         result = _run(*args)
         assert result.returncode == 0
         combined_output = result.stdout + result.stderr
-        assert "TOTAL: 178 blocks / 253 values" in combined_output, (
-            f"Expected 'TOTAL: 178 blocks / 253 values' line in report output; got:\n{combined_output}"
+        assert "TOTAL: 180 blocks / 257 values" in combined_output, (
+            f"Expected 'TOTAL: 180 blocks / 257 values' line in report output; got:\n{combined_output}"
         )
 
     def test_live_corpus_fully_migrated_no_legacy(self):

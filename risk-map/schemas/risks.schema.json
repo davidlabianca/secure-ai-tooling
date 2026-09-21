@@ -73,7 +73,9 @@
             "riskConfidentialComputingAttestationBypass",
             "riskAuditTrailTampering",
             "riskAgentMemoryPoisoning",
-            "riskErroneousAgentAction"
+            "riskErroneousAgentAction",
+            "riskDeceptiveAgentReporting",
+            "riskCrossAgentReputationPoisoning"
           ]
         },
         "title": { "type": "string", "maxLength": 120 },

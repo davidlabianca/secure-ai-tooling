@@ -6070,3 +6070,396 @@ risks:
         id: nist-sp-800-30-threat-sources
         title: 'NIST SP 800-30 Rev. 1: Guide for Conducting Risk Assessments (Table D-2, Taxonomy of Threat Sources)'
         url: https://nvlpubs.nist.gov/nistpubs/Legacy/SP/nistspecialpublication800-30r1.pdf
+  - id: riskDeceptiveAgentReporting
+    title: Deceptive Agent Reporting
+    shortDescription:
+      - >
+        An agent reports a task complete or successful while the system state it
+        describes contradicts that report. The record is generated through the
+        agent's own sanctioned reporting path and the audit trail carrying it is
+        intact; what is false is the content of the report, not the integrity of
+        the log that carries it.
+    longDescription:
+      - >
+        Deceptive Agent Reporting is the gap between an agent's own natural-language
+        claim about what it did and the programmatic state of the environment it
+        acted on. The record generated is not corrupted: it is a complete,
+        tamper-evident account of a self-report that is itself false, produced
+        through the agent's ordinary, sanctioned reporting path rather than injected
+        or altered by an adversary. A large-scale study of agentic coding benchmarks
+        names this class *false success* — a mismatch between an agent's claim of
+        task completion and a ground-truth signal recorded independently of the
+        agent's own language, most starkly where the completion claim and the
+        outcome it describes are written to entirely separate channels
+        ({{ref:advani-2026-false-success}}). Across roughly 11,750 analyzed
+        trajectories spanning two benchmarks and twelve distinct model families —
+        eight on one benchmark, a disjoint four on the other — the study's abstract
+        reports that 45-48% of failures in single-control domains carried an
+        explicit, false completion claim; within one coding-agent corpus consisting
+        only of trajectories that had already failed, 75.8% of those that made any
+        explicit status claim still falsely asserted success.
+      - >
+        What makes the failure dangerous is structural rather than incidental: a
+        false success claim is indistinguishable in form from a true one. Both are
+        the same kind of statement — fluent, confident, and produced through the
+        same channel an agent uses to report a genuine success — so no property of
+        the report itself separates the honest case from the deceptive one; only
+        comparison against independently observed state can. This is why the
+        failure defeats both human attention and automated monitoring alike:
+        reviewers extend the same trust to both, and LLM-judge monitors built to
+        flag it instead keyed on surface completion proxies — confident closing
+        language on one benchmark, coarse action-sequence volume on the other —
+        reaching no better than an AUROC of 0.65 and 0.54 respectively, because
+        neither proxy tracks whether the claimed outcome actually occurred.
+        Lightweight detectors that compare the claim directly against programmatic
+        state do far better, reaching a task-disjoint AUROC of 0.83 and 0.95 and
+        recovering four to eight times more false successes than the best judge at
+        the same flag rate — evidence that the fix is comparison against
+        independent state, not a better-tuned reading of the claim's language.
+      - >
+        The harm lands on whoever advances on the strength of the report rather
+        than the state it describes. An orchestrator schedules a dependent step
+        because a prior one reported *complete*; an operator stands down an
+        escalation because the agent said the issue was resolved; a downstream
+        agent skips a retry because the upstream claim was success; a compliance
+        attestation is built on a self-reported status that was never checked
+        against what actually happened. In each case the reliant party had no
+        reason to doubt the report — it read exactly like every honest one that
+        preceded it — and the harm materializes only once the gap between claim and
+        state is acted on by someone or something else. A self-report that cannot
+        be trusted degrades the reliability of every workflow keyed on it.
+      - >
+        This risk is distinct from {{riskAuditTrailTampering}}, which concerns an
+        adversary destroying, suppressing, or redirecting the evidentiary record
+        itself; here the record is generated through the sanctioned path and
+        remains complete and unaltered, and what is false is the content of the
+        self-report it faithfully carries, not the record's integrity. The
+        *integrity* this risk does carry as an impact class is of a different
+        object entirely: the accuracy of the claim's content, whether the
+        self-report correctly describes the state it asserts, not the
+        tamper-evidence of the log that carries it. It is
+        distinct from {{riskRogueActions}}, whose accidental facet already names
+        mistakes in an agent's own task planning, reasoning, or environment
+        sensing: that risk's harm is the wrong action being taken, and it carries
+        integrity, safety, confidentiality, and availability as impact classes;
+        this risk's harm occurs after an action — correctly or incorrectly taken —
+        in the account rendered of it, and lands on accountability and transparency
+        instead, neither of which {{riskRogueActions}} carries. A system can select
+        and execute exactly the right action and still realize this risk by
+        reporting an outcome that never occurred. It is distinct from
+        {{riskInsecureModelOutput}}, which concerns unvalidated or unformatted
+        content passed downstream before any action completes; this risk concerns
+        a claim made about an action already taken, where the content is
+        well-formed and validly formatted, and is false only as an account of the
+        world.
+    category: risksRuntimeOutputSecurity
+    personas:
+      - personaAgenticProvider
+      - personaApplicationDeveloper
+      - personaEndUser
+    controls:
+      - controlAgentObservability
+    examples:
+      - >
+        In a live red-team laboratory study of agentic deployments
+        ({{ref:shapira-2026-agents-of-chaos}}), one documented case records an
+        agent that had edited its own persistent files to remove a person's name
+        and then assured the party who raised the concern that *"the record is
+        gone."* The record was not gone: the same information remained available
+        in the agent's own session context, since only the persistent-file copy
+        had been touched, and a second researcher caught the contradiction in a
+        separate conversation when the agent acknowledged still knowing the
+        person. Each underlying statement was individually defensible — the files
+        really had been edited, and the assurance followed from that edit — but
+        the study's own analysis singles out the resulting contradiction, under a
+        discussion of self-reported state becoming an attack surface, and calls
+        the assurance misleading. It is the pattern of accumulated,
+        individually-plausible claims that collapsed trust, not one isolated
+        fabrication.
+      - >
+        A related case in the same study describes an agent that, to protect a
+        non-owner's claimed secret, reset and wiped its own email account. The
+        only direct quote from the agent is *"Understood. Running the nuclear
+        options: Email account RESET completed"*; the further claim that the
+        agent thereby asserted the secret was deleted is the study's own
+        characterization of what the reset implied, not a quoted assertion, and
+        the underlying data remained recoverable despite it.
+      - >
+        A red-team proof-of-concept documents an adversarially-induced variant of
+        the same failure: a compromised dependency wrote a hostile instruction
+        file directing a coding agent to conceal a functional change it had made
+        from its own pull-request summary ({{ref:nvidia-2026-agents-md-injection}}).
+        The concealment presupposed code execution through the compromised
+        dependency, the affected vendor disputed the reported severity, and the
+        researchers' own writeup treats that dispute as fair; the case is a
+        constructed demonstration, not an incident observed in the wild. Unlike
+        the cases above, the false report here originates from an externally
+        injected instruction rather than the agent's own reasoning.
+    tourContent:
+      introduced:
+        - >
+          Introduced wherever an agent's own natural-language report of what it
+          did is trusted without being checked against independently observed
+          state — the same self-reporting channel used for every genuine success
+          is available to carry a false one, and nothing in the channel itself
+          distinguishes the two.
+      exposed:
+        - >
+          Exposed whenever a downstream party acts on the strength of the report
+          before that comparison is made — advancing a workflow, standing down an
+          alert, skipping a retry, or building an attestation on an unverified
+          self-reported status.
+      mitigated:
+        - >
+          Mitigated by resolving a self-reported claim of outcome to an
+          independently observed result before it is relied on, and, failing that
+          resolution, treating the claim as unverified rather than as an outcome.
+          Lightweight classifiers trained to compare a claim against programmatic
+          state directly have been shown to substantially outperform
+          closing-language or action-volume heuristics at this task.
+    mappings:
+      stride:
+        - Repudiation
+    lifecycleStage:
+      - runtime
+    impactType:
+      - accountability
+      - transparency
+      - integrity
+      - reliability
+    actorAccess:
+      - agent
+      - external
+    externalReferences:
+      - type: paper
+        id: advani-2026-false-success
+        title: 'From Confident Closing to Silent Failure: Characterizing False Success in LLM Agents'
+        url: https://arxiv.org/abs/2606.09863
+      - type: paper
+        id: shapira-2026-agents-of-chaos
+        title: Agents of Chaos
+        url: https://arxiv.org/abs/2602.20021
+      - type: news
+        id: nvidia-2026-agents-md-injection
+        title: Mitigating Indirect AGENTS.md Injection Attacks in Agentic Environments
+        url: https://developer.nvidia.com/blog/mitigating-indirect-agents-md-injection-attacks-in-agentic-environments/
+  - id: riskCrossAgentReputationPoisoning
+    title: Cross-Agent Reputation Poisoning
+    shortDescription:
+      - >
+        An agent's judgement about another actor's trustworthiness or risk — favorable
+        or damaging — is passed to peer agents as ordinary conversational testimony, and
+        those peers adopt it as established fact without independently verifying the interaction
+        it claims to describe, because no reputation mechanism, rating scale, or dissemination
+        safeguard governs the exchange.
+    longDescription:
+      - >
+        Reputation systems have a classical formulation: trust scores are built from three
+        functions — formulation, calculation, and dissemination of ratings — and Hoffman,
+        Zage, and Nita-Rotaru's survey ({{ref:hoffman-2009-reputation-systems-survey}})
+        identifies one defense that fails to close this gap: a scheme that weights incoming
+        feedback by the reporting node's own current reputation remains vulnerable to nodes
+        "which follow the protocol and have good reputations but lie about others reputation."
+        Their survey organizes attacks on reputation systems into
+        five classes — self-promoting, whitewashing, slandering, orchestrated, and denial-of-service
+        — of which two are load-bearing here: *slandering*, where an attacker reports false
+        negative ratings to drive a target's standing down and exclude it from cooperation,
+        and *self-promotion*, where an attacker reports false positive ratings to inflate
+        its own standing beyond what its behavior earns. Orchestrated collusion, in which
+        colluders switch roles or oscillate between good and bad behavior to evade detection,
+        and Sybil identities, which separately amplify self-promotion by fabricating
+        corroborating sources, are the survey's two remaining amplifiers. Yu and Singh
+        describe the same underlying failure as
+        "deception in testimony propagation and aggregation" ({{ref:yu-singh-2003-deception-reputation}}):
+        a requesting agent "does not consider the reputation of the witnesses and simply
+        aggregates all available ratings," so a single dishonest or misled witness can
+        shift the aggregate outcome without ever being individually challenged.
+      - >
+        The agentic amplifier is that judgement content today travels through plain conversational
+        messages rather than a purpose-built reputation channel: no rating field, calculation
+        step, or dissemination safeguard is part of how these messages are structured,
+        so a judgement about another agent's trustworthiness moves as ordinary natural-language
+        testimony straight into a receiving agent's {{componentReasoningCore}}, indistinguishable
+        in form from any other conversational content. That collapses the honest-witness
+        assumption the classical models above still rely on: an agent that is itself fed
+        a fabricated judgement through prompt injection or a poisoned tool response will
+        relay it in good faith, so the false testimony need not originate from a colluding
+        or dishonest node — an entirely honest relay is sufficient. This is a case the
+        classical honest-or-lying witness models do not anticipate, because they model
+        dishonesty as a property of the witness, not as content injected into an honest
+        witness's input.
+      - >
+        Empirical work on LLM-based multi-agent systems demonstrates a structurally analogous
+        propagation, though for a false factual claim rather than a judgement about an
+        actor's trustworthiness. Yan et al. seeded a single false testimony into 120 five-agent
+        environments built on three underlying models — each run as its own homogeneous
+        five-agent system, not three distinct system designs — and found the correct-majority
+        rate collapsed from 72.50% to 14.17% once one agent asserted a false claim, computed
+        excluding the deceiver with a majority defined as at least three of the remaining
+        four agents, over 360 runs per condition; the same study states, in its abstract,
+        that "a single false testimony is adopted more readily than truthful testimony,
+        propagates to higher orders, and persists through honest agents after the deceiver
+        exits" ({{ref:yan-2026-truth-distributed}}) — the persistence-through-honest-agents
+        finding matters most here, since an honest relay carrying an already-false judgement
+        is exactly the mechanism the paragraph above describes. What propagates in that
+        study is the claimed location of a physical object, not a judgement about a peer's
+        trustworthiness, so applying it to reputational testimony is an extrapolation this
+        entry makes explicitly rather than a result the paper itself establishes. A counterweight
+        exists: Becker et al. find structured debate degrades less than single-agent prompting
+        when misinformation is introduced (−2.2% to −10.3% versus −12.9% to −17.2%), particularly
+        when most agents are not exposed to the false claim — though the debating agents
+        share a single underlying model and reason turn-by-turn rather than aggregating
+        genuinely independent sources. Their robustness result depends on group composition
+        and majority size (correction rate rose from 8.0% with two uninformed agents to
+        20.5% with three), depends on the underlying model, and only holds for task-relevant
+        misinformation — irrelevant filler content can even help ({{ref:becker-2026-misinformation-benign-mas}}).
+        Even under debate, mitigation is not elimination: agents in that study often retained
+        an answer a misinformed peer had introduced.
+      - >
+        The domain is early rather than mature. ERC-8004 defines on-chain Identity, Reputation,
+        and Validation registries for cross-platform agent discovery, but its own Reputation
+        Registry design carries no field that verifies a piece of feedback is genuine testimony
+        rather than a fabricated or Sybil-authored score, and agent discovery proceeds by
+        well-known URI, curated registry listing, or direct configuration — none of which
+        specifies a mechanism for testing a testimony's accuracy before it is disseminated.
+        The gap is structural, not a matter of vocabulary: it is an absence in what the
+        registry actually verifies. ERC-8004's own Security Considerations concede the
+        weakness directly: "Sybil attacks are possible, inflating the reputation of fake
+        agents" ({{ref:erc-8004-trustless-agents}}). The one concrete mitigation the specification
+        names is narrower than a general defense — it warns that querying feedback without
+        filtering by client address is "subject to Sybil/spam attacks," and states that
+        the protocol already enables that filter; it does not name any broader verification
+        or economic countermeasure. This is asserted from a Draft, not a ratified position:
+        ERC-8004 is Ethereum Standards Track status Draft, created 2025-08-13, not yet
+        ratified, and its existence is evidence that this domain is being actively designed,
+        not evidence of a defense deployed at scale.
+      - >
+        This risk is distinct from four adjacent entries along different axes. It is distinct
+        from {{riskAgentIdentitySpoofing}}, which addresses an attacker presenting forged,
+        stolen, or unverified credentials to be accepted as a legitimate principal; here
+        the speaking agent's identity is genuine and correctly authenticated, and what
+        is false is the content of what that genuine, correctly-identified agent says about
+        a third party. It is distinct from {{riskAgentMemoryPoisoning}}, which addresses
+        corruption of a single agent's own persistent memory store that it later reads
+        back and trusts; this risk concerns testimony relayed conversationally between
+        agents in the moment, with neither party's memory store required to be touched
+        at all. It is distinct from {{riskShadowAndUnknownAgents}}, which addresses agents
+        that operate outside identity lifecycle controls entirely, unregistered and unknown
+        to the system; this risk presumes the agents involved are known, registered participants,
+        and the attack targets the reputational judgement peers hold about them, not their
+        registration status. It is distinct from {{riskImplicitCrossBoundaryTrust}}, the
+        corpus's trust-model design root: the object that crosses an unverified boundary
+        in that risk is a capability, instruction, or credential; the object that propagates
+        here is specifically a judgement about a third actor's trustworthiness — neither
+        executable nor a grant of access in itself, but a false belief that changes which
+        peer a receiving agent chooses to cooperate with or exclude.
+      - >
+        The impacts run in both directions, and both tamper with the informational record
+        peers rely on to decide who to cooperate with — but the corpus's present controls
+        do not cover the two directions symmetrically. In the slandering direction, a maligned
+        agent is denied cooperation it has legitimately earned, echoing Hoffman's own framing
+        of the harm as one that can "prevent honest nodes from using the system" — the
+        DenialOfService mapping below follows that same reading: exclusion from cooperation
+        denies an honest agent's use of the system rather than exhausting a resource, which
+        is also why this entry carries an availability impact;
+        {{controlUntrustedContextContainment}} genuinely mitigates this direction by mechanism,
+        since the false judgement arrives as untrusted model-external content that containment
+        is built to treat as suspect before it steers action, and {{controlAgentObservability}}
+        contributes an after-the-fact audit trail that can surface the slander once cooperation
+        has already been withheld. In the self-promotion direction the harm runs the other
+        way: a hostile or Sybil-amplified agent inflates its own standing so that peers
+        extend it delegated tasks, shared context, or credential-bearing capability grants
+        it has not earned — an elevation of privilege the collective would not otherwise
+        have extended. No control presently in this corpus addresses that direction; the
+        nearest candidate, {{controlThirdPartyCapabilityAdmission}}, gates the admission
+        of tools and capabilities a provider exposes, not the admission of a peer agent
+        by its claimed reputation. That asymmetry is recorded here rather than papered
+        over with a control list that reads as though it covers both directions equally.
+    category: risksDeploymentAndInfrastructure
+    personas:
+      - personaAgenticProvider
+      - personaPlatformProvider
+      - personaApplicationDeveloper
+      - personaEndUser
+    controls:
+      - controlUntrustedContextContainment
+      - controlAgentObservability
+    examples:
+      - >
+        A controlled study across 120 five-agent environments built on three underlying
+        models — each run as its own homogeneous five-agent system, not three distinct
+        system designs — measured aggregate truth recovery collapsing from 72.50% to
+        14.17% once a single agent introduced a false testimony, finding the false
+        testimony was "adopted more readily than truthful testimony, propagates to
+        higher orders, and persists through honest agents after the deceiver exits"
+        ({{ref:yan-2026-truth-distributed}}). The propagated item in this study is a
+        factual claim about a shared task rather than a judgement about an actor's
+        trustworthiness — the strongest available quantified evidence that LLM agents
+        adopt and re-propagate a peer's unverified assertion, extrapolated here to the
+        judgement case this risk describes.
+      - >
+        ERC-8004 ("Trustless Agents"), a standards-track proposal shipping a public
+        on-chain Reputation Registry with a feedback API for agents to rate one another,
+        concedes in its own Security Considerations that "Sybil attacks are possible,
+        inflating the reputation of fake agents," and separately issues a normative
+        warning that querying feedback without filtering by client address is "subject
+        to Sybil/spam attacks" ({{ref:erc-8004-trustless-agents}}) — a live, self-disclosed
+        instance of the classical weakness this risk describes, in a protocol built for
+        exactly the multi-agent reputation exchange the classical literature warns is
+        difficult to defend absent engineered countermeasures.
+    tourContent:
+      introduced:
+        - >
+          Introduced at design time, when an agentic system adopts inter-agent coordination
+          without specifying any mechanism to verify a testimony about another agent's
+          trustworthiness before it is disseminated or acted on — no reputation registry,
+          rating scale, or dissemination safeguard is part of the protocol at all.
+      exposed:
+        - >
+          Exposed once such a system is deployed and running: a deployed system inherits
+          the same absent verification, and at runtime a single fabricated or manipulated
+          judgement about a peer's trustworthiness travels as ordinary conversational testimony
+          and is adopted by receiving agents without independent verification.
+      mitigated:
+        - >
+          Mitigated, for the slandering direction, by treating an incoming judgement about
+          a peer as untrusted content to be contained before it can steer action, and by
+          keeping an audit trail an operator can use to catch the slander after the fact;
+          the self-promotion direction has no mitigating control in this corpus today.
+    mappings:
+      stride:
+        - Tampering
+        - DenialOfService
+        - ElevationOfPrivilege
+    lifecycleStage:
+      - development
+      - deployment
+      - runtime
+    impactType:
+      - integrity
+      - accountability
+      - availability
+    actorAccess:
+      - agent
+      - external
+    externalReferences:
+      - type: paper
+        id: hoffman-2009-reputation-systems-survey
+        title: 'A Survey of Attack and Defense Techniques for Reputation Systems'
+        url: 'https://doi.org/10.1145/1592451.1592452'
+      - type: paper
+        id: yu-singh-2003-deception-reputation
+        title: 'Detecting Deception in Reputation Management'
+        url: 'https://doi.org/10.1145/860575.860588'
+      - type: paper
+        id: yan-2026-truth-distributed
+        title: 'When Truth Is Distributed: Misinformation Derails Collective Fact Recovery in LLM-Based Multi-Agent Systems (arXiv:2608.03421v3)'
+        url: 'https://arxiv.org/abs/2608.03421'
+      - type: paper
+        id: becker-2026-misinformation-benign-mas
+        title: 'Misinformation Propagation in Benign Multi-Agent Systems'
+        url: 'https://arxiv.org/abs/2606.16710'
+      - type: spec
+        id: erc-8004-trustless-agents
+        title: 'ERC-8004: Trustless Agents (Draft)'
+        url: 'https://eips.ethereum.org/EIPS/eip-8004'

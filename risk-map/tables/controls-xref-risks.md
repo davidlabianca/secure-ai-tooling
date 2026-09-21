@@ -35,6 +35,8 @@
 | controlAgentObservability                    | Agent Observability                               | riskAgentDelegationChainOpacity            | Agent Delegation Chain Opacity                             |
 | controlAgentObservability                    | Agent Observability                               | riskAgenticDelegationConfusedDeputy        | Agentic Delegation Confused Deputy                         |
 | controlAgentObservability                    | Agent Observability                               | riskBrokenAuthorizationEnforcement         | Broken Authorization Enforcement for Agent Resource Access |
+| controlAgentObservability                    | Agent Observability                               | riskCrossAgentReputationPoisoning          | Cross-Agent Reputation Poisoning                           |
+| controlAgentObservability                    | Agent Observability                               | riskDeceptiveAgentReporting                | Deceptive Agent Reporting                                  |
 | controlAgentObservability                    | Agent Observability                               | riskErroneousAgentAction                   | Erroneous Agent Action                                     |
 | controlAgentObservability                    | Agent Observability                               | riskImplicitCrossBoundaryTrust             | Implicit Cross-Boundary Trust                              |
 | controlAgentObservability                    | Agent Observability                               | riskLongLivedSessionStateWeakness          | Long-Lived Session State Weakness                          |
@@ -252,6 +254,7 @@
 | controlTrustedPolicyEnforcementPoint         | Trusted Policy Enforcement Point                  | riskPromptInjection                        | Prompt Injection                                           |
 | controlTrustedPolicyEnforcementPoint         | Trusted Policy Enforcement Point                  | riskRogueActions                           | Rogue Actions                                              |
 | controlUntrustedContextContainment           | Untrusted Context Containment                     | riskAgentMemoryPoisoning                   | Agent Memory Poisoning                                     |
+| controlUntrustedContextContainment           | Untrusted Context Containment                     | riskCrossAgentReputationPoisoning          | Cross-Agent Reputation Poisoning                           |
 | controlUntrustedContextContainment           | Untrusted Context Containment                     | riskPromptInjection                        | Prompt Injection                                           |
 | controlUserDataManagement                    | User Data Management                              | riskExcessiveDataHandlingDuringInference   | Excessive Data Handling During Inference                   |
 | controlUserDataManagement                    | User Data Management                              | riskPromptResponseCachePoisoning           | Prompt/Response Cache Poisoning                            |
