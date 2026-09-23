@@ -175,6 +175,8 @@
 | controlRetrievalAndVectorSystemIntegrity     | Retrieval and Vector System Integrity Management  | componentDataFilteringAndProcessing          | Data Filtering and Processing                           |
 | controlRetrievalAndVectorSystemIntegrity     | Retrieval and Vector System Integrity Management  | componentDataSources                         | Data Sources                                            |
 | controlRetrievalAndVectorSystemIntegrity     | Retrieval and Vector System Integrity Management  | componentDataStorage                         | Data Storage Infrastructure                             |
+| controlRetrievalAndVectorSystemIntegrity     | Retrieval and Vector System Integrity Management  | componentMemory                              | Model Memory                                            |
+| controlRetrievalAndVectorSystemIntegrity     | Retrieval and Vector System Integrity Management  | componentRAGContent                          | Retrieval Augmented Generation & Content                |
 | controlRuntimeHostIsolation                  | Runtime Host Isolation                            | componentApplication                         | Application                                             |
 | controlRuntimeHostIsolation                  | Runtime Host Isolation                            | componentIsolationRuntime                    | Isolation Runtime Boundary                              |
 | controlRuntimeHostIsolation                  | Runtime Host Isolation                            | componentModelServing                        | Model Serving Infrastructure & Policy Enforcement Point |

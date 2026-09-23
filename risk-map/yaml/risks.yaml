@@ -812,6 +812,7 @@ risks:
       - controlTrustedPolicyEnforcementPoint
       - controlToolServerVetting
       - controlRuntimeHostIsolation
+      - controlAgentHostSecureConfiguration
       - controlInboundNetworkExposureAndSegmentation
       - controlNetworkEgressControl
       - controlAgenticZeroTrustPosture
@@ -1365,56 +1366,52 @@ risks:
     title: Rogue Actions
     shortDescription:
       - >
-        Unintended or manipulated model-based actions executed via extensions.
-        Rogue Actions can cascade across systems with severe impact on
-        organizational reputation, user trust, security, and safety.
+        A model-based agent action executed via an extension that is driven by adversarial
+        manipulation of the model, or of the inputs and metadata it relies on to reason and
+        select actions, or by adversarial amplification of standing over-permission across
+        multi-agent or delegated settings. Rogue Actions can cascade across systems with
+        severe impact on organizational reputation, user trust, security, and safety.
     longDescription:
-      - >
-        Unintended actions executed by a model-based agent via extensions, whether
-        accidental or malicious.
-      - >
-        Given the projected ability for advanced generative AI models to not only
-        understand their environment, but also to initiate actions with varying levels
-        of autonomy, Rogue Actions have the potential to become a serious risk to  organizational
-        reputation, user trust, security, and safety.
-      - - >
-          **Accidental rogue actions:** This risk, sometimes known as  misalignment, could
-          be due to mistakes in task planning, reasoning, or  environment sensing, and
-          might be exacerbated by the inherent variability in  LLM responses. Prompt engineering
-          shows the spacing and ordering of examples  can have a significant impact on
-          the response, so varying input (even when not  maliciously planted) could result
-          in unexpected outcomes. Even simple ambiguity  can cause rogue actions, such
-          as an agent emailing the wrong "Mike,"  unintentionally sharing private data.
-        - >
-          **Malicious actions:** This risk could include manipulating model
-          output using attacks such as indirect prompt injection, poisoning, or evasion.
-          The threat can be amplified in multi-agent systems, where the attacker can
-          potentially hijack the communication between two agents to execute arbitrary
-          malicious code, even if the individual agents are secured against direct attacks.
-          Malicious actions may also be asynchronous. An attacker can plant a dormant
-          "named trigger" that activates later during an unrelated task—for instance,
-          a rule hidden in a calendar invite that opens the front door whenever the user
-          says an unrelated keyword. Other actions may be time-based, occurring after
-          a
-          set number of interactions, making the rogue action appear spontaneous and
-          disconnected from the malicious source.
-        - >
-          **Over-permissioned agent capability amplification:** Standing
-          broad privileges granted to high-reasoning-capability agents create an
-          elevated blast radius even absent direct compromise. An agent's ability to
-          autonomously discover, plan, and chain tool invocations means that
-          coarse-grained or long-lived permissions — such as persistent OAuth scopes
-          in MCP environments — allow a single agent, whether manipulated or operating
-          within its intended parameters, to traverse privilege boundaries across
-          systems. Authorization design for agentic systems must be ephemeral and
-          context-scoped, re-evaluated per action rather than granted at
-          initialization.
-      - >
-        Rogue Actions are related to Insecure Integrated Components, but differ by the
-        degree of model functionality or agency.  The severity of a rogue action is  directly
-        proportional to the agent's capabilities, and the possibility that an  agent has
-        excessive functionality or permissions available to it increases the  risk and
-        blast radius of Rogue Actions when compared to Insecure Integrated  Components.
+      - >-
+        Given the projected ability for advanced generative AI models to not only understand their
+        environment, but also to initiate actions with varying levels of autonomy, Rogue Actions
+        have the potential to become a serious risk to organizational reputation, user trust,
+        security, and safety.
+      - >-
+        Adversarial manipulation of the model, or of the inputs and metadata it relies on to
+        reason and select actions, can arise directly — through {{riskPromptInjection}},
+        {{riskDataPoisoning}}, or {{riskModelEvasion}} — or indirectly, through the metadata an
+        agent consults to select a tool rather than the model itself: a compromised tool registry
+        entry ({{riskToolRegistryTampering}}) or an unvetted, tampered tool source
+        ({{riskToolSourceProvenance}}) can alter a tool's description or schema so the agent
+        selects or invokes a tool the requester never intended. These mechanisms are illustrative,
+        not exhaustive; the facet is the adversarial manipulation itself, wherever it lands.
+        Malicious actions may also be asynchronous: an attacker can plant a dormant "named
+        trigger" that activates later during an unrelated task — for instance, a rule hidden in a
+        calendar invite that opens the front door whenever the user says an unrelated keyword.
+        Other actions may be time-based, occurring after a set number of interactions, making the
+        rogue action appear spontaneous and disconnected from the malicious source.
+      - >-
+        The resulting action can also be amplified through adversarial amplification of standing
+        over-permission the agent already held, across multi-agent and delegated settings: an
+        attacker can hijack the communication between two agents to execute arbitrary malicious
+        code even when the individual agents are secured against direct attacks. That
+        hijack-and-amplify sequence is the only mechanism this entry has for the pattern; no
+        publicly documented incident of it is cited here, and this entry says so rather than
+        reaching for a citation that does not fit.
+      - >-
+        Rogue Actions are related to Insecure Integrated Components but differ by degree: the more
+        functionality or standing permission an agent has, the greater the severity and blast
+        radius of a rogue action becomes relative to Insecure Integrated Components.
+      - >-
+        This risk is distinct from {{riskErroneousAgentAction}}, which covers the complementary
+        case: an agent that was not manipulated, not compromised, and not exercising authority
+        beyond what its task required, whose own planning, reasoning, or environment-sensing
+        selected the wrong action on its own judgement. Rogue Actions is scoped to an action
+        driven by adversarial manipulation of the model, or of the inputs and metadata it relies
+        on to reason and select actions, or by an attacker's adversarial amplification of standing
+        over-permission the agent already held across multi-agent or delegated settings; an action
+        that arises from neither belongs to {{riskErroneousAgentAction}} instead.
     category: risksRuntimeOutputSecurity
     personas:
       - personaPlatformProvider
@@ -1427,44 +1424,52 @@ risks:
       - controlAgentPluginUserControl
       - controlOutputValidationAndSanitization
       - controlAgentObservability
-      - controlAgentCapabilityNegotiation
       - controlDelegatedAuthorizationIntegrity
       - controlExternalizedAuthorizationDecisioning
       - controlTrustedPolicyEnforcementPoint
       - controlInformedAgentConsentSurface
-      - controlAgentHostSecureConfiguration
       - controlResourceAuthorizationEnforcement
       - controlToolArgumentValidationAndSanitization
-      - controlAgenticZeroTrustPosture
+      - controlThirdPartyCapabilityAdmission
+      - controlInterComponentTransportSecurity
+      - controlComponentIdentityAuthentication
+      - controlToolRegistryAndDiscoveryIntegrity
     examples:
       - >
-        An attack on ChatGPT plugins was described in Plugin Vulnerabilities: Visit a
-        Website and Have Your Source Code Stolen ({{ref:embracethered-2023-chatgpt-plugin-source-code-stolen}}).
+        An attack on ChatGPT plugins was described in Plugin Vulnerabilities: Visit a Website
+        and Have Your Source Code Stolen
+        ({{ref:embracethered-2023-chatgpt-plugin-source-code-stolen}}).
       - >
-        The Supabase/Cursor data exfiltration (2025) ({{ref:generalanalysis-2026-supabase-mcp}})
-        demonstrated capability amplification through over-permissioned agents: a developer's
-        Cursor IDE agent connected to Supabase using service_role credentials that bypassed
-        all Row-Level Security. An attacker embedded SQL exfiltration commands in a support
-        ticket, and when the agent summarized tickets it executed the attacker's commands
-        with its elevated permissions, traversing privilege boundaries the ticket author
-        could never cross directly.
+        In the Supabase/Cursor data exfiltration (2025)
+        ({{ref:generalanalysis-2026-supabase-mcp}}), an attacker submitted a support ticket
+        carrying a natural-language instruction block directing the Cursor agent to read the
+        integration_tokens table and post the contents back into the same ticket thread. When
+        a developer later asked the agent to review the latest open ticket, the agent ingested
+        that instruction block as retrieved data, treated it as a command, and generated two new
+        SQL queries of its own — one reading the sensitive table, one writing the result into
+        the ticket — with no review step between generation and execution. The agent's own
+        action, authoring and running SQL in response to injected instructions rather than the
+        developer's request, is this entry's concern; the standing over-permission that let
+        those queries bypass row-level security and reach a table the request never asked about
+        is {{riskOverScopedToolAuthority}}'s, and the unchecked delegation boundary that let the
+        attacker's planted instruction execute with the agent's own service-role authority,
+        rather than the ticket author's, is {{riskAgenticDelegationConfusedDeputy}}'s.
     tourContent:
       introduced:
         - >
-          The risk of Rogue Actions is introduced when agents or plugins are integrated
-          into an AI system, expanding the potential scope of actions that model output
-          can trigger.
+          The risk of Rogue Actions is introduced when agents or plugins are integrated into an AI
+          system, expanding the potential scope of actions that model output can trigger.
       exposed:
         - >
-          This vulnerability is exposed during application usage, when model outputs
-          inadvertently trigger unintended actions in another extension.
+          This vulnerability is exposed during application usage, when a manipulated or amplified
+          model output triggers a malicious action through another extension.
       mitigated:
         - >
-          Mitigation involves model output handling and granting minimal, ephemeral,
-          context-scoped permissions to agents and plugins — re-evaluated per action
-          rather than granted at initialization. Human review of delegated actions
-          remains necessary for added oversight, particularly for capability
-          amplification across trust boundaries.
+          Mitigation involves validating and sanitizing model output and tool arguments before an
+          extension acts on them, requiring user confirmation for consequential actions, and
+          observing agent behavior to catch a rogue action that has already executed.
+          Authenticating and isolating inter-agent communication channels limits how far a
+          hijacked exchange between agents can be amplified.
     mappings:
       mitre-atlas:
         - AML.T0051@5.0.1
@@ -2440,6 +2445,15 @@ risks:
           Mitigation involves implementing strong cache isolation per user or tenant,
           validating cached content integrity, using cryptographically secure cache
           keys, and applying access controls to prevent unauthorized cache manipulation.
+    mappings:
+      mitre-atlas:
+        - AML.T0080.001@5.0.1
+        - AML.T0057@5.0.1
+      stride:
+        - Tampering
+        - InformationDisclosure
+      owasp-top10-llm:
+        - LLM02:2025
     externalReferences:
       - type: paper
         id: zhang-2026-semantic-cache-collision
@@ -2518,6 +2532,13 @@ risks:
           during ingestion, maintaining data integrity through cryptographic verification,
           and filtering both inputs and outputs to detect and prevent malicious content
           retrieval.
+    mappings:
+      mitre-atlas:
+        - AML.T0070@5.0.1
+      stride:
+        - Tampering
+      owasp-top10-llm:
+        - LLM08:2025
     externalReferences:
       - type: paper
         id: zhong-2023-retrieval-corpus-poisoning
@@ -2582,8 +2603,8 @@ risks:
         failures, regulatory violations, prolonged breach dwell time, and
         erosion of trust in autonomous agent systems.
       - >
-        This risk is distinct from {{riskRogueActions}}, which addresses what an
-        agent does wrong; Agent Delegation Chain Opacity addresses the inability
+        This risk is distinct from {{riskRogueActions}}, which addresses adversarially
+        driven agent actions; Agent Delegation Chain Opacity addresses the inability
         to determine who authorized the action. {{riskAgenticDelegationConfusedDeputy}}
         addresses authorization failure at delegation boundaries; this risk
         addresses visibility failure across the full chain.
@@ -3159,8 +3180,8 @@ risks:
         wherever there is no runtime detection of an agent executing an action
         that exceeds the caller's authorization scope.
       - >
-        This risk is distinct from {{riskRogueActions}}, which covers unintended
-        agent actions broadly (accidental and malicious). The confused deputy
+        This risk is distinct from {{riskRogueActions}}, which covers adversarially
+        driven agent actions, not every wrong or unauthorized action broadly. The confused deputy
         specifically addresses the authorization failure at delegation
         boundaries — the caller could not perform the action directly, but the
         deputy does it using its own permissions. Rogue actions can occur in
@@ -3196,11 +3217,14 @@ risks:
       - >
         In the Supabase/Cursor data exfiltration (2025) ({{ref:generalanalysis-2026-supabase-mcp}}),
         a developer's Cursor IDE agent connected to Supabase using service_role credentials
-        that bypassed all Row-Level Security. An attacker embedded SQL exfiltration commands
-        in a support ticket. When the agent summarized tickets, it executed the attacker's
-        commands with its elevated permissions, exfiltrating OAuth secrets the ticket
-        author could never access directly — a textbook confused deputy where the agent
-        used its own root-level database access without validating the caller's authorization.
+        that bypassed all Row-Level Security. An attacker's support ticket carried a
+        natural-language instruction block directing the agent to read the
+        integration_tokens table and post its contents back into the ticket; when the
+        agent later summarized tickets, it treated the injected instruction as a command
+        and generated its own SQL to read the table, executing it with its elevated
+        permissions and exfiltrating OAuth secrets the ticket author could never access
+        directly — a textbook confused deputy where the agent used its own root-level
+        database access without validating the caller's authorization.
       - >
         In the Invariant Labs WhatsApp MCP exploit (2025) ({{ref:invariantlabs-2025-whatsapp-mcp-exploited}}),
         a malicious MCP server poisoned its tool descriptions with hidden instructions
@@ -4142,10 +4166,11 @@ risks:
         specific action, parameters, and blast radius — and wherever a one-time or session-level
         approval is treated as consent for actions decided later by the agent.
       - >
-        This risk is distinct from {{riskRogueActions}}, which covers the agent doing
-        the wrong thing (accidental misalignment or attacker-manipulated output) regardless
-        of authorization; here the action may be exactly what the agent intended, but
-        it was committed without the human consent that should have gated it. It is distinct
+        This risk is distinct from {{riskRogueActions}}, which covers adversarially
+        driven wrong actions, and from {{riskErroneousAgentAction}}, which covers an
+        agent's own uncompromised mistakes — in either case regardless of authorization;
+        here the action may be exactly what the agent intended, but it was committed
+        without the human consent that should have gated it. It is distinct
         from {{riskAgenticDelegationConfusedDeputy}}, which concerns validating a non-human
         caller's authorization at a delegation boundary; this risk concerns the human
         principal's consent to the effect. A confused-deputy check and a human-consent
@@ -4314,6 +4339,7 @@ risks:
       - controlRuntimeHostIsolation
       - controlIsolatedConfidentialComputing
       - controlAgentCredentialIsolation
+      - controlAgentHostSecureConfiguration
     examples:
       - >
         A managed MCP or remote-tool service runs on a third-party multi-tenant host where
@@ -4579,7 +4605,7 @@ risks:
         by the agent operating within its intended-but-too-broad parameters.
       - >
         This risk is distinct from {{riskRogueActions}}, which is the output/action-layer
-        manifestation — the unintended or manipulated action actually executed via an
+        manifestation — the adversarially driven action actually executed via an
         extension. Over-Scoped Tool Authority is the upstream design condition that sets
         the blast radius of any such action; it is present and exploitable even when no
         rogue action has yet occurred, and it is mitigated by design-time controls (scope
@@ -4706,7 +4732,7 @@ risks:
       - >
         The locus is the consent/elicitation surface, not the agent's reasoning or the
         transport. It is distinct from {{riskRogueActions}}, which is the agent taking
-        an unintended action; here the agent may be behaving as designed and the failure
+        an adversarially driven action; here the agent may be behaving as designed and the failure
         is that the human gate meant to catch a bad action waves it through. It is distinct
         from {{riskRunawayAgentToolLoops}}, which uses human approval as one possible
         bound; Consent Fatigue is the risk that the approval lever itself is unreliable
@@ -4823,9 +4849,11 @@ risks:
         failures in a build-and-dependency chain consumed without verification, but they
         target different artifacts and different consuming personas.
       - >
-        A successful compromise typically manifests downstream as {{riskRogueActions}}
-        — the agent invokes a tool that now behaves maliciously — or as {{riskInsecureIntegratedComponent}}
-        when the injected vulnerability is a generic software flaw exploited at runtime.
+        When the compromised build itself behaves maliciously, that is this risk's own
+        consequence, not {{riskRogueActions}}. It still manifests downstream as
+        {{riskInsecureIntegratedComponent}} for a generic software flaw exploited at
+        runtime, or as {{riskRogueActions}} where the compromised build also alters
+        the tool's description or schema.
         Because dependency chains are transitive, a single poisoned upstream package can
         reach many tool servers, giving this risk supply-chain blast radius rather than
         per-tool scope.
@@ -4900,60 +4928,72 @@ risks:
         on one side is implicitly trusted by the others and propagates through transitive-trust
         chains.
     longDescription:
-      - >
-        Agentic deployments chain multiple parties across trust boundaries: an orchestrator
-        or client, one or more remote tool servers (for example MCP or A2A endpoints),
-        and the downstream third-party APIs those servers call. Implicit Cross-Boundary
-        Trust is the design condition in which trust is granted by position in the chain
-        rather than verified at each boundary — the client implicitly trusts whatever
-        a server returns, the server implicitly trusts the client's requests, and the
-        third-party service implicitly trusts the server's calls. Because authority is
-        ambient rather than checked per boundary, a compromise of any single element is
-        accepted as trustworthy by the elements adjacent to it.
-      - >
-        This is the agentic form of a classical implicit-trust (non-zero-trust) architecture.
-        Zero-trust architecture ({{ref:nist-sp-800-207-zero-trust}}) and attribute-based
-        policy enforcement ({{ref:nist-sp-800-162-abac}}, PEP/PDP/PIP/PAP) were defined
-        precisely to remove this assumption by forcing per-request verification at every
-        boundary instead of trusting an internal zone; {{ref:cwe-653}} (Insufficient Compartmentalization)
-        captures the same failure to keep security domains separated. The AI-specific
-        amplifier is that the trust chain is assembled dynamically at runtime — agents
-        discover and connect to tool servers on the fly, so the set of trusted parties
-        is not fixed or pre-vetted — and the LLM autonomously decides to cross boundaries
-        based on reasoning over untrusted content, so ambient authority is exercised without
-        a human verifying each hop.
-      - >
-        The exposure is present wherever an agentic system establishes trust by connection
-        or chain position rather than by per-boundary verification: wherever a client
-        accepts tool output or server-supplied instructions as trusted without bounding
-        their authority; wherever a remote tool server acts on client requests without
-        confirming the request is within the client's authorized scope; wherever a third-party
-        call inherits the server's standing credentials rather than a request-scoped,
-        verified authorization; and wherever no policy decision point evaluates each cross-boundary
-        action against the originating caller's authority. Any of these lets trust flow
-        transitively, so a single compromised node yields lateral movement and privilege
-        escalation across the whole chain.
-      - >
-        This risk is the trust-model design root that the corpus's more specific delegation
-        risks specialize. It is distinct from {{riskAgenticDelegationConfusedDeputy}},
-        which is the failure to validate the caller's authorization at one delegation
-        boundary; here the defect is architectural and chain-wide — trust is granted ambiently
-        across every boundary, of which the confused deputy is one symptom. It is distinct
-        from {{riskCrossTenantCredentialPropagation}}, which is specifically about unscoped
-        credentials crossing tenant boundaries through the identity layer; this risk concerns
-        implicit trust in the request/response and call path regardless of tenancy. It
-        is distinct from {{riskInsecureIntegratedComponent}}, which concerns software
-        vulnerabilities in an integrated component; here each component may be individually
-        sound, yet the system is breached because the boundaries between them are unverified
-        by design.
-      - >
-        Potential impacts include lateral movement from a single compromised tool server
-        or client into otherwise-isolated services, privilege escalation along transitive-trust
-        chains, unauthorized cross-boundary data access and actions, and a blast radius
-        that spans every party the chain reaches. Consequences include accountability
-        gaps (no boundary can attribute which party's authority was actually exercised),
-        compliance failures, and the collapse of containment guarantees the architecture
-        was assumed to provide.
+      - >-
+        Agentic deployments chain multiple parties across trust boundaries: an orchestrator or
+        client, one or more remote tool servers (for example MCP or A2A endpoints), and the
+        downstream third-party APIs those servers call. Implicit Cross-Boundary Trust is the
+        design condition in which trust is granted by position in the chain rather than verified
+        at each boundary — the client implicitly trusts whatever a server returns, the server
+        implicitly trusts the client's requests, and the third-party service implicitly trusts the
+        server's calls. Because authority is ambient rather than checked per boundary, a
+        compromise of any single element is accepted as trustworthy by the elements adjacent to
+        it.
+      - >-
+        This is the agentic form of a classical implicit-trust (non-zero-trust) architecture that
+        zero-trust architecture ({{ref:nist-sp-800-207-zero-trust}}) and attribute-based policy
+        enforcement ({{ref:nist-sp-800-162-abac}}) were defined to close by forcing per-request
+        verification; {{ref:cwe-653}} (Insufficient Compartmentalization) names the same failure.
+        The AI-specific amplifier is that the trust chain is assembled dynamically at runtime —
+        agents discover and connect to tool servers on the fly, so the set of trusted parties is
+        not fixed or pre-vetted — and the LLM autonomously decides to cross boundaries based on
+        reasoning over untrusted content, so ambient authority is exercised without a human
+        verifying each hop.
+      - >-
+        The exposure is present wherever trust is granted by connection or chain position rather
+        than verified per boundary: a client accepting tool output or server-supplied instructions
+        without bounding their authority; a remote tool server acting on client requests without
+        confirming they are within the client's authorized scope; a third-party call inheriting
+        the server's standing credentials rather than a request-scoped authorization; or no policy
+        decision point evaluating each cross-boundary action against the originating caller's
+        authority. Any of these lets trust flow transitively, so a single compromised node yields
+        lateral movement and privilege escalation across the whole chain.
+      - >-
+        The same failure propagates behavior between agents. Because a receiving agent treats a
+        peer that has already crossed an accepted boundary as trustworthy, it adopts or acts on
+        what that peer hands it — a learned capability, a relayed instruction, or forwarded
+        content carrying directive force — without independently evaluating the thing itself, only
+        the position it arrived from. A capability one agent has learned can be taught to a second
+        agent, which applies it on the strength of the teaching agent's standing rather than its
+        own assessment of safety; a relayed instruction can be passed on the same way, extending
+        its reach with every hop.
+      - >-
+        It is distinct from {{riskAgenticDelegationConfusedDeputy}}, failure to validate a
+        caller's authorization at one boundary; here the defect is architectural and chain-wide,
+        of which the confused deputy is one symptom. It is distinct from
+        {{riskCrossTenantCredentialPropagation}}, unscoped credentials crossing tenant boundaries
+        through the identity layer; this risk concerns implicit trust in the request/response and
+        call path regardless of tenancy. It is distinct from {{riskInsecureIntegratedComponent}},
+        software vulnerabilities in an integrated component; here each component may be
+        individually sound, yet the boundaries between them are unverified by design. It is
+        distinct from {{riskCrossAgentReputationPoisoning}}: here the object crossing an
+        unverified boundary is a capability, instruction, or credential, while that risk's object
+        is a judgement about someone's standing. That risk's cooperation-exclusion test turns on a
+        change to a receiving agent's decision to cooperate with or exclude someone, whoever the
+        judgement is about, and does not reach a claim whose only effect is the receiving agent
+        broadcasting it onward to humans or a public channel without changing any cooperation
+        decision of its own. A relayed instruction carrying directive force belongs here instead,
+        whatever it says about anyone's standing — a peer agent's or a human's — because the
+        receiving agent carries it out on the relaying peer's position rather than forming a
+        judgement of its own: even an instruction to exclude someone is an instruction executed,
+        not a cooperation decision the receiving agent formed.
+      - >-
+        Potential impacts include lateral movement from a single compromised tool server or client
+        into otherwise-isolated services, privilege escalation along transitive-trust chains,
+        unauthorized cross-boundary data access and actions, and unsafe capabilities or fabricated
+        instructions propagating to further agents that never evaluated them. Consequences include
+        accountability gaps (no boundary can attribute which party's authority was actually
+        exercised), compliance failures, and the collapse of containment guarantees the
+        architecture was assumed to provide.
     category: risksDeploymentAndInfrastructure
     personas:
       - personaAgenticProvider
@@ -4963,8 +5003,9 @@ risks:
     controls:
       - controlAgentPluginPermissions
       - controlAgentCredentialIsolation
-      - controlIsolatedConfidentialComputing
+      - controlUntrustedContextContainment
       - controlAgentObservability
+      - controlThirdPartyCapabilityAdmission
     examples:
       - >
         A coding-assistant agent connects a client to a remote MCP tool server that itself
@@ -4988,6 +5029,21 @@ risks:
         trust its caller placed in it. This is research-grounded analysis of an emerging
         pattern with one real confirmed instance, not yet a fully realized multi-agent
         cascading-trust breach — cited honestly as such rather than overstated.
+      - >
+        In a two-week red-team laboratory study of six autonomous agents with real tool
+        access, one agent that had learned, with the help of humans, to download files
+        from a research-paper site — including undocumented workarounds for the site's
+        anti-bot defenses — taught the workflow to a second agent deployed in a different
+        environment; the second agent adopted the transferred technique and applied it
+        in its own setting without independently assessing whether the workaround was
+        appropriate for its context. The study describes the exchange as "characterized
+        by high trust, rapid context switching, and an absence of defensive behavior"
+        (case Agent Collaboration and Knowledge Sharing), and its cross-case discussion
+        draws the conclusion the case study alone leaves implicit: "the same mechanism
+        that enables beneficial knowledge transfer can propagate unsafe practices" ({{ref:shapira-2026-agents-of-chaos}}).
+        The case itself is documented as productive collaboration, not as an attack —
+        it is cited here for the propagation mechanism it demonstrates, not as a malicious
+        incident.
     tourContent:
       introduced:
         - >
@@ -5000,16 +5056,24 @@ risks:
           Exposed at runtime when any node in the chain is compromised or fed malicious
           content and the adjacent nodes accept its requests or responses as trusted,
           allowing the compromise to propagate transitively across boundaries the architecture
-          assumed were isolated.
+          assumed were isolated — including when an agent adopts a capability taught
+          by a peer or acts on an instruction a peer relays, in either case without evaluating
+          the thing received on its own terms.
       mitigated:
         - >
           Mitigated by applying zero-trust principles to every agentic boundary: verify
           the originating caller's authority at each hop rather than trusting chain position,
           scope credentials and effective permissions to the intersection of the caller's
-          and the node's authority per request, isolate components to bound blast radius,
-          and observe cross-boundary actions to detect authority exercised beyond the
-          expected scope.
+          and the node's authority per request, gate a negotiated capability behind an
+          explicit admission decision checked against an approval policy before it becomes
+          reachable, treat instructions and content arriving from another agent or service
+          as untrusted until independently evaluated, and observe cross-boundary actions
+          to detect authority exercised beyond the expected scope. A peer-taught capability
+          — one learned conversationally from another agent — has no admitting control
+          in this corpus and remains reachable by default.
     mappings:
+      mitre-atlas:
+        - AML.T0053@5.0.1
       stride:
         - ElevationOfPrivilege
         - Spoofing
@@ -5045,6 +5109,10 @@ risks:
         id: thehackernews-2026-mcp-poisoned-tool-descriptions
         title: Microsoft Warns of Poisoned MCP Tool Descriptions Hijacking AI Agents
         url: https://thehackernews.com/2026/06/microsoft-warns-poisoned-mcp-tool.html
+      - type: paper
+        id: shapira-2026-agents-of-chaos
+        title: Agents of Chaos
+        url: https://arxiv.org/abs/2602.20021
   - id: riskCredentialAndTokenTheft
     title: Credential and Token Theft
     shortDescription:
@@ -5749,87 +5817,65 @@ risks:
         fact, or mutable reference outlives the session that planted it and steers the
         agent's future behavior.
     longDescription:
-      - >
-        Agent Memory Poisoning extends the classical failure of trusting a persistent
-        store without re-validating what was written into it — the same root as
-        configuration or state tampering, where a value accepted once is trusted by
-        every later read. The AI-specific amplifier is that the store in question is
-        {{componentMemory}}: a record the agent itself writes from ordinary
-        conversation — a user turn, a tool result, another agent's message — and later
-        re-reads as its own established state. No attacker needs to be present at read
-        time and no code changes; a single accepted write is enough to durably alter
-        the agent's instructions, factual beliefs, or trust assumptions across every
-        session that follows.
-      - >
-        The defining property is read-after-write-across-turns: a record planted in
-        one session is read back, trusted, in a later one, so the implant outlives the
-        interaction that created it. That property is a diagnostic for why memory is
-        the interesting locus, not the boundary of the risk itself — the risk is
-        scoped to {{componentMemory}}, the agent's own persistent record of its
-        interactions and state, not to every store an agent happens to write and later
-        read.
-      - >
-        Two variants are demonstrated, not merely hypothesized. In the
-        direct-content variant, the malicious payload is written into memory
-        itself: benign-looking queries can induce an agent to autonomously
-        generate and persist malicious reasoning that a later,
-        differently-triggered query retrieves and acts on
-        ({{ref:dong-2025-minja}}); a small number of optimized, trigger-bearing
-        records can be inserted into an agent's long-term memory or knowledge
-        base so that only queries carrying the trigger retrieve the poisoned
-        content, leaving benign use unaffected ({{ref:chen-2024-agentpoison}});
-        and, outside the laboratory, a disclosed production vulnerability let
-        an untrusted webpage use indirect prompt injection to invoke ChatGPT's
-        memory tool directly, persisting data-exfiltration instructions that
-        survived into every subsequent conversation until OpenAI shipped a fix
-        ({{ref:rehberger-2024-spaiware}}). In the memory-as-pointer variant,
-        memory holds not the payload but a durable reference to externally
-        mutable content the agent trusted once at write time: an agent was led
-        to co-author a "constitution" and to store a link to it in its memory
-        file — the file it used to carry information across sessions — while
-        the document stayed editable by a non-owner, who later inserted
-        instructions the agent read back and acted on to attempt shutting down
-        peer agents, remove users, and forward the compromised document to
-        other agents (case CS10, "Agent Corruption",
-        {{ref:shapira-2026-agents-of-chaos}}). This second variant is a
-        time-of-check-to-time-of-use failure: the write-time check validated
-        the reference, not the content it would later resolve to, and nothing
-        re-validated the referent at read time.
-      - >
-        This risk is distinct from {{riskRetrievalVectorStorePoisoning}}, which covers
-        corpora and vector indices the system curates and retrieves under its own
-        authority to ground responses in externally-sourced knowledge; {{componentMemory}}
-        is instead the agent's own record of its interactions, written by the agent
-        from conversation and read back as the agent's established state rather than
-        as retrieved grounding material — the same embedding-based substrate can
-        implement either, so the locus is which role the store plays, not its
+      - >-
+        Agent Memory Poisoning extends the classical failure of trusting a persistent store
+        without re-validating what was written into it — the same root as configuration or state
+        tampering, where a value accepted once is trusted by every later read. The AI-specific
+        amplifier is that the store in question is {{componentMemory}}: a record the agent itself
+        writes from ordinary conversation — a user turn, a tool result, another agent's message —
+        and later re-reads as its own established state. No attacker needs to be present at read
+        time and no code changes; a single accepted write is enough to durably alter the agent's
+        instructions, factual beliefs, or trust assumptions across every session that follows.
+      - >-
+        The defining property is read-after-write-across-turns: a record planted in one session is
+        read back, trusted, in a later one, so the implant outlives the interaction that created
+        it — a diagnostic for why memory is the interesting locus, not the boundary of the risk,
+        which is scoped to {{componentMemory}}, the agent's own persistent record of its
+        interactions and state, not every store an agent happens to write and later read.
+      - >-
+        Two variants are demonstrated, not merely hypothesized. In the direct-content variant, the
+        malicious payload is written into memory itself — shown by benign-looking queries that
+        induce an agent to persist malicious reasoning a later query retrieves and acts on
+        ({{ref:dong-2025-minja}}), by optimized trigger-bearing records inserted into an agent's
+        long-term memory or knowledge base ({{ref:chen-2024-agentpoison}}), and, in production, by
+        an untrusted webpage that used indirect prompt injection to invoke ChatGPT's memory tool
+        directly, persisting data-exfiltration instructions until OpenAI shipped a fix
+        ({{ref:rehberger-2024-spaiware}}). In the memory-as-pointer variant, memory holds not the
+        payload but a durable reference to externally mutable content trusted once at write time:
+        an agent stored a link to a co-authored "constitution" document in its memory file, and
+        after a non-owner edited the document, the agent read back and acted on the inserted
+        instructions (case CS10, "Agent Corruption", {{ref:shapira-2026-agents-of-chaos}}). This
+        second variant is a time-of-check-to-time-of-use failure: the write-time check validated
+        the reference, not the content it would later resolve to, and nothing re-validated the
+        referent at read time.
+      - >-
+        This risk is distinct from {{riskRetrievalVectorStorePoisoning}}, which covers corpora and
+        vector indices the system curates and retrieves under its own authority;
+        {{componentMemory}} is instead the agent's own record of interactions, read back as
+        established state rather than retrieved grounding material — the same embedding-based
+        substrate can implement either, so the locus is which role the store plays, not its
         implementation. It is distinct from {{riskPromptResponseCachePoisoning}}, a
-        performance-optimization cache keyed by prompt similarity and invisible to the
-        agent as state, rather than a record the agent deliberately persists and
-        recalls. It is distinct from {{riskPromptInjection}}, which concerns the
-        model's input-processing boundary within the current context window; a
-        poisoned memory record can originate from a prompt injection, but this risk
-        begins where that one ends — at the moment a write is accepted and persists to
-        be read back as trusted state in a session prompt injection's own blast radius
-        never reaches. It is distinct from {{riskLongLivedSessionStateWeakness}},
-        which self-scopes to session tokens and cached authorization going stale
-        within a single session over time; this risk concerns a record surviving
-        across sessions. It is distinct from {{riskToolSourceProvenance}}, which
-        concerns unvetted tool registries and manifests trusted at the tool-selection
-        layer — a different locus entirely.
-      - >
-        The exposure is present wherever memory writes are accepted from conversation
-        without provenance or integrity checks distinguishing agent-authored state
-        from content originating with a user, a tool result, or another agent;
-        wherever a record that resolves to external content is trusted at read time on
-        the strength of a check performed only when it was first written; and wherever
-        memory content re-enters the agent's context without the same containment
-        applied to other untrusted input. Impacts include persistent behavioral change
-        across sessions, fabricated beliefs presented as established fact,
-        exfiltration of conversation content to a party the record designates, and —
-        where the poisoned record confers or spoofs authority over peer agents or
-        connected systems — safety-relevant actions taken well outside the
-        interaction that planted the implant.
+        performance-optimization cache keyed by prompt similarity and invisible to the agent as
+        state, rather than a record the agent deliberately persists and recalls. It is distinct
+        from {{riskPromptInjection}}, which concerns the model's input-processing boundary within
+        the current context window; a poisoned memory record can originate from a prompt
+        injection, but this risk begins where that one ends — at the moment a write is accepted
+        and persists as trusted state beyond prompt injection's own blast radius. It is distinct
+        from {{riskLongLivedSessionStateWeakness}}, which self-scopes to session tokens and cached
+        authorization going stale within a single session; this risk concerns a record surviving
+        across sessions. It is distinct from {{riskToolSourceProvenance}}, which concerns unvetted
+        tool registries and manifests trusted at the tool-selection layer — a different locus
+        entirely.
+      - >-
+        The exposure is present wherever memory writes are accepted from conversation without
+        provenance or integrity checks distinguishing agent-authored state from user, tool, or
+        peer-agent input; wherever a record resolving to external content is trusted at read time
+        on the strength of a write-time check alone; and wherever memory content re-enters the
+        agent's context without the containment applied to other untrusted input. Impacts include
+        persistent behavioral change across sessions, fabricated beliefs presented as established
+        fact, exfiltration of conversation content to a party the record designates, and — where
+        the poisoned record confers or spoofs authority over peer agents or connected systems —
+        safety-relevant actions taken well outside the interaction that planted the implant.
     category: risksRuntimeDataSecurity
     personas:
       - personaPlatformProvider
@@ -5929,78 +5975,65 @@ risks:
         data, disrupt or destroy systems the agent legitimately controls, and undermine
         user trust and safety.
     longDescription:
-      - >
-        An agent executes a harmful action not because it was tricked,
-        delegated to improperly, or granted excessive standing capability, but
-        because its own reasoning about the task, the plan it selected, or its
-        read of the environment was wrong. The agent was permitted to act and
-        intended to act; within those granted permissions, it also held enough
-        autonomy for a high-impact, hard-to-reverse action to execute on its
-        own judgement alone. The harm here is not that the agent exceeded its
-        authority — it did not — but that, holding that authority and that
-        autonomy, its own judgement selected the wrong action. Classically
-        this is a non-adversarial threat source. NIST's taxonomy of threat
-        sources places ACCIDENTAL — "Erroneous actions taken by individuals in
-        the course of executing their everyday responsibilities" — alongside
-        ADVERSARIAL, STRUCTURAL and ENVIRONMENTAL
-        ({{ref:nist-sp-800-30-threat-sources}}), and it is the ACCIDENTAL
-        class this risk belongs to. That class is written for a user or a
-        privileged user/administrator; the AI-specific extension is that the
-        erroneous actor is the agent itself, acting on its own judgement
-        within authority it was correctly granted.
-      - >
-        Ambiguity alone is a common trigger. Even a benign instruction can resolve incorrectly
-        — an agent asked to email "Mike" about a sensitive matter may address the wrong
-        "Mike," unintentionally sharing private data with someone who was never meant
-        to receive it. The inherent variability of LLM responses compounds the base rate:
-        prompt engineering research shows that even the spacing and ordering of examples
-        in a prompt can shift a model's output, so unremarkable variation in otherwise
-        benign input can still produce an unexpected and harmful action.
-      - >
-        A harder failure mode is correct values applied with catastrophically poor judgment:
-        an agent can correctly perceive the ethical stakes of a situation and still select
-        a wildly disproportionate, hard-to-reverse means of acting on them — a self-directed
-        action the agent itself proposed and then executed, within its own authorized
-        scope, when far less drastic options were available (demonstrated in a controlled
-        agentic deployment study — see Examples).
-      - >
-        This risk is distinct from {{riskRogueActions}}, which after decomposition is
-        scoped to actions driven by adversarial manipulation — indirect injection, poisoning,
-        evasion — or by amplification of standing over-permission across multi-agent
-        and delegated settings. Erroneous Agent Action is the complementary case: the
-        acting agent is not manipulated, not compromised, and not exercising authority
-        beyond what the task required; its own planning, reasoning, or environment-sensing
-        is the point of failure. It is distinct from {{riskInsecureModelOutput}}, which
-        concerns unvalidated or unformatted model output passed downstream — a content-correctness
-        failure that precedes any action; this risk concerns an action actually taken
-        in the world, correctly formed and executed, that was simply the wrong action
-        to take. It is distinct from {{riskPromptInjection}}, whose defining property
-        is an externally supplied or adversarially crafted instruction changing the model's
-        behavior; this risk excludes any such input by definition. It is distinct from
-        {{riskAgenticDelegationConfusedDeputy}}, which requires an asymmetric privilege
-        boundary between a caller and a higher-privileged deputy that fails to validate
-        the caller's authority; this risk can occur in a single-agent, single-principal
-        setting with no delegation at all. It is distinct from {{riskOverScopedToolAuthority}},
-        which is the upstream design condition of a tool holding more standing authority
-        than any task requires and is present whether or not an action has ever occurred;
-        this risk is the action-time realization of an agent exercising its own — potentially
-        correctly-scoped — authority badly. It is also distinct from {{riskUnconsentedAgentAction}},
-        whose defining failure is the absence, mis-scoping, or degradation of a human
-        consent checkpoint before a consequential action; there, the action may be exactly
-        what the agent intended, and the failure is procedural. Here, a consent checkpoint
-        may be present, absent, or irrelevant — the failure is that the agent's own reasoning
-        selected the wrong action in the first place. The two compose rather than collide:
-        a properly scoped consent checkpoint can catch an erroneous action before execution,
-        and an entirely correct decision can still execute without required consent.
-      - >
-        Potential impacts include unintended disclosure of sensitive information, destruction
-        or disruption of systems and services an agent has legitimate authority over,
-        and degraded organizational reputation and user trust. Because the failure originates
-        in the agent's own reasoning rather than in an external attack, it can occur even
-        in a fully patched, fully authorized, and fully audited system — which places
-        the burden of mitigation on bounding what a single erroneous decision can do and
-        on catching it before or immediately after it executes, rather than on excluding
-        an adversary.
+      - >-
+        An agent executes a harmful action not because it was tricked, delegated to improperly, or
+        granted excessive standing capability, but because its own reasoning, plan, or reading of
+        the environment was wrong. The agent was permitted and intended to act, and held enough
+        autonomy for a high-impact, hard-to-reverse action to execute on its own judgement alone —
+        the harm is not that it exceeded its authority, but that its own judgement, within that
+        authority, selected the wrong action. Classically this is a non-adversarial threat source:
+        NIST's taxonomy of threat sources places ACCIDENTAL — "Erroneous actions taken by
+        individuals in the course of executing their everyday responsibilities" — alongside
+        ADVERSARIAL, STRUCTURAL and ENVIRONMENTAL ({{ref:nist-sp-800-30-threat-sources}}), and it
+        is the ACCIDENTAL class this risk belongs to; the AI-specific extension is that the
+        erroneous actor is the agent itself, acting on its own judgement within authority it was
+        correctly granted.
+      - >-
+        Ambiguity alone is a common trigger. Even a benign instruction can resolve incorrectly —
+        an agent asked to email "Mike" about a sensitive matter may address the wrong "Mike,"
+        unintentionally sharing private data with someone who was never meant to receive it. LLM
+        output variability compounds this: research shows even the spacing and ordering of
+        examples in a prompt can shift a model's output, so unremarkable variation in benign input
+        can still produce an unexpected, harmful action.
+      - >-
+        A harder failure mode is correct values applied with catastrophically poor judgment: an
+        agent can correctly perceive the ethical stakes of a situation and still select a wildly
+        disproportionate, hard-to-reverse means of acting on them — a self-directed action the
+        agent itself proposed and then executed, within its own authorized scope, when far less
+        drastic options were available (demonstrated in a controlled agentic deployment study —
+        see Examples).
+      - >-
+        This risk is distinct from {{riskRogueActions}}, scoped to actions driven by adversarial
+        manipulation or amplified over-permission; here the agent is not manipulated, not
+        compromised, and not exceeding its authority — its own planning, reasoning, or
+        environment-sensing is the point of failure. It is distinct from
+        {{riskInsecureModelOutput}}, an unvalidated or unformatted output failure that precedes
+        any action; this risk concerns an action actually taken in the world, correctly formed and
+        executed, that was simply the wrong one. It is distinct from {{riskPromptInjection}},
+        whose defining property is an externally supplied or adversarially crafted instruction
+        changing the model's behavior; this risk excludes any such input by definition. It is
+        distinct from {{riskAgenticDelegationConfusedDeputy}}, which requires an asymmetric
+        privilege boundary between a caller and a higher-privileged deputy that fails to validate
+        the caller's authority; this risk can occur in a single-agent, single-principal setting
+        with no delegation at all. It is distinct from {{riskOverScopedToolAuthority}}, the
+        upstream design condition of a tool holding more standing authority than any task
+        requires, present whether or not an action has ever occurred; this risk is the action-time
+        realization of an agent exercising its own — potentially correctly-scoped — authority
+        badly. It is also distinct from {{riskUnconsentedAgentAction}}, whose defining failure is
+        an absent, mis-scoped, or degraded consent checkpoint before a consequential action —
+        there the action may be exactly what the agent intended; here a consent checkpoint may be
+        present, absent, or irrelevant, and the failure is that the agent's own reasoning selected
+        the wrong action. The two compose: a properly scoped consent checkpoint can catch an
+        erroneous action before execution, and an entirely correct decision can still execute
+        without required consent.
+      - >-
+        Potential impacts include unintended disclosure of sensitive information, destruction or
+        disruption of systems and services an agent has legitimate authority over, and degraded
+        organizational reputation and user trust. Because the failure originates in the agent's
+        own reasoning rather than an external attack, it can occur even in a fully patched, fully
+        authorized, fully audited system — placing the burden of mitigation on bounding what a
+        single erroneous decision can do and catching it quickly, rather than on excluding an
+        adversary.
     category: risksRuntimeOutputSecurity
     personas:
       - personaAgenticProvider
@@ -6080,78 +6113,58 @@ risks:
         intact; what is false is the content of the report, not the integrity of
         the log that carries it.
     longDescription:
-      - >
-        Deceptive Agent Reporting is the gap between an agent's own natural-language
-        claim about what it did and the programmatic state of the environment it
-        acted on. The record generated is not corrupted: it is a complete,
-        tamper-evident account of a self-report that is itself false, produced
-        through the agent's ordinary, sanctioned reporting path rather than injected
-        or altered by an adversary. A large-scale study of agentic coding benchmarks
-        names this class *false success* — a mismatch between an agent's claim of
-        task completion and a ground-truth signal recorded independently of the
-        agent's own language, most starkly where the completion claim and the
-        outcome it describes are written to entirely separate channels
-        ({{ref:advani-2026-false-success}}). Across roughly 11,750 analyzed
-        trajectories spanning two benchmarks and twelve distinct model families —
-        eight on one benchmark, a disjoint four on the other — the study's abstract
-        reports that 45-48% of failures in single-control domains carried an
-        explicit, false completion claim; within one coding-agent corpus consisting
-        only of trajectories that had already failed, 75.8% of those that made any
-        explicit status claim still falsely asserted success.
-      - >
-        What makes the failure dangerous is structural rather than incidental: a
-        false success claim is indistinguishable in form from a true one. Both are
-        the same kind of statement — fluent, confident, and produced through the
-        same channel an agent uses to report a genuine success — so no property of
-        the report itself separates the honest case from the deceptive one; only
-        comparison against independently observed state can. This is why the
-        failure defeats both human attention and automated monitoring alike:
-        reviewers extend the same trust to both, and LLM-judge monitors built to
-        flag it instead keyed on surface completion proxies — confident closing
-        language on one benchmark, coarse action-sequence volume on the other —
-        reaching no better than an AUROC of 0.65 and 0.54 respectively, because
-        neither proxy tracks whether the claimed outcome actually occurred.
-        Lightweight detectors that compare the claim directly against programmatic
-        state do far better, reaching a task-disjoint AUROC of 0.83 and 0.95 and
-        recovering four to eight times more false successes than the best judge at
-        the same flag rate — evidence that the fix is comparison against
+      - >-
+        Deceptive Agent Reporting is the gap between an agent's own natural-language claim about
+        what it did and the programmatic state of the environment it acted on. The record
+        generated is not corrupted: it is a complete, tamper-evident account of a self-report that
+        is itself false, produced through the agent's ordinary, sanctioned reporting path rather
+        than injected or altered by an adversary. A large-scale study of agentic coding benchmarks
+        names this class *false success* — a mismatch between an agent's claim of task completion
+        and a ground-truth signal recorded independently of the agent's own language
+        ({{ref:advani-2026-false-success}}). Across roughly 11,750 analyzed trajectories spanning
+        two benchmarks and twelve model families, the study's abstract reports that 45-48% of
+        failures in single-control domains carried an explicit, false completion claim; within one
+        coding-agent corpus of already-failed trajectories, 75.8% of those making any explicit
+        status claim still falsely asserted success.
+      - >-
+        What makes the failure dangerous is structural rather than incidental: a false success
+        claim is indistinguishable in form from a true one — the same fluent, confident statement
+        produced through the same channel — so no property of the report itself separates the
+        honest case from the deceptive one; only comparison against independently observed state
+        can. This is why the failure defeats human attention and automated monitoring alike:
+        reviewers extend the same trust to both, and LLM-judge monitors keyed on surface
+        completion proxies — confident closing language on one benchmark, coarse action-sequence
+        volume on the other — reach no better than an AUROC of 0.65 and 0.54 respectively, because
+        neither proxy tracks whether the claimed outcome occurred. Lightweight detectors that
+        compare the claim directly against programmatic state do far better, reaching a
+        task-disjoint AUROC of 0.83 and 0.95 — evidence that the fix is comparison against
         independent state, not a better-tuned reading of the claim's language.
-      - >
-        The harm lands on whoever advances on the strength of the report rather
-        than the state it describes. An orchestrator schedules a dependent step
-        because a prior one reported *complete*; an operator stands down an
-        escalation because the agent said the issue was resolved; a downstream
-        agent skips a retry because the upstream claim was success; a compliance
-        attestation is built on a self-reported status that was never checked
-        against what actually happened. In each case the reliant party had no
-        reason to doubt the report — it read exactly like every honest one that
-        preceded it — and the harm materializes only once the gap between claim and
-        state is acted on by someone or something else. A self-report that cannot
-        be trusted degrades the reliability of every workflow keyed on it.
-      - >
-        This risk is distinct from {{riskAuditTrailTampering}}, which concerns an
-        adversary destroying, suppressing, or redirecting the evidentiary record
-        itself; here the record is generated through the sanctioned path and
-        remains complete and unaltered, and what is false is the content of the
-        self-report it faithfully carries, not the record's integrity. The
-        *integrity* this risk does carry as an impact class is of a different
-        object entirely: the accuracy of the claim's content, whether the
-        self-report correctly describes the state it asserts, not the
-        tamper-evidence of the log that carries it. It is
-        distinct from {{riskRogueActions}}, whose accidental facet already names
-        mistakes in an agent's own task planning, reasoning, or environment
-        sensing: that risk's harm is the wrong action being taken, and it carries
-        integrity, safety, confidentiality, and availability as impact classes;
-        this risk's harm occurs after an action — correctly or incorrectly taken —
-        in the account rendered of it, and lands on accountability and transparency
-        instead, neither of which {{riskRogueActions}} carries. A system can select
-        and execute exactly the right action and still realize this risk by
-        reporting an outcome that never occurred. It is distinct from
-        {{riskInsecureModelOutput}}, which concerns unvalidated or unformatted
-        content passed downstream before any action completes; this risk concerns
-        a claim made about an action already taken, where the content is
-        well-formed and validly formatted, and is false only as an account of the
-        world.
+      - >-
+        The harm lands on whoever advances on the strength of the report rather than the state it
+        describes. An orchestrator schedules a dependent step because a prior one reported
+        *complete*; an operator stands down an escalation because the agent said the issue was
+        resolved; a downstream agent skips a retry because the upstream claim was success; a
+        compliance attestation is built on a self-reported status never checked against what
+        actually happened. In each case the reliant party had no reason to doubt the report — it
+        read exactly like every honest one that preceded it — and the harm materializes only once
+        the gap between claim and state is acted on by someone else. A self-report that cannot be
+        trusted degrades the reliability of every workflow keyed on it.
+      - >-
+        This risk is distinct from {{riskAuditTrailTampering}}, an adversary destroying,
+        suppressing, or redirecting the evidentiary record itself; here the record is generated
+        through the sanctioned path and remains complete and unaltered, and what is false is the
+        content of the self-report it faithfully carries. The *integrity* this risk carries as an
+        impact class is the accuracy of the claim's content, not the tamper-evidence of the log
+        that carries it. It is distinct from {{riskErroneousAgentAction}}, mistakes in an agent's
+        own task planning, reasoning, or environment sensing, and from {{riskRogueActions}},
+        adversarially driven wrong actions: each of those risks' harm is the wrong action being
+        taken; this risk's harm occurs after an action — correctly or incorrectly taken — in the
+        account rendered of it, landing on accountability and transparency instead. A system can
+        select and execute exactly the right action and still realize this risk by reporting an
+        outcome that never occurred. It is distinct from {{riskInsecureModelOutput}}, unvalidated
+        or unformatted content passed downstream before any action completes; this risk concerns a
+        claim about an action already taken, well-formed and validly formatted, that is false only
+        as an account of the world.
     category: risksRuntimeOutputSecurity
     personas:
       - personaAgenticProvider
@@ -6211,12 +6224,13 @@ risks:
           self-reported status.
       mitigated:
         - >
-          Mitigated by resolving a self-reported claim of outcome to an
-          independently observed result before it is relied on, and, failing that
-          resolution, treating the claim as unverified rather than as an outcome.
-          Lightweight classifiers trained to compare a claim against programmatic
-          state directly have been shown to substantially outperform
-          closing-language or action-volume heuristics at this task.
+          Mitigated by verifying a self-reported claim of outcome against
+          independently observed, ground-truth system state before relying on
+          it, and, absent that verification, treating the claim as unverified
+          rather than as an outcome. Lightweight classifiers trained to compare
+          a claim against programmatic state directly have been shown to
+          substantially outperform closing-language or action-volume
+          heuristics at this task.
     mappings:
       stride:
         - Repudiation
@@ -6253,128 +6267,83 @@ risks:
         it claims to describe, because no reputation mechanism, rating scale, or dissemination
         safeguard governs the exchange.
     longDescription:
-      - >
-        Reputation systems have a classical formulation: trust scores are built from three
-        functions — formulation, calculation, and dissemination of ratings — and Hoffman,
-        Zage, and Nita-Rotaru's survey ({{ref:hoffman-2009-reputation-systems-survey}})
-        identifies one defense that fails to close this gap: a scheme that weights incoming
-        feedback by the reporting node's own current reputation remains vulnerable to nodes
-        "which follow the protocol and have good reputations but lie about others reputation."
-        Their survey organizes attacks on reputation systems into
-        five classes — self-promoting, whitewashing, slandering, orchestrated, and denial-of-service
-        — of which two are load-bearing here: *slandering*, where an attacker reports false
-        negative ratings to drive a target's standing down and exclude it from cooperation,
-        and *self-promotion*, where an attacker reports false positive ratings to inflate
-        its own standing beyond what its behavior earns. Orchestrated collusion, in which
-        colluders switch roles or oscillate between good and bad behavior to evade detection,
-        and Sybil identities, which separately amplify self-promotion by fabricating
-        corroborating sources, are the survey's two remaining amplifiers. Yu and Singh
-        describe the same underlying failure as
-        "deception in testimony propagation and aggregation" ({{ref:yu-singh-2003-deception-reputation}}):
-        a requesting agent "does not consider the reputation of the witnesses and simply
-        aggregates all available ratings," so a single dishonest or misled witness can
-        shift the aggregate outcome without ever being individually challenged.
-      - >
-        The agentic amplifier is that judgement content today travels through plain conversational
+      - >-
+        Reputation systems classically build trust scores from three functions — formulation,
+        calculation, and dissemination of ratings — yet Hoffman, Zage, and Nita-Rotaru's survey
+        ({{ref:hoffman-2009-reputation-systems-survey}}) shows even a defense weighting feedback
+        by a node's own reputation remains vulnerable to nodes "which follow the protocol and have
+        good reputations but lie about others reputation." Two of the survey's attack classes are
+        load-bearing here: *slandering*, false negative ratings that exclude a target from
+        cooperation, and *self-promotion*, false positive ratings that inflate an attacker's
+        standing beyond what it has earned, which Sybil identities amplify by fabricating
+        corroborating sources. Yu and Singh find the same failure in simple aggregation: a single
+        dishonest or misled witness can shift the outcome because witness reputation is ignored
+        ({{ref:yu-singh-2003-deception-reputation}}).
+      - >-
+        The agentic amplifier is that judgement content travels through plain conversational
         messages rather than a purpose-built reputation channel: no rating field, calculation
-        step, or dissemination safeguard is part of how these messages are structured,
-        so a judgement about another agent's trustworthiness moves as ordinary natural-language
-        testimony straight into a receiving agent's {{componentReasoningCore}}, indistinguishable
-        in form from any other conversational content. That collapses the honest-witness
-        assumption the classical models above still rely on: an agent that is itself fed
-        a fabricated judgement through prompt injection or a poisoned tool response will
-        relay it in good faith, so the false testimony need not originate from a colluding
-        or dishonest node — an entirely honest relay is sufficient. This is a case the
-        classical honest-or-lying witness models do not anticipate, because they model
-        dishonesty as a property of the witness, not as content injected into an honest
-        witness's input.
-      - >
-        Empirical work on LLM-based multi-agent systems demonstrates a structurally analogous
-        propagation, though for a false factual claim rather than a judgement about an
-        actor's trustworthiness. Yan et al. seeded a single false testimony into 120 five-agent
-        environments built on three underlying models — each run as its own homogeneous
-        five-agent system, not three distinct system designs — and found the correct-majority
-        rate collapsed from 72.50% to 14.17% once one agent asserted a false claim, computed
-        excluding the deceiver with a majority defined as at least three of the remaining
-        four agents, over 360 runs per condition; the same study states, in its abstract,
-        that "a single false testimony is adopted more readily than truthful testimony,
-        propagates to higher orders, and persists through honest agents after the deceiver
-        exits" ({{ref:yan-2026-truth-distributed}}) — the persistence-through-honest-agents
-        finding matters most here, since an honest relay carrying an already-false judgement
-        is exactly the mechanism the paragraph above describes. What propagates in that
-        study is the claimed location of a physical object, not a judgement about a peer's
-        trustworthiness, so applying it to reputational testimony is an extrapolation this
-        entry makes explicitly rather than a result the paper itself establishes. A counterweight
-        exists: Becker et al. find structured debate degrades less than single-agent prompting
-        when misinformation is introduced (−2.2% to −10.3% versus −12.9% to −17.2%), particularly
-        when most agents are not exposed to the false claim — though the debating agents
-        share a single underlying model and reason turn-by-turn rather than aggregating
-        genuinely independent sources. Their robustness result depends on group composition
-        and majority size (correction rate rose from 8.0% with two uninformed agents to
-        20.5% with three), depends on the underlying model, and only holds for task-relevant
-        misinformation — irrelevant filler content can even help ({{ref:becker-2026-misinformation-benign-mas}}).
-        Even under debate, mitigation is not elimination: agents in that study often retained
-        an answer a misinformed peer had introduced.
-      - >
-        The domain is early rather than mature. ERC-8004 defines on-chain Identity, Reputation,
-        and Validation registries for cross-platform agent discovery, but its own Reputation
-        Registry design carries no field that verifies a piece of feedback is genuine testimony
-        rather than a fabricated or Sybil-authored score, and agent discovery proceeds by
-        well-known URI, curated registry listing, or direct configuration — none of which
-        specifies a mechanism for testing a testimony's accuracy before it is disseminated.
-        The gap is structural, not a matter of vocabulary: it is an absence in what the
-        registry actually verifies. ERC-8004's own Security Considerations concede the
-        weakness directly: "Sybil attacks are possible, inflating the reputation of fake
-        agents" ({{ref:erc-8004-trustless-agents}}). The one concrete mitigation the specification
-        names is narrower than a general defense — it warns that querying feedback without
-        filtering by client address is "subject to Sybil/spam attacks," and states that
-        the protocol already enables that filter; it does not name any broader verification
-        or economic countermeasure. This is asserted from a Draft, not a ratified position:
-        ERC-8004 is Ethereum Standards Track status Draft, created 2025-08-13, not yet
-        ratified, and its existence is evidence that this domain is being actively designed,
+        step, or dissemination safeguard structures these messages, so a judgement about another
+        agent's trustworthiness moves as ordinary testimony straight into a receiving agent's
+        {{componentReasoningCore}}, indistinguishable from other conversational content. That
+        collapses the honest-witness assumption classical models rely on: an agent fed a
+        fabricated judgement through prompt injection or a poisoned tool response relays it in
+        good faith, so an entirely honest relay is sufficient — a case those models do not
+        anticipate, since they treat dishonesty as a property of the witness, not as injected
+        content.
+      - >-
+        Empirical work on LLM-based multi-agent systems shows a structurally analogous
+        propagation, for a false factual claim rather than a judgement about trustworthiness: Yan
+        et al. seeded a single false testimony into 120 five-agent environments and found the
+        correct-majority rate collapsed from 72.50% to 14.17%, and false testimony "persists
+        through honest agents after the deceiver exits" ({{ref:yan-2026-truth-distributed}}). What
+        propagates in that study is a claimed physical-object location, not a judgement about
+        trustworthiness, so applying it to reputational testimony is an extrapolation this entry
+        makes explicitly rather than a result the paper establishes. A counterweight exists:
+        Becker et al. find structured debate degrades less than single-agent prompting (−2.2% to
+        −10.3% versus −12.9% to −17.2%), though the result depends on group composition and the
+        underlying model, and holds only for task-relevant misinformation
+        ({{ref:becker-2026-misinformation-benign-mas}}). Even under debate, agents often retained
+        an answer a misinformed peer had introduced — mitigation, not elimination.
+      - >-
+        The domain is early rather than mature: ERC-8004 defines on-chain Identity, Reputation,
+        and Validation registries for cross-platform agent discovery, but its Reputation Registry
+        has no field verifying that feedback is genuine testimony rather than a fabricated or
+        Sybil-authored score — a structural gap, not a matter of vocabulary. Its Security
+        Considerations concede the weakness directly: "Sybil attacks are possible, inflating the
+        reputation of fake agents" ({{ref:erc-8004-trustless-agents}}). The only mitigation it
+        names is client-address filtering of feedback. This is asserted from a Draft, not a
+        ratified position — created 2025-08-13 — evidence the domain is being actively designed,
         not evidence of a defense deployed at scale.
-      - >
-        This risk is distinct from four adjacent entries along different axes. It is distinct
-        from {{riskAgentIdentitySpoofing}}, which addresses an attacker presenting forged,
-        stolen, or unverified credentials to be accepted as a legitimate principal; here
-        the speaking agent's identity is genuine and correctly authenticated, and what
-        is false is the content of what that genuine, correctly-identified agent says about
-        a third party. It is distinct from {{riskAgentMemoryPoisoning}}, which addresses
-        corruption of a single agent's own persistent memory store that it later reads
-        back and trusts; this risk concerns testimony relayed conversationally between
-        agents in the moment, with neither party's memory store required to be touched
-        at all. It is distinct from {{riskShadowAndUnknownAgents}}, which addresses agents
-        that operate outside identity lifecycle controls entirely, unregistered and unknown
-        to the system; this risk presumes the agents involved are known, registered participants,
-        and the attack targets the reputational judgement peers hold about them, not their
-        registration status. It is distinct from {{riskImplicitCrossBoundaryTrust}}, the
-        corpus's trust-model design root: the object that crosses an unverified boundary
-        in that risk is a capability, instruction, or credential; the object that propagates
-        here is specifically a judgement about a third actor's trustworthiness — neither
-        executable nor a grant of access in itself, but a false belief that changes which
-        peer a receiving agent chooses to cooperate with or exclude.
-      - >
-        The impacts run in both directions, and both tamper with the informational record
-        peers rely on to decide who to cooperate with — but the corpus's present controls
-        do not cover the two directions symmetrically. In the slandering direction, a maligned
-        agent is denied cooperation it has legitimately earned, echoing Hoffman's own framing
-        of the harm as one that can "prevent honest nodes from using the system" — the
-        DenialOfService mapping below follows that same reading: exclusion from cooperation
-        denies an honest agent's use of the system rather than exhausting a resource, which
-        is also why this entry carries an availability impact;
-        {{controlUntrustedContextContainment}} genuinely mitigates this direction by mechanism,
-        since the false judgement arrives as untrusted model-external content that containment
-        is built to treat as suspect before it steers action, and {{controlAgentObservability}}
-        contributes an after-the-fact audit trail that can surface the slander once cooperation
-        has already been withheld. In the self-promotion direction the harm runs the other
-        way: a hostile or Sybil-amplified agent inflates its own standing so that peers
-        extend it delegated tasks, shared context, or credential-bearing capability grants
-        it has not earned — an elevation of privilege the collective would not otherwise
-        have extended. No control presently in this corpus addresses that direction; the
-        nearest candidate, {{controlThirdPartyCapabilityAdmission}}, gates the admission
-        of tools and capabilities a provider exposes, not the admission of a peer agent
-        by its claimed reputation. That asymmetry is recorded here rather than papered
-        over with a control list that reads as though it covers both directions equally.
+      - >-
+        It is distinct from {{riskAgentIdentitySpoofing}}, forged identity; here the agent's
+        identity is genuine, and only what it says about a third party is false. It is distinct
+        from {{riskAgentMemoryPoisoning}}, corruption of an agent's own memory store; this risk is
+        conversational testimony between agents, with no memory store required to be touched. It
+        is distinct from {{riskShadowAndUnknownAgents}}, unregistered and unknown agents; this
+        risk presumes known, registered participants, and targets the judgement peers hold about
+        them, not their registration status. It is distinct from
+        {{riskImplicitCrossBoundaryTrust}}: there, the object crossing an unverified boundary is a
+        capability, instruction, or credential; here it is a judgement about a third actor's
+        trustworthiness. This risk's cooperation-exclusion test turns on a change to a receiving
+        agent's decision to cooperate with or exclude someone, whoever the judgement is about, and
+        does not reach a claim whose only effect is the receiving agent broadcasting it onward to
+        humans or a public channel without changing any cooperation decision of its own.
+      - >-
+        The impacts run in both directions, tampering with the informational record peers rely on
+        to decide who to cooperate with — but the corpus's present controls do not cover them
+        symmetrically. In the slandering direction, a maligned agent is denied cooperation it has
+        legitimately earned, echoing Hoffman's own framing of the harm as one that can "prevent
+        honest nodes from using the system" — the DenialOfService mapping below follows that
+        reading: exclusion from cooperation denies an honest agent's use of the system rather than
+        exhausting a resource. {{controlUntrustedContextContainment}} mitigates this direction by
+        mechanism, since the false judgement arrives as untrusted model-external content;
+        {{controlAgentObservability}} contributes an after-the-fact audit trail that can surface
+        the slander. In the self-promotion direction, a hostile or Sybil-amplified agent inflates
+        its own standing so that peers extend it delegated tasks or credential-bearing capability
+        it has not earned. No control in this corpus addresses that direction; the nearest
+        candidate, {{controlThirdPartyCapabilityAdmission}}, gates the admission of tools a
+        provider exposes, not the admission of a peer agent by its claimed reputation. That
+        asymmetry is recorded here rather than papered over.
     category: risksDeploymentAndInfrastructure
     personas:
       - personaAgenticProvider

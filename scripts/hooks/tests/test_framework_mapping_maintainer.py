@@ -3294,11 +3294,11 @@ class TestLiveCorpusInventory:
 
     def test_live_corpus_report_contains_total_block_count(self):
         """
-        The report output contains the total framework-sub-block count: 180.
+        The report output contains the total framework-sub-block count: 187.
 
         Given: the 4 live consumer YAMLs
         When:  migrate --report-legacy is run
-        Then:  the 'TOTAL:' line reports 180 blocks
+        Then:  the 'TOTAL:' line reports 187 blocks
 
         #343 plan §1 / issue body recorded 96 framework-sub-blocks across 4 consumer
         YAMLs; the decomposition's controls and risks landing raised it to 172. The
@@ -3320,6 +3320,11 @@ class TestLiveCorpusInventory:
         (1 mappings block, one stride value: Repudiation) and
         riskCrossAgentReputationPoisoning (1 mappings block, three stride values:
         Tampering, DenialOfService, ElevationOfPrivilege), contributing +2 blocks.
+        ADR-034 D1's modifications layer moved it again, 180 → 187:
+        riskImplicitCrossBoundaryTrust gains a mitre-atlas block (#526), and
+        riskRetrievalVectorStorePoisoning and riskPromptResponseCachePoisoning gain
+        their first mappings (3 blocks each) in a backfill with no issue of its
+        own, contributing +7 blocks.
         """
         args = ["migrate", "--report-legacy"]
         for f in _CONTENT_FILES:
@@ -3328,17 +3333,17 @@ class TestLiveCorpusInventory:
         result = _run(*args)
         assert result.returncode == 0
         combined_output = result.stdout + result.stderr
-        assert "TOTAL: 180 blocks / 257 values" in combined_output, (
-            f"Expected 'TOTAL: 180 blocks / 257 values' line in report output; got:\n{combined_output}"
+        assert "TOTAL: 187 blocks / 266 values" in combined_output, (
+            f"Expected 'TOTAL: 187 blocks / 266 values' line in report output; got:\n{combined_output}"
         )
 
     def test_live_corpus_report_contains_total_value_count(self):
         """
-        The report output contains the total value count: 257.
+        The report output contains the total value count: 266.
 
         Given: the 4 live consumer YAMLs
         When:  migrate --report-legacy is run
-        Then:  the 'TOTAL:' line reports 257 values
+        Then:  the 'TOTAL:' line reports 266 values
 
         #343 plan §1 / issue body recorded 146 total values across 4 consumer YAMLs;
         the decomposition's controls and risks landing raised it to 245. Corpus-scale
@@ -3357,7 +3362,10 @@ class TestLiveCorpusInventory:
         group moved it again, 253 → 257 (#525, #526): two net-new risks, riskDeceptiveAgentReporting
         (one stride value: Repudiation) and riskCrossAgentReputationPoisoning
         (three stride values: Tampering, DenialOfService, ElevationOfPrivilege),
-        contributing +4 values.
+        contributing +4 values. ADR-034 D1's modifications layer moved it again,
+        257 → 266: riskImplicitCrossBoundaryTrust gains 1 (AML.T0053, #526), and a
+        backfill with no issue of its own gives riskRetrievalVectorStorePoisoning 3
+        and riskPromptResponseCachePoisoning 5, contributing +9 values.
         """
         args = ["migrate", "--report-legacy"]
         for f in _CONTENT_FILES:
@@ -3366,8 +3374,8 @@ class TestLiveCorpusInventory:
         result = _run(*args)
         assert result.returncode == 0
         combined_output = result.stdout + result.stderr
-        assert "TOTAL: 180 blocks / 257 values" in combined_output, (
-            f"Expected 'TOTAL: 180 blocks / 257 values' line in report output; got:\n{combined_output}"
+        assert "TOTAL: 187 blocks / 266 values" in combined_output, (
+            f"Expected 'TOTAL: 187 blocks / 266 values' line in report output; got:\n{combined_output}"
         )
 
     def test_live_corpus_fully_migrated_no_legacy(self):

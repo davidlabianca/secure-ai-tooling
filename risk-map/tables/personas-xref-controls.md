@@ -157,7 +157,6 @@
 | personaModelServing         | AI Model Serving                         | controlAuthenticationSchemeHardening         | Authentication Scheme Hardening                   |
 | personaModelServing         | AI Model Serving                         | controlComponentIdentityAuthentication       | Component Identity Authentication                 |
 | personaModelServing         | AI Model Serving                         | controlComponentIdentityProvenance           | Component Identity Provenance                     |
-| personaModelServing         | AI Model Serving                         | controlGenerativeModelAlignment              | Generative Model Alignment                        |
 | personaModelServing         | AI Model Serving                         | controlInboundNetworkExposureAndSegmentation | Inbound Network Exposure and Segmentation         |
 | personaModelServing         | AI Model Serving                         | controlIncidentResponseManagement            | Incident Response Management                      |
 | personaModelServing         | AI Model Serving                         | controlInputValidationAndSanitization        | Input Validation and Sanitization                 |
