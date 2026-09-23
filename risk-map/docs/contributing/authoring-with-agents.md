@@ -39,18 +39,23 @@ Authoring an entry moves through three roles. The first two are the pre-PR
 authoring agents this guide covers; the third is the existing submission gate.
 
 1. **`{type}-creator`** — turns a rough idea or stub into a conformant draft.
-   It applies altitude, classical grounding, schema conformance, mapping
-   selection, and counterfactual recording, and it *surfaces* governance
-   questions rather than deciding them.
+   It applies the authoring discipline for its entity type — classical
+   grounding, schema conformance, and counterfactual recording throughout,
+   plus altitude and mapping selection for the verticals that use them (the
+   persona agents use neither the altitude-check nor the mapping-selection
+   skill and select their own ISO 22989 / EU AI Act mappings; see the skill
+   list below) — and it *surfaces*
+   governance questions rather than deciding them.
 2. **`{type}-critic`** — adversarially stress-tests that draft from an
    independent, skeptical stance: is it really distinct, is the evidence real,
    is the altitude honest, are the edges/mappings right. It finds the weak or
    rationalized claims that still pass the mechanical rules.
 3. **[`content-reviewer`](../../../scripts/agents/content-reviewer.md)** — the
    submission gate. It runs the schema/CI conformance review on the finished
-   YAML (`diff` or `full` mode). This is the same reviewer that runs on your
-   PR; running it yourself first is the pre-submission dry run described in
-   [`submission-readiness-guide.md`](submission-readiness-guide.md).
+   YAML (`diff` or `full` mode).
+   [`submission-readiness-guide.md`](submission-readiness-guide.md) describes
+   it running as an automated check on a submitted proposal; running it
+   yourself first surfaces the same kind of findings before you submit.
 
 The creator and critic are **authoring-time and pre-PR**. Neither one is the
 submission gate, and neither decides governance questions — those are handed to
@@ -109,12 +114,15 @@ references.
 - [`classical-lexicon`](../../../scripts/skills/classical-lexicon/) — grounds
   terminology in established security terms of art instead of coining new
   vocabulary.
-- [`mapping-selection`](../../../scripts/skills/mapping-selection/) — selects an
-  entry's components, addressed risks/controls, and framework mappings (control
-  and risk verticals; components carry no mappings).
-- [`altitude-check`](../../../scripts/skills/altitude-check/) — tests whether a
-  draft sits at the right level of abstraction (absorb-or-decompose;
-  merge-vs-distinct).
+- [`mapping-selection`](../../../scripts/skills/mapping-selection/) — control and
+  risk verticals only; selects an entry's components, addressed risks/controls,
+  and framework mappings. Components carry no mappings, and the persona agents
+  handle their own ISO 22989 / EU AI Act selection without composing this skill.
+- [`altitude-check`](../../../scripts/skills/altitude-check/) — control, risk and
+  component verticals only; tests whether a draft sits at the right level of
+  abstraction (absorb-or-decompose; merge-vs-distinct). It declares no persona
+  tests, and neither persona agent composes it — see `persona-creator`'s own
+  Composition section for what the persona vertical actually uses.
 - [`audit-identification-questions`](../../../scripts/skills/audit-identification-questions/)
   — persona-vertical only; `persona-creator` invokes it while drafting
   `identificationQuestions`, not as a separate post-hoc step.
@@ -144,7 +152,8 @@ material:
   conventions the agents apply and the reviewer enforces. They remain the
   source of truth for those conventions.
 - The **[submission-readiness-guide.md](submission-readiness-guide.md)**
-  describes the quality bar and the `content-reviewer` dry run. The authoring
+  describes the quality bar and the automated `content-reviewer` check a
+  submitted proposal receives. The authoring
   agents help you *clear* that bar before you submit; they do not change it.
 
 If the agents and any of these documents ever appear to disagree, the guides,
@@ -163,4 +172,8 @@ agents are canonical prose definitions under
 definitions under [`scripts/skills/`](../../../scripts/skills/); adapting them
 to your own harness (invocation mechanics, tool wiring) is the consumer's
 responsibility. See [`scripts/skills/README.md`](../../../scripts/skills/README.md)
-for the skill format and the neutrality contract that governs both trees.
+for the skill format, and
+[ADR-033](../../../docs/adr/033-vendor-neutral-agent-skill-shipping.md) D2
+for the neutrality contract that governs both trees (and, per its D8d, the
+agent eval tree under `scripts/agents-evals/`), and its D5 for the check
+that enforces it.
