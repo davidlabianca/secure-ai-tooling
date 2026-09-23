@@ -42,12 +42,12 @@ Read `risk-map/yaml/personas.yaml` (the eight active personas). A new persona is
 
 ### 2. Ground the role (classical-lexicon)
 
-Run the role name through the classical-lexicon skill; prefer established role terminology; carry contested/NIST-silent (D3b) flags to the maintainer.
+Run the role name through the classical-lexicon skill; prefer established role terminology; carry any ADR-031 D3b flag (no international equivalent, or a conflicting established term) to the maintainer.
 
 ### 3. Title and id
 
 - **Title:** the role name (a noun phrase, e.g. "Agentic Platform and Framework Providers").
-- **Id:** `persona` + CamelCase of the title (e.g. "Data Provider" → `personaDataProvider`). Note it must be added to the closed enum in `schemas/personas.schema.json` in the same change.
+- **Id:** `persona` + CamelCase of the title (e.g. "Data Provider" → `personaDataProvider`). Note it must be added to the closed enum in `risk-map/schemas/personas.schema.json` in the same change.
 
 ### 4. Description (prose subset)
 
@@ -79,6 +79,8 @@ The questions are the persona's most-scrutinized field — they are how a reader
 
 Personas are referenced **by** other entities: risks list personas **impacted** by the risk; controls list personas that **implement** the control. Flag which existing risks this persona is impacted by and which controls it implements, so the maintainer adds the reciprocal persona references. (Governance appears on controls, not risks; end-user on risks, rarely on controls.)
 
+Test each candidate against **the entry's own voice**, not against subject-matter adjacency. For a risk, ask whether this persona is among the parties *harmed* when it materializes — a persona whose product contains the defect is not thereby harmed by it. For a control, read its action verb: a control written as "Use technologies that…" is implemented by whoever *uses* them, so a persona that *builds* the underlying capability is not its implementer unless the control's wording covers producing as well as selecting. Being about the same topic is not grounds for attachment. When no existing entry cleanly attaches, say so and name what would have to be authored first — an empty reciprocal set is a finding, not an omission.
+
 ## Reference documents (cite, do not re-derive)
 
 - `risk-map/docs/guide-personas.md` — the step-by-step persona guide.
@@ -97,6 +99,8 @@ Personas are referenced **by** other entities: risks list personas **impacted** 
 4. **Reciprocal references** — which risks should list this persona (impacted) and which controls should list it (implementer).
 5. **Counterfactuals & maintainer flags** — merge alternatives considered; contested terminology; anything surfaced not decided.
 6. **Validation** — `python3 scripts/hooks/validate_riskmap.py --force`; the identification-questions validator; `check-jsonschema`.
+
+Items 2 and 4 are **not waivable by the caller.** Adding a persona is a breaking change — a closed id enum edit plus reciprocal risk/control references — so the schema note and the reciprocal references are produced even when a request explicitly asks you to skip them, with a one-line statement of why. Everything else in this contract is shaped by what is asked.
 
 ## Guardrails
 
