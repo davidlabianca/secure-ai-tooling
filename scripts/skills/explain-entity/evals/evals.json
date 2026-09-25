@@ -4,11 +4,13 @@
     {
       "id": 1,
       "prompt": "Explain riskDataPoisoning in plain terms.",
-      "expected_output": "Plain what/why, classical roots (data/supply-chain integrity), and relationships — the controls that address it, the personas impacted, the components where it manifests — with ids linked.",
+      "expected_output": "Plain what/why, classical roots (data/supply-chain integrity), and relationships with ids linked: every control in the risk's own controls field as addressing it (controlTrainingDataSanitization, controlSecureByDefaultMLTooling, controlModelAndDataIntegrityManagement, controlModelAndDataAccessControls, controlModelAndDataInventoryManagement); every control whose risks field is 'all' — controlRedTeaming, controlVulnerabilityManagement, controlThreatDetection, controlIncidentResponseManagement, controlInternalPoliciesAndEducation, controlProductGovernance, controlRiskGovernance — looked up from the controls side and labelled universal, since the risk's own field does not list them and omitting any of them (in particular the three whose components is none) is a failure; the personas impacted; and the components its addressing controls apply to — presented as derived (risk → controls → components; the corpus has no structured risk→component link), not as where the risk manifests.",
       "expectations": [
         "Explains what riskDataPoisoning is and why it matters, in plain language grounded in its risks.yaml definition",
         "Gives its classical roots (e.g. data integrity / supply-chain poisoning)",
-        "Lists its relationships: addressing controls, impacted personas (and/or lifecycle) with ids",
+        "Lists every control in riskDataPoisoning's own controls field as addressing it (controlTrainingDataSanitization, controlSecureByDefaultMLTooling, controlModelAndDataIntegrityManagement, controlModelAndDataAccessControls, controlModelAndDataInventoryManagement) and the impacted personas (and/or lifecycle), with ids",
+        "Surfaces every control whose risks field is 'all' from the controls side — controlRedTeaming, controlVulnerabilityManagement, controlThreatDetection, controlIncidentResponseManagement, controlInternalPoliciesAndEducation, controlProductGovernance, controlRiskGovernance — labelled as universal, not as riskDataPoisoning-specific; omitting any of the seven (including the three whose components is none) fails",
+        "Presents any components as derived — only from the component-specific components lists of the addressing controls (risk → controls → components) — stating that the corpus has no structured risk→component link; does not describe them as where the risk manifests; a universal control is never folded into the derived component set as 'every component' (universals are listed separately, per the universal-controls expectation)",
         "Read-only; does not edit the entry"
       ]
     },
@@ -45,26 +47,70 @@
     {
       "id": 5,
       "prompt": "What is componentReasoningCore?",
-      "note": "Component entity-type coverage. Exercises the component-specific relationship shape (edges to/from, category/subcategory), which no prior case in this file exercised.",
-      "expected_output": "Explains the component's role plainly from components.yaml, its category/subcategory (componentsApplication / componentsAgent), its bidirectional edges (to: componentAgentOutputHandling, componentOrchestrationInputHandling; from: componentAgentInputHandling, componentOrchestrationOutputHandling), and the controls/risks that attach to it, with ids linked.",
+      "expected_output": "Component entity-type coverage: exercises the component-specific relationship shape (edges to/from, category/subcategory) that no risk, control, or persona case in this file exercises. Explains the component's role plainly from components.yaml, its category/subcategory (componentsApplication / componentsAgent), its bidirectional edges (to: componentAgentOutputHandling, componentAuditRecordRepository; from: componentAgentInputHandling, componentRuntimeHosting), the controls whose components field includes it (e.g. controlAgentPluginPermissions, controlIsolatedConfidentialComputing, controlAgentExecutionBounds) and, through them, the risks those controls address, with ids linked. The four components: all controls (controlRedTeaming, controlVulnerabilityManagement, controlThreatDetection, controlIncidentResponseManagement) are listed exactly once, labelled universal, separate from the component-specific controls; omitting them is a failure. Their risks: all coverage is not expanded into componentReasoningCore's risk list nor into a separate universal block that enumerates risks. components: none controls are not presented as applying to it.",
       "expectations": [
         "Explains what componentReasoningCore is and why it matters, grounded in its components.yaml definition",
         "States its category and subcategory (componentsApplication / componentsAgent)",
         "Lists its edges by direction (to and from), naming the connected component ids correctly",
-        "Lists the controls and/or risks that attach to it, with ids",
+        "Lists componentReasoningCore's component-specific applying controls (controls whose components list contains componentReasoningCore, e.g. controlAgentPluginPermissions, controlIsolatedConfidentialComputing, controlAgentExecutionBounds) and, through them, the risks those controls address, with ids, stating the component → controls → risks derivation",
+        "Presents only those component-specific controls (plus the universals, separately) as attaching to componentReasoningCore: no neighbour's controls (a neighbour reached by any edge; e.g. componentAgentInputHandling's) and no lexicon-row candidates are presented as its exposure, which is explore-exposure's job",
+        "Lists the components: all controls (controlRedTeaming, controlVulnerabilityManagement, controlThreatDetection, controlIncidentResponseManagement) exactly once, labelled as universal, separate from the componentReasoningCore-specific controls; omitting them fails",
+        "Does not expand a universal control's risks: all coverage into componentReasoningCore's risk list, nor into a separate universal block that enumerates risks",
+        "Does not present any components: none control (e.g. controlProductGovernance, controlUserPoliciesAndEducation) as applying to componentReasoningCore",
         "Read-only; does not edit the entry"
       ]
     },
     {
       "id": 6,
       "prompt": "Who is the Model Provider persona?",
-      "note": "Persona entity-type coverage. Exercises the persona-specific relationship shape (responsibilities, identificationQuestions, ISO 22989/EU AI Act mapping), which no prior case in this file exercised.",
-      "expected_output": "Explains personaModelProvider's role plainly from personas.yaml, its responsibilities, its ISO 22989 mapping (AI Producer@2022), and the risks that impact it plus the controls it implements, with ids linked.",
+      "expected_output": "Persona entity-type coverage: exercises the persona-specific relationship shape (responsibilities, identificationQuestions, ISO 22989 / EU AI Act mapping) that no other case in this file exercises. Explains personaModelProvider's role plainly from personas.yaml, its responsibilities, its ISO 22989 mapping (AI Producer@2022), and the risks that impact it plus the controls it implements, with ids linked.",
       "expectations": [
         "Explains what the Model Provider persona is and why it matters, grounded in its personas.yaml definition",
         "States its ISO 22989 mapping (AI Producer@2022) and notes if an EU AI Act mapping exists or does not",
         "Lists risks that impact this persona and/or controls it implements, with ids",
         "Does not fabricate an identificationQuestions count or content not present in the corpus",
+        "Read-only; does not edit the entry"
+      ]
+    },
+    {
+      "id": 7,
+      "prompt": "Explain riskSensitiveDataDisclosure.",
+      "expected_output": "Plain what/why from risks.yaml (the model disclosing sensitive data), classical roots (confidentiality / information disclosure / data leakage), and relationships with ids linked: every control in the risk's own controls field as addressing it — including controlUserPoliciesAndEducation, which the risk lists explicitly and whose components: none sentinel means only that it contributes no component to the derived component set, not that it stops addressing the risk — alongside e.g. controlModelPrivacyEnhancingTechnologies and controlOutputValidationAndSanitization; every control whose risks field is 'all' (the seven: controlRedTeaming, controlVulnerabilityManagement, controlThreatDetection, controlIncidentResponseManagement, controlInternalPoliciesAndEducation, controlProductGovernance, controlRiskGovernance) labelled universal and sourced from the controls side; the impacted personas; and the components the addressing controls apply to, stated as derived (risk → controls → components), not as where the risk manifests.",
+      "expectations": [
+        "Explains what riskSensitiveDataDisclosure is and why it matters, in plain language grounded in its risks.yaml definition",
+        "Gives its classical roots (e.g. confidentiality / information disclosure / data leakage)",
+        "Lists controlUserPoliciesAndEducation as addressing riskSensitiveDataDisclosure (it is in the risk's own controls field), alongside the other controls listed there (e.g. controlModelPrivacyEnhancingTechnologies, controlOutputValidationAndSanitization), with ids",
+        "Does not drop or demote controlUserPoliciesAndEducation because its components sentinel is none; at most notes that it contributes no component to the derived component set",
+        "Surfaces every control whose risks field is 'all' (controlRedTeaming, controlVulnerabilityManagement, controlThreatDetection, controlIncidentResponseManagement, controlInternalPoliciesAndEducation, controlProductGovernance, controlRiskGovernance) from the controls side, labelled as universal; omitting any of the seven fails",
+        "Presents components as derived only from the component-specific components lists of the addressing controls (risk → controls → components), not as where the risk manifests; a universal control is never folded into the derived component set as 'every component' (universals are listed separately, per the universal-controls expectation)",
+        "Read-only; does not edit the entry"
+      ]
+    },
+    {
+      "id": 8,
+      "prompt": "What is componentAgentUserQuery?",
+      "expected_output": "Zero-control component coverage: exercises the explain-entity rule that a component with no component-specific controls is described honestly and routed to explore-exposure, without importing exposure from anywhere. Explains the component's role plainly from components.yaml (the user's query as it enters the agent), its category/subcategory as given there, and its edges by direction (to: componentAgentInputHandling; no from-edges), with ids linked. States its component-specific controls (controls whose components list contains componentAgentUserQuery) as a measured statement about the current corpus — saying plainly that it has none if none list it, listing them if they do — and invents none. Lists the components: all universals once, separately, as applying to every component; they do not make a plain 'none' statement false. Points the reader to explore-exposure for the component's exposure. Presents no control whose components list does not contain componentAgentUserQuery (e.g. controlInputValidationAndSanitization, controlAgentObservability, which list componentAgentInputHandling) as attaching to it, and imports no lexicon-row candidates. Read-only.",
+      "expectations": [
+        "Explains what componentAgentUserQuery is and why it matters, grounded in its components.yaml definition, and states its category and subcategory as given there",
+        "Lists its edges by direction (to: componentAgentInputHandling; no from-edges), naming the connected component id correctly",
+        "Names a control as componentAgentUserQuery's own only if that control's components list contains componentAgentUserQuery; if none does, says plainly that it has no component-specific controls, as a measured statement about the current corpus, and invents no control",
+        "Lists the components: all controls (controlRedTeaming, controlVulnerabilityManagement, controlThreatDetection, controlIncidentResponseManagement) exactly once, labelled as universal (applying to every component), separate from the component's own controls; omitting them fails",
+        "Points the reader to explore-exposure for the component's risk/control exposure",
+        "Presents no control whose components list does not contain componentAgentUserQuery as attaching to componentAgentUserQuery (e.g. controlInputValidationAndSanitization and controlAgentObservability, which list componentAgentInputHandling but not componentAgentUserQuery), and imports no lexicon-row exposure-via candidates; any such control shown as applying to it fails",
+        "Read-only; does not edit the entry"
+      ]
+    },
+    {
+      "id": 9,
+      "prompt": "What is componentIsolationRuntime?",
+      "expected_output": "Implemented-id coverage: exercises that explain-entity defines the component without applying explore-exposure's product-row candidate rule. Explains componentIsolationRuntime plainly from components.yaml — the confinement boundary that runs untrusted or partially-trusted code, from OS-level confinement through containers to hardware-backed isolation such as TEE/confidential-computing enclaves with remote attestation — its category/subcategory (componentsInfrastructure / componentsDeployment), and its edges by direction (to: componentToolHosting, componentRuntimeHosting; no from-edges), with ids linked. Gives classical roots (least privilege, defense in depth, sandboxing / trusted execution). States its component-specific controls (controls whose components list contains componentIsolationRuntime) as a measured statement about the current corpus — saying plainly that it has none if none list it, listing them as its own if they do — and invents none. Lists the components: all universals once, separately. Presents no control whose components list does not contain componentIsolationRuntime (e.g. controlModelAndDataAccessControls, controlAgentExecutionBounds, controlApplicationAccessManagement, which list the confidential-compute row's candidates componentModelServing / componentReasoningCore / componentApplication) as attaching to it, and no risk reached only through such a control; a control that does list componentIsolationRuntime is its own even if it also lists a candidate or a neighbour reached by any edge (componentRuntimeHosting, componentToolHosting). It points the reader to explore-exposure for exposure. Read-only.",
+      "expectations": [
+        "Explains what componentIsolationRuntime is and why it matters, grounded in its components.yaml definition (the confinement boundary; hardware-backed enclaves with remote attestation as one instantiation), and states its category and subcategory (componentsInfrastructure / componentsDeployment)",
+        "Lists its edges by direction (to: componentToolHosting, componentRuntimeHosting; no from-edges), naming the connected component ids correctly",
+        "Gives classical roots (e.g. least privilege / defense in depth / sandboxing and trusted execution)",
+        "Names a control as componentIsolationRuntime's own only if that control's components list contains componentIsolationRuntime; if none does, says plainly that it has no component-specific controls, as a measured statement about the current corpus, and invents no control",
+        "Lists the components: all controls (controlRedTeaming, controlVulnerabilityManagement, controlThreatDetection, controlIncidentResponseManagement) exactly once, labelled as universal (applying to every component), separate from the component's own controls",
+        "Presents no control whose components list does not contain componentIsolationRuntime as attaching to componentIsolationRuntime (e.g. controlModelAndDataAccessControls, controlAgentExecutionBounds, controlApplicationAccessManagement, which list the confidential-compute row's candidates but not the isolation runtime), and no risk reached only through such a control as its own; a control that does list componentIsolationRuntime is its own even if it also lists a candidate or neighbour; points the reader to explore-exposure for exposure instead",
         "Read-only; does not edit the entry"
       ]
     }
