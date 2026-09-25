@@ -1810,21 +1810,21 @@ class TestClosedEnumClosureContract:
             "The tuple-selector COMPONENT_CATEGORY_SUBCATEGORY replaces it."
         )
 
-    def test_tuple_selector_covers_all_seven_subcategory_ids(self, repo_root: Path) -> None:
+    def test_tuple_selector_covers_all_subcategory_ids(self, repo_root: Path) -> None:
         """
-        Asserts that all seven subcategory IDs from the taxonomy appear in the
+        Asserts that every subcategory ID in the taxonomy appears in the
         rendered tuple-selector dropdown, satisfying D3's closure requirement.
 
         The closure rule says: every closed-enum schema field solicited by a
         template must be covered via PLACEHOLDER_MAPPINGS. Under D8, subcategory
         coverage is provided by the tuple-selector, which renders exactly the
-        valid (category, subcategory) pairs. Since each of the 7 subcategory IDs
-        appears in exactly one tuple, all 7 IDs are covered.
+        valid (category, subcategory) pairs. Since each subcategory ID appears
+        in exactly one tuple, listing them all here covers the whole enum.
 
         Given: A renderer backed by real schemas and components.yaml
         When: {{COMPONENT_CATEGORY_SUBCATEGORY}} is expanded
-        Then: Each of the 7 subcategory IDs appears in the rendered output
-              (as part of a tuple string), confirming closed-enum coverage
+        Then: Each subcategory ID appears in the rendered output (as part of a
+              tuple string), confirming closed-enum coverage
 
         ADR-026 D3 closure contract + Amendment D8.
         """
@@ -1847,16 +1847,22 @@ class TestClosedEnumClosureContract:
         template = "      options:\n        {{COMPONENT_CATEGORY_SUBCATEGORY}}"
         result = renderer.expand_placeholders(template, "components")
 
-        # All seven subcategory IDs from the closed enum must appear somewhere in the
-        # rendered output (each as part of its correct tuple).
+        # Every subcategory ID from the closed enum must appear somewhere in the
+        # rendered output (each as part of its correct tuple). When the taxonomy
+        # grows, add the new id here — len(subcategory_ids) is the count, not a
+        # hardcoded literal elsewhere.
         subcategory_ids = [
             "componentsModelTraining",
             "componentsData",
             "componentsAgent",
             "componentsOrchestration",
-            "componentsModelDeployment",
+            "componentsDeployment",
             "componentsModelCore",
             "componentsApplicationCore",
+            "componentsRegistries",
+            "componentsIdentity",
+            "componentsToolNetworkControls",
+            "componentsToolInvocationPath",
         ]
         for sub_id in subcategory_ids:
             assert sub_id in result, (
@@ -1937,10 +1943,10 @@ class TestClosedEnumClosureContract:
             "Only the combined id='component-category-subcategory' tuple field should exist."
         )
 
-    def test_rendered_new_component_tuple_options_are_seven_strings(self, repo_root: Path) -> None:
+    def test_rendered_new_component_tuple_options_are_eleven_strings(self, repo_root: Path) -> None:
         """
         Asserts that the rendered new_component.yml tuple dropdown has exactly
-        7 string options equal to the expected pairs.
+        11 string options equal to the expected pairs.
 
         This test asserts the post-SWE-fix state: options must parse as strings
         (quoting required). It will FAIL against the current unquoted production
@@ -1949,10 +1955,12 @@ class TestClosedEnumClosureContract:
         Given: The rendered new_component.yml
         When: The component-category-subcategory dropdown options are extracted
               and YAML-parsed
-        Then: Options is a list of 7 strings matching _EXPECTED_TUPLES
+        Then: Options is a list of 11 strings matching _EXPECTED_TUPLES
 
         ADR-026 D3 + Amendment D8. Supersedes the retired test that compared
-        options to the flat subcategory schema enum.
+        options to the flat subcategory schema enum. Count is 11 (eight legacy
+        pairs + two added by ADR-030 D1's componentsExternalTools category + one added
+        by ADR-030 D2's componentsIdentity subcategory).
         """
         import sys
 
@@ -1964,12 +1972,16 @@ class TestClosedEnumClosureContract:
         # Valid (category, subcategory) tuples in components.yaml taxonomy order.
         expected_tuples = [
             "componentsInfrastructure: componentsData",
-            "componentsInfrastructure: componentsModelDeployment",
+            "componentsInfrastructure: componentsDeployment",
+            "componentsInfrastructure: componentsRegistries",
+            "componentsInfrastructure: componentsIdentity",
             "componentsModel: componentsModelTraining",
             "componentsModel: componentsModelCore",
             "componentsModel: componentsOrchestration",
             "componentsApplication: componentsAgent",
             "componentsApplication: componentsApplicationCore",
+            "componentsExternalTools: componentsToolNetworkControls",
+            "componentsExternalTools: componentsToolInvocationPath",
         ]
 
         gen = IssueTemplateGenerator(repo_root)
@@ -1993,7 +2005,9 @@ class TestClosedEnumClosureContract:
             "Current production emits unquoted 'key: value' lines that parse as dicts. "
             'The renderer must emit quoted strings: - "<category>: <subcategory>" (ADR-026 D8).'
         )
-        assert len(options) == 7, f"Expected exactly 7 tuple options, got {len(options)}: {options}"
+        assert len(options) == len(expected_tuples), (
+            f"Expected exactly {len(expected_tuples)} tuple options, got {len(options)}: {options}"
+        )
         assert options == expected_tuples, (
             f"Tuple options do not match expected pairs (ADR-026 D8). Expected: {expected_tuples}. Got: {options}."
         )

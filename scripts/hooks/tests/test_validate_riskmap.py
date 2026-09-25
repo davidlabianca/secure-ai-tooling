@@ -135,6 +135,7 @@ rather than replaced with another number that nothing enforces. Measure with
 
 import builtins
 import io
+import json
 import shutil
 import subprocess
 import sys
@@ -151,6 +152,7 @@ import pytest
 import riskmap_validator.utils
 import riskmap_validator.validator
 import validate_riskmap
+from conftest import _REAL_COMPONENT_CATEGORIES
 from riskmap_validator.config import DEFAULT_COMPONENTS_FILE
 from riskmap_validator.validator import ComponentEdgeValidator, CorpusParseError, EdgeValidationError
 from validate_riskmap import main, parse_args
@@ -697,6 +699,161 @@ print(f"__OPENS__={{len(hits)}}")
 """
 
 
+# Alias, not a redefinition: conftest._REAL_COMPONENT_CATEGORIES is the same
+# four component categories mermaid-styles.schema.json's
+# sharedElements.componentCategories.required declares, and this module used
+# to restate them verbatim. Passed as write_riskmap_corpus's
+# schema_categories override in the poisoner test below so its synthetic
+# components.schema.json enum matches build_mermaid_styles()'s default
+# styled categories exactly -- both names derive from the same source now,
+# so they cannot drift apart the way two independent literals could. A
+# mismatch here would make the category style check (validate_riskmap.py's
+# ADR-030 D1 guard) report a spurious "no styling entry" finding for the
+# corpus's own catData category, which --block would then promote and
+# manufacture a failure this test does not intend to exercise.
+_STYLE_GUARD_SCHEMA_CATEGORIES = _REAL_COMPONENT_CATEGORIES
+
+
+@pytest.fixture
+def _cleared_schema_categories_cache():
+    """Clear graph_utils' module-level schema-category cache on both sides.
+
+    _get_schema_categories() (riskmap_validator.graphing.graph_utils) caches
+    a successful read in a module-level global keyed on nothing. Any test
+    that chdirs into a synthetic corpus and exercises the category style
+    check must clear this cache before AND after running, or a leaked
+    cache entry from one directory's category set could make a
+    later-running synthetic-corpus test trip on the wrong categories, or a
+    synthetic read cached first could leak a fictional category into a
+    later real-corpus run (backmerge 2026-08c plan, section 5). This
+    mirrors test_category_style_guard.py's graph_utils_module fixture,
+    which cannot be imported here directly: it is module-local, and pytest
+    does not resolve fixtures across sibling test modules.
+
+    This fixture is defense-in-depth, not the thing that makes
+    test_main_nesting_check_is_blind_to_the_corpus_changing_after_the_parse_returns
+    order-independent today: that test's corpus is built with
+    _STYLE_GUARD_SCHEMA_CATEGORIES, which
+    test_style_guard_schema_categories_matches_the_real_schema_enum below
+    pins as set-equal to the real components.schema.json category enum. A
+    cache entry warmed from the real repo root and a cache entry warmed
+    from this test's synthetic corpus are therefore the same set of
+    categories, so leaving a stale entry in place is unobservable here
+    regardless of collection order -- removing this fixture entirely does
+    not fail the test.
+
+    Verified directly with the dependencies this repo actually pins
+    (pytest, pytest-cov, pytest-timeout -- no order-randomizing plugin such
+    as pytest-reverse is installed here), by giving pytest the two tests'
+    node IDs in the opposite order to their order in this file. pytest runs
+    explicitly-listed node IDs in the order given on the command line
+    rather than file order, so this reproduces a reversed-collection run
+    for this pair without any plugin:
+
+    F="scripts/hooks/tests/test_validate_riskmap.py"
+    T1="${F}::TestMainValidation::test_main_nesting_check_is_blind_to_the_corpus_changing_after_the_parse_returns"
+    T2="${F}::TestStyleGuardSchemaCategoriesPin::test_style_guard_schema_categories_matches_the_real_schema_enum"
+    pytest "$T1" "$T2"
+
+    Both pass in that order, with or without this fixture's clears. A
+    whole-suite version of the same property (each test file run alone and
+    diffed against its in-suite result) is planned as
+    scripts/tools/test-isolation-sweep.sh; cite that by name once it lands
+    rather than this ad hoc two-test invocation.
+
+    The order-independence this verifies is asymmetric, not a general
+    property of the fixture -- see TestStyleGuardSchemaCategoriesPin below
+    for what breaks, and how, if conftest._REAL_COMPONENT_CATEGORIES ever
+    stops matching the real schema enum in either direction.
+
+    The fixture still earns its keep against a corpus built with a
+    category set that does NOT match the real enum (see
+    test_category_style_guard.py's graph_utils_module fixture and its
+    poisoned-cache tests for that shape); it is kept here for the same
+    hygiene reason and to avoid leaking this test's synthetic categories
+    forward into whichever test runs next, not because removing it
+    currently turns this test red.
+    """
+    from riskmap_validator.graphing import graph_utils
+
+    graph_utils.clear_schema_categories_cache()
+    yield
+    graph_utils.clear_schema_categories_cache()
+
+
+class TestStyleGuardSchemaCategoriesPin:
+    """
+    Pins the property that actually delivers order-independence above.
+
+    _cleared_schema_categories_cache's docstring used to claim its own
+    clearing was what made
+    test_main_nesting_check_is_blind_to_the_corpus_changing_after_the_parse_returns
+    pass under any collection order. That was measured false: removing the
+    fixture, or dropping its post-yield clear, changes nothing in forward
+    or reversed collection (see that fixture's docstring for the runnable
+    reversed-order command). What actually delivers order-independence is
+    that _STYLE_GUARD_SCHEMA_CATEGORIES (imported from
+    conftest._REAL_COMPONENT_CATEGORIES) is set-equal to the real
+    components.schema.json category enum, so a stale cache entry warmed
+    from either side is indistinguishable from a fresh one. This test
+    makes that property explicit and falsifiable: if the two ever
+    diverge -- conftest's tuple edited without updating the schema, or
+    vice versa -- this fails, and the nesting-check test above regains a
+    real dependency on _cleared_schema_categories_cache that this class
+    would then need a companion mutation test to re-verify.
+
+    This pin is an asymmetric alarm, not a symmetric drift detector: the
+    two directions of divergence have different consequences downstream.
+
+    - Shrinking conftest._REAL_COMPONENT_CATEGORIES (dropping a category
+      the real schema still requires) fails this pin AND reintroduces real
+      order-dependence in the nesting-check test: both this test's
+      synthetic schema stub and its synthetic mermaid-styles.yaml are built
+      from the same, now-smaller, tuple, so they stay mutually consistent
+      -- but a schema-category cache entry warmed by an earlier test
+      against the real (larger) schema would disagree with this test's
+      smaller style set, reporting a spurious missing-style finding
+      depending on what ran before it in the same process.
+    - Growing the tuple (adding a category the real schema does not have)
+      also fails this pin, but the nesting-check test stays green either
+      way: the synthetic schema and synthetic styles it builds are still
+      mutually consistent (both derive from the same larger tuple), so a
+      stale cache entry from either side is a subset/superset difference
+      the style check never trips on. This is a false alarm on the
+      nesting test's actual behavior, but not on this pin, which is the
+      point of having it: it is the only thing that would catch this
+      direction of drift at all.
+
+    In short: this pin fires on any drift in either direction, but only
+    the shrink direction is also caught, independently, by the
+    nesting-check test actually going red for a real reason.
+    """
+
+    def test_style_guard_schema_categories_matches_the_real_schema_enum(self):
+        """
+        Given: risk-map/schemas/components.schema.json's real category enum
+        When: compared against _STYLE_GUARD_SCHEMA_CATEGORIES
+        Then: the two sets are identical
+
+        Real schema path resolved the same way
+        test_category_style_guard.py's live-corpus test resolves it
+        (repo-root-relative, not cwd-relative), so this assertion holds
+        regardless of which directory the test process is chdir'd into by
+        another test in the same session.
+        """
+        real_schema_path = (
+            Path(__file__).parent.parent.parent.parent / "risk-map" / "schemas" / "components.schema.json"
+        )
+        with open(real_schema_path, encoding="utf-8") as fh:
+            schema = json.load(fh)
+        real_categories = set(schema["definitions"]["category"]["properties"]["id"]["enum"])
+
+        assert set(_STYLE_GUARD_SCHEMA_CATEGORIES) == real_categories, (
+            "_STYLE_GUARD_SCHEMA_CATEGORIES has drifted from the real schema enum -- "
+            "the nesting-check test's order-independence depends on these matching exactly"
+        )
+
+
 # ============================================================================
 # Differential-read poison test infrastructure (PR #499 second-pass review,
 # issue #477)
@@ -1154,21 +1311,54 @@ class TestMainValidation:
         )
 
     def test_main_nesting_check_is_blind_to_the_corpus_changing_after_the_parse_returns(
-        self, tmp_path, monkeypatch, capsys
+        self, tmp_path, monkeypatch, capsys, write_riskmap_corpus, _cleared_schema_categories_cache
     ):
         """
         Test that the nesting check cannot observe the corpus changing after its first read.
 
-        Given: A tmp cwd holding a clean components corpus, wired via
-               _install_corpus_read_poisoner so the first physical read of
-               it -- through whichever of builtins.open, io.open or
-               Path.read_text the implementation uses -- is followed by a
-               disk rewrite to a `categories:` block declaring neither
-               category the real components use
+        Given: A tmp cwd holding a clean components corpus PLUS the two
+               comparison oracles the category style check reads
+               (mermaid-styles.yaml and components.schema.json, supplied by
+               write_riskmap_corpus) -- without both, the style check itself
+               fails to run and --block promotes that failure, manufacturing
+               an exit 1 unrelated to the nesting-check seam this test
+               targets. Wired via _install_corpus_read_poisoner so the first
+               physical read of components.yaml -- through whichever of
+               builtins.open, io.open or Path.read_text the implementation
+               uses -- is followed by a disk rewrite to a `categories:`
+               block declaring neither category the real components use.
         When:  main() is called with --force --block
         Then:  Exit code 0, stdout shows the nesting check actually ran and
                reported no findings, and the poison is confirmed to have
                fired
+
+        Order-independence (backmerge 2026-08c plan, section 5):
+        _get_schema_categories() caches its result in a module-level global
+        that survives across tests. This test's corpus is deliberately
+        built with _STYLE_GUARD_SCHEMA_CATEGORIES (imported from
+        conftest._REAL_COMPONENT_CATEGORIES), which
+        TestStyleGuardSchemaCategoriesPin pins as set-equal to the real
+        components.schema.json category enum -- so a cache entry warmed
+        from either this synthetic corpus or the real repo root carries the
+        same category set, and this test passes under any collection order
+        with or without _cleared_schema_categories_cache. Verified directly
+        by running this test and the pin test with their node IDs reversed
+        on the command line (no order-randomizing plugin is installed in
+        this repo; see _cleared_schema_categories_cache's docstring above
+        for the exact invocation) -- both pass either order. That
+        order-independence is asymmetric on conftest._REAL_COMPONENT_CATEGORIES
+        staying set-equal to the real schema enum: see
+        TestStyleGuardSchemaCategoriesPin's docstring for which direction of
+        drift actually breaks this test versus which direction only fails
+        the pin. The fixture is retained anyway: it stops this run from
+        leaking its synthetic categories forward into a later test whose
+        corpus categories genuinely diverge from the real enum -- the same
+        shape
+        test_category_style_guard.py::TestSchemaCategoryResolution::test_resolves_schema_relative_to_cwd
+        depends on its own graph_utils_module fixture's pre-clear for,
+        using a fictional "componentsSynthetic" category that would read
+        back wrong if a stale real-root or other-synthetic entry survived
+        from an earlier test.
 
         This is the failure PR #499's reviewer reproduced directly: a
         second read of components.yaml, after the first, observing
@@ -1207,7 +1397,18 @@ class TestMainValidation:
         test's job is narrower: given that a read happened, prove nothing
         after it can change the answer.
         """
-        _write_repo_layout_corpus(tmp_path, _CLEAN_LOCAL_COMPONENTS, _CLEAN_LOCAL_CONTROLS)
+        # schema_categories is pinned to the same four categories
+        # build_mermaid_styles()'s default body styles (rather than left to
+        # derive from _CLEAN_LOCAL_COMPONENTS's own "catData"), so the
+        # category style check's schema-vs-styled comparison matches and
+        # does not itself report a finding -- see
+        # _STYLE_GUARD_SCHEMA_CATEGORIES above.
+        write_riskmap_corpus(
+            tmp_path,
+            _CLEAN_LOCAL_COMPONENTS,
+            _CLEAN_LOCAL_CONTROLS,
+            schema_categories=list(_STYLE_GUARD_SCHEMA_CATEGORIES),
+        )
         monkeypatch.chdir(tmp_path)
 
         # `components:` carries the real, unmodified list forward so a second

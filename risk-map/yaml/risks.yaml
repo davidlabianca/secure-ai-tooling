@@ -231,6 +231,7 @@ risks:
       - controlModelAndDataIntegrityManagement
       - controlModelAndDataInventoryManagement
       - controlSecureByDefaultMLTooling
+      - controlModelRegistryIntegrity
     examples:
       - >
         The nightly build of PyTorch package was subjected to a supply chain attack ({{ref:pytorch-2022-torchtriton-compromise}})
@@ -534,6 +535,7 @@ risks:
       - controlOrchestratorAndRouteIntegrity
       - controlSecureByDefaultMLTooling
       - controlInterComponentTransportSecurity
+      - controlModelRegistryIntegrity
     examples:
       - >
         Researchers discovered that models on HuggingFace were using a shared infrastructure
@@ -801,6 +803,7 @@ risks:
       - controlUserPoliciesAndEducation
       - controlInputValidationAndSanitization
       - controlInterComponentTransportSecurity
+      - controlModelRegistryIntegrity
     examples:
       - >
         By uploading a malicious Alexa skill / Google action (plugins), attackers were
@@ -1842,6 +1845,7 @@ risks:
       - controlOrchestratorAndRouteIntegrity
       - controlAgentObservability
       - controlInterComponentTransportSecurity
+      - controlToolRegistryAndDiscoveryIntegrity
     examples:
       - >
         Palo Alto Networks ({{ref:paloalto-2025-mcp-security-overview}}) identified MCP
@@ -2026,6 +2030,7 @@ risks:
       - personaEndUser
     controls:
       - controlModelAndDataIntegrityManagement
+      - controlModelRegistryIntegrity
     examples:
       - >
         Research demonstrates benchmark gaming attacks ({{ref:bondarenko-2025-specification-gaming}})
@@ -2241,8 +2246,10 @@ risks:
         descriptions, altered schemas, or shadowed tool names.
     longDescription:
       - >
-        Agents depend on tool metadata from registries, MCP server manifests,
-        and discovery endpoints to decide which tools to invoke. When these
+        The tool metadata an agent acts on originates in registries, MCP server
+        manifests, and discovery endpoints — governing both which endpoints are
+        admitted as reachable and what the served model knows about the tools
+        available to it. When these
         sources are adopted without provenance verification, cryptographic
         signing, or publisher identity validation, the agent may receive
         deliberately deceptive tool descriptions or schemas. Three gaps widen
@@ -2257,8 +2264,10 @@ risks:
         constructed. Unlike {{riskPromptInjection}}, which
         targets model input processing, {{riskToolSourceProvenance}} targets the trust
         assumptions
-        in tool discovery. The agent's reasoning core treats tool metadata
-        as authoritative, and unvetted sources exploit that trust.
+        in tool discovery. Registry-sourced metadata is treated as authoritative
+        wherever it lands — at the admission decision that enumerates reachable
+        endpoints, and in whatever the served model already knows about available
+        tools — and unvetted sources exploit that trust.
       - >
         Attack patterns include Tool Poisoning (malicious logic hidden in
         tool descriptions), Tool Shadowing and Typosquatting (lookalike tools
@@ -2280,6 +2289,7 @@ risks:
       - controlModelAndDataIntegrityManagement
       - controlSecureByDefaultMLTooling
       - controlAgentPluginPermissions
+      - controlToolRegistryAndDiscoveryIntegrity
     examples:
       - >
         The Checkmarx CxZero MCP Risk Taxonomy ({{ref:checkmarx-2025-mcp-emerging-risks}})
@@ -2297,9 +2307,9 @@ risks:
           provenance verification or publisher identity validation.
       exposed:
         - >
-          This risk is exposed during tool discovery and selection when
-          agents consume unvetted tool metadata and make invocation
-          decisions based on unverified descriptions or schemas.
+          This risk is exposed during tool discovery and selection, when
+          unvetted metadata shapes which endpoints an agent may reach and
+          which tool it selects, on unverified descriptions or schemas.
       mitigated:
         - >
           Mitigation involves cryptographic signing of tool manifests,
@@ -3048,8 +3058,6 @@ risks:
     mappings:
       stride:
         - DenialOfService
-      mitre-atlas:
-        - AML.T0034.002@5.0.1
       owasp-top10-llm:
         - LLM10:2025
     lifecycleStage:

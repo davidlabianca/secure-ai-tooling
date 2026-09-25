@@ -88,6 +88,10 @@
 | controlModelAndDataInventoryManagement     | Model and Data Inventory Management               | riskModelSourceTampering                 | Model Source Tampering                   |
 | controlModelPrivacyEnhancingTechnologies   | Privacy Enhancing Technologies for Model Training | riskFederatedDistributedTrainingPrivacy  | Federated/Distributed Training Privacy   |
 | controlModelPrivacyEnhancingTechnologies   | Privacy Enhancing Technologies for Model Training | riskSensitiveDataDisclosure              | Sensitive Data Disclosure                |
+| controlModelRegistryIntegrity              | Model Registry and Discovery Integrity            | riskEvaluationBenchmarkManipulation      | Evaluation/Benchmark Manipulation        |
+| controlModelRegistryIntegrity              | Model Registry and Discovery Integrity            | riskInsecureIntegratedComponent          | Insecure Integrated Component            |
+| controlModelRegistryIntegrity              | Model Registry and Discovery Integrity            | riskModelDeploymentTampering             | Model Deployment Tampering               |
+| controlModelRegistryIntegrity              | Model Registry and Discovery Integrity            | riskModelSourceTampering                 | Model Source Tampering                   |
 | controlOrchestratorAndRouteIntegrity       | Orchestrator and Route Integrity                  | riskModelDeploymentTampering             | Model Deployment Tampering               |
 | controlOrchestratorAndRouteIntegrity       | Orchestrator and Route Integrity                  | riskOrchestratorRouteHijacking           | Orchestrator/Route Hijack                |
 | controlOrchestratorAndRouteIntegrity       | Orchestrator and Route Integrity                  | riskToolRegistryTampering                | Tool Registry Tampering                  |
@@ -120,6 +124,8 @@
 | controlSecureByDefaultMLTooling            | Secure-by-Default ML Tooling                      | riskShadowAndUnknownAgents               | Shadow and Unknown Agents                |
 | controlSecureByDefaultMLTooling            | Secure-by-Default ML Tooling                      | riskToolSourceProvenance                 | Tool Source Provenance                   |
 | controlThreatDetection                     | Threat Detection                                  | all                                      | All Risks                                |
+| controlToolRegistryAndDiscoveryIntegrity   | Tool Registry and Discovery Integrity             | riskToolRegistryTampering                | Tool Registry Tampering                  |
+| controlToolRegistryAndDiscoveryIntegrity   | Tool Registry and Discovery Integrity             | riskToolSourceProvenance                 | Tool Source Provenance                   |
 | controlTrainingDataManagement              | Training Data Management                          | riskExcessiveDataHandling                | Excessive Data Handling                  |
 | controlTrainingDataManagement              | Training Data Management                          | riskInferredSensitiveData                | Inferred Sensitive Data                  |
 | controlTrainingDataManagement              | Training Data Management                          | riskUnauthorizedTrainingData             | Unauthorized Training Data               |

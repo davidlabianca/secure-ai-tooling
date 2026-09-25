@@ -61,7 +61,14 @@ sharedElements:
       fill: '#ffe6e6' # Light red for model components
       stroke: '#333333' # Dark gray border
       strokeWidth: '2px' # Medium border width
+    componentsExternalTools:
+      fill: '#f3e6ff' # Light purple for tools components
+      stroke: '#333333' # Dark gray border
+      strokeWidth: '2px' # Medium border width
 ```
+
+All four component categories are **required** by `mermaid-styles.schema.json`; omitting any one fails
+schema validation.
 
 ### Graph Type Configurations
 

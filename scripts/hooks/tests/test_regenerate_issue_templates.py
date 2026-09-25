@@ -427,8 +427,10 @@ class TestPerSourceRegenerationDeterminism:
 # selector (D8/D9/D10).
 #
 # D8 — tuple-selector placeholder: {{COMPONENT_CATEGORY_SUBCATEGORY}} renders
-#      the seven valid (category, subcategory) pairs derived from the
-#      categories[].subcategory[] nesting in components.yaml, formatted as
+#      the valid (category, subcategory) pairs derived from the
+#      categories[].subcategory[] nesting in components.yaml (eleven pairs as
+#      of ADR-030 D1's componentsExternalTools category and D2's componentsIdentity
+#      subcategory), formatted as
 #      "<category-id>: <subcategory-id>" with ": " as delimiter.
 #      {{COMPONENT_SUBCATEGORIES}} is retired.
 #
@@ -451,12 +453,16 @@ class TestPerSourceRegenerationDeterminism:
 # Tuple format: "<category-id>: <subcategory-id>" with ": " delimiter.
 _EXPECTED_TUPLES: list[str] = [
     "componentsInfrastructure: componentsData",
-    "componentsInfrastructure: componentsModelDeployment",
+    "componentsInfrastructure: componentsDeployment",
+    "componentsInfrastructure: componentsRegistries",
+    "componentsInfrastructure: componentsIdentity",
     "componentsModel: componentsModelTraining",
     "componentsModel: componentsModelCore",
     "componentsModel: componentsOrchestration",
     "componentsApplication: componentsAgent",
     "componentsApplication: componentsApplicationCore",
+    "componentsExternalTools: componentsToolNetworkControls",
+    "componentsExternalTools: componentsToolInvocationPath",
 ]
 
 # An example of an invalid pair — this category/subcategory crossing is not in
@@ -467,8 +473,9 @@ _INVALID_PAIR_EXAMPLE = "componentsApplication: componentsData"
 class TestTupleSelectorRendering:
     """
     Asserts that {{COMPONENT_CATEGORY_SUBCATEGORY}} expands to exactly the
-    seven valid taxonomy tuples formatted as "<category-id>: <subcategory-id>",
-    in taxonomy declaration order (ADR-026 D8).
+    eleven valid taxonomy tuples formatted as "<category-id>: <subcategory-id>",
+    in taxonomy declaration order (ADR-026 D8; count includes ADR-030 D1's
+    componentsExternalTools category and ADR-030 D2's componentsIdentity subcategory).
     """
 
     def test_component_category_subcategory_placeholder_is_registered(self, repo_root: Path) -> None:
@@ -516,24 +523,23 @@ class TestTupleSelectorRendering:
             "Implementation has not removed the old placeholder yet."
         )
 
-    def test_expand_placeholder_yields_exactly_seven_tuples(self, repo_root: Path) -> None:
+    def test_expand_placeholder_yields_exactly_eleven_tuples(self, repo_root: Path) -> None:
         """
         Test that expanding {{COMPONENT_CATEGORY_SUBCATEGORY}} produces exactly
-        seven dropdown option lines that parse as strings.
+        eleven dropdown option lines that parse as strings.
 
         Given: A template containing {{COMPONENT_CATEGORY_SUBCATEGORY}} and
                a renderer backed by the real schemas and components.yaml
         When: expand_placeholders() is called for entity_type='components'
-        Then: YAML-parsing the option lines yields exactly 7 string values,
+        Then: YAML-parsing the option lines yields one string per expected tuple,
               each matching a tuple from _EXPECTED_TUPLES.
 
-        ADR-026 D8: seven valid pairings, rendered as YAML-quoted strings so
+        ADR-026 D8: eleven valid pairings (eight legacy + two added by ADR-030
+        D1's componentsExternalTools category + one added by ADR-030 D2's
+        componentsIdentity subcategory), rendered as YAML-quoted strings so
         that GitHub's check-jsonschema accepts the dropdown options block.
         Options containing ': ' must be quoted; unquoted they parse as dicts
         and fail vendor.github-issue-forms validation.
-
-        This test will FAIL against the current unquoted production renderer
-        (options parse as dicts, not strings) for the right reason.
         """
         import sys
 
@@ -559,8 +565,8 @@ class TestTupleSelectorRendering:
         # Collect raw option lines (lines starting with "- " after stripping).
         # We need at least some lines to make the YAML-parse meaningful.
         raw_option_lines = [line.strip() for line in result.splitlines() if line.strip().startswith("- ")]
-        assert len(raw_option_lines) == 7, (
-            f"Expected exactly 7 option lines (one per valid pair in the taxonomy); "
+        assert len(raw_option_lines) == len(_EXPECTED_TUPLES), (
+            f"Expected exactly {len(_EXPECTED_TUPLES)} option lines (one per valid pair in the taxonomy); "
             f"got {len(raw_option_lines)}: {raw_option_lines}"
         )
 
@@ -578,8 +584,8 @@ class TestTupleSelectorRendering:
             "Options containing ': ' must be YAML-quoted: - \"category: subcategory\". "
             f"Got types: {[type(opt).__name__ for opt in parsed_options]} for: {parsed_options}"
         )
-        assert len(parsed_options) == 7, (
-            f"Expected exactly 7 string options; got {len(parsed_options)}: {parsed_options}"
+        assert len(parsed_options) == len(_EXPECTED_TUPLES), (
+            f"Expected exactly {len(_EXPECTED_TUPLES)} string options; got {len(parsed_options)}: {parsed_options}"
         )
 
     def test_expand_placeholder_yields_all_expected_tuples(self, repo_root: Path) -> None:
@@ -708,9 +714,9 @@ class TestTupleSelectorRendering:
         # Broken (unquoted) rendering produces dicts; the assertEqual below
         # catches that mismatch for the right reason.
         raw_option_lines = [line.strip() for line in result.splitlines() if line.strip().startswith("- ")]
-        # Non-vacuous guard: the placeholder must have expanded to 7 lines.
-        assert len(raw_option_lines) == 7, (
-            f"Expected 7 option lines; got {len(raw_option_lines)}: {raw_option_lines}"
+        # Non-vacuous guard: the placeholder must have expanded to one line per pair.
+        assert len(raw_option_lines) == len(_EXPECTED_TUPLES), (
+            f"Expected {len(_EXPECTED_TUPLES)} option lines; got {len(raw_option_lines)}: {raw_option_lines}"
         )
 
         options_yaml = "\n".join(raw_option_lines)
@@ -901,7 +907,7 @@ class TestRetiredSubcategoriesPlaceholder:
 
         rendered = output_path.read_text(encoding="utf-8")
 
-        # All seven tuples must appear in the rendered output.
+        # All expected tuples must appear in the rendered output.
         for expected_tuple in _EXPECTED_TUPLES:
             assert expected_tuple in rendered, (
                 f"Generated new_component.yml must contain tuple {expected_tuple!r}. "
@@ -918,7 +924,7 @@ class TestRetiredSubcategoriesPlaceholder:
             "componentsData",
             "componentsAgent",
             "componentsOrchestration",
-            "componentsModelDeployment",
+            "componentsDeployment",
             "componentsModelCore",
             "componentsApplicationCore",
         ]
@@ -997,9 +1003,9 @@ class TestTupleParseBackConvention:
         # Collect raw option lines and YAML-parse them to get string values.
         raw_option_lines = [line.strip() for line in result.splitlines() if line.strip().startswith("- ")]
 
-        # Non-vacuous guard: the placeholder must expand to 7 lines.
-        assert len(raw_option_lines) == 7, (
-            f"Expected 7 options (one per valid (category, subcategory) pair per ADR-026 D8); "
+        # Non-vacuous guard: the placeholder must expand to one line per pair.
+        assert len(raw_option_lines) == len(_EXPECTED_TUPLES), (
+            f"Expected {len(_EXPECTED_TUPLES)} options (one per valid pair, ADR-026 D8); "
             f"got {len(raw_option_lines)}. If 0 the placeholder was not expanded."
         )
 
@@ -1073,9 +1079,9 @@ class TestTupleParseBackConvention:
 
         raw_option_lines = [line.strip() for line in result.splitlines() if line.strip().startswith("- ")]
 
-        # Non-vacuous guard: placeholder must expand to 7 lines.
-        assert len(raw_option_lines) == 7, (
-            f"Expected 7 options (one per valid (category, subcategory) pair per ADR-026 D8); "
+        # Non-vacuous guard: placeholder must expand to one line per pair.
+        assert len(raw_option_lines) == len(_EXPECTED_TUPLES), (
+            f"Expected {len(_EXPECTED_TUPLES)} options (one per valid pair, ADR-026 D8); "
             f"got {len(raw_option_lines)}. If 0 the placeholder was not expanded."
         )
 

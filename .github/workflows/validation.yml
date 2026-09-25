@@ -251,11 +251,12 @@ jobs:
       run: |
         echo "🔗 Running component edge validation..."
 
-        # ADR-037 D2: --block promotes the warn-only tier (controls<->components
-        # mirror drift, category/subcategory nesting) to errors, matching the
-        # validate-component-edges pre-commit hook. ADR-037 D3 keeps the flag
-        # off the graph-validation job, whose emission blocks run after the
-        # warn-only exit.
+        # ADR-037 D2: --block promotes the warn-only tier -- controls<->components
+        # mirror drift, category/subcategory nesting, and category style coverage,
+        # which is the tier as it stands rather than a closed list -- to errors,
+        # matching the validate-component-edges pre-commit hook. ADR-037 D3 keeps
+        # the flag off the graph-validation job, whose emission blocks run after
+        # the warn-only exit.
         if python3 validate_riskmap.py --force --block; then
           echo "✅ Component edge validation completed successfully"
           echo "status=success" >> $GITHUB_OUTPUT
