@@ -143,7 +143,8 @@ extract_minor() {
     echo "${without_major%%.*}"
 }
 
-# find_chromium_recursive: search for chrome/headless_shell in a directory tree
+# find_chromium_recursive: search for chrome/chrome-headless-shell/headless_shell
+# in a directory tree.
 # Uses bash builtins only (globstar) instead of find command.
 # Sets CHROMIUM_FOUND=true if found.
 find_chromium_recursive() {
@@ -156,7 +157,9 @@ find_chromium_recursive() {
     for f in "$base_dir"/**/*; do
         if [[ -f "$f" ]]; then
             local basename="${f##*/}"
-            if [[ "$basename" == "chrome" || "$basename" == "headless_shell" ]]; then
+            # chrome-headless-shell: Playwright >=1.63 rename; headless_shell:
+            # pre-1.63 spelling, kept for caches that predate the rename.
+            if [[ "$basename" == "chrome" || "$basename" == "chrome-headless-shell" || "$basename" == "headless_shell" ]]; then
                 CHROMIUM_FOUND=true
                 eval "$prev_globstar" 2>/dev/null || true
                 return 0
@@ -494,7 +497,7 @@ PLAYWRIGHT_PATH="${PLAYWRIGHT_BROWSERS_PATH:-$HOME/.cache/ms-playwright}"
 CHROMIUM_FOUND=false
 
 if [[ -d "$PLAYWRIGHT_PATH" ]]; then
-    # Search for chrome or headless_shell binaries using bash globstar
+    # Search for chrome, chrome-headless-shell, or headless_shell binaries using bash globstar
     find_chromium_recursive "$PLAYWRIGHT_PATH"
 fi
 

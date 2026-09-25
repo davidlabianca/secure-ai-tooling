@@ -1,6 +1,6 @@
 # ADR-030: Agentic component model — model-access boundary, enforcement-point individuation, and the external tools tier
 
-**Status:** Draft
+**Status:** Accepted
 **Date:** 2026-07-29
 **Revision:** v2 — replaces ADR-030 v1 (2026-06-30) in place, under the same number and the same decision numbering
 **Authors:** Architect agent, with maintainer review

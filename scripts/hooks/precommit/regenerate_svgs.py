@@ -82,7 +82,9 @@ def _discover_chromium() -> str | None:
 
     Priority order:
       1. CHROMIUM_PATH env var (if set and non-empty) — explicit override
-      2. On Linux ARM64: search Playwright cache for `headless_shell` then `chrome`
+      2. On Linux ARM64: search Playwright cache by spelling priority —
+         `chrome-headless-shell` (Playwright >=1.63) then `headless_shell`
+         (Playwright <1.63) then `chrome` (full browser, last resort)
       3. None — let mmdc use its bundled auto-detection
 
     Cache root: PLAYWRIGHT_BROWSERS_PATH env if set, else ~/.cache/ms-playwright.
@@ -104,15 +106,31 @@ def _discover_chromium() -> str | None:
     else:
         cache_root = Path(os.path.expanduser("~/.cache/ms-playwright"))
 
-    # Search for headless_shell first (Playwright's preferred headless binary)
-    matches = list(cache_root.rglob("headless_shell"))
-    if matches:
-        return str(matches[0])
-
-    # Fall back to chrome
-    matches = list(cache_root.rglob("chrome"))
-    if matches:
-        return str(matches[0])
+    # Playwright 1.63 renamed the headless binary from `headless_shell` to
+    # `chrome-headless-shell` (and arch-suffixed its directory). Search both
+    # spellings so caches from either side of the rename resolve correctly.
+    # `npx playwright install` normally garbage-collects revisions no longer
+    # referenced by a `.links/` entry, so an upgraded cache usually holds only
+    # the current one; both spellings still coexist when that GC is skipped
+    # (PLAYWRIGHT_SKIP_BROWSER_GC=1) or another checkout's `.links` entry
+    # still pins the old revision. `chrome` is the full-browser fallback when
+    # no headless-shell binary is present.
+    #
+    # rglob matches directories as well as files by name, so every candidate
+    # must be filtered with is_file() — a directory literally named "chrome"
+    # (e.g. a partial extraction) must never be handed to mmdc as
+    # executablePath.
+    #
+    # Sorting is plain lexical ascending, not revision-aware: Playwright's
+    # revision scheme changed from six-digit Chromium commit positions
+    # (e.g. 978106) to four-digit build numbers (e.g. 1243), so neither
+    # lexical nor numeric sort reliably picks the "newest" revision across
+    # that boundary. Picking among multiple revisions of the SAME spelling is
+    # out of scope; only cross-spelling priority is pinned here.
+    for name in ("chrome-headless-shell", "headless_shell", "chrome"):
+        matches = sorted(p for p in cache_root.rglob(name) if p.is_file())
+        if matches:
+            return str(matches[0])
 
     return None
 

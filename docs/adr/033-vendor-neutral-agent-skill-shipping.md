@@ -3,7 +3,7 @@
 **Status:** Accepted
 **Date:** 2026-07-08
 **Authors:** Architect agent, with maintainer review
-**Extended by:** [Amendment 2026-07-30](#amendment-2026-07-30-corpus-state-dependent-eval-expectations-ship-with-a-pinned-fixture) (below) — [D6](#d6-develop-evaluate-and-expand-lifecycle)'s portable-eval requirement gains a grounding rule for corpus-state-dependent expectations. D1–D6 are otherwise unchanged.
+**Extended by:** [Amendment 2026-07-30](#amendment-2026-07-30-corpus-state-dependent-eval-expectations-ship-with-a-pinned-fixture) (below) — [D6](#d6-develop-evaluate-and-expand-lifecycle)'s portable-eval requirement gains a grounding rule for corpus-state-dependent expectations. [Amendment 2026-08-20](#amendment-2026-08-20-portable-agent-evals-ship-in-a-sibling-eval-tree) (below) — D6's portable-eval requirement gains an on-disk layout and file shape for the agent half of "every shipped skill (and, where applicable, agent)". D1–D6 are otherwise unchanged.
 
 ---
 
@@ -205,3 +205,110 @@ Fixture grounding is scoped to the expectations that need it. For each test whos
 - [ADR-026 Amendment 2026-05-21](026-issue-template-domain.md#amendment-2026-05-21-component-categorysubcategory-valid-tuple-selector) — the dated in-file amendment instrument this amendment follows
 - `scripts/skills/altitude-check/SKILL.md` (C1, T6, R1, R2) and `scripts/skills/altitude-check/evals/evals.json` (cases 9–11) — the artifact where the class surfaced
 - [#431](https://github.com/cosai-oasis/secure-ai-tooling/pull/431) — the review in which the exposure was identified
+
+---
+
+## Amendment 2026-08-20: Portable agent evals ship in a sibling eval tree
+
+**Status:** Draft (2026-08-20). Extends [D6](#d6-develop-evaluate-and-expand-lifecycle); does not alter the Accepted status of D1–D6 above, nor the [2026-07-30 amendment](#amendment-2026-07-30-corpus-state-dependent-eval-expectations-ship-with-a-pinned-fixture) it builds on.
+**Authors:** Architect agent, with maintainer review.
+
+### Context
+
+[D6](#d6-develop-evaluate-and-expand-lifecycle) made a portable eval a shipping precondition for "every shipped skill (and, where applicable, agent)," and stated the consequence in absolute terms: "an artifact with no eval is not admissible to the shipped set." The [2026-07-30 amendment](#amendment-2026-07-30-corpus-state-dependent-eval-expectations-ship-with-a-pinned-fixture) then reached forward to the same half, scoping its sweep to "`scripts/skills/**/evals/`, and agent evals as they land."
+
+The skill half of that requirement is settled and shipped. Five skills carry `evals/evals.json`, `scripts/skills/README.md` documents the convention, and `scripts/skills/altitude-check/evals/fixtures/components-fixture.md` fixed the D7b fixture pattern. The agent half never landed: no agent in `scripts/agents/` has ever shipped an eval, and the reason is structural rather than a matter of authoring priority. A skill is a *directory* — the Agent Skills open standard the project adopted (ADR-031 D6) defines a bundled-directory layout, so `evals/` had an obvious place to go as a project extension to the standard's optional bundled dirs. An agent is a *file*: [ADR-006](006-agent-architecture-pattern.md) fixes `scripts/agents/` as a flat surface with "one file per agent, `kebab-case-name.md`," and a flat file has no bundling location. No external ecosystem standard rises to the level Agent Skills does for the skill half — nothing citable and authoritative that this project could simply inherit a layout from. That is not a claim of a clean absence: informal, narrower precedents exist (Google's ADK ships a loosely-specified per-agent eval-file convention; the smaller eve.dev framework documents an `evals/` directory as a sibling of its `agent/` directory, structurally close to what D8a chooses below), but none is a standard this project could point to and say "we follow that." The project has to choose.
+
+The gap surfaced as a blocker rather than as an observation. External review of [#434](https://github.com/cosai-oasis/secure-ai-tooling/pull/434) (the `control-creator` / `control-critic` pair) held the PR on D6's eval requirement with no layout available to satisfy it, and [#435](https://github.com/cosai-oasis/secure-ai-tooling/pull/435) (`risk-creator` / `risk-critic`) sits behind the same gap. Both are creator/critic pairs whose critics ask "does the corpus already cover this?", which is precisely the absence-grounded class [D7a](#d7a-classify-the-expectation-fixture-grounded-cases-pin-presence-grounded-absorb-cases-may-not) governs — so the layout question and the fixture question arrive together, on the first agents to need either.
+
+### D8. An agent's portable eval ships in a name-derived sibling tree at `scripts/agents-evals/`
+
+#### D8a. The eval tree is a name-derived sibling of `scripts/agents/`
+
+A canonical agent at `scripts/agents/<agent-name>.md` carries its portable eval at **`scripts/agents-evals/<agent-name>/evals.json`**. The directory name is the agent's canonical filename stem, so the two halves are computable from each other in both directions with no registry, index, or frontmatter pointer to maintain.
+
+- **`scripts/agents/` stays flat and stays purely agents.** No eval file, fixture, or bundled directory is added to it. [ADR-006](006-agent-architecture-pattern.md)'s "one file per agent, `kebab-case-name.md`" remains literally true of that tree, and the roster stays enumerable by listing the directory rather than by listing it and then filtering. This is the property the sibling placement buys, and it is the reason a sibling is chosen over the cheaper in-tree options (Alternatives).
+- **One directory per agent, not one file per agent and not one grouped file.** A directory is what gives a fixture (D8c) a home without a second layout decision later, and it keeps each agent's eval material disjoint from every other agent's, so adding the *n*th agent adds a directory and touches nothing existing.
+- **The eval directory holds only eval material, so it carries no further nesting.** The skill layout puts the eval under `evals/` because a skill directory also holds `SKILL.md`, `references/`, and the standard's other bundled dirs; `scripts/agents-evals/<agent-name>/` has nothing to disambiguate from, so the eval sits at its root as `evals.json` rather than at `evals/evals.json`. The filename matches the skill convention exactly; only the path above it differs.
+- **The shipped unit for an agent is the pair** (`scripts/agents/<agent-name>.md`, `scripts/agents-evals/<agent-name>/`). Wherever D1 or D6 speaks of "the artifact," that pair is the referent for an agent. This is the one place agent layout genuinely diverges from [D7b](#d7b-what-the-fixture-is-and-where-it-lives)'s "everything the grader needs is inside the directory a consumer copies," and the divergence is a property of ADR-006's flat-file surface, not of this placement (Consequences).
+- **This narrows, in one specific way, what D1 means by "the artifact" for agents.** D1 calls the shipped artifact "the single, complete, authoritative form" under `scripts/agents/**`. For an agent, that form is no longer complete on its own once D6's eval requirement is enforced — completeness now requires the sibling directory too. This amendment does not alter D1's text or its Accepted status (the header above says so, and remains true: nothing about neutrality, cloneability, or canonical-only shipping changes), but it does mean D1's "single... form under `scripts/agents/**`" is read going forward as the definition half of a two-part shipped unit for agents, not as the whole of it. Recorded here rather than left implicit, so a future reader of D1 in isolation is not misled about what "complete" covers for an agent.
+
+#### D8b. The eval file shape is the skill shape with one key changed
+
+An agent eval file is the skill eval object with its top-level identifier key renamed:
+
+```
+{ "agent_name": "<agent-name>",
+  "evals": [ { "id": …, "prompt": …, "expected_output": …, "expectations": [ … ] } ] }
+```
+
+- **The case object is identical to the skill convention's** — `id`, `prompt`, `expected_output`, `expectations[]`, with the same meanings — so one mental model, one review habit, and one eventual runner (the D6 runner selection) cover both surfaces. A reader who knows a skill eval can read an agent eval without being told anything.
+- **`agent_name` is bound to the filesystem, because an agent has no frontmatter to echo.** A skill's `skill_name` mirrors the `name` its `SKILL.md` frontmatter declares. An agent canonical declares no such frontmatter to begin with — [ADR-006](006-agent-architecture-pattern.md)'s prose Sub-Agent Definition format (header block, `## Agent`, `## Composition`, body) has no frontmatter field in its shape, independent of any prohibition; [D2a](#d2a-mechanically-enumerable-constraints-machine-checkable)'s runtime-binding-frontmatter denylist would in any case forbid adding one now, but the absence predates and does not depend on that rule. So `agent_name` **equals the stem of the agent's canonical `.md` and the name of its eval directory**: a three-way identity that is mechanically checkable and needs no new metadata to check it against.
+- **The case object is closed to agent-specific keys.** Agents vary along axes skills do not — `content-reviewer` has three modes (ADR-007), and creator/critic pairs are invoked with different stances — and the tempting response is a per-agent key (`mode`, `stance`) in the case object. That is refused: anything that varies per invocation is stated in the case's `prompt`, which is already the field that carries the input. Admitting one agent-specific key is what makes the two shapes diverge, after which the shared runner and the shared mental model both stop holding.
+
+#### D8c. D7 fixture grounding applies to agent evals unchanged; the fixture lives beside the eval
+
+The [2026-07-30 amendment](#amendment-2026-07-30-corpus-state-dependent-eval-expectations-ship-with-a-pinned-fixture) already declared its scope to include "agent evals as they land." This amendment makes that concrete rather than extending it:
+
+- **[D7a](#d7a-classify-the-expectation-fixture-grounded-cases-pin-presence-grounded-absorb-cases-may-not)'s classification applies as written.** An agent eval case whose expected verdict would change if the corpus changed without the agent changing is fixture-grounded (absence-grounded or shape-grounded) and pins; a presence-grounded absorb case may grade against the live corpus and records the entry ids it depends on.
+- **A fixture lives at `scripts/agents-evals/<agent-name>/fixtures/`**, one fixture per agent shared across that agent's fixture-grounded cases, in the form D7b fixes: small, hand-authored, purpose-built, carrying the non-authoritative header that states it is test input and not Risk Map content. Every other D7b clause — the structural-change-only refresh trigger, the prohibition on copying or snapshotting the live file — applies unchanged.
+- **[D7c](#d7c-live-corpus-exercise-is-retained-not-replaced)'s live-corpus floor applies.** For each part of an agent's method that directs reading a corpus file, the agent's eval set retains at least one case graded against that live file.
+
+#### D8d. The eval tree is a shipped neutral surface
+
+The eval tree ships, so it is inside the [D5](#d5-a-neutrality-check-is-required) check's scope and its contents satisfy the [D2a](#d2a-mechanically-enumerable-constraints-machine-checkable) denylist like any other shipped material — the same position [D7b](#d7b-what-the-fixture-is-and-where-it-lives) fixed for skill fixtures. D5's scope sentence names two trees because two trees existed when it was written; this amendment adds a third to that scope and changes nothing else about the check — not its denylist, not its allowlist, not its enforcement point.
+
+The scope is declared in three independent places that must move together, and a missed one is a shipped surface that is silently unscanned rather than loudly unconfigured. This is an implementation obligation, recorded here as a constraint and routed downstream (Follow-up), not performed here.
+
+### Alternatives considered
+
+- **`scripts/agents/<agent-name>.evals.json` — a flat sibling file in the agent tree.** The strongest possible name correspondence (same directory, same stem) and the cheapest on gates: the pre-commit pattern `^scripts/(agents|skills)/` and the checker's own `rglob` discovery already reach it with no edit. Rejected on the fixture, which is the part that has to work on the very first agent: a D7b fixture is a Markdown file, and a fixture placed by the same flat convention lands as a `.md` directly under `scripts/agents/` — where the repository's own tooling classifies it as an agent. The neutrality checker treats any `.md` whose parent is `agents` as a top-level agent definition and applies the agent frontmatter rule to it, and the CI trigger path `scripts/agents/*.md` matches it as corpus. Avoiding that means fixtures go somewhere else than the eval does, which is a split layout, not a flat one.
+- **`scripts/agents/evals/<agent-name>.json` — a subdirectory inside the agent tree.** Also cheap on gates, and it keeps everything under one root, so a consumer who copies `scripts/agents/` gets the evals too. Rejected because it spends the property this decision most wants to keep: `scripts/agents/` stops being "one file per agent, nothing else," and a directory named `evals` occupies the same namespace an agent name would. It also puts fixture Markdown inside the tree D1 tells a consumer to point their runtime at, where a harness that discovers agents by walking for `.md` files can load a fixture as a definition — and inside the tree an authoring agent reads, which is the exact "content-shaped material that is not content" hazard D7b already flags, moved one step closer to the reader.
+- **Relay out `scripts/agents/` into per-agent directories, mirroring the skill layout exactly.** The most symmetric answer: every artifact becomes a directory, and D7b's "ships inside the artifact" then holds verbatim for both surfaces. Rejected on blast radius against gain: it moves all six existing canonicals, invalidates every cross-reference and external pointer to their paths, breaks the consumer adaptations D3 assumes are already running against those paths, and requires reworking the checker's structural agent-detection rule and both CI trigger paths — to buy symmetry, when [ADR-006](006-agent-architecture-pattern.md)'s flat surface is Accepted, load-bearing, and has no defect that this relayout fixes.
+- **`scripts/agents-evals/<agent-name>.json` — the chosen root, but one flat file per agent and no directory.** Marginally simpler, and it mirrors the flatness of the agent tree it pairs with. Rejected because the first two agents to need this layout ([#434](https://github.com/cosai-oasis/secure-ai-tooling/pull/434), [#435](https://github.com/cosai-oasis/secure-ai-tooling/pull/435)) are critics whose corpus-coverage judgments are the D7a fixture-grounded class, so a fixture is needed immediately, not eventually — and a flat file leaves it homeless, forcing either a parallel `fixtures/` tree keyed by agent name or a relayout on the first fixture. D8a pays the directory cost once, up front.
+- **One repo-wide eval tree holding both agent and skill evals** (`scripts/evals/{agents,skills}/`). Superficially tidier, and it would give the eventual D6 runner a single root to walk. Rejected: it would move the five shipped skill evals out of the skill directories the Agent Skills standard bundles them into, breaking a layout that is Accepted (ADR-031 D6), shipped, and correct — and it re-proposes for skills exactly what the [2026-07-30 amendment](#amendment-2026-07-30-corpus-state-dependent-eval-expectations-ship-with-a-pinned-fixture) already rejected when it declined "one repo-wide eval-fixture directory outside the artifacts." A runner that must walk two roots is a trivial cost against that.
+- **Exempt agents from D6's eval requirement, or defer the layout until more agents exist.** The status quo, and it unblocks nothing. Rejected: D6 states the requirement as an admissibility condition in terms that already reach agents, and the 2026-07-30 amendment already committed to governing agent evals "as they land." Two PRs are blocked on the *absence of a place to put the file*, not on disagreement about whether the file is required — so deferring converts a one-time layout decision into a per-PR judgment made under review pressure, which is how a surface acquires two incompatible conventions.
+
+### Consequences
+
+**Positive**
+
+- `scripts/agents/` remains exactly what ADR-006 says it is, so its roster stays enumerable by listing the directory, and a runtime pointed at that tree per D1 never encounters a file that is not an agent definition.
+- Fixtures — realistic-looking, corpus-shaped material that is deliberately not corpus — sit outside both the tree a consumer points a runtime at and the tree an authoring agent reads. This tightens D7b's mitigation for agents beyond what the skill layout achieves, where the fixture necessarily lives inside the artifact directory.
+- Shape parity with skills is exact but for one key (D8b), so the D6 runner selection inherits one format rather than two, and a reviewer carries one mental model across both surfaces.
+- The eval path is derivable from the agent path and back again, with no registry to maintain and no pointer inside either file that could go stale.
+- [#434](https://github.com/cosai-oasis/secure-ai-tooling/pull/434) and [#435](https://github.com/cosai-oasis/secure-ai-tooling/pull/435) unblock against a stated convention rather than against a reviewer's per-PR judgment, and the agents behind them land with the same fixture discipline the skills already carry.
+
+**Negative**
+
+- **An agent's shipped unit is two paths in two trees.** D7b's "everything the grader needs is inside the directory a consumer copies" is literally true for a skill and not for an agent: a consumer who vendors `scripts/agents/<name>.md` alone gets a definition with no eval, and nothing in the file says otherwise. The name-derived pairing (D8a) makes the missing half findable, not automatic. This cost is inherent to ADR-006's flat-file surface — every alternative short of relaying that surface pays some version of it — but the sibling placement is where it is most visible.
+- **A third neutral surface must be admitted to gates that name their scope in three places.** The checker's discovery list, the pre-commit `files:` pattern, and the CI trigger paths each enumerate the neutral trees independently, and ADR-037 D1's block parity binds the last two to move together. Admitting `scripts/agents-evals/**` is therefore a coordinated multi-site edit whose failure mode is quiet: a shipped tree scanned by nothing, which looks identical to a shipped tree that is clean.
+- **Nothing enforces the agent↔eval pairing.** An agent can land with no eval directory, and an eval directory can outlive a renamed or removed agent, without any check objecting — D6 makes the eval an admissibility condition but no gate verifies it for either surface. Review-enforced until one exists, and the three-way `agent_name` identity of D8b exists partly to make such a check cheap to write later.
+- **Two artefact surfaces now have visibly different eval layouts** — a skill's eval nests inside the skill, an agent's sits in a parallel tree — so a contributor must learn which surface they are on before placing a file. D8b's shape parity limits the divergence to the path.
+- **D7's own negatives apply to agent evals unchanged**: fixtures remain outside schema validation, the two grounding regimes still have to be classified correctly per case, and eval sets authored before D7 are not retrofitted by it.
+
+**Follow-up**
+
+- **Extend the D5 check's scope to the `scripts/agents-evals/` tree** across all three declaration sites — the checker's neutral-surface discovery, the pre-commit hook's `files:` pattern, and the CI workflow's trigger paths — moving the last two together to hold ADR-037 D1 block parity. Routed test-first for the checker change (`testing` → `code-reviewer` → `swe` → `code-reviewer`) and as infrastructure for the configuration and workflow change (`swe` → `code-reviewer`).
+- **The first agent to land an eval fixes the on-disk pattern** — the `scripts/agents-evals/<agent-name>/` layout and, if it needs one, the `fixtures/` placement — the same "first PR sets the on-disk pattern" mechanism ADR-031 D6 used for the skill layout and the 2026-07-30 amendment used for the first fixture.
+- **Document the convention where contributors will look for it**: a `scripts/agents/README.md` (none exists today) or the equivalent, mirroring what `scripts/skills/README.md` already does for the skill `evals/` convention, and pointing at this amendment for the *why*.
+- **A check that an agent and its eval directory exist as a pair** — and that `agent_name` matches both the directory name and the canonical filename stem — is deferred. D8b's three-way identity is what would make it a cheap check; nothing enforces it today.
+- **The D6 eval-runner selection inherits one more constraint**: whatever runner is chosen must resolve an agent eval from a tree that is a sibling of the artifact rather than a child of it, in addition to the fixture-grading constraint the 2026-07-30 amendment already added.
+
+### Scope of this amendment
+
+This amendment fixes **layout and file shape only**. It does not enumerate which agents must carry an eval — [D6](#d6-develop-evaluate-and-expand-lifecycle) already answers that and is not restated or narrowed here. It authors no eval content and admits no agent to the shipped set; admission remains D6's expansion rule, exercised through an amendment to [ADR-031](031-authoring-time-agents-and-skills.md) or [ADR-032](032-consumer-exploration-skills.md) or a new ADR. It selects no eval-runner, which D6 deferred and this amendment leaves deferred.
+
+### References
+
+- [D6](#d6-develop-evaluate-and-expand-lifecycle) — the portable-eval shipping requirement, whose "(and, where applicable, agent)" clause this amendment makes actionable
+- [Amendment 2026-07-30](#amendment-2026-07-30-corpus-state-dependent-eval-expectations-ship-with-a-pinned-fixture) (D7/D7a/D7b/D7c) — fixture grounding, whose "agent evals as they land" scope D8c makes concrete
+- [D1](#d1-canonical-only-neutral-cloneable) — the cloneable-artifact posture the two-path shipped unit is measured against
+- [D5](#d5-a-neutrality-check-is-required) / [D2a](#d2a-mechanically-enumerable-constraints-machine-checkable) — the check whose scope D8d extends to a third tree
+- [ADR-006](006-agent-architecture-pattern.md) — `scripts/agents/` as a flat surface, one `kebab-case-name.md` per agent; the structural asymmetry with skills that motivates a sibling tree
+- [ADR-031 D6](031-authoring-time-agents-and-skills.md) — the Agent Skills bundled-directory layout agents have no analogue for, and the "first PR fixes the on-disk pattern" mechanism
+- [ADR-007](007-content-reviewer-modes.md) — `content-reviewer`'s three modes, the per-agent variation D8b keeps out of the case object
+- [ADR-037 D1](037-ci-validation-authority-and-block-parity.md) — pre-commit/CI block parity, which binds the D8d scope edits together
+- `scripts/skills/README.md` and `scripts/skills/*/evals/evals.json` — the shipped skill convention D8b mirrors
+- `scripts/skills/altitude-check/evals/fixtures/components-fixture.md` — the fixture pattern D8c inherits
+- [#434](https://github.com/cosai-oasis/secure-ai-tooling/pull/434) — the review in which the gap surfaced as a blocker; [#435](https://github.com/cosai-oasis/secure-ai-tooling/pull/435) — the PR behind it in the same state

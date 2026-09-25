@@ -4,11 +4,12 @@
     {
       "id": 1,
       "prompt": "For a control that requires deliberate user confirmation of high-consequence agent actions (a preventive, human-oversight control), which NIST AI RMF function and subcategory should it map to?",
-      "expected_output": "Selects a GOVERN subcategory (oversight/roles), explicitly rejects MANAGE as reactive for a preventive design control.",
+      "expected_output": "Selects a GOVERN subcategory (oversight/roles, not GOVERN-6.x — that family is third-party/supply-chain-scoped, not internal authorization/oversight mechanics), explicitly rejects MANAGE as reactive for a preventive design control.",
       "expectations": [
         "Selects a GOVERN (or MEASURE) subcategory, not MANAGE",
         "Explains that MANAGE is reactive/response-oriented and wrong for a preventive design/oversight control",
-        "Uses a subcategory-level id (e.g. GOVERN-6.x), not a bare category"
+        "Uses a subcategory-level id, not a bare category",
+        "Does not select a GOVERN-6.x subcategory — GOVERN-6 is scoped to third-party/supply-chain issues per the reference file, and this control is internal, not a vendor/supply-chain matter"
       ]
     },
     {
@@ -44,11 +45,11 @@
     {
       "id": 5,
       "prompt": "A control mandates that a human can review and veto high-risk agent actions before they execute. Does it map to the EU AI Act, and if so where?",
-      "expected_output": "Yes — EU AI Act Article 14 (human oversight); the control implements that specific obligation. Notes the pinned form Article 14@2024 and marks it for tool-generation; treats EU AI Act as the non-US framing that broadens beyond NIST.",
+      "expected_output": "Yes — EU AI Act Article 14 (human oversight); the control implements that specific obligation. Notes the pinned form Article 14@2024; if not yet generated/confirmed, the value is omitted from the mappings (never marked inline) and flagged separately. Treats EU AI Act as the non-US framing that broadens beyond NIST.",
       "expectations": [
         "Identifies EU AI Act Article 14 (human oversight) as an applicable mapping",
         "Confirms EU AI Act is control-applicable when the control implements a specific regulatory obligation",
-        "Notes the pinned form (Article 14@2024) and marks it [tool-generate]"
+        "Notes the pinned form (Article 14@2024); if not yet generated/confirmed, omits it from mappings and flags it separately rather than marking it inline"
       ]
     },
     {
@@ -73,20 +74,21 @@
     },
     {
       "id": 8,
-      "prompt": "Risk direction: riskRunawayAgentToolLoops. The addressing control (Agent Execution Bounds) maps to MITRE ATLAS mitigation AML.M0004. Should the risk just reuse AML.M0004? And for the technique, I found the parent AML.T0034 (Cost Harvesting) and the sub-technique AML.T0034.002 — should I list both?",
-      "expected_output": "No — risks map to techniques (AML.T####), never mitigations (AML.M####); the control's AML.M0004 is a mitigation and belongs on the control, not the risk (the mirror rule). Use the technique. For parent-vs-sub, list only the most specific accurate one: AML.T0034.002, not both the parent AML.T0034 and its sub-technique. Pinned form AML.T0034.002@5.0.1, marked for tool-generation.",
+      "prompt": "Risk direction (hypothetical draft, not yet in the corpus): I'm drafting a new risk where an adversary studies an AI vendor's own published technical blog posts — not their academic papers, not their preprints, specifically their public engineering blog — describing a production model's architecture and fine-tuning approach, then uses that knowledge to craft a more effective, tailored attack before ever touching the live system. The addressing control (which restricts how much architectural and training detail engineering teams are permitted to publish externally) maps to MITRE ATLAS AML.M0000. Should the risk just reuse AML.M0000? And for the risk's own MITRE ATLAS value, I found two related ids in the same technique family: AML.T0000 and AML.T0000.002. Which should the risk use, and why?",
+      "expected_output": "No — risks map to techniques (AML.T####), never mitigations (AML.M####); AML.M0000 is a mitigation (the M in its id) and belongs on the control, not the risk (the mirror rule). For the risk's own value: AML.T0000 (Search Open Technical Databases) is the parent technique, and AML.T0000.002 (Technical Blogs) is its sub-technique — list only the most specific accurate one. Since the scenario is specifically about engineering blog posts (journals/conference proceedings and pre-print repositories are the other two sub-techniques under the same parent, and don't fit here), AML.T0000.002 is the directly relevant value; do not also list the parent AML.T0000 alongside it. Pinned form AML.T0000.002@5.0.1; if not yet generated/confirmed, omit it from the mappings (never marked inline) and flag it separately.",
       "expectations": [
-        "States risks map to MITRE ATLAS techniques (AML.T####), not mitigations (AML.M####); AML.M0004 is a mitigation that belongs on the control, not the risk",
-        "Selects the technique AML.T0034.002 and does NOT list the parent AML.T0034 alongside its sub-technique (most-specific only)",
-        "Notes the pinned form (AML.T0034.002@5.0.1) and marks it for tool-generation"
+        "States risks map to MITRE ATLAS techniques (AML.T####), not mitigations (AML.M####); identifies AML.M0000 as a mitigation (by its M-prefix) that belongs on the control, not the risk",
+        "Identifies AML.T0000 as the parent technique (Search Open Technical Databases) and AML.T0000.002 as its sub-technique (Technical Blogs), selects only the sub-technique as directly relevant to the blog-specific scenario, and does not list the parent alongside it",
+        "Notes the pinned form (AML.T0000.002@5.0.1); if not yet generated/confirmed, omits it from mappings and flags it separately rather than marking it inline",
+        "States this is a pre-PR draft (no row yet in risks.yaml) that routes to audit-framework-mappings's candidate mode, naming entity type risk explicitly — not single-entity mode"
       ]
     },
     {
       "id": 9,
       "prompt": "Risk direction: I'm mapping a risk and I want to add a NIST AI RMF subcategory (say MEASURE-2.7) to it because it feels relevant to how the risk is assessed. Is that allowed on a risk?",
-      "expected_output": "No — NIST AI RMF does not apply to risks; it is control-side (and persona) only. Reject the NIST subcategory on the risk regardless of how relevant it feels. Risk-side frameworks are MITRE ATLAS techniques, STRIDE, and OWASP LLM. If assessment matters, that belongs on the addressing control, not the risk.",
+      "expected_output": "No — NIST AI RMF does not apply to risks; it is control-side only. Reject the NIST subcategory on the risk regardless of how relevant it feels. Risk-side frameworks are MITRE ATLAS techniques, STRIDE, and OWASP LLM. If assessment matters, that belongs on the addressing control, not the risk.",
       "expectations": [
-        "States NIST AI RMF does NOT apply to risks (it is control-side / persona-side only) and rejects the mapping",
+        "States NIST AI RMF does NOT apply to risks (it is control-side only) and rejects the mapping",
         "Rejects it on applicability grounds regardless of apparent topical relevance",
         "Names the risk-applicable frameworks instead: MITRE ATLAS techniques, STRIDE, OWASP Top 10 for LLM"
       ]
@@ -99,6 +101,46 @@
         "Selects controlAgentExecutionBounds and controlAgentObservability as directly addressing the runaway-loop risk, each with a one-sentence rationale",
         "Excludes merely-related controls and any universal (risks: 'all') control",
         "States the reciprocity requirement: each named control's risks array must list this risk back (risk.controls <-> control.risks)"
+      ]
+    },
+    {
+      "id": 11,
+      "prompt": "controlModelAndDataIntegrityManagement is a real row in controls.yaml, and its MITRE ATLAS mapping already lists AML.M0013@5.0.1 and AML.M0014@5.0.1. I'm sending both of those exact values in as a single submission today, with nothing else queued for this framework right now. Do I need to say anything about incompleteness, and which audit-framework-mappings mode should this go through?",
+      "expected_output": "No incompleteness flag needed — both values go in together with nothing held back, so the deferred-value declaration doesn't apply; being individually unconfirmed at submission time isn't itself a trigger. Because controlModelAndDataIntegrityManagement already has a row in controls.yaml, this routes to audit-framework-mappings's single-entity mode, naming the entity id controlModelAndDataIntegrityManagement explicitly — not candidate mode, which is only for an entity with no row yet.",
+      "expectations": [
+        "States the entity id controlModelAndDataIntegrityManagement and routes to audit-framework-mappings's single-entity mode, not candidate mode, because the control already has a row in controls.yaml",
+        "Confirms no pending/incomplete declaration is needed when both values are submitted together with nothing held back — distinguishes this from deferral; being individually unconfirmed at submission time is not itself a trigger",
+        "Uses the pinned forms AML.M0013@5.0.1 and AML.M0014@5.0.1 (matching the suite's pinned-value convention), both correctly on the mitigation side (AML.M####) for a control"
+      ]
+    },
+    {
+      "id": 12,
+      "prompt": "controlAgentExecutionBounds already has LLM10:2025 as its OWASP Top 10 for LLM mapping in the corpus. I think a second OWASP item probably applies too, but I haven't nailed down which one — my plan is to circle back and propose it once I've confirmed the fit. For now I only want to submit LLM10:2025. What do I need to state in this submission, which audit-framework-mappings mode applies, and what verdict should I expect?",
+      "expected_output": "Single-entity mode has no drip-feed clause and no provisional-verdict option — its checklist (unlike candidate mode's) returns only a final result. The second OWASP item is only suspected, not confirmed — its fit hasn't been nailed down — so it does not qualify as 'genuinely coming soon'; the resolved default applies: finalize now. Submit LLM10:2025 as the complete set for this pass (there is no newly-confirmed second value to add alongside it) and expect a real, final verdict evaluated against that set, not a provisional one. If the second item is later confirmed, resubmit it together with LLM10:2025 as the complete set at that point — don't append it alone. Because controlAgentExecutionBounds already has a row in controls.yaml, this routes to audit-framework-mappings's single-entity mode, naming the entity id controlAgentExecutionBounds explicitly — not candidate mode. (If this were instead a pre-PR draft control with no row yet, candidate mode's step 3 drip-feed clause would let you flag the deferred value and receive a provisional verdict — but that option isn't available here.)",
+      "expectations": [
+        "States that single-entity mode has no drip-feed clause or provisional-verdict mechanism — its checklist returns only a final result, unlike candidate mode's step 3",
+        "Resolves the caller's uncertainty with the stated default: a suspected-but-unconfirmed second value does not count as 'genuinely coming soon', so the caller must finalize now with LLM10:2025 as the complete set for this pass — not wait, and not expect a provisional verdict",
+        "States the entity id controlAgentExecutionBounds and routes to audit-framework-mappings's single-entity mode (not candidate mode), because the control already has a row in controls.yaml"
+      ]
+    },
+    {
+      "id": 13,
+      "prompt": "Risk direction: I want to map riskRunawayAgentToolLoops to EU AI Act Article 15 (robustness/security) because the risk is clearly about system robustness. Is that allowed on a risk?",
+      "expected_output": "No — EU AI Act's applicableTo is personas and controls only (risk-map/yaml/frameworks.yaml); risks are excluded. Reject the mapping regardless of how topically relevant Article 15 seems — applicability, not topical fit, governs. If the underlying obligation needs to be represented, it belongs on the addressing control, not the risk.",
+      "expectations": [
+        "States EU AI Act's applicableTo is personas and controls, not risks, and rejects the mapping on that basis",
+        "Does not let the article's subject-matter fit (robustness/security) override the applicability rule — a topically on-point article is still inapplicable to a risk entity",
+        "Redirects to the frameworks that do apply on the risk side: MITRE ATLAS technique ids, STRIDE categories, and the OWASP LLM Top 10"
+      ]
+    },
+    {
+      "id": 14,
+      "prompt": "Candidate mode: I'm drafting a new control (no row yet in controls.yaml) that requires staged rollback checkpoints before an agent commits an irreversible multi-step action. This is an internal orchestration mechanism, not a third-party/supply-chain matter, so I don't think any NIST AI RMF subcategory genuinely fits — I'm planning to omit NIST for now rather than force one. For OWASP Top 10 for LLM, I want to submit LLM06:2025 (Excessive Agency) in this pass, and I expect to add a second OWASP item too once I've confirmed the fit — I'll have that ready in a follow-up. What do I need to state in this submission, which audit-framework-mappings mode applies, and what verdict should I expect?",
+      "expected_output": "Because this control has no row yet in controls.yaml, this is candidate mode — state the entity type explicitly as control. On NIST: agree that no subcategory genuinely fits — this is an internal technical mechanism, not a third-party/supply-chain issue (which is what GOVERN-6.1/GOVERN-6.2 are actually scoped to) and not a governance-process definition either, so omitting NIST rather than forcing a governance-phase subcategory like GOVERN-6.2 is correct, per the reference file's own guidance to omit NIST rather than force a governance-phase one onto an internal technical control. On OWASP: saying 'I'll have that ready in a follow-up' about the second item is a genuine deferral signal, so it triggers candidate mode's checklist step 3, the drip-feed clause: rather than evaluate LLM06:2025 alone as a final selectivity verdict, the checklist asks you to confirm the complete candidate set for OWASP Top 10 for LLM before finalizing. Since that confirmation can't be obtained yet, the correct output is a provisional/pending recommendation for this submission, not a final accept/reject, with a note that confirming the complete candidate set (including the still-undetermined second OWASP item) is what's needed to finalize it. This drip-feed mechanism is specific to candidate mode; single-entity mode has no equivalent.",
+      "expectations": [
+        "Identifies this as candidate mode because the control has no row yet, and states the entity type explicitly (control)",
+        "Agrees that no NIST AI RMF subcategory genuinely fits this internal orchestration mechanism and correctly omits NIST rather than forcing a governance-phase subcategory like GOVERN-6.2 — which is scoped only to third-party/supply-chain issues, not internal mechanisms",
+        "Recognizes 'I'll have that ready in a follow-up' about the second OWASP item as a genuine deferral that triggers candidate mode's step 3 drip-feed clause — asking to confirm the complete candidate set before finalizing, rather than treating LLM06:2025 alone as final — and states the correct result is a provisional/pending verdict (not a final accept/reject) until the complete set is confirmed, noting this mechanism exists only in candidate mode, not single-entity mode"
       ]
     }
   ]
