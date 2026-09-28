@@ -33,10 +33,10 @@ For a Python code block to be tested, it must meet these requirements:
 ```python
 import yaml
 
-with open('risk-map/yaml/risks.yaml', 'r') as f:
+with open("risk-map/yaml/risks.yaml", "r") as f:
     data = yaml.safe_load(f)
 
-runtime_risks = [r['id'] for r in data['risks'] if 'runtime' in r.get('lifecycleStage', [])]
+runtime_risks = [r["id"] for r in data["risks"] if "runtime" in r.get("lifecycleStage", [])]
 print(f"Runtime risks: {runtime_risks}")
 ```
 
@@ -80,13 +80,13 @@ When referencing files in code examples, use paths relative to the repository ro
 ```python
 import yaml
 
-with open('risk-map/yaml/components.yaml', 'r') as f:
+with open("risk-map/yaml/components.yaml", "r") as f:
     data = yaml.safe_load(f)
 ```
 
 **❌ Incorrect:**
 ```python
-with open('../yaml/components.yaml', 'r') as f:  # Wrong: assumes specific working directory
+with open("../yaml/components.yaml", "r") as f:  # Wrong: assumes specific working directory
     data = yaml.safe_load(f)
 ```
 
@@ -159,6 +159,7 @@ If your example needs to demonstrate long-running operations, use a skip marker 
 ```python
 # This would timeout, so we mark it as doc-only
 import time
+
 while True:
     time.sleep(1)  # Would exceed 10-second timeout
 ```
@@ -175,14 +176,11 @@ Most examples in the documentation query the risk map YAML files:
 import yaml
 
 # Load data from YAML file
-with open('risk-map/yaml/risks.yaml', 'r') as f:
+with open("risk-map/yaml/risks.yaml", "r") as f:
     risks_data = yaml.safe_load(f)
 
 # Query the data
-high_impact_risks = [
-    risk['id'] for risk in risks_data['risks']
-    if 'confidentiality' in risk.get('impactType', [])
-]
+high_impact_risks = [risk["id"] for risk in risks_data["risks"] if "confidentiality" in risk.get("impactType", [])]
 
 print(f"Found {len(high_impact_risks)} high-impact risks")
 ```
@@ -192,17 +190,17 @@ print(f"Found {len(high_impact_risks)} high-impact risks")
 ```python
 import yaml
 
-with open('risk-map/yaml/frameworks.yaml', 'r') as f:
+with open("risk-map/yaml/frameworks.yaml", "r") as f:
     frameworks = yaml.safe_load(f)
 
 # Get framework by ID
-mitre_atlas = next(f for f in frameworks['frameworks'] if f['id'] == 'mitre-atlas')
+mitre_atlas = next(f for f in frameworks["frameworks"] if f["id"] == "mitre-atlas")
 
 # Construct technique URI. Mapping values are version-pinned (e.g. AML.T0001@5.0.1);
 # strip the @-token before {id} substitution so the URI targets the base ID.
-technique_id = 'AML.T0001@5.0.1'
-base_id = technique_id.split('@', 1)[0]
-uri = mitre_atlas['techniqueUriPattern'].replace('{id}', base_id)
+technique_id = "AML.T0001@5.0.1"
+base_id = technique_id.split("@", 1)[0]
+uri = mitre_atlas["techniqueUriPattern"].replace("{id}", base_id)
 print(f"Technique URI: {uri}")
 ```
 
@@ -212,17 +210,14 @@ print(f"Technique URI: {uri}")
 import yaml
 
 # Load multiple data sources
-with open('risk-map/yaml/risks.yaml', 'r') as f:
+with open("risk-map/yaml/risks.yaml", "r") as f:
     risks = yaml.safe_load(f)
-with open('risk-map/yaml/controls.yaml', 'r') as f:
+with open("risk-map/yaml/controls.yaml", "r") as f:
     controls = yaml.safe_load(f)
 
 # Cross-reference risks and controls
-for risk in risks['risks']:
-    related_controls = [
-        c['id'] for c in controls['controls']
-        if risk['id'] in c.get('risks', [])
-    ]
+for risk in risks["risks"]:
+    related_controls = [c["id"] for c in controls["controls"] if risk["id"] in c.get("risks", [])]
     if related_controls:
         print(f"{risk['id']}: {len(related_controls)} controls")
 ```
@@ -319,8 +314,9 @@ import yaml
 
 ```python
 import yaml
+
 # This will be tested
-with open('risk-map/yaml/risks.yaml', 'r') as f:
+with open("risk-map/yaml/risks.yaml", "r") as f:
     data = yaml.safe_load(f)
 ```
 
@@ -356,7 +352,7 @@ for item in data:
 ### Example: Process Data
 
 ```python
-data = ['a', 'b', 'c']
+data = ["a", "b", "c"]
 for item in data:
     print(f"Processing {item}")
 ```
