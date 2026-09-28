@@ -931,7 +931,7 @@ class TestRealConfigValidates:
         Given: the real, committed mermaid-styles.yaml
         When: graphTypes.component.emission is inspected
         Then: it exists and carries the shipped registry's headline markers --
-              mode: flat, the componentAuditRecordRepository aspect at
+              mode: decoupled, the componentAuditRecordRepository aspect at
               minCrossInDegree: 10, and a non-empty concerns list
 
         This is the "populated" precondition the CI round-trip below depends
@@ -945,8 +945,8 @@ class TestRealConfigValidates:
         component_cfg = doc.get("graphTypes", {}).get("component", {})
         emission = component_cfg.get("emission")
         assert emission is not None, "graphTypes.component.emission is missing from the live mermaid-styles.yaml"
-        assert emission.get("mode") == "flat", (
-            f"the shipped config runs at mode flat until the flip; got: {emission.get('mode')!r}"
+        assert emission.get("mode") == "decoupled", (
+            f"the shipped config runs the decoupled emitter; got: {emission.get('mode')!r}"
         )
 
         aspects = emission.get("aspects", [])

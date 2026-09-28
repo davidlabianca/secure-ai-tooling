@@ -1022,16 +1022,16 @@ class TestGetEmissionConfigAccessor:
         loader = MermaidConfigLoader(Path("this-file-does-not-exist.yaml"))
         assert loader.get_emission_config().mode == "flat"
 
-    def test_real_committed_config_resolves_to_flat_mode(self, repo_root: Path):
+    def test_real_committed_config_resolves_to_decoupled_mode(self, repo_root: Path):
         """
         Pins what `get_emission_config()` returns against the real, committed
-        `mermaid-styles.yaml`: `mode` resolves to `"flat"`, the shipped
+        `mermaid-styles.yaml`: `mode` resolves to `"decoupled"`, the shipped
         production setting -- this is the accessor reading the real file, not
         a synthetic fixture, so it moves in lockstep with the committed
         `emission.mode` value.
         """
         loader = MermaidConfigLoader(_styles_path(repo_root))
-        assert loader.get_emission_config().mode == "flat"
+        assert loader.get_emission_config().mode == "decoupled"
 
 
 # ============================================================================

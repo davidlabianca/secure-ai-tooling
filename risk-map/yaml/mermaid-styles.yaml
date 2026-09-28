@@ -70,7 +70,7 @@ graphTypes:
     # emitter and its `direction`-driven layout without touching the
     # registry below (D10).
     emission:
-      mode: 'flat'
+      mode: 'decoupled'
       # Declared aspect (sink) components lifted out of the drawn graph (D4).
       # componentAuditRecordRepository is the sole candidate: out-degree 0,
       # with cross in-degree above the minCrossInDegree threshold below.
