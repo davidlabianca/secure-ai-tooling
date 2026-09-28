@@ -80,6 +80,8 @@ body:
 
         ✨ **Automatic Bidirectionality**: Edge changes automatically update connected components. When you add/remove edges here, the reverse edges are automatically created/removed in the connected components.
 
+        🔗 If an edge crosses a top-level category boundary, add a matching entry to `emission.concerns` in this content PR — see [`scripts/docs/styling-configuration.md`](https://github.com/cosai-oasis/secure-ai-tooling/blob/main/scripts/docs/styling-configuration.md)'s Emission Mode section (ADR-036 D12).
+
         📋 [View component list](https://github.com/cosai-oasis/secure-ai-tooling/blob/main/risk-map/tables/components-summary.md)
 
   - type: textarea
