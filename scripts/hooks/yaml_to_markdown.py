@@ -339,7 +339,7 @@ class FullDetailTableGenerator(TableGenerator):
         Returns:
             Formatted markdown table string, followed by any References sub-sections
         """
-        collapsable = ["description", "shortDescription", "longDescription", "examples"]
+        collapsable = ["description", "guidance", "shortDescription", "longDescription", "examples"]
 
         entries = yaml_data.get(ytype) or []
         sorted_entries = sorted(entries, key=lambda e: e.get("id", ""))
