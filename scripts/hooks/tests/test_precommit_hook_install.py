@@ -184,7 +184,7 @@ _WRAPPER_CONTRACTS = [
     (
         "regenerate-graphs",
         "scripts/hooks/precommit/regenerate_graphs.py",
-        r"^risk-map/yaml/components\.yaml$",
+        r"^risk-map/yaml/(components|mermaid-styles)\.yaml$",
         True,
     ),
     (
@@ -194,9 +194,17 @@ _WRAPPER_CONTRACTS = [
         True,
     ),
     (
+        # ADR-005 § Addendum 2026-09-28 (chained generators): regenerate-svgs
+        # is downstream of regenerate-graphs, so its trigger must be a
+        # superset carrying BOTH the diagram sources it always rendered AND
+        # every path regenerate-graphs triggers on (rule 1). The two
+        # lookaheads require both pieces present in the same `files:` value
+        # without pinning the exact regex shape used to join them
+        # -- see TestChainedGeneratorTriggerCoverage below for the
+        # concrete-path form of the same requirement.
         "regenerate-svgs",
         "scripts/hooks/precommit/regenerate_svgs.py",
-        r"\.\(mmd\|mermaid\)",
+        r"(?=.*\(mmd\|mermaid\))(?=.*mermaid-styles)",
         True,
     ),
     (
@@ -243,6 +251,125 @@ class TestWrapperHookContracts:
 
 
 # ===========================================================================
+# Chained generator trigger coverage (ADR-005 § Addendum 2026-09-28)
+# ===========================================================================
+#
+# regenerate-graphs (U) writes risk-map/diagrams/risk-map-graph.{md,mermaid};
+# regenerate-svgs (D) reads U's .mermaid output. The addendum's two structural
+# rules for a chained pair: (1) D's trigger set is a superset of U's trigger
+# set, so any commit that fires U also fires D; (2) D is declared after U in
+# .pre-commit-config.yaml, so U's writes are on disk and staged when D runs.
+# Enforcement is concrete-path matching against the hooks' own `files:` regex,
+# per the addendum's own "Enforcement" section -- not a literal-string pin on
+# whatever regex happens to satisfy it.
+
+
+class TestChainedGeneratorTriggerCoverage:
+    """regenerate-svgs (D) must fire on every concrete path regenerate-graphs (U) fires on."""
+
+    _UPSTREAM_HOOK_ID = "regenerate-graphs"
+    _DOWNSTREAM_HOOK_ID = "regenerate-svgs"
+
+    # regenerate-graphs' own trigger set (ADR-005 § Addendum 2026-05-08's
+    # trigger-set ⊇ check-input-set invariant already pins these as the U
+    # side; restated here as concrete paths rather than re-deriving U's regex,
+    # so this test is independent of how U's own regex is spelled).
+    _UPSTREAM_TRIGGER_PATHS = (
+        "risk-map/yaml/components.yaml",
+        "risk-map/yaml/mermaid-styles.yaml",
+    )
+
+    _DIAGRAM_TRIGGER_PATH = "risk-map/diagrams/risk-map-graph.mermaid"
+
+    _UNRELATED_YAML_PATH = "risk-map/yaml/risks.yaml"
+
+    def test_downstream_trigger_matches_every_upstream_trigger_path(self):
+        """
+        Test rule 1: D's `files:` regex fires on every path U's fires on.
+
+        Given: regenerate-graphs' two YAML trigger paths (components.yaml,
+               mermaid-styles.yaml)
+        When: regenerate-svgs' `files:` regex is applied (re.search) to each
+        Then: both match
+
+        Without rule 1's union, a commit touching only one of these would
+        regenerate the .mermaid source (U fires) but leave the stale committed
+        SVG unregenerated (D would not fire) -- the exact silent-drift gap
+        rule 1 exists to close.
+        """
+        hook = _hooks_by_id(self._DOWNSTREAM_HOOK_ID)[0]
+        files_regex = hook.get("files", "")
+        for path in self._UPSTREAM_TRIGGER_PATHS:
+            assert re.search(files_regex, path), (
+                f"`{self._DOWNSTREAM_HOOK_ID}` files: regex {files_regex!r} must match `{path}` "
+                f"(ADR-005 § Addendum 2026-09-28: chained generators, rule 1). A commit touching "
+                f"only `{path}` regenerates the .mermaid source but leaves the SVG stale."
+            )
+
+    def test_downstream_trigger_still_matches_its_own_diagram_sources(self):
+        """
+        Test that widening D's trigger for rule 1 does not drop its original scope.
+
+        Given: a direct edit to a committed .mermaid diagram (not routed
+               through regenerate-graphs at all)
+        When: regenerate-svgs' `files:` regex is applied
+        Then: it still matches
+
+        Regression guard: the addendum's trigger union must be additive.
+        """
+        hook = _hooks_by_id(self._DOWNSTREAM_HOOK_ID)[0]
+        files_regex = hook.get("files", "")
+        assert re.search(files_regex, self._DIAGRAM_TRIGGER_PATH), (
+            f"`{self._DOWNSTREAM_HOOK_ID}` files: regex {files_regex!r} must still match "
+            f"`{self._DIAGRAM_TRIGGER_PATH}` (a direct diagram edit, independent of the "
+            f"regenerate-graphs chain)."
+        )
+
+    def test_downstream_trigger_does_not_match_an_unrelated_yaml(self):
+        """
+        Test that the widened trigger stays scoped to the chained pair, not every YAML.
+
+        Given: risk-map/yaml/risks.yaml -- staged by many commits, but neither
+               a regenerate-graphs trigger nor a diagram source
+        When: regenerate-svgs' `files:` regex is applied
+        Then: it does not match
+
+        False-positive guard: a regex broad enough to satisfy the first two
+        tests by matching `risk-map/yaml/.*` outright would pass them for the
+        wrong reason. This pins the union stays exactly
+        {diagram sources} ∪ {regenerate-graphs' trigger set}, not "any YAML".
+        """
+        hook = _hooks_by_id(self._DOWNSTREAM_HOOK_ID)[0]
+        files_regex = hook.get("files", "")
+        assert not re.search(files_regex, self._UNRELATED_YAML_PATH), (
+            f"`{self._DOWNSTREAM_HOOK_ID}` files: regex {files_regex!r} must NOT match "
+            f"`{self._UNRELATED_YAML_PATH}` -- it is neither a diagram source nor part of "
+            f"regenerate-graphs' trigger set; got a spurious match."
+        )
+
+    def test_downstream_declared_after_upstream(self):
+        """
+        Test rule 2: regenerate-svgs is declared after regenerate-graphs.
+
+        Given: the full ordered hook list across every repo block in
+               .pre-commit-config.yaml
+        When: the index of each of the two hook ids is found
+        Then: regenerate-graphs' index < regenerate-svgs' index
+
+        The framework runs local hooks in declaration order; D must run after
+        U so U's write is on disk and staged in the index when D runs.
+        """
+        ids_in_order = [h.get("id") for h in _all_hooks()]
+        upstream_index = ids_in_order.index(self._UPSTREAM_HOOK_ID)
+        downstream_index = ids_in_order.index(self._DOWNSTREAM_HOOK_ID)
+        assert upstream_index < downstream_index, (
+            f"`{self._UPSTREAM_HOOK_ID}` (index {upstream_index}) must be declared before "
+            f"`{self._DOWNSTREAM_HOOK_ID}` (index {downstream_index}) so its write is staged "
+            f"before the downstream hook runs."
+        )
+
+
+# ===========================================================================
 # Local validator hook contracts (pass_filenames: false; validators self-scan)
 # ===========================================================================
 
@@ -273,21 +400,18 @@ class TestValidatorHookContracts:
 
     def test_validate_component_edges_matches_controls_yaml(self):
         """
-        Test that validate-component-edges matches controls.yaml (new behavior, issue #279).
+        Test that validate-component-edges matches controls.yaml (issue #279).
 
-        Given: the validate-component-edges hook after trigger widening
+        Given: the validate-component-edges hook
         When:  applying the hook's files: regex against risk-map/yaml/controls.yaml
         Then:  the regex matches
 
         The validate_riskmap.py validator reads controls.yaml as part of its
-        get_staged_yaml_files() target_files constant (utils.py:221-225). A
-        controls-only commit must trigger the hook so the validator's full
-        check suite (including A4 controls-components mirror and nesting checks)
-        runs. Without this match, a controls-only commit silently skips all
-        component-edge consistency checks.
-
-        RED-PHASE: this test fails on the current config (files: targets
-        components.yaml only) and passes once the trigger is widened per #279.
+        get_staged_yaml_files() target_files constant. A controls-only commit
+        must trigger the hook so the validator's full check suite (including
+        A4 controls-components mirror and nesting checks) runs. Without this
+        match, a controls-only commit silently skips all component-edge
+        consistency checks.
         """
         hooks = _hooks_by_id("validate-component-edges")
         assert len(hooks) == 1, "Exactly one component-edge validator hook expected"
@@ -296,24 +420,21 @@ class TestValidatorHookContracts:
             f"validate-component-edges files regex must match "
             f"risk-map/yaml/controls.yaml (issue #279: trigger must cover the "
             f"full validator read set); got: {files_regex!r}. "
-            f"Expected: ^risk-map/yaml/(components|controls|risks)\\.yaml$"
+            f"Expected: ^risk-map/(yaml/(components|controls|risks|mermaid-styles)"
+            f"\\.yaml|schemas/components\\.schema\\.json)$"
         )
 
     def test_validate_component_edges_matches_risks_yaml(self):
         """
-        Test that validate-component-edges matches risks.yaml (new behavior, issue #279).
+        Test that validate-component-edges matches risks.yaml (issue #279).
 
-        Given: the validate-component-edges hook after trigger widening
+        Given: the validate-component-edges hook
         When:  applying the hook's files: regex against risk-map/yaml/risks.yaml
         Then:  the regex matches
 
         The validate_riskmap.py validator reads risks.yaml as part of its
-        get_staged_yaml_files() target_files constant (utils.py:221-225). A
-        risks-only commit must trigger the hook for the same reason as
-        controls-only commits.
-
-        RED-PHASE: this test fails on the current config and passes once the
-        trigger is widened per issue #279.
+        get_staged_yaml_files() target_files constant. A risks-only commit
+        must trigger the hook for the same reason as controls-only commits.
         """
         hooks = _hooks_by_id("validate-component-edges")
         assert len(hooks) == 1, "Exactly one component-edge validator hook expected"
@@ -322,7 +443,39 @@ class TestValidatorHookContracts:
             f"validate-component-edges files regex must match "
             f"risk-map/yaml/risks.yaml (issue #279: trigger must cover the "
             f"full validator read set); got: {files_regex!r}. "
-            f"Expected: ^risk-map/yaml/(components|controls|risks)\\.yaml$"
+            f"Expected: ^risk-map/(yaml/(components|controls|risks|mermaid-styles)"
+            f"\\.yaml|schemas/components\\.schema\\.json)$"
+        )
+
+    def test_validate_component_edges_matches_mermaid_styles_yaml(self):
+        """
+        Test that validate-component-edges matches mermaid-styles.yaml.
+
+        Given: the validate-component-edges hook
+        When:  applying the hook's files: regex against
+               risk-map/yaml/mermaid-styles.yaml
+        Then:  the regex matches
+
+        mermaid-styles.yaml is read every default-mode run via
+        MermaidConfigLoader (the ADR-030 category style/ownership check,
+        validate_riskmap.py's check_category_style_and_ownership call), and
+        is one of get_staged_yaml_files()'s target_files, per the
+        trigger-coverage-invariant policy (ADR-005 Addendum 2026-05-08). A
+        mermaid-styles.yaml-only commit must trigger this hook, or
+        validate_riskmap.py (invoked without --force by regenerate_graphs.py)
+        sees an empty staged-files list and exits before ever reaching
+        --to-graph -- the stale-diagram gap this trigger guards against.
+        """
+        hooks = _hooks_by_id("validate-component-edges")
+        assert len(hooks) == 1, "Exactly one component-edge validator hook expected"
+        files_regex = hooks[0].get("files", "")
+        assert re.search(files_regex, "risk-map/yaml/mermaid-styles.yaml"), (
+            f"validate-component-edges files regex must match "
+            f"risk-map/yaml/mermaid-styles.yaml (trigger must cover the full "
+            f"get_staged_yaml_files() target_files surface); got: "
+            f"{files_regex!r}. Expected: "
+            f"^risk-map/(yaml/(components|controls|risks|mermaid-styles)\\.yaml|"
+            f"schemas/components\\.schema\\.json)$"
         )
 
     def test_validate_component_edges_does_not_match_personas_yaml(self):
@@ -685,7 +838,7 @@ class TestPersonaSiteBuildHookContracts:
 # clear diagnostic naming the unregistered hook id.
 _LOCAL_VALIDATOR_TRIGGER_COVERAGE: dict[str, set[str] | None] = {
     # validate-component-edges: these are the fixed target files in
-    # get_staged_yaml_files() (utils.py:221-225). The default pre-commit path
+    # get_staged_yaml_files(). The default pre-commit path
     # parses components.yaml and controls.yaml; risks.yaml is retained because
     # issue #279 explicitly preserves the legacy staged-file discovery surface
     # so risks-only changes still exercise the validator. lifecycle-stage.yaml
@@ -697,6 +850,13 @@ _LOCAL_VALIDATOR_TRIGGER_COVERAGE: dict[str, set[str] | None] = {
     # _get_schema_categories) and mermaid-styles.yaml (the styles compared
     # against it, via MermaidConfigLoader). Both are check-inputs under ADR-005
     # and must appear in the trigger.
+    # mermaid-styles.yaml is also in the trigger: it is genuinely read every
+    # default-mode run via MermaidConfigLoader (the ADR-030 category
+    # style/ownership check above), and it is one of get_staged_yaml_files()'s
+    # target_files, so a mermaid-styles.yaml-only commit must trigger this
+    # hook or validate_riskmap.py (run without --force by
+    # regenerate_graphs.py) exits before ever reaching --to-graph -- the
+    # stale-diagram gap this trigger guards against.
     "validate-component-edges": {
         "risk-map/yaml/components.yaml",
         "risk-map/yaml/controls.yaml",
@@ -882,10 +1042,9 @@ class TestTriggerCoverageInvariant:
         Failure message names the hook id, the missing path, and a pointer to
         the ADR-005 addendum so the fix is unambiguous.
 
-        RED-PHASE: before issue #279's trigger fix lands, this test fails on
-        validate-component-edges because controls.yaml and risks.yaml are in its
-        fixed staged-file discovery surface but not in files:. Once the trigger is widened
-        to ^risk-map/yaml/(components|controls|risks)\\.yaml$ the test passes.
+        Pins the issue #279 trigger fix: validate-component-edges's files:
+        regex must cover every path in its fixed staged-file discovery
+        surface, including controls.yaml and risks.yaml.
         """
         local_false_hooks = _local_hooks_with_pass_filenames_false()
         hooks_by_id = {h.get("id"): h for h in local_false_hooks}
