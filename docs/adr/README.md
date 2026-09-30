@@ -20,7 +20,7 @@ If a decision is about *how the Risk Map content model is shaped*, it belongs in
 | [002](002-branching-strategy.md) | Branching strategy — `develop` for content, `main` for tooling | Accepted | 2026-04-21 |
 | [003](003-devcontainer-mise-architecture.md) | Devcontainer + `mise` tool-management architecture | Accepted | 2026-04-21 |
 | [004](004-ai-assistant-trailer.md) | Vendor-neutral `Co-authored-by` trailer for AI-assisted commits | Accepted | 2026-04-21 |
-| [005](005-pre-commit-framework.md) | Pre-commit framework adoption | Accepted | 2026-04-21 |
+| [005](005-pre-commit-framework.md) | Pre-commit framework adoption | Accepted (chained generators — [addendum](005-pre-commit-framework.md#addendum-2026-09-28-chained-generators) Draft) | 2026-04-21 |
 | [006](006-agent-architecture-pattern.md) | Vendor-neutral agent architecture under `scripts/agents/` | Accepted | 2026-04-21 |
 | [007](007-content-reviewer-modes.md) | `content-reviewer` three-mode architecture | Accepted | 2026-04-21 |
 | [008](008-sub-agent-orchestration.md) | Sub-agent orchestration: composition contracts and routing boundaries | Accepted (§2 superseded in part — [amendment](008-sub-agent-orchestration.md#amendment-2026-07-12-draft-issue-comments-review-discipline-is-a-canonical-skill) Draft) | 2026-04-21 |

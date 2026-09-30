@@ -1562,6 +1562,21 @@ def _write_riskmap_corpus(base: Path, poisoned: bool) -> None:
     category. A synthetic pair would stay internally consistent forever —
     that is its defect, not its virtue, because it would keep reporting
     parity while the shipped corpus renders unstyled.
+
+    The copied styles file has `graphTypes.component.emission` stripped
+    before being written to the mirror. This probe exercises `--block` flag
+    parity against the controls↔components mirror check (D1/D4 above), not
+    the emission-drift guard (ADR-036 D7) -- the two are independent
+    warn-only checks reading independent corpora. ADR-036 D7's real
+    registry names real components.yaml ids (`componentAuditRecordRepository`
+    and its cross-in neighbours), none of which exist in this probe's
+    deliberately tiny two-component corpus (`_COMPONENTS` above). Left
+    unstripped, the emission-drift check would report every registry edge as
+    covering a nonexistent component and fail the CLEAN run under `--block`,
+    for a reason that has nothing to do with the mirror-drift property this
+    probe pins. The emission-drift guard's own coverage against the real,
+    unstripped file lives elsewhere -- `test_emission_drift_guard.py` and
+    `test_emission_config_schema.py::TestRealConfigValidates`.
     """
     yaml_dir = _yaml_dir(base)
     components = (
@@ -1583,7 +1598,12 @@ def _write_riskmap_corpus(base: Path, poisoned: bool) -> None:
     (yaml_dir / "controls.yaml").write_text(yaml.dump(controls), encoding="utf-8")
     (yaml_dir / "risks.yaml").write_text(yaml.dump({"risks": []}), encoding="utf-8")
     _copy_repo_file(base, "risk-map/schemas/components.schema.json")
-    _copy_repo_file(base, "risk-map/yaml/mermaid-styles.yaml")
+
+    styles_doc = yaml.safe_load(
+        (_REPO_ROOT / "risk-map" / "yaml" / "mermaid-styles.yaml").read_text(encoding="utf-8")
+    )
+    styles_doc.get("graphTypes", {}).get("component", {}).pop("emission", None)
+    (yaml_dir / "mermaid-styles.yaml").write_text(yaml.dump(styles_doc), encoding="utf-8")
 
 
 def _write_framework_refs_corpus(base: Path, poisoned: bool) -> None:

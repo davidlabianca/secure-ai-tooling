@@ -25,7 +25,7 @@ repos:
   # the schema file itself against --schemafile and fail.
   # ---------------------------------------------------------------------------
   - repo: https://github.com/python-jsonschema/check-jsonschema
-    rev: 0.38.0
+    rev: 0.38.2
     hooks:
       - id: check-jsonschema
         name: 'schema: actor-access.yaml'
@@ -136,7 +136,7 @@ repos:
   # time. Runs whenever any schema file is staged.
   # ---------------------------------------------------------------------------
   - repo: https://github.com/python-jsonschema/check-jsonschema
-    rev: 0.38.0
+    rev: 0.38.2
     hooks:
       - id: check-metaschema
         name: 'schema: meta-validate .schema.json files'
@@ -190,7 +190,7 @@ repos:
   # Ruff lint + format for Python.
   # ---------------------------------------------------------------------------
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.16.8
+    rev: v0.16.9
     hooks:
       - id: ruff
         name: 'ruff: lint'
@@ -409,7 +409,7 @@ repos:
         name: 'generate: Mermaid graph (component)'
         language: system
         entry: python3 scripts/hooks/precommit/regenerate_graphs.py
-        files: ^risk-map/yaml/components\.yaml$
+        files: ^risk-map/yaml/(components|mermaid-styles)\.yaml$
         pass_filenames: true
         require_serial: true
 
@@ -421,10 +421,17 @@ repos:
         pass_filenames: true
         require_serial: true
 
+      # Chained generator (ADR-005 § Addendum 2026-09-28): declared after
+      # regenerate-graphs (rule 2), and its trigger is regenerate-graphs'
+      # trigger set unioned with its own diagram sources (rule 1), so a
+      # components.yaml/mermaid-styles.yaml-only commit that regenerates the
+      # .mermaid also regenerates its SVG in the same commit. The hook
+      # discovers regenerate-graphs' staged output from the git index at run
+      # time (rule 3) rather than mapping trigger files to output paths.
       - id: regenerate-svgs
         name: 'generate: Mermaid SVGs from .mmd/.mermaid'
         language: system
         entry: python3 scripts/hooks/precommit/regenerate_svgs.py
-        files: ^risk-map/diagrams/.*\.(mmd|mermaid)$
+        files: ^risk-map/(diagrams/.*\.(mmd|mermaid)|yaml/(components|mermaid-styles)\.yaml)$
         pass_filenames: true
         require_serial: true
