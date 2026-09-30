@@ -212,6 +212,9 @@
           "type": "object",
           "description": "Component graph specific styling (currently empty)",
           "additionalProperties": false
+        },
+        "emission": {
+          "$ref": "#/definitions/emission"
         }
       }
     },
@@ -271,6 +274,136 @@
           "type": "string",
           "enum": ["handdrawn", "classic"],
           "description": "Node drawing style Layout Engine"
+        }
+      }
+    },
+    "emission": {
+      "type": "object",
+      "description": "Component-graph emission mode and decoupled-transform registry (ADR-036 D3)",
+      "required": ["mode"],
+      "additionalProperties": false,
+      "properties": {
+        "mode": {
+          "type": "string",
+          "enum": ["flat", "decoupled"],
+          "description": "flat = legacy edge-dump emitter; decoupled = aspects/channels/bands transform"
+        },
+        "aspects": {
+          "type": "array",
+          "description": "Declared aspect (sink) components lifted out of the drawn graph (D4)",
+          "items": {
+            "$ref": "#/definitions/emissionAspect"
+          }
+        },
+        "concerns": {
+          "type": "array",
+          "description": "Cross-edge to trust-concern-label registry, keyed by explicit edge list (D5)",
+          "items": {
+            "$ref": "#/definitions/emissionConcern"
+          }
+        },
+        "portStyles": {
+          "$ref": "#/definitions/portStyles"
+        }
+      },
+      "if": {
+        "properties": {
+          "mode": {
+            "const": "decoupled"
+          }
+        }
+      },
+      "then": {
+        "description": "mode: decoupled requires portStyles with non-empty port, pepport and pepWrapOutline, the styles the decoupled renderer's S6 self-check can demand (an empty string emits no line, so it counts as missing); aspectStyle stays optional. mode: flat reads no port style and requires none.",
+        "required": ["portStyles"],
+        "properties": {
+          "portStyles": {
+            "required": ["port", "pepport", "pepWrapOutline"],
+            "properties": {
+              "port": { "minLength": 1 },
+              "pepport": { "minLength": 1 },
+              "pepWrapOutline": { "minLength": 1 }
+            }
+          }
+        }
+      }
+    },
+    "emissionAspect": {
+      "type": "object",
+      "description": "One aspects[] registry entry: a declared sink component and its guard threshold (D4)",
+      "required": ["id", "minCrossInDegree"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Component id of the declared aspect (sink)"
+        },
+        "minCrossInDegree": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Guard threshold: the component's cross in-degree must meet or exceed this value"
+        }
+      }
+    },
+    "emissionConcern": {
+      "type": "object",
+      "description": "One concerns[] registry entry: a trust-concern label and the edges it covers (D5)",
+      "required": ["label", "edges"],
+      "additionalProperties": false,
+      "properties": {
+        "label": {
+          "type": "string",
+          "description": "Trust-concern label shared by every edge in this entry. Closed vocabulary (ADR-036 D12): a new label is a structural decision and a main-routed schema change; assigning an edge to an existing label is content, routed with the edge on the develop PR.",
+          "enum": [
+            "model artifacts",
+            "training data",
+            "runtime hosting",
+            "tool hosting",
+            "endpoint enumeration",
+            "identity & authz",
+            "model publish",
+            "inference / serving",
+            "tool calls",
+            "app + agent egress",
+            "tool registration",
+            "tool results"
+          ]
+        },
+        "edges": {
+          "type": "array",
+          "description": "List of [src, tgt] component-id pairs covered by this concern",
+          "minItems": 1,
+          "items": {
+            "type": "array",
+            "minItems": 2,
+            "maxItems": 2,
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "portStyles": {
+      "type": "object",
+      "description": "Style strings for decoupled-mode channel ports and PEP wrappers (D3)",
+      "additionalProperties": false,
+      "properties": {
+        "port": {
+          "type": "string",
+          "description": "classDef style for an ordinary channel port node"
+        },
+        "pepport": {
+          "type": "string",
+          "description": "classDef style for a PEP wrapper's in/out port nodes"
+        },
+        "pepWrapOutline": {
+          "type": "string",
+          "description": "style for a PEP wrapper's outline subgraph"
+        },
+        "aspectStyle": {
+          "type": "string",
+          "description": "classDef style for a lifted aspect node's visual marker (D3/D4)"
         }
       }
     }

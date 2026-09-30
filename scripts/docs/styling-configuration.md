@@ -50,6 +50,95 @@ graphTypes:
       wrappingWidth: 250 # Text wrapping width
 ```
 
+### 4. Emission Mode (Aspects, Channels, Bands)
+
+`graphTypes.component.emission` (ADR-036 D3) controls how the component
+graph draws cross-category edges. It is validated against
+`risk-map/schemas/mermaid-styles.schema.json#/definitions/emission`.
+
+```yaml
+graphTypes:
+  component:
+    emission:
+      mode: 'decoupled' # or 'flat'
+      aspects:
+        - id: componentAuditRecordRepository
+          minCrossInDegree: 10
+      concerns:
+        - label: 'identity & authz'
+          edges:
+            - [componentAuthorizationPolicyDecisionPoint, componentAgentNetworkPolicyEnforcementPoint]
+      portStyles:
+        port: 'fill:#fff5f5,stroke:#c0392b,stroke-width:1.5px,stroke-dasharray:4 3'
+        pepport: 'fill:#eef7ff,stroke:#2c3e83,stroke-width:1.5px,stroke-dasharray:4 3'
+        pepWrapOutline: 'fill:none,stroke:#2c3e83,stroke-width:2px,stroke-dasharray:2 2'
+```
+
+- **`mode`** — `flat` draws every edge as a direct arrow (the legacy
+  emitter). `decoupled` runs the aspects/channels/bands transform: an edge
+  that crosses a top-level category boundary is rewritten as a labelled
+  egress/ingress port pair instead of a spanning line, the audit sink is
+  lifted out of the drawn graph and shown with a lifted-edge-count marker,
+  and PEP-wrapped enforcement points render dedicated in/out ports.
+  `mode: flat` is the rollback lever (ADR-036 D3, D10) — reverting to it
+  restores the flat diagram without touching the transform or the registry
+  below.
+- **`aspects`** — declared sink components lifted out of the drawn graph.
+  Each entry's `id` names a component; `minCrossInDegree` is a floor on
+  that *declared* sink's cross in-degree, not a selector that finds new
+  aspect candidates on its own. A second sink is admitted only by adding a
+  second `aspects` entry (ADR-036 D4).
+- **`concerns`** — the cross-edge-to-trust-concern-label registry. Every
+  edge that crosses a category boundary must be covered by exactly one
+  `concerns` entry's `edges` list; the drift check fails the pre-commit
+  hook and CI, which run `validate_riskmap.py --block`, if a cross edge
+  has no covering entry or if an entry no longer matches the corpus. A
+  bare `validate_riskmap.py` run (no `--block`) warns instead and
+  synthesizes a fallback label. The schema requires at least one edge per
+  concern (`minItems: 1`).
+- **`portStyles`** — the `port`, `pepport`, `pepWrapOutline`, and
+  `aspectStyle` style strings, used respectively for ordinary channel
+  ports, a PEP wrapper's in/out ports, a PEP wrapper's outline, and the
+  lifted-aspect marker (ADR-036 D3). Under `mode: decoupled` the schema
+  requires `portStyles` with non-empty `port`, `pepport`, and `pepWrapOutline`;
+  `aspectStyle` is optional, and `mode: flat` requires none of them.
+
+**Consult-class landing.** Two concern labels are consult-class (ADR-036
+D9): `identity & authz` and `endpoint enumeration`. A channel arm carrying
+one of these labels lands on the target component itself rather than on a
+PEP wrapper's `_in` port, because the edge is a policy consult the
+enforcement point reads, not traffic that flows through the gate. Every
+other label lands on `_in` as data flow. This set is a closed,
+fixed-in-code registry (`CONSULT_CONCERN_LABELS` in
+`scripts/hooks/riskmap_validator/graphing/decouple.py`), pinned by a test
+to match the labels declared in `concerns` above.
+
+**Adding a cross edge.** When a new `components.yaml` edge crosses a
+category boundary, the drift check names the uncovered edge. Concern
+labels are a closed vocabulary (ADR-036 D12) — `emissionConcern.label` is
+an `enum` in `mermaid-styles.schema.json` — so which fix applies depends on
+whether the edge fits an existing label:
+
+- **Existing label covers the edge.** Add it to that label's `edges` list
+  under `concerns` in `mermaid-styles.yaml`, in the same content PR as the
+  edge. This is content: it is reviewed on the `develop` PR alongside the
+  edge, and the test suite holds no reviewed copy of the `concerns` block
+  to update.
+- **No existing label fits.** A new label is a structural decision — a
+  `main`-routed schema change to `mermaid-styles.schema.json`'s label
+  `enum` — landed before or alongside the content PR that needs it, not
+  authored as part of the content PR itself.
+
+**Preview before committing**, without editing the config file:
+
+```bash
+python3 scripts/hooks/validate_riskmap.py --force --to-graph ./preview.md -m --emission-mode flat
+python3 scripts/hooks/validate_riskmap.py --force --to-graph ./preview.md -m --emission-mode decoupled
+```
+
+`--emission-mode` overrides `graphTypes.component.emission.mode` for that
+run only; the config file remains the source of truth.
+
 ## Customizing Graph Appearance
 
 To customize graph styling:

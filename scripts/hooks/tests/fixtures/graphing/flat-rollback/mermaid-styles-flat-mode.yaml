@@ -1,0 +1,144 @@
+version: 1.0.0
+foundation:
+  colors:
+    primary: '#4285f4'
+    success: '#34a853'
+    accent: '#9c27b0'
+    warning: '#ff9800'
+    error: '#e91e63'
+    neutral: '#333333'
+    lightGray: '#f0f0f0'
+    darkGray: '#666666'
+  strokeWidths:
+    thin: 1px
+    medium: 2px
+    thick: 3px
+  strokePatterns:
+    solid: ''
+    dashed: 5 5
+    dotted: 8 4
+    longDash: 10 2
+    longDashSpaced: 10 5
+sharedElements:
+  componentCategories:
+    componentsInfrastructure:
+      fill: '#e6f3e6'
+      stroke: '#333333'
+      strokeWidth: 2px
+    componentsApplication:
+      fill: '#e6f0ff'
+      stroke: '#333333'
+      strokeWidth: 2px
+    componentsModel:
+      fill: '#ffe6e6'
+      stroke: '#333333'
+      strokeWidth: 2px
+    componentsExternalTools:
+      fill: '#f3e6ff'
+      stroke: '#333333'
+      strokeWidth: 2px
+graphTypes:
+  component:
+    direction: TD
+    metadata:
+      layout: elk
+      mergeEdges: false
+      nodePlacementStrategy: BRANDES_KOEPF
+    flowchartConfig:
+      padding: 5
+      wrappingWidth: 250
+    specialStyling: {}
+    emission:
+      mode: flat
+      aspects:
+      - id: componentAuditRecordRepository
+        minCrossInDegree: 10
+      concerns:
+      - label: model artifacts
+        edges:
+        - - componentModelStorage
+          - componentModelServing
+        - - componentModelRegistry
+          - componentModelServing
+      - label: training data
+        edges:
+        - - componentDataStorage
+          - componentModelTrainingTuning
+      - label: runtime hosting
+        edges:
+        - - componentRuntimeHosting
+          - componentApplication
+        - - componentRuntimeHosting
+          - componentModelServing
+        - - componentRuntimeHosting
+          - componentReasoningCore
+      - label: tool hosting
+        edges:
+        - - componentToolHosting
+          - componentToolServer
+      - label: endpoint enumeration
+        edges:
+        - - componentToolRegistry
+          - componentAgentNetworkPolicyEnforcementPoint
+      - label: identity & authz
+        edges:
+        - - componentAuthorizationPolicyDecisionPoint
+          - componentAgentNetworkPolicyEnforcementPoint
+        - - componentAuthorizationPolicyDecisionPoint
+          - componentApplicationNetworkPolicyEnforcementPoint
+        - - componentAuthorizationPolicyDecisionPoint
+          - componentAuthorizationPolicyEnforcementPoint
+        - - componentAuthorizationPolicyDecisionPoint
+          - componentModelServing
+        - - componentAuthorizationPolicyDecisionPoint
+          - componentToolNetworkPolicyEnforcementPoint
+        - - componentFederationProxy
+          - componentAgentNetworkPolicyEnforcementPoint
+        - - componentFederationProxy
+          - componentToolNetworkPolicyEnforcementPoint
+        - - componentIdentityProvider
+          - componentAgentNetworkPolicyEnforcementPoint
+        - - componentIdentityProvider
+          - componentApplicationNetworkPolicyEnforcementPoint
+        - - componentIdentityProvider
+          - componentModelServing
+        - - componentIdentityProvider
+          - componentToolNetworkPolicyEnforcementPoint
+      - label: model publish
+        edges:
+        - - componentModelTrainingTuning
+          - componentModelRegistry
+        - - componentModelTrainingTuning
+          - componentModelStorage
+      - label: inference / serving
+        edges:
+        - - componentModelServing
+          - componentAgentNetworkPolicyEnforcementPoint
+        - - componentModelServing
+          - componentApplicationNetworkPolicyEnforcementPoint
+      - label: tool calls
+        edges:
+        - - componentAgentToolTransport
+          - componentToolNetworkPolicyEnforcementPoint
+      - label: app + agent egress
+        edges:
+        - - componentAgentNetworkPolicyEnforcementPoint
+          - componentModelServing
+        - - componentApplicationNetworkPolicyEnforcementPoint
+          - componentModelServing
+      - label: tool registration
+        edges:
+        - - componentTools
+          - componentToolRegistry
+      - label: tool results
+        edges:
+        - - componentToolNetworkPolicyEnforcementPoint
+          - componentAgentToolTransport
+      portStyles:
+        port: fill:#fff5f5,stroke:#c0392b,stroke-width:1.5px,stroke-dasharray:4 3
+        pepport: fill:#eef7ff,stroke:#2c3e83,stroke-width:1.5px,stroke-dasharray:4
+          3
+        pepWrapOutline: fill:none,stroke:#2c3e83,stroke-width:2px,stroke-dasharray:2
+          2
+        aspectStyle: fill:#fdf6e3,stroke:#b58900,stroke-width:1.5px,stroke-dasharray:4
+          3

@@ -221,11 +221,13 @@ regenerated templates land in the same commit.
 ## 12. Graph Regeneration
 
 `regenerate-graphs` hook (`scripts/hooks/precommit/regenerate_graphs.py`)
-produces the component Mermaid graph pair when `components.yaml` is staged:
+produces the component Mermaid graph pair when `components.yaml` or
+`mermaid-styles.yaml` is staged:
 
 | Trigger | Output `.md` + `.mermaid` |
 |---|---|
 | `components.yaml` | `risk-map/diagrams/risk-map-graph.{md,mermaid}` |
+| `mermaid-styles.yaml` | `risk-map/diagrams/risk-map-graph.{md,mermaid}` |
 
 The output pair is `git add`-ed on success. The wrapper delegates to
 `validate_riskmap.py --to-graph`. Editing `controls.yaml` or `risks.yaml`
@@ -255,8 +257,13 @@ See [Table Generation](table-generation.md) for output filename conventions.
 ## 14. Mermaid SVG Regeneration
 
 `regenerate-svgs` hook (`scripts/hooks/precommit/regenerate_svgs.py`)
-converts staged `.mmd` or `.mermaid` files under `risk-map/diagrams/` into
-SVGs under `risk-map/svg/` via `npx mmdc`, then `git add`s each output.
+converts `.mmd`/`.mermaid` files under `risk-map/diagrams/` into SVGs under
+`risk-map/svg/` via `npx mmdc`, then `git add`s each output. Its input set is
+the union of its own staged-file argv and whatever diagrams are staged in the
+git index when it runs (chained-generator discovery, ADR-005 Addendum
+2026-09-28) — so a diagram that `regenerate-graphs` stages from a
+`components.yaml` or `mermaid-styles.yaml` change is picked up and rendered
+in the same commit, not only diagrams staged directly.
 
 **Chromium discovery (runtime, in this order):**
 

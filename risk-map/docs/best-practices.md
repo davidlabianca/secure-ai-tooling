@@ -71,7 +71,7 @@ Study established patterns before adding new components to maintain consistency.
 
 ### 10. Leverage automatic graph generation
 
-When you commit changes to `components.yaml`, the updated graph is automatically generated and staged.
+When you commit changes to `components.yaml` or `mermaid-styles.yaml`, the updated graph is automatically generated and staged.
 
 ### 11. Use debug mode for troubleshooting
 

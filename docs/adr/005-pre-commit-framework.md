@@ -227,3 +227,36 @@ Because `dependabot.yml` groups `pip` minor-and-patch updates, a grouped `pip` P
 - The alignment sentinel (D2) extends [`scripts/hooks/tests/test_precommit_hook_install.py`](../../scripts/hooks/tests/test_precommit_hook_install.py) — the same structural suite the two prior addenda use — reusing its config/requirements load helpers and `TestRequirementsPinning` precedent. Written in a downstream TDD phase.
 - The `pre-commit` ecosystem block (D3) is added to `.github/dependabot.yml` downstream, mirroring the `pip` block per D3. There is **no** new workflow under `.github/workflows/` and no companion workflow test: the custom notification-only channel from the original draft is removed, superseded by the native ecosystem.
 - The verified 3-line `rev:` realignment (`.pre-commit-config.yaml` `check-jsonschema` `0.37.4`→`0.38.0` on both blocks, `ruff-pre-commit` `v0.16.0`→`v0.16.3`) turns the sentinel from red to green in the same PR and is applied downstream, not by this addendum.
+
+## Addendum 2026-09-28: Chained generators
+
+**Status:** Draft (maintainer to flip to Accepted)
+
+Authored 2026-09-28 alongside [ADR-036](036-decoupled-component-graph-emission.md)'s landing. This addendum refines the 2026-05-08 generator carve-out for one class of generator; it does not reset the ADR's status, and the carve-out stands for every other generator.
+
+### Context
+
+The framework computes each hook's file list from the staged set once, before any hook runs. A generator's `git add` of its output therefore never reaches a later hook's `files:` filter in the same run. When one generator's output is another generator's input — `regenerate-graphs` writes `risk-map/diagrams/risk-map-graph.mermaid`, and `regenerate-svgs` renders `.mermaid` files under `risk-map/diagrams/` to `risk-map/svg/` — the downstream generator is skipped, and the commit lands with a regenerated source and a stale render. Because the upstream generator stages its own output, the framework's "files were modified by this hook" failure does not fire. CI does not compare rendered SVGs against their sources, so nothing else catches the drift.
+
+### Decision
+
+A **chained generator** is a generator hook whose inputs include files another generator hook writes. For every chained pair, upstream U and downstream D:
+
+1. **Trigger.** D's trigger set ⊇ U's trigger set. A commit that fires U also fires D.
+2. **Order.** D is declared after U in `.pre-commit-config.yaml`, so U's writes are on disk and in the index when D runs.
+3. **Input discovery.** D's input set is the union of its argv inputs (unchanged `pass_filenames: true` behaviour, which keeps `--all-files` and direct edits of D's inputs working) and D's inputs that are staged in the index when D runs, filtered by D's own input rule. D discovers U's output from the index; it does not carry a map from U's trigger files to U's output paths. A regeneration that is byte-identical to `HEAD` stages no change, so D does no work and a renderer difference between environments does not churn the committed output.
+4. **Single writer.** U writes and stages only U's outputs; D writes and stages only D's outputs. Neither imports, invokes, or shells out to the other's code.
+
+D ignores argv entries that are not its inputs (the trigger files contributed by rule 1). `require_serial: true` continues to keep each generator to one invocation, so the index query and `git add` calls do not race.
+
+The current chained pair is `regenerate-graphs` (U) → `regenerate-svgs` (D): `regenerate-svgs` triggers on the `.mermaid`/`.mmd` diagram sources and on every path `regenerate-graphs` triggers on, and renders the diagrams passed as argv together with the diagrams under `risk-map/diagrams/` staged at its run time. A new generator that writes a file another generator reads is added to this rule, not wired by a bespoke call.
+
+### Alternatives Considered
+
+- **U invokes D's render for the file it wrote.** Rejected: two hooks become writers of the same SVG, the graph hook acquires the renderer's toolchain dependency (Node, mermaid-cli, Chromium) and its failure modes, and every future chained pair needs its own cross-call.
+- **D triggers on U's trigger set and maps each trigger file to U's output paths.** Rejected: the map duplicates U's output list in D, where it drifts silently when U's outputs change, and D renders on every trigger even when U's output is unchanged.
+- **A CI check that re-renders the SVG and compares.** Rejected as the fix: rendered SVGs are not byte-stable across renderer and browser versions, which is why CI excludes them; a comparison would fail on toolchain drift rather than source drift.
+
+### Enforcement
+
+[`scripts/hooks/tests/test_precommit_hook_install.py`](../../scripts/hooks/tests/test_precommit_hook_install.py) asserts rules 1 and 2 for each registered chained pair: every concrete path U's `files:` regex fires on, D's fires on, and D is declared after U. [`scripts/hooks/tests/test_regenerate_svgs_chained.py`](../../scripts/hooks/tests/test_regenerate_svgs_chained.py) drives the two generators in sequence against a temporary repository's index and asserts the exact rendered and staged sets; the framework's own argv computation is exercised by the structural trigger tests, not re-driven here.

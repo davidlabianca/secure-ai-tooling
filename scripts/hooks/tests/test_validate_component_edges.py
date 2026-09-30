@@ -74,7 +74,8 @@ git_root = get_git_root()
 sys.path.insert(0, str(git_root / "scripts" / "hooks"))
 
 # Import graphing classes if you test them
-from riskmap_validator.graphing import ComponentGraph  # noqa: E402
+from riskmap_validator.graphing import ComponentGraph, MermaidConfigLoader  # noqa: E402
+from riskmap_validator.graphing.decouple import EmissionConfig  # noqa: E402
 from riskmap_validator.models import ComponentNode, ControlNode  # noqa: E402
 from riskmap_validator.utils import get_staged_yaml_files  # noqa: E402
 
@@ -682,6 +683,25 @@ class TestEndToEndIntegration:
         assert result is False
 
 
+class _FlatModeConfigLoader(MermaidConfigLoader):
+    """
+    Test-only loader: real category-style/preamble config from the committed
+    mermaid-styles.yaml, with `get_emission_config()` pinned to `mode="flat"`.
+
+    The flat-path assertions below (`graph TD`, the plain code-fence wrapper) exercise
+    small synthetic corpora unrelated to the live emission registry's aspects/concerns,
+    so they pin the mode explicitly rather than depending on whichever mode
+    `graphTypes.component.emission` currently declares.
+    """
+
+    def get_emission_config(self) -> EmissionConfig:
+        return EmissionConfig(mode="flat")
+
+
+def _flat_mode_graph(forward_map, components, debug=False):
+    return ComponentGraph(forward_map, components, debug=debug, config_loader=_FlatModeConfigLoader())
+
+
 class TestComponentGraph:
     """
     Test the ComponentGraph class functionality for Mermaid diagram generation.
@@ -782,7 +802,7 @@ class TestComponentGraph:
 
     def test_build_graph_structure_without_debug(self, simple_forward_map, simple_components):
         """Test graph structure generation without debug comments."""
-        graph = ComponentGraph(simple_forward_map, simple_components, debug=False)
+        graph = _flat_mode_graph(simple_forward_map, simple_components, debug=False)
         mermaid_output = graph.to_mermaid()
 
         # Should contain basic mermaid structure
@@ -798,7 +818,7 @@ class TestComponentGraph:
 
     def test_build_graph_structure_with_debug(self, simple_forward_map, simple_components):
         """Test graph structure generation with debug comments."""
-        graph = ComponentGraph(simple_forward_map, simple_components, debug=True)
+        graph = _flat_mode_graph(simple_forward_map, simple_components, debug=True)
         mermaid_output = graph.to_mermaid()
 
         # Should contain basic mermaid structure
@@ -813,7 +833,7 @@ class TestComponentGraph:
 
     def test_mermaid_output_format(self, simple_forward_map, simple_components):
         """Test that mermaid output has correct format."""
-        graph = ComponentGraph(simple_forward_map, simple_components)
+        graph = _flat_mode_graph(simple_forward_map, simple_components)
         mermaid_output = graph.to_mermaid()
 
         # Should start and end with mermaid code block markers
@@ -864,7 +884,7 @@ class TestComponentGraph:
 
     def test_empty_components(self):
         """Test handling of empty components."""
-        graph = ComponentGraph({}, {})
+        graph = _flat_mode_graph({}, {})
         mermaid_output = graph.to_mermaid()
 
         # Should still have basic structure

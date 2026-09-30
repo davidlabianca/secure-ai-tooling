@@ -154,6 +154,7 @@ import riskmap_validator.validator
 import validate_riskmap
 from conftest import _REAL_COMPONENT_CATEGORIES
 from riskmap_validator.config import DEFAULT_COMPONENTS_FILE
+from riskmap_validator.graphing import MermaidConfigLoader, component_graph
 from riskmap_validator.validator import ComponentEdgeValidator, CorpusParseError, EdgeValidationError
 from validate_riskmap import main, parse_args
 
@@ -418,6 +419,85 @@ class TestParseArgs:
         assert args.to_graph == Path("graph.md")
         assert args.debug is True
         assert args.mermaid_format is True
+
+    def test_parse_args_with_emission_mode_flat(self):
+        """
+        Test that --emission-mode flat parses to args.emission_mode == "flat".
+
+        Given: Script called with --emission-mode flat
+        When: parse_args() is called
+        Then: Returns namespace with emission_mode == "flat"
+
+        ADR-036 D3: the CLI override lever for A/B rendering the component
+        graph without editing the config file.
+        """
+        with patch("sys.argv", ["script.py", "--emission-mode", "flat"]):
+            args = parse_args()
+        assert args.emission_mode == "flat"
+
+    def test_parse_args_with_emission_mode_decoupled(self):
+        """Test that --emission-mode decoupled parses to args.emission_mode == "decoupled"."""
+        with patch("sys.argv", ["script.py", "--emission-mode", "decoupled"]):
+            args = parse_args()
+        assert args.emission_mode == "decoupled"
+
+    def test_parse_args_without_emission_mode_defaults_to_none(self):
+        """
+        Test that omitting --emission-mode leaves the override unset.
+
+        Given: argv with no --emission-mode flag
+        When: parse_args() is called
+        Then: args.emission_mode is None (not "flat" or "decoupled")
+
+        ADR-036 D3: config remains the source of truth; the flag never
+        persists. A default of "flat" (rather than None/absent) would force
+        an override on every run even when the user never asked for one,
+        silently defeating the config's own mode value. None is the only
+        default that preserves "absent = use the config as-is."
+        """
+        with patch("sys.argv", ["script.py"]):
+            args = parse_args()
+        assert getattr(args, "emission_mode", None) is None, (
+            f"args.emission_mode must default to None so absence of the flag never "
+            f"overrides the config's own mode; got {getattr(args, 'emission_mode', 'MISSING')!r}"
+        )
+
+    def test_parse_args_rejects_invalid_emission_mode_value(self, capsys):
+        """
+        Test that an unrecognized --emission-mode value is rejected by argparse.
+
+        Given: --emission-mode bogus (not "flat" or "decoupled")
+        When: parse_args() is called
+        Then: SystemExit(2), and argparse's error names 'bogus' as an invalid
+              choice (not a generic "unrecognized arguments" -- see the
+              false-positive-guard note below)
+
+        False-positive guard: any unrecognized flag also produces SystemExit(2)
+        via argparse's "unrecognized arguments" path, which would trivially
+        satisfy a bare `exc_info.value.code == 2` assertion even if
+        --emission-mode were not wired at all. Asserting the error text names
+        'bogus' specifically (the `choices=` violation message, e.g. "invalid
+        choice: 'bogus'") -- and does NOT say "unrecognized arguments" --
+        proves the flag is wired with choices=["flat", "decoupled"], not just
+        present as an accepted-but-unvalidated argument, mirroring the guard
+        pattern used for --mode lifecycle elsewhere in this file.
+        """
+        with patch("sys.argv", ["script.py", "--emission-mode", "bogus"]):
+            with pytest.raises(SystemExit) as exc_info:
+                parse_args()
+
+        assert exc_info.value.code == 2
+        captured = capsys.readouterr()
+        combined = captured.out + captured.err
+        assert "unrecognized arguments" not in combined, (
+            f"argparse rejected --emission-mode as an unrecognized FLAG rather than "
+            f"rejecting 'bogus' as an invalid CHOICE -- the flag must be wired with "
+            f"choices=['flat', 'decoupled'] before this test can validate the actual "
+            f"invalid-value rejection. stderr: {combined!r}"
+        )
+        assert "bogus" in combined, (
+            f"Expected argparse's invalid-choice error to name the offending value 'bogus'; got: {combined!r}"
+        )
 
 
 # ============================================================================
@@ -2702,6 +2782,60 @@ class TestMainFileFlag:
                 f"Expected {sentence!r} when --file names the default corpus; got: {combined!r}"
             )
 
+    def test_file_flag_skips_emission_drift_even_against_a_populated_real_styles_file(
+        self, repo_root, tmp_path, monkeypatch, capsys
+    ):
+        """
+        Test that --file's emission-drift skip (ADR-036 D7,
+        `validate_riskmap.py`'s `skip_repo_scoped` guard) holds even once the
+        repo's own `risk-map/yaml/mermaid-styles.yaml` carries a populated
+        `emission` block: a custom --file corpus is validated in isolation from
+        that repo file, so the skip line must print and no drift line may ever
+        appear, regardless of what that file happens to contain.
+
+        Given: cwd is the real repo root (so a relative
+               `risk-map/yaml/mermaid-styles.yaml` resolves to the real,
+               committed file), and --file names an unrelated, edge-consistent
+               tmp_path corpus
+        When:  main() is called with --file <that corpus>
+        Then:  the output announces the emission drift check as skipped and
+               prints no "Emission drift check found" line
+
+        The skip-line assertion alone would pass vacuously whether or not the real
+        file has an emission block at all, so this test also reads the real repo
+        file directly and requires `graphTypes.component.emission.concerns` to be
+        non-empty. That proves the skip is a genuine skip of real content, not a
+        skip of nothing.
+        """
+        corpus = _write_custom_components(tmp_path, _COMPONENTS_CONSISTENT)
+        monkeypatch.chdir(repo_root)
+
+        with patch("sys.argv", ["script.py", "--file", str(corpus)]):
+            with pytest.raises(SystemExit):
+                main()
+
+        captured = capsys.readouterr()
+        combined = captured.out + captured.err
+
+        assert _line_reports_skip(combined, "emission"), (
+            f"expected the emission drift check to announce a skip under --file "
+            f"naming a custom corpus; got: {combined!r}"
+        )
+        assert "Emission drift check found" not in combined, (
+            f"--file must never run the emission drift check against the repo's own "
+            f"mermaid-styles.yaml, populated or not; got: {combined!r}"
+        )
+
+        with open(repo_root / "risk-map" / "yaml" / "mermaid-styles.yaml", encoding="utf-8") as fh:
+            styles_doc = yaml.safe_load(fh)
+        emission = styles_doc.get("graphTypes", {}).get("component", {}).get("emission")
+        assert emission is not None and emission.get("concerns"), (
+            "expected the real, committed mermaid-styles.yaml to carry a populated "
+            "graphTypes.component.emission.concerns registry -- otherwise the "
+            "skip-line assertions above are vacuous, since an absent block also "
+            "prints no drift line and no skip content is actually being skipped"
+        )
+
 
 class TestParseCorpus:
     """
@@ -4129,3 +4263,841 @@ class TestProductionInvocations:
             f"An empty staged set exits 0 today; got {exc_info.value.code}. Output: {combined!r}"
         )
         assert not output.exists(), f"No graph should be written when nothing was selected; found {output}"
+
+
+# ============================================================================
+# TestEmissionModeCLIOverride -- `--emission-mode` (ADR-036 D3)
+# ============================================================================
+#
+# Wiring-behavior tests for the CLI override lever, complementing the
+# argparse-level parsing tests in TestParseArgs above. `--emission-mode`
+# lets a contributor A/B-render the component graph without editing
+# mermaid-styles.yaml: config remains the source of truth, and the flag
+# never persists.
+#
+# Structural constraint: `ComponentGraph.
+# __init__`'s signature stays unchanged, and `build_graph()`/`_emit_decoupled()`
+# read emission mode ONLY via `self.config_loader.get_emission_config()`
+# (never from a constructor parameter). Given those two fixed points, the
+# override can only reach graph construction by passing an already-existing
+# `MermaidConfigLoader`-like object through ComponentGraph's existing
+# optional `config_loader=` parameter, whose `get_emission_config()` reflects
+# the override. This is not an assumption about a particular implementation
+# strategy so much as a structural consequence of the frozen signatures --
+# but the exact mechanism (subclass, wrapper, `dataclasses.replace` on a
+# copied instance, etc.) is still an implementation choice, and these tests
+# only pin the externally observable contract: whatever object ends up as
+# `config_loader=`, its `get_emission_config().mode` reflects the override
+# when one was requested.
+
+
+class TestEmissionModeCLIOverride:
+    def test_emission_mode_flag_recognized_reaches_pipeline(self, capsys):
+        """
+        False-positive guard: --emission-mode must be recognized by argparse
+        AND reach graph construction, not merely parse without crashing.
+
+        Given: --force --to-graph out.md --emission-mode decoupled
+        When: main() is called (ComponentGraph mocked)
+        Then: argparse recognizes the flag (no "unrecognized arguments" in
+              stderr) and the script exits 0
+
+        Mirrors the false-positive-guard pattern used for --mode lifecycle
+        elsewhere in this file (test_mode_lifecycle_skips_graph_generation_
+        when_to_graph_also_passed): without this assertion, an unimplemented
+        flag would make argparse itself exit before ComponentGraph is ever
+        constructed, which could otherwise mask a wiring gap in later
+        assertions.
+        """
+        file_paths = [Path("risk-map/yaml/components.yaml")]
+        graph_path = Path("output/graph.md")
+
+        with patch(
+            "sys.argv",
+            ["script.py", "--force", "--to-graph", str(graph_path), "--emission-mode", "decoupled"],
+        ):
+            with patch("validate_riskmap.get_staged_yaml_files", return_value=file_paths):
+                with patch("validate_riskmap.ComponentEdgeValidator") as mock_validator_class:
+                    with patch("validate_riskmap.ComponentGraph") as mock_graph_class:
+                        with patch("builtins.open", mock_open()):
+                            mock_validator = Mock()
+                            mock_validator.validate_file.return_value = True
+                            mock_validator.forward_map = {"A": ["B"]}
+                            mock_validator.components = {"A": Mock(), "B": Mock()}
+                            mock_validator_class.return_value = mock_validator
+
+                            mock_graph = Mock()
+                            mock_graph.to_mermaid.return_value = "graph"
+                            mock_graph_class.return_value = mock_graph
+
+                            with pytest.raises(SystemExit) as exc_info:
+                                main()
+
+        captured = capsys.readouterr()
+        assert "unrecognized arguments" not in captured.err, (
+            f"argparse rejected --emission-mode as unrecognized; the flag must be "
+            f"wired before this test can validate the override. stderr: {captured.err!r}"
+        )
+        assert exc_info.value.code == 0
+
+    def test_emission_mode_override_reaches_component_graph_config(self):
+        """
+        Given: --emission-mode decoupled, and a real MermaidConfigLoader
+               (`open` is mocked here, so the loader never reads the committed
+               mermaid-styles.yaml -- which says "decoupled" -- and falls back to
+               its own emergency default instead: MermaidConfigLoader.
+               _get_emergency_defaults's graphTypes.component.emission ==
+               {"mode": "flat"})
+        When: main() is called with --to-graph set (ComponentGraph mocked)
+        Then: ComponentGraph is constructed with a config_loader whose
+              get_emission_config().mode == "decoupled" -- the override,
+              not the file's own "flat" default
+
+        See the class docstring above for why config_loader is the only
+        structurally possible injection point given the frozen
+        ComponentGraph.__init__ / build_graph() contract.
+        """
+        file_paths = [Path("risk-map/yaml/components.yaml")]
+        graph_path = Path("output/graph.md")
+
+        argv = ["script.py", "--force", "--to-graph", str(graph_path), "--emission-mode", "decoupled"]
+        with patch("sys.argv", argv):
+            with patch("validate_riskmap.get_staged_yaml_files", return_value=file_paths):
+                with patch("validate_riskmap.ComponentEdgeValidator") as mock_validator_class:
+                    with patch("validate_riskmap.ComponentGraph") as mock_graph_class:
+                        with patch("builtins.open", mock_open()):
+                            mock_validator = Mock()
+                            mock_validator.validate_file.return_value = True
+                            mock_validator.forward_map = {"A": ["B"]}
+                            mock_validator.components = {"A": Mock(), "B": Mock()}
+                            mock_validator_class.return_value = mock_validator
+
+                            mock_graph = Mock()
+                            mock_graph.to_mermaid.return_value = "graph"
+                            mock_graph_class.return_value = mock_graph
+
+                            with pytest.raises(SystemExit) as exc_info:
+                                main()
+
+        assert exc_info.value.code == 0
+        assert mock_graph_class.call_count == 1, "ComponentGraph must be constructed exactly once"
+        _, kwargs = mock_graph_class.call_args
+        config_loader = kwargs.get("config_loader")
+        assert config_loader is not None, (
+            "Expected ComponentGraph to be constructed with an explicit config_loader= "
+            "reflecting the --emission-mode override (the only injection point given "
+            "ComponentGraph.__init__'s frozen signature); got no config_loader kwarg at "
+            f"all. Full call: args={mock_graph_class.call_args}"
+        )
+        assert config_loader.get_emission_config().mode == "decoupled", (
+            f"Expected the config_loader passed to ComponentGraph to report mode "
+            f"'decoupled' (the --emission-mode override), got "
+            f"{config_loader.get_emission_config().mode!r}"
+        )
+
+    def test_absent_emission_mode_flag_preserves_existing_call_signature(self):
+        """
+        Given: no --emission-mode flag (existing behavior)
+        When: main() is called with --to-graph set (ComponentGraph mocked)
+        Then: ComponentGraph is still constructed as
+              ComponentGraph(forward_map, components, debug=False) -- the
+              exact call signature test_main_generates_component_graph_when_
+              to_graph_specified already pins
+
+        Regression guard: the flag's absence must never change existing
+        behavior -- proving the override mechanism is opt-in only and never
+        leaks a config_loader override into the default (no-flag) path.
+        """
+        file_paths = [Path("risk-map/yaml/components.yaml")]
+        graph_path = Path("output/graph.md")
+
+        with patch("sys.argv", ["script.py", "--force", "--to-graph", str(graph_path)]):
+            with patch("validate_riskmap.get_staged_yaml_files", return_value=file_paths):
+                with patch("validate_riskmap.ComponentEdgeValidator") as mock_validator_class:
+                    with patch("validate_riskmap.ComponentGraph") as mock_graph_class:
+                        with patch("builtins.open", mock_open()):
+                            mock_validator = Mock()
+                            mock_validator.validate_file.return_value = True
+                            mock_validator.forward_map = {"A": ["B"]}
+                            mock_validator.components = {"A": Mock(), "B": Mock()}
+                            mock_validator_class.return_value = mock_validator
+
+                            mock_graph = Mock()
+                            mock_graph.to_mermaid.return_value = "graph"
+                            mock_graph_class.return_value = mock_graph
+
+                            with pytest.raises(SystemExit) as exc_info:
+                                main()
+
+        assert exc_info.value.code == 0
+        mock_graph_class.assert_called_once_with(
+            mock_validator.forward_map, mock_validator.components, debug=False
+        )
+
+
+# ============================================================================
+# TestEmissionModeOverrideWithoutEmissionBlock -- `--emission-mode decoupled`
+# against a styles file with no emission block (ADR-036 D3)
+# ============================================================================
+#
+# Unmocked, end-to-end: ComponentGraph is constructed for real against the
+# real MermaidConfigLoader pointed at a styles file with no
+# graphTypes.component.emission block at all. get_emission_config() degrades
+# that absence to EmissionConfig(mode="flat") (graph_utils.py), and
+# _EmissionModeOverrideConfigLoader then overrides only .mode to "decoupled"
+# via dataclasses.replace -- leaving aspects/concerns/port_styles at their
+# flat-default (empty) values. ComponentGraph.build_graph() dispatches on
+# mode == "decoupled", calling build_decoupled_plan() with no portStyles to
+# draw from, and ComponentGraph's own S6 self-check raises before the render
+# completes. ComponentGraph.__init__ calls build_graph() eagerly, so the
+# AssertionError surfaces at the construction call inside validate_riskmap.py's
+# `if args.to_graph:` block, whose handler recognises the missing-port-style
+# condition and prints the named usage error (exit 2) instead of letting it
+# fall through to main()'s outer `except Exception` crash banner. The classes
+# below pin that routing: the named error for a config that cannot supply the
+# style, the crash banner for every other construction failure.
+
+
+class TestEmissionModeOverrideWithoutEmissionBlock:
+    def _run_with_no_emission_block_styles(self, tmp_path, repo_root, monkeypatch, capsys):
+        """
+        Shared setup: a tmp cwd holding a real copy of risk-map/yaml/ with
+        mermaid-styles.yaml swapped for the committed no-emission-block
+        fixture, then `--force --to-graph <tmp> --emission-mode decoupled`.
+
+        Returns (combined_output, exit_code).
+        """
+        shutil.copytree(repo_root / "risk-map" / "yaml", tmp_path / "risk-map" / "yaml")
+        # Category style check reads components.schema.json independently of
+        # mermaid-styles.yaml; without a copy it degrades to its own "could
+        # not run" line, which is harmless but adds an unrelated ❌ line to
+        # the captured output this test's assertions read.
+        shutil.copytree(repo_root / "risk-map" / "schemas", tmp_path / "risk-map" / "schemas")
+        no_emission_fixture = (
+            repo_root
+            / "scripts"
+            / "hooks"
+            / "tests"
+            / "fixtures"
+            / "graphing"
+            / "flat-rollback"
+            / "mermaid-styles-no-emission-block.yaml"
+        )
+        shutil.copy(no_emission_fixture, tmp_path / "risk-map" / "yaml" / "mermaid-styles.yaml")
+        monkeypatch.chdir(tmp_path)
+
+        graph_path = tmp_path / "out.md"
+        argv = [
+            "script.py",
+            "--force",
+            "--to-graph",
+            str(graph_path),
+            "--emission-mode",
+            "decoupled",
+        ]
+        with patch("sys.argv", argv):
+            with pytest.raises(SystemExit) as exc_info:
+                main()
+
+        captured = capsys.readouterr()
+        return captured.out + captured.err, exc_info.value.code
+
+    def test_emission_mode_override_without_emission_block_is_not_crash_shaped(
+        self, tmp_path, repo_root, monkeypatch, capsys
+    ):
+        """
+        Test that the override never reaches the "report this issue to the
+        maintainers" banner.
+
+        Given: --force --to-graph out --emission-mode decoupled, and a
+               committed mermaid-styles.yaml with NO graphTypes.component.emission
+               block at all (the flat-rollback no-emission-block fixture)
+        When: main() runs the real (unmocked) ComponentGraph construction
+        Then: the output carries none of _CRASH_BANNER_MARKERS
+
+        This is a bad-input/unsupported-combination case (the override asks for
+        decoupled emission from a config that never declared one), not an
+        internal defect -- the repo's `_assert_not_crash_shaped` contract
+        (used throughout this module for --file and corpus-parse failures)
+        applies here too.
+        """
+        combined, _ = self._run_with_no_emission_block_styles(tmp_path, repo_root, monkeypatch, capsys)
+        _assert_not_crash_shaped(combined)
+
+    def test_emission_mode_override_without_emission_block_names_the_missing_block_and_port_styles(
+        self, tmp_path, repo_root, monkeypatch, capsys
+    ):
+        """
+        Test that the rejection names the actual gap, not a generic failure.
+
+        Given: the same override-without-emission-block setup
+        When: main() runs
+        Then: the output names `graphTypes.component.emission` (the config
+              path the override needs populated) and `portStyles` (the
+              specific sub-key the decoupled renderer cannot draw ports
+              without)
+
+        A message that only said "graph generation failed" would leave a
+        contributor to trace S6's internal assertion text back to the missing
+        config themselves; naming both the dotted config path and the
+        concrete missing key is what makes this actionable rather than
+        merely non-crash-shaped.
+        """
+        combined, _ = self._run_with_no_emission_block_styles(tmp_path, repo_root, monkeypatch, capsys)
+        assert "graphTypes.component.emission" in combined, (
+            f"Expected the dotted config path graphTypes.component.emission named in the "
+            f"rejection message; got: {combined!r}"
+        )
+        assert "portStyles" in combined, (
+            f"Expected portStyles named as the specific missing sub-key the decoupled "
+            f"renderer needs; got: {combined!r}"
+        )
+
+    def test_emission_mode_override_without_emission_block_exits_with_the_named_usage_error_code(
+        self, tmp_path, repo_root, monkeypatch, capsys
+    ):
+        """
+        Test the exit code matches this file's own named-usage-error convention.
+
+        Given: the same override-without-emission-block setup
+        When: main() runs
+        Then: exit code == 2, non-zero and not the validation-failure code (1)
+
+        This file already reuses exit 2 for both the crash banner
+        (`main()`'s top-level `except Exception` catch-all, the "Unexpected
+        error" banner) and named, non-crash usage
+        errors (`--file path does not exist`, `CorpusParseError` at corpus
+        parse) -- the two are distinguished by banner text
+        (`_assert_not_crash_shaped`), not by exit code. Pinning 2 here matches
+        that existing convention rather than inventing a third code.
+        """
+        _, exit_code = self._run_with_no_emission_block_styles(tmp_path, repo_root, monkeypatch, capsys)
+        assert exit_code == 2, (
+            f"Expected exit 2 (this file's named-usage-error convention -- see "
+            f"--file-does-not-exist and CorpusParseError); got {exit_code}"
+        )
+
+    def test_emission_mode_override_without_emission_block_message_does_not_leak_internal_s6_token(
+        self, tmp_path, repo_root, monkeypatch, capsys
+    ):
+        """
+        Test that the named usage error does not leak the emitter's internal self-check label.
+
+        Given: the same override-without-emission-block setup
+        When: main() runs
+        Then: the output does not contain the internal token "S6"
+
+        The usage-error message embeds the raw exception text via `{e}`, and the
+        exception this setup actually raises is S6's own AssertionError ("S6
+        violated: missing 'classDef port' ..."). A content contributor reading the
+        message has no reason to know what "S6" means, and the two identifiers this
+        branch already names (graphTypes.component.emission, portStyles) are enough
+        to act on without it.
+        """
+        combined, _ = self._run_with_no_emission_block_styles(tmp_path, repo_root, monkeypatch, capsys)
+        assert "S6" not in combined, (
+            f"Expected the internal self-check label 'S6' not to leak into the usage-error "
+            f"message; got: {combined!r}"
+        )
+
+
+class TestEmissionModeOverrideGenuineDefectNotMislabeled:
+    """
+    A construction failure that is NOT the missing-port-styles condition (S6) must
+    not be reported as a missing-config usage error. With a VALID
+    graphTypes.component.emission block on disk (the repo's own committed
+    mermaid-styles.yaml, unmodified), any other exception escaping ComponentGraph's
+    decoupled construction path -- a plain defect in the transform/emitter, or one
+    of the other D7 structural guards (S1/S4/S5/S7) -- is a real bug, not a
+    "you forgot to configure this" situation, and must surface the same way any
+    other unexpected internal error does in this tool (the crash banner asserted
+    via _CRASH_BANNER_MARKERS elsewhere in this module), with the underlying
+    exception text still visible.
+    """
+
+    def _run_with_valid_emission_block(self, tmp_path, repo_root, monkeypatch, capsys, patch_name, exc):
+        """
+        Shared setup: a tmp cwd holding a real, unmodified copy of risk-map/yaml/
+        (mermaid-styles.yaml's committed graphTypes.component.emission block is
+        valid and populated, including portStyles), with `patch_name` on the
+        component_graph module replaced so the decoupled construction path raises
+        `exc` instead of completing.
+
+        Returns (combined_output, exit_code).
+        """
+        shutil.copytree(repo_root / "risk-map" / "yaml", tmp_path / "risk-map" / "yaml")
+        # Category style check reads components.schema.json independently of
+        # mermaid-styles.yaml; without a copy it degrades to its own "could not
+        # run" line, which is harmless but adds an unrelated line to the output
+        # this test's assertions read.
+        shutil.copytree(repo_root / "risk-map" / "schemas", tmp_path / "risk-map" / "schemas")
+        monkeypatch.chdir(tmp_path)
+
+        def _raise(*_args, **_kwargs):
+            raise exc
+
+        monkeypatch.setattr(component_graph, patch_name, _raise)
+
+        graph_path = tmp_path / "out.md"
+        argv = [
+            "script.py",
+            "--force",
+            "--to-graph",
+            str(graph_path),
+            "--emission-mode",
+            "decoupled",
+        ]
+        with patch("sys.argv", argv):
+            with pytest.raises(SystemExit) as exc_info:
+                main()
+
+        captured = capsys.readouterr()
+        return captured.out + captured.err, exc_info.value.code
+
+    def test_generic_defect_with_valid_emission_block_is_crash_shaped_not_missing_config(
+        self, tmp_path, repo_root, monkeypatch, capsys
+    ):
+        """
+        Test that a plain internal defect is reported as a defect, not a config gap.
+
+        Given: --force --to-graph out --emission-mode decoupled, the repo's own
+               committed mermaid-styles.yaml (a VALID, populated
+               graphTypes.component.emission block, including portStyles), and
+               build_decoupled_plan() patched to raise a RuntimeError unrelated to
+               any missing config
+        When: main() runs
+        Then: the output carries the crash banner (_CRASH_BANNER_MARKERS), NOT the
+              "requires a populated ... emission block" usage-error wording, and
+              the underlying exception text stays visible
+
+        A missing-config message here would send a maintainer chasing a
+        mermaid-styles.yaml edit for a bug that has nothing to do with
+        configuration.
+        """
+        combined, exit_code = self._run_with_valid_emission_block(
+            tmp_path,
+            repo_root,
+            monkeypatch,
+            capsys,
+            "build_decoupled_plan",
+            RuntimeError("synthetic defect"),
+        )
+        for marker in _CRASH_BANNER_MARKERS:
+            assert marker in combined, (
+                f"Expected the crash banner ({marker!r}) for a genuine internal defect "
+                f"with a valid emission block; got: {combined!r}"
+            )
+        assert "requires a populated" not in combined, (
+            f"A genuine defect must not be reported as a missing-config usage error; got: {combined!r}"
+        )
+        assert "synthetic defect" in combined, (
+            f"Expected the underlying exception text to stay visible; got: {combined!r}"
+        )
+        assert exit_code == 2, f"Expected exit 2 (this file's error-exit convention); got {exit_code}"
+
+    def test_structural_guard_violation_with_valid_emission_block_is_crash_shaped_not_missing_config(
+        self, tmp_path, repo_root, monkeypatch, capsys
+    ):
+        """
+        Test that a content-triggered structural guard (S5, not S6) is a defect too.
+
+        Given: the same valid-emission-block setup, and verify_plan() patched to
+               raise the S5 edge-conservation AssertionError (a structural guard
+               distinct from S6, the missing-port-styles check)
+        When: main() runs
+        Then: the output carries the crash banner, NOT the "requires a populated
+              ... emission block" wording, and the S5 exception text stays visible
+
+        S5 firing means the transform IR itself is inconsistent -- it says nothing
+        about whether mermaid-styles.yaml is populated, so it must not be folded
+        into the same message as the S6 missing-config case.
+        """
+        combined, exit_code = self._run_with_valid_emission_block(
+            tmp_path,
+            repo_root,
+            monkeypatch,
+            capsys,
+            "verify_plan",
+            AssertionError(
+                "S5 edge conservation violated: intra_drawn(1) + 2*collapsed(0) + "
+                "channelled(0) + lifted(0) = 1 != total_edges(2)"
+            ),
+        )
+        for marker in _CRASH_BANNER_MARKERS:
+            assert marker in combined, (
+                f"Expected the crash banner ({marker!r}) for an S5 structural-guard "
+                f"violation with a valid emission block; got: {combined!r}"
+            )
+        assert "requires a populated" not in combined, (
+            f"An S5 violation must not be reported as a missing-config usage error; got: {combined!r}"
+        )
+        assert "S5 edge conservation violated" in combined, (
+            f"Expected the underlying S5 exception text to stay visible; got: {combined!r}"
+        )
+        assert exit_code == 2, f"Expected exit 2 (this file's error-exit convention); got {exit_code}"
+
+    def test_s6_category_style_violation_with_valid_emission_block_is_crash_shaped_not_missing_config(
+        self, tmp_path, repo_root, monkeypatch, capsys
+    ):
+        """
+        Test that an S6 violation OTHER than the missing-port-style condition is a defect too.
+
+        Given: the same valid-emission-block setup, and verify_plan patched to
+               raise the "missing category style line" variant of S6 -- not the
+               port/pepport/pepWrapOutline variants the named usage error is
+               built around
+        When: main() runs
+        Then: the output carries the crash banner, NOT the "requires a populated
+              ... emission block" wording, and the S6 category-style exception text
+              stays visible
+
+        S6 has four distinct raise sites; three of them (missing 'classDef
+        port', 'classDef pepport', or the pepWrapOutline style line) are about
+        a port style, and the category-style site is not. This variant proves
+        the label "S6" alone is not sufficient to route a message to the
+        missing-config wording -- a port-style signature is required, not just
+        membership in the S6 self-check.
+        """
+        combined, exit_code = self._run_with_valid_emission_block(
+            tmp_path,
+            repo_root,
+            monkeypatch,
+            capsys,
+            "verify_plan",
+            AssertionError("S6 violated: missing category style line 'style componentData fill:#eee,stroke:#333'"),
+        )
+        for marker in _CRASH_BANNER_MARKERS:
+            assert marker in combined, (
+                f"Expected the crash banner ({marker!r}) for an S6 category-style "
+                f"violation with a valid emission block; got: {combined!r}"
+            )
+        assert "requires a populated" not in combined, (
+            f"An S6 category-style violation is not the missing-port-styles condition and "
+            f"must not be reported as a missing-config usage error; got: {combined!r}"
+        )
+        assert "S6 violated: missing category style line" in combined, (
+            f"Expected the underlying S6 category-style exception text to stay visible; got: {combined!r}"
+        )
+        assert exit_code == 2, f"Expected exit 2 (this file's error-exit convention); got {exit_code}"
+
+
+# ============================================================================
+# Config-driven decoupled mode with a missing or empty required port style
+# ============================================================================
+#
+# When mermaid-styles.yaml declares mode: decoupled itself, a
+# contributor who deletes or blanks one of the three port styles the S6
+# self-check can demand (`port` for drawn channel ports, `pepport` and
+# `pepWrapOutline` for PEP wrappers) reaches ComponentGraph construction with
+# no --emission-mode flag at all: ComponentGraph.__init__ -> build_graph() ->
+# _emit_decoupled() -> _check_s6_style_classdef_presence() raises at
+# construction, exactly where the override case does. The schema hook rejects
+# that file too, but the graph-regeneration hook still runs in the same
+# pre-commit pass, so validate_riskmap.py --to-graph must give the same
+# named, non-crash usage error for the config-driven case as for the override,
+# and pepWrapOutline is a recognised case alongside port/pepport.
+#
+# The boundary the named error must not cross: an emitter defect in which the
+# style IS configured but its line is not emitted raises the very same S6
+# message, and stays crash-shaped. S6's message alone therefore cannot route
+# the error; the observable contract is pinned from both sides below.
+
+_DECOUPLED_REQUIRED_PORT_STYLE_KEYS = ("port", "pepport", "pepWrapOutline")
+
+_CONFIG_PORT_STYLES_PATH = "graphTypes.component.emission.portStyles"
+
+
+def _copy_real_corpus(tmp_path: Path, repo_root: Path) -> Path:
+    """
+    Copy risk-map/yaml and risk-map/schemas into tmp_path, set the copied
+    emission block to `mode: decoupled`, and return the copied
+    mermaid-styles.yaml path.
+
+    The real corpus draws both channel ports and PEP wrappers, so every S6
+    port-style clause is live against it. The mode is set here rather than
+    read from the shipped file, so these tests exercise config-mode decoupled
+    rendering whichever mode the repository ships. Schemas are copied so the
+    category style check reads its enum instead of adding an unrelated line.
+    """
+    shutil.copytree(repo_root / "risk-map" / "yaml", tmp_path / "risk-map" / "yaml")
+    shutil.copytree(repo_root / "risk-map" / "schemas", tmp_path / "risk-map" / "schemas")
+    styles_path = tmp_path / "risk-map" / "yaml" / "mermaid-styles.yaml"
+    with open(styles_path, encoding="utf-8") as fh:
+        doc = yaml.safe_load(fh)
+    doc["graphTypes"]["component"]["emission"]["mode"] = "decoupled"
+    styles_path.write_text(yaml.dump(doc), encoding="utf-8")
+    return styles_path
+
+
+def _rewrite_port_styles(styles_path: Path, mutate) -> None:
+    """Load the copied mermaid-styles.yaml, apply `mutate(port_styles)`, write it back."""
+    with open(styles_path, encoding="utf-8") as fh:
+        doc = yaml.safe_load(fh)
+    mutate(doc["graphTypes"]["component"]["emission"]["portStyles"])
+    styles_path.write_text(yaml.dump(doc), encoding="utf-8")
+
+
+def _run_to_graph(tmp_path: Path, monkeypatch, capsys, *extra_args: str) -> tuple[str, int]:
+    """Run main() with --force --to-graph <tmp>/out.md from tmp_path; return (combined output, exit code)."""
+    monkeypatch.chdir(tmp_path)
+    argv = ["script.py", "--force", "--to-graph", str(tmp_path / "out.md"), *extra_args]
+    with patch("sys.argv", argv):
+        with pytest.raises(SystemExit) as exc_info:
+            main()
+    captured = capsys.readouterr()
+    return captured.out + captured.err, exc_info.value.code
+
+
+def _assert_names_only_this_port_style_key(combined: str, key: str) -> None:
+    """
+    The message names the offending key as `portStyles.<key>` and no other key
+    in that form.
+
+    The dotted form is the message contract: a bare `port` is a substring of
+    `portStyles` and of `pepport`, so it cannot fail, and a message that lists
+    every key would satisfy a bare check for each of them. `portStyles.port`
+    is not a substring of `portStyles.pepport`, so both directions are
+    falsifiable.
+    """
+    assert f"portStyles.{key}" in combined, (
+        f"Expected the missing port style named as 'portStyles.{key}' in the error:\n{combined}"
+    )
+    for other in _DECOUPLED_REQUIRED_PORT_STYLE_KEYS:
+        if other != key:
+            assert f"portStyles.{other}" not in combined, (
+                f"Only the missing key may be named; 'portStyles.{other}' is present but configured:\n{combined}"
+            )
+
+
+def _assert_named_port_style_error(combined: str, exit_code: int, key: str) -> None:
+    """Named usage error: exit 2, no crash banner, no internal label; names only the key, config path and file."""
+    assert exit_code == 2, f"Expected exit 2 (named usage error); got {exit_code}\n{combined}"
+    for marker in _CRASH_BANNER_MARKERS:
+        assert marker not in combined, (
+            f"A missing port style is a config error, not a defect ({marker!r}):\n{combined}"
+        )
+    assert "S6" not in combined, f"The internal self-check label must not leak into the usage error:\n{combined}"
+    _assert_names_only_this_port_style_key(combined, key)
+    assert "mermaid-styles.yaml" in combined, f"Expected the config file named in the error:\n{combined}"
+    assert _CONFIG_PORT_STYLES_PATH in combined, (
+        f"Expected the config path {_CONFIG_PORT_STYLES_PATH!r} named in the error:\n{combined}"
+    )
+
+
+@pytest.fixture
+def _fresh_mermaid_styles_singleton(monkeypatch):
+    """
+    Give each in-process config-mode run its own `MermaidConfigLoader` singleton.
+
+    Without `--emission-mode`, ComponentGraph falls back to
+    `MermaidConfigLoader.get_instance()`, a per-path singleton keyed by the
+    relative `risk-map/yaml/mermaid-styles.yaml`. Across in-process runs that
+    chdir into different tmp copies, the first copy's config would otherwise be
+    served to every later run. The override tests are immune because
+    `_EmissionModeOverrideConfigLoader` is constructed fresh each time.
+    """
+    monkeypatch.setattr(MermaidConfigLoader, "_instances", {})
+
+
+def _assert_crash_shaped_with(combined: str, exit_code: int, exception_text: str) -> None:
+    """Crash banner: exit 2, both banner markers, the underlying exception text visible, no usage-error wording."""
+    assert exit_code == 2, f"Expected exit 2 (crash banner); got {exit_code}\n{combined}"
+    for marker in _CRASH_BANNER_MARKERS:
+        assert marker in combined, f"Expected the crash banner ({marker!r}) for an emitter defect:\n{combined}"
+    assert exception_text in combined, f"Expected the underlying exception text {exception_text!r}:\n{combined}"
+    assert "requires a populated" not in combined, (
+        f"An emitter defect must not be reported as a missing-config usage error:\n{combined}"
+    )
+    assert _CONFIG_PORT_STYLES_PATH not in combined, (
+        f"An emitter defect must not be reported as a config error at {_CONFIG_PORT_STYLES_PATH}:\n{combined}"
+    )
+
+
+@pytest.mark.usefixtures("_fresh_mermaid_styles_singleton")
+class TestDecoupledConfigMissingPortStyleIsANamedError:
+    """
+    `validate_riskmap.py --force --to-graph` against a committed
+    `mode: decoupled` config whose `portStyles` lacks `port`, `pepport` or
+    `pepWrapOutline` -- deleted or set to the empty string -- exits 2 with a
+    named config error that points at `graphTypes.component.emission.portStyles`
+    in `mermaid-styles.yaml` and names the missing key, without the crash
+    banner and without the internal "S6" label. The mode comes from the
+    config, not from `--emission-mode`.
+
+    The override path is pinned separately by
+    `TestEmissionModeOverrideWithoutEmissionBlock`; here it is exercised only
+    to pin that `pepWrapOutline` is a recognised case on that path too.
+    """
+
+    @pytest.mark.parametrize("key", _DECOUPLED_REQUIRED_PORT_STYLE_KEYS)
+    def test_config_mode_with_a_deleted_port_style_key_gives_the_named_config_error(
+        self, tmp_path, repo_root, monkeypatch, capsys, key
+    ):
+        """
+        Given: a copy of the real corpus whose mermaid-styles.yaml keeps
+               mode: decoupled but has `key` deleted from portStyles
+        When: main() runs --force --to-graph out.md (no --emission-mode)
+        Then: exit 2, no crash banner, no "S6", and the output names `key`,
+              graphTypes.component.emission.portStyles and mermaid-styles.yaml
+        """
+        styles_path = _copy_real_corpus(tmp_path, repo_root)
+        _rewrite_port_styles(styles_path, lambda port_styles: port_styles.pop(key))
+
+        combined, exit_code = _run_to_graph(tmp_path, monkeypatch, capsys)
+        _assert_named_port_style_error(combined, exit_code, key)
+
+    @pytest.mark.parametrize("key", _DECOUPLED_REQUIRED_PORT_STYLE_KEYS)
+    def test_config_mode_with_an_empty_port_style_gives_the_named_config_error(
+        self, tmp_path, repo_root, monkeypatch, capsys, key
+    ):
+        """
+        Given: the same copy, with `key` present but set to ''
+        When: main() runs --force --to-graph out.md
+        Then: the same named config error naming `key`
+
+        An empty style string emits no classDef/style line, so the renderer
+        treats it exactly like an absent key; the usage error must too.
+        """
+        styles_path = _copy_real_corpus(tmp_path, repo_root)
+        _rewrite_port_styles(styles_path, lambda port_styles: port_styles.__setitem__(key, ""))
+
+        combined, exit_code = _run_to_graph(tmp_path, monkeypatch, capsys)
+        _assert_named_port_style_error(combined, exit_code, key)
+
+    def test_override_mode_with_a_deleted_pep_wrap_outline_gives_a_named_error(
+        self, tmp_path, repo_root, monkeypatch, capsys
+    ):
+        """
+        Given: the same copy with `pepWrapOutline` deleted, and the mode
+               supplied by --emission-mode decoupled
+        When: main() runs --force --to-graph out.md --emission-mode decoupled
+        Then: exit 2, no crash banner, no "S6", and `pepWrapOutline` is named
+
+        Pins pepWrapOutline as a recognised missing-port-style case on the
+        override path as well; the override's existing no-emission-block
+        wording is pinned elsewhere and is not constrained here.
+        """
+        styles_path = _copy_real_corpus(tmp_path, repo_root)
+        _rewrite_port_styles(styles_path, lambda port_styles: port_styles.pop("pepWrapOutline"))
+
+        combined, exit_code = _run_to_graph(tmp_path, monkeypatch, capsys, "--emission-mode", "decoupled")
+        assert exit_code == 2, f"Expected exit 2 (named usage error); got {exit_code}\n{combined}"
+        for marker in _CRASH_BANNER_MARKERS:
+            assert marker not in combined, f"A missing pepWrapOutline is a config gap, not a defect:\n{combined}"
+        assert "S6" not in combined, f"The internal self-check label must not leak:\n{combined}"
+        _assert_names_only_this_port_style_key(combined, "pepWrapOutline")
+
+    @pytest.mark.parametrize("key", _DECOUPLED_REQUIRED_PORT_STYLE_KEYS)
+    def test_config_mode_named_error_survives_the_hooks_quiet_mermaid_format_invocation(
+        self, tmp_path, repo_root, monkeypatch, capsys, key
+    ):
+        """
+        Given: the copy with `key` deleted from portStyles, and the argument
+               shape the graph-regeneration hook uses
+               (`scripts/hooks/precommit/regenerate_graphs.py`:
+               `--force --to-graph <out> -m --quiet`)
+        When: main() runs with exactly those flags
+        Then: the same named config error -- exit 2, no crash banner, key,
+              config path and file all printed despite --quiet
+
+        The hook is the only production caller and it inherits stdout, so a
+        usage error that --quiet suppressed would leave the contributor with a
+        bare exit code.
+        """
+        styles_path = _copy_real_corpus(tmp_path, repo_root)
+        _rewrite_port_styles(styles_path, lambda port_styles: port_styles.pop(key))
+
+        combined, exit_code = _run_to_graph(tmp_path, monkeypatch, capsys, "-m", "--quiet")
+        _assert_named_port_style_error(combined, exit_code, key)
+
+
+def _drop_emitted_lines(monkeypatch, method_name: str, marker: str) -> None:
+    """
+    Wrap `ComponentGraph.<method_name>` so lines containing `marker` are
+    dropped from its output -- an emitter defect where a configured style
+    never reaches the text. The config itself is left intact.
+    """
+    original = getattr(component_graph.ComponentGraph, method_name)
+
+    def _dropping(self, *args, **kwargs):
+        return [line for line in original(self, *args, **kwargs) if marker not in line]
+
+    monkeypatch.setattr(component_graph.ComponentGraph, method_name, _dropping)
+
+
+@pytest.mark.usefixtures("_fresh_mermaid_styles_singleton")
+class TestDecoupledConfiguredButUnemittedPortStyleStaysCrashShaped:
+    """
+    When the port style IS configured but the emitter fails to write its
+    line, S6 raises the same message as for an unconfigured style, and the
+    run must surface the crash banner with the S6 text visible -- in config
+    mode and on the override path alike. The named usage error is reserved
+    for a config that lacks the style; it must be decided from the resolved
+    config, not from the S6 message. A non-port S6 clause (a missing
+    category style line) is crash-shaped in config mode as well, matching
+    the override-path pin in `TestEmissionModeOverrideGenuineDefectNotMislabeled`.
+    """
+
+    @pytest.mark.parametrize(
+        ("method_name", "marker", "s6_text"),
+        [
+            ("_decoupled_classdefs", "classDef port ", "missing 'classDef port'"),
+            ("_decoupled_classdefs", "classDef pepport ", "missing 'classDef pepport'"),
+            ("_decoupled_styles", "_wrap ", "missing pepWrapOutline style line"),
+        ],
+        ids=["port-line-dropped", "pepport-line-dropped", "pepWrapOutline-line-dropped"],
+    )
+    def test_config_mode_dropped_style_line_with_style_configured_is_crash_shaped(
+        self, tmp_path, repo_root, monkeypatch, capsys, method_name, marker, s6_text
+    ):
+        """
+        Given: an unmodified copy of the real corpus (every port style
+               configured) and the emitter patched to drop the configured
+               style's line from its output
+        When: main() runs --force --to-graph out.md (mode from the config)
+        Then: exit 2 with the crash banner and the S6 text visible; no
+              named config error, no pointer at portStyles
+        """
+        _copy_real_corpus(tmp_path, repo_root)
+        _drop_emitted_lines(monkeypatch, method_name, marker)
+
+        combined, exit_code = _run_to_graph(tmp_path, monkeypatch, capsys)
+        _assert_crash_shaped_with(combined, exit_code, s6_text)
+
+    def test_override_mode_dropped_port_line_with_style_configured_is_crash_shaped(
+        self, tmp_path, repo_root, monkeypatch, capsys
+    ):
+        """
+        Given: the same unmodified copy and the emitter patched to drop the
+               `classDef port` line, with --emission-mode decoupled supplied
+        When: main() runs --force --to-graph out.md --emission-mode decoupled
+        Then: exit 2 with the crash banner and the S6 text visible; not the
+              "requires a populated ... emission block" usage error
+
+        The override's usage error is for a config that cannot supply the
+        style; a configured style that the emitter loses is a defect, on this
+        path too.
+        """
+        _copy_real_corpus(tmp_path, repo_root)
+        _drop_emitted_lines(monkeypatch, "_decoupled_classdefs", "classDef port ")
+
+        combined, exit_code = _run_to_graph(tmp_path, monkeypatch, capsys, "--emission-mode", "decoupled")
+        _assert_crash_shaped_with(combined, exit_code, "missing 'classDef port'")
+
+    def test_config_mode_non_port_s6_failure_is_crash_shaped(self, tmp_path, repo_root, monkeypatch, capsys):
+        """
+        Given: an unmodified copy of the real corpus and verify_plan patched
+               to raise S6's missing-category-style-line variant
+        When: main() runs --force --to-graph out.md (mode from the config)
+        Then: exit 2 with the crash banner and that S6 text visible; no named
+              config error
+        """
+        _copy_real_corpus(tmp_path, repo_root)
+
+        def _raise(*_args, **_kwargs):
+            raise AssertionError("S6 violated: missing category style line 'style componentData fill:#eee'")
+
+        monkeypatch.setattr(component_graph, "verify_plan", _raise)
+
+        combined, exit_code = _run_to_graph(tmp_path, monkeypatch, capsys)
+        _assert_crash_shaped_with(combined, exit_code, "S6 violated: missing category style line")

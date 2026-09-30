@@ -8,18 +8,39 @@ pre-commit framework with staged filenames as positional argv (pass_filenames:
 true) and must regenerate the graph and git-add it so it lands in the same
 commit as the source change (Mode B auto-stage pattern).
 
-Since #477 removed the control and risk graph generators, only one trigger
-remains:
+Since #477 removed the control and risk graph generators, only one graph
+output remains, driven by two trigger files:
 
-  Graph output pair              | Trigger file
+  Graph output pair              | Trigger file(s)
   --------------------------------|------------------
-  risk-map-graph.md + .mermaid   | components.yaml
+  risk-map-graph.md + .mermaid   | components.yaml OR
+                                  | mermaid-styles.yaml
+
+ADR-036 D3/D7 coverage:
+`test_precommit_regenerate_graphs_trigger.py` only pins
+the `.pre-commit-config.yaml` `files:` regex -- it never exercises this
+module's own dispatch logic (`_matches`/`main()`). A `mermaid-styles.yaml`
+edit (including a mode flip) could satisfy that
+regex-only suite while this module's `has_components`/`gen_risk_map`/etc.
+still silently no-op on the file, leaving the committed diagram stale --
+exactly the bug this trigger exists to prevent. `TestMermaidStylesTrigger`
+below closes that gap at the wrapper-dispatch layer (this module's existing,
+established test home), mirroring `TestTriggerBehaviour`'s pattern.
+
+Trigger-scope decision (documented here because this is the wrapper's
+own test file): `mermaid-styles.yaml` change regenerates the component
+graph (risk-map-graph), the only graph this module still emits post-#477.
+Rationale: `mermaid-styles.yaml`'s `graphTypes.component.emission` block
+(mode/aspects/concerns/portStyles) governs that graph's rendering, so an
+edit to the file must regenerate it the same as a `components.yaml` edit
+does. There is no controls-graph or risk-graph left to keep in sync.
 
 Test Coverage:
 ==============
-Total Tests: 20
+Total Tests: 24
 - Trigger behaviour:      6  (components triggers, alone and mixed with
                               non-triggering files; controls/risks/unrelated/empty don't)
+- mermaid-styles.yaml trigger: 4  (TestMermaidStylesTrigger)
 - Failure modes:          4  (generation failure, git-add failure, success, rc propagation)
 - Git-add alignment:      2  (correct file pair, not called for unrelated file)
 - Edge cases:             4  (repo-relative path, absolute path, duplicate argv,
@@ -57,6 +78,7 @@ VALIDATOR_SCRIPT = "scripts/hooks/validate_riskmap.py"
 COMPONENTS_YAML = "risk-map/yaml/components.yaml"
 CONTROLS_YAML = "risk-map/yaml/controls.yaml"
 RISKS_YAML = "risk-map/yaml/risks.yaml"
+MERMAID_STYLES_YAML = "risk-map/yaml/mermaid-styles.yaml"
 
 RISK_MAP_MD = "risk-map/diagrams/risk-map-graph.md"
 RISK_MAP_MERMAID = "risk-map/diagrams/risk-map-graph.mermaid"
@@ -204,6 +226,101 @@ class TestTriggerBehaviour:
 
         assert result == 0
         mock_run.assert_not_called()
+
+
+# ===========================================================================
+# mermaid-styles.yaml Trigger (ADR-036 D3/D7)
+# ===========================================================================
+
+
+class TestMermaidStylesTrigger:
+    """
+    Tests verifying that a staged mermaid-styles.yaml actually drives this
+    module's own generation dispatch — not just the separate
+    `.pre-commit-config.yaml` `files:` regex pinned by
+    `test_precommit_regenerate_graphs_trigger.py`. See the module docstring's
+    "Trigger-scope decision" note: post-#477 there is only the component
+    graph (risk-map-graph) left to regenerate, and mermaid-styles.yaml's
+    `graphTypes.component.emission` block governs its rendering.
+
+    `has_mermaid_styles = _matches(argv, _MERMAID_STYLES)` feeds into
+    `gen_risk_map = has_components or has_mermaid_styles`, so
+    `main([MERMAID_STYLES_YAML])` drives generation instead of falling
+    through the `if not gen_risk_map:` guard as a silent no-op. This class
+    pins that dispatch as a regression guard.
+    """
+
+    def test_mermaid_styles_change_triggers_component_graph(self):
+        """
+        Only mermaid-styles.yaml staged generates the component graph and
+        stages its 2 files — the same scope as a components.yaml-only change.
+
+        Given: pre-commit framework passes ["risk-map/yaml/mermaid-styles.yaml"]
+        When: main() is called
+        Then: The validate_riskmap command runs, both diagram files are
+              git-added, and main() returns 0
+        """
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = _make_subprocess_mock(0)
+
+            result = main([MERMAID_STYLES_YAML])
+
+        assert result == 0
+
+        subprocess_calls = [c.args[0] for c in mock_run.call_args_list]
+
+        assert CMD_RISK_MAP in subprocess_calls, "risk-map-graph generation missing"
+        assert GIT_ADD_RISK_MAP in subprocess_calls, "git add for risk-map-graph missing"
+
+    def test_mermaid_styles_change_alone_is_not_a_silent_no_op(self):
+        """
+        False-positive guard, isolated from the assertion above: proves
+        subprocess.run is actually invoked at all for a mermaid-styles.yaml-only
+        change, so a bug that satisfies the assertion above only because some
+        OTHER code path coincidentally also fires cannot mask a true no-op
+        regression here.
+        """
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = _make_subprocess_mock(0)
+
+            result = main([MERMAID_STYLES_YAML])
+
+        assert result == 0
+        # main([mermaid-styles.yaml]) must not be a silent no-op -- exactly the
+        # stale-diagram bug this trigger exists to prevent.
+        mock_run.assert_called()
+
+    def test_mermaid_styles_and_components_together_do_not_double_generate(self):
+        """
+        mermaid-styles.yaml + components.yaml staged together still generates
+        the component graph exactly once (both triggers overlap on the same
+        graph; dedup must hold across the two trigger sources, not just
+        within a single source).
+        """
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = _make_subprocess_mock(0)
+
+            result = main([MERMAID_STYLES_YAML, COMPONENTS_YAML])
+
+        assert result == 0
+
+        subprocess_calls = [c.args[0] for c in mock_run.call_args_list]
+        assert subprocess_calls.count(CMD_RISK_MAP) == 1, "risk-map-graph generated more than once"
+
+    def test_mermaid_styles_change_alongside_unrelated_file_only_triggers_matching(self):
+        """
+        Mixed argv (mermaid-styles.yaml + an unrelated file) triggers only
+        the mermaid-styles-driven generation, mirroring
+        TestEdgeCases::test_mixed_relevant_and_unrelated_files_only_triggers_matching.
+        """
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = _make_subprocess_mock(0)
+
+            result = main(["README.md", MERMAID_STYLES_YAML])
+
+        assert result == 0
+        subprocess_calls = [c.args[0] for c in mock_run.call_args_list]
+        assert CMD_RISK_MAP in subprocess_calls
 
 
 # ===========================================================================
@@ -503,16 +620,20 @@ class TestSubprocessCallShape:
 """
 Test Summary
 ============
-Total Tests: 19
-- Trigger behaviour:               5  (TestTriggerBehaviour)
+Total Tests: 24
+- Trigger behaviour:               6  (TestTriggerBehaviour)
+- mermaid-styles.yaml trigger:     4  (TestMermaidStylesTrigger)
 - Failure modes / exit codes:      4  (TestFailureModes)
 - Git-add alignment:               2  (TestGitAddAlignment)
 - Edge cases:                      4  (TestEdgeCases)
 - Subprocess call shape / order:   4  (TestSubprocessCallShape, incl. empty-argv no-op)
 
 Coverage Areas:
-- components.yaml is the sole surviving trigger (post-#477); controls.yaml
-  and risks.yaml no longer trigger any generation on their own
+- components.yaml trigger (risk-map-graph only, post-#477)
+- controls.yaml and risks.yaml no longer trigger any generation on their own
+- mermaid-styles.yaml trigger (risk-map-graph -- see module docstring
+  "Trigger-scope decision")
+- No double-generation when multiple triggers present in argv
 - git add not called when generation fails
 - Exit code 0 iff generation and git add both succeed; the validate command's
   own non-zero return code is propagated

@@ -23,6 +23,7 @@ Options:
 
 import argparse
 import sys
+from dataclasses import replace
 from pathlib import Path
 
 import yaml
@@ -30,7 +31,14 @@ import yaml
 # Configuration Constants
 from riskmap_validator.config import DEFAULT_COMPONENTS_FILE
 from riskmap_validator.graphing import ComponentGraph, MermaidConfigLoader
-from riskmap_validator.graphing.graph_utils import MermaidStylesUnavailableError, _get_schema_categories
+from riskmap_validator.graphing.component_graph import S6_MISSING_PORT_STYLE_SIGNATURES
+from riskmap_validator.graphing.decouple import EmissionConfig, check_emission_drift
+from riskmap_validator.graphing.graph_utils import (
+    EmissionConfigError,
+    MermaidStylesUnavailableError,
+    _get_schema_categories,
+    _parse_emission_config,
+)
 from riskmap_validator.utils import get_staged_yaml_files, parse_controls_yaml
 from riskmap_validator.validator import (
     ComponentEdgeValidator,
@@ -40,6 +48,43 @@ from riskmap_validator.validator import (
     check_controls_components_mirror,
     check_lifecycle_stage_order_uniqueness,
 )
+
+
+class _EmissionModeOverrideConfigLoader(MermaidConfigLoader):
+    """
+    Wraps `MermaidConfigLoader` to override `graphTypes.component.emission.mode`
+    for a single run (ADR-036 D3, the `--emission-mode` CLI flag).
+
+    Every other accessor delegates to the real, loaded config unchanged; only
+    `get_emission_config().mode` reflects the override. Purely in-memory -- config
+    remains the source of truth and this never persists to mermaid-styles.yaml.
+    """
+
+    def __init__(self, override_mode: str, config_file: Path | None = None) -> None:
+        super().__init__(config_file)
+        self._override_mode = override_mode
+
+    def get_emission_config(self) -> EmissionConfig:
+        base = super().get_emission_config()
+        return replace(base, mode=self._override_mode)
+
+
+def _unconfigured_port_style_key(error: AssertionError, config_loader: MermaidConfigLoader) -> str | None:
+    """
+    Return the `portStyles` key an S6 failure demanded if the resolved config
+    lacks it or leaves it blank; otherwise None.
+
+    The S6 message names the key but not the cause: a configured style whose
+    line the emitter failed to write raises the same message. Reading the
+    loader the emitter used separates the config gap (key returned) from the
+    emitter defect (None, so the caller re-raises).
+    """
+    message = str(error)
+    key = next((k for k, sig in S6_MISSING_PORT_STYLE_SIGNATURES.items() if sig in message), None)
+    if key is None:
+        return None
+    port_styles = config_loader.get_emission_config().port_styles or {}
+    return None if port_styles.get(key) else key
 
 
 def parse_args() -> argparse.Namespace:
@@ -125,6 +170,17 @@ Exit Codes:
             "Run a specific check mode. 'lifecycle': run only the lifecycle-stage.yaml "
             "order-uniqueness check (used by validate-lifecycle-stage pre-commit hook). "
             "'default': run the full component-edges + warn-only check pipeline."
+        ),
+    )
+
+    parser.add_argument(
+        "--emission-mode",
+        choices=["flat", "decoupled"],
+        default=None,
+        help=(
+            "Override graphTypes.component.emission.mode for this run only (ADR-036 D3). "
+            "Config remains the source of truth -- the override never persists "
+            "to mermaid-styles.yaml. Omit to use the config's own mode."
         ),
     )
 
@@ -444,13 +500,125 @@ def main() -> None:
                 if args.block:
                     warn_block_triggered = True
 
-        # Unified exit for warn-only checks — fires after both checks have printed.
+        # Emission drift check (ADR-036 D7). Reads mermaid-styles.yaml, a repo file
+        # other than the corpus under test, so it skips under a custom --file corpus
+        # the same way the controls↔components mirror check does above. Runs whenever
+        # graphTypes.component.emission is present in mermaid-styles.yaml, regardless
+        # of its mode -- so the aspects/concerns registry cannot silently rot whatever
+        # mode is set. Guarded on the
+        # block's presence the same way the other warn-only checks guard on file
+        # existence: an absent emission block (any consumer's mermaid-styles.yaml
+        # that has not opted in) is a silent skip, not a warning.
+        #
+        # Uses _parse_emission_config() (strict, raises on malformation) rather
+        # than MermaidConfigLoader.get_emission_config() (which silently degrades
+        # a malformed block to an empty-registry flat config). Calling the
+        # degrading accessor here would run check_emission_drift() against the
+        # degraded empty registry and cascade one "no entry covers cross edge"
+        # warning per corpus cross edge -- all of them misleading, since the
+        # real registries exist and were merely dropped during parsing. A
+        # malformed-but-present block gets exactly one distinct warning naming
+        # the real problem instead; a validly-parsed block (however sparse)
+        # still runs the normal per-edge drift check below.
+        #
+        # Any other exception while the check runs is a failure, not a skip: it
+        # prints under --quiet and is promoted by --block, the same as the
+        # category style check above.
+        mermaid_styles_path = Path("risk-map/yaml/mermaid-styles.yaml")
+        if skip_repo_scoped:
+            if not args.quiet:
+                print("   Emission drift check skipped (--file names a custom corpus)")
+        elif mermaid_styles_path.exists() and validator.components:
+            try:
+                with open(mermaid_styles_path, encoding="utf-8") as _fh:
+                    _styles_data = yaml.safe_load(_fh) or {}
+                _emission_raw = _styles_data.get("graphTypes", {}).get("component", {}).get("emission")
+                if _emission_raw is not None:
+                    try:
+                        emission_cfg = _parse_emission_config(_emission_raw)
+                    except EmissionConfigError:
+                        label = "❌" if args.block else "⚠️"
+                        print(f"   {label} Emission drift check found 1 issue(s):")
+                        print(
+                            "     - graphTypes.component.emission could not be parsed; "
+                            "degraded to flat -- registries could not be validated"
+                        )
+                        if args.block:
+                            warn_block_triggered = True
+                    else:
+                        emission_warnings = check_emission_drift(
+                            validator.forward_map, validator.components, emission_cfg
+                        )
+                        if emission_warnings:
+                            label = "❌" if args.block else "⚠️"
+                            print(f"   {label} Emission drift check found {len(emission_warnings)} issue(s):")
+                            for warning in emission_warnings:
+                                print(f"     - {warning}")
+                            if args.block:
+                                warn_block_triggered = True
+                        elif not args.quiet:
+                            print("✅ Emission drift check passed")
+            except SystemExit:
+                raise
+            except Exception as e:
+                # Fail loud. A guard that could not run has not passed, so this
+                # prints even under --quiet and is promoted by --block like any
+                # other failure of this check.
+                print(f"   ❌ Emission drift check could not run: {e}")
+                if args.block:
+                    warn_block_triggered = True
+
+        # Unified exit for warn-only checks — fires after all four checks have printed.
         if warn_block_triggered:
             print("   ❌ Warn-only check failures promoted to errors (--block).")
             sys.exit(1)
 
         if args.to_graph:
-            graph = ComponentGraph(validator.forward_map, validator.components, debug=args.debug)
+            # ComponentGraph.__init__ builds the graph eagerly, so a decoupled
+            # render whose resolved portStyles lacks a style the plan needs
+            # fails right here, in S6, rather than at to_mermaid(). That
+            # happens in config mode (mode: decoupled with a port style
+            # deleted or blank) and under an --emission-mode override (e.g.
+            # against a file with no graphTypes.component.emission block).
+            # The loader is resolved before construction and is the one the
+            # emitter reads: the override wrapper, or the default singleton
+            # ComponentGraph itself falls back to (passed implicitly so the
+            # config-mode call signature is unchanged).
+            #
+            # S6 raises the same message whether a style is unconfigured or
+            # configured but never emitted, so the message only identifies
+            # the key (S6_MISSING_PORT_STYLE_SIGNATURES); the resolved config
+            # decides. Missing or blank there -> named usage error, exit 2,
+            # printed even under --quiet (the graph-regeneration hook runs
+            # with it). Configured -> an emitter defect, re-raised to the
+            # outer crash banner, as is every other exception.
+            config_loader = (
+                _EmissionModeOverrideConfigLoader(args.emission_mode)
+                if args.emission_mode
+                else MermaidConfigLoader.get_instance()
+            )
+            try:
+                if args.emission_mode:
+                    graph = ComponentGraph(
+                        validator.forward_map,
+                        validator.components,
+                        debug=args.debug,
+                        config_loader=config_loader,
+                    )
+                else:
+                    graph = ComponentGraph(validator.forward_map, validator.components, debug=args.debug)
+            except AssertionError as e:
+                key = _unconfigured_port_style_key(e, config_loader)
+                if key is None:
+                    raise
+                source = f"--emission-mode {args.emission_mode}" if args.emission_mode else "mode: decoupled"
+                print(
+                    f"❌ {source} requires a populated graphTypes.component.emission block "
+                    f"in mermaid-styles.yaml with a non-empty portStyles.{key} "
+                    f"(graphTypes.component.emission.portStyles); it is missing or empty, "
+                    f"so the decoupled renderer cannot draw it"
+                )
+                sys.exit(2)
             try:
                 graph_output = graph.to_mermaid()
                 # Write graph to file
