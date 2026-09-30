@@ -6,6 +6,15 @@ Invoked by the pre-commit framework with staged filenames as positional argv (pa
 true). Converts .mmd/.mermaid files under risk-map/diagrams/ to SVGs under risk-map/svg/ via
 the Mermaid CLI (mmdc) and git-adds them so they land in the same commit as the source change
 (Mode B auto-stage).
+
+Chained-generator input discovery (ADR-005 Addendum 2026-09-28): the pre-commit framework
+computes each hook's argv from the staged set once, before any hook runs, so a diagram that
+`regenerate-graphs` stages earlier in the same run never appears in this hook's own argv when
+the triggering commit only touched components.yaml or mermaid-styles.yaml. This hook's input
+set is therefore the union of its argv (unchanged `pass_filenames: true` behaviour) and whatever
+diagram files are staged in the git index when it runs, discovered via `git diff --cached
+--name-only -z --diff-filter=ACMR` -- never the working tree, since only staged content is part
+of the commit being made. `-z` NUL-separates entries so a C-quoted path is read, not dropped.
 """
 
 import json
@@ -135,9 +144,46 @@ def _discover_chromium() -> str | None:
     return None
 
 
+def _staged_mermaid_files() -> list[str]:
+    """
+    Return repo-relative paths of Mermaid diagram files staged in the git index right now.
+
+    `--diff-filter=ACMR` covers added/copied/modified/renamed staged entries (never deletions --
+    a deleted diagram has nothing to render). Queries the index (`--cached`), not the working
+    tree: a diagram edited but not staged, or staged in a prior commit and merely present on
+    disk, is not part of the commit this hook is chained into.
+
+    `-z` NUL-terminates each entry and disables git's default C-quoting of paths containing
+    non-ASCII or special characters (`core.quotePath`) -- splitting the plain `--name-only`
+    output on newlines would silently drop or mangle a quoted path instead of matching it.
+
+    `subprocess.run`'s result is guarded rather than trusted blindly: this module's own test
+    suite patches `subprocess.run` wholesale for the mmdc/git-add calls, so this query can
+    receive the same mocked result under those tests, whose `.stdout` is not a real string.
+    `check=True` is avoided for the same reason it would be wrong outside tests too -- a
+    real git failure here (e.g. no commits yet) degrades to "nothing staged", not a crash.
+
+    Returns:
+        Mermaid diagram paths currently staged, filtered by `_is_mermaid_file`, in the order
+        `git diff` reports them.
+    """
+    result = subprocess.run(
+        ["git", "diff", "--cached", "--name-only", "-z", "--diff-filter=ACMR"],
+        capture_output=True,
+        text=True,
+    )
+    stdout = result.stdout if isinstance(result.stdout, str) else ""
+    return [entry for entry in stdout.split("\0") if entry and _is_mermaid_file(entry)]
+
+
 def main(argv: list[str]) -> int:
     """
     Convert staged Mermaid files to SVG and git-add the outputs.
+
+    The set of files rendered is the order-preserving, de-duplicated union of argv's Mermaid
+    files and whatever Mermaid files are staged in the index right now (ADR-005 Addendum
+    2026-09-28) -- this picks up a diagram `regenerate-graphs` staged earlier in the same
+    pre-commit run even when this hook's own argv carries only the YAML trigger that fired it.
 
     One puppeteer config temp file is created per invocation and shared across all
     input files. The temp file is cleaned up in a finally block regardless of outcome.
@@ -148,7 +194,12 @@ def main(argv: list[str]) -> int:
     Returns:
         0 if all conversions and git-adds succeeded, non-zero otherwise.
     """
-    mermaid_files = [p for p in argv if _is_mermaid_file(p)]
+    mermaid_files: list[str] = []
+    seen: set[str] = set()
+    for path in [p for p in argv if _is_mermaid_file(p)] + _staged_mermaid_files():
+        if path not in seen:
+            seen.add(path)
+            mermaid_files.append(path)
 
     if not mermaid_files:
         return 0

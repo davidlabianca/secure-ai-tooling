@@ -26,9 +26,9 @@ The validation script checks for:
 - **No isolated components**: Components should have at least one `to` or `from` edge
 - **Valid component references**: All components referenced in edges must exist
 
-**Automatic Graph Generation**: The pre-commit framework invokes the `regenerate-graphs` hook (`scripts/hooks/precommit/regenerate_graphs.py`) when `components.yaml` is staged. The generated pair is staged with `git add` so it lands in the same commit (Mode B auto-stage):
+**Automatic Graph Generation**: The pre-commit framework invokes the `regenerate-graphs` hook (`scripts/hooks/precommit/regenerate_graphs.py`) when `components.yaml` or `mermaid-styles.yaml` is staged. The generated pair is staged with `git add` so it lands in the same commit (Mode B auto-stage):
 
-- **Component Graph**: When `components.yaml` is staged, generates `./risk-map/diagrams/risk-map-graph.md`
+- **Component Graph**: When `components.yaml` or `mermaid-styles.yaml` is staged, generates `./risk-map/diagrams/risk-map-graph.md`
   - Uses Elk layout engine for automatic positioning and ranking
   - Organizes components into category-based subgraphs with configurable styling
 

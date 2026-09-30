@@ -400,17 +400,17 @@ Find all risks that occur during the runtime phase:
 ```python
 import yaml
 
-with open('risk-map/yaml/risks.yaml', 'r') as f:
+with open("risk-map/yaml/risks.yaml", "r") as f:
     risks_data = yaml.safe_load(f)
 
 runtime_risks = []
-for risk in risks_data['risks']:
-    lifecycle = risk.get('lifecycleStage', [])
+for risk in risks_data["risks"]:
+    lifecycle = risk.get("lifecycleStage", [])
     # Handle both array and string values
-    if isinstance(lifecycle, list) and 'runtime' in lifecycle:
-        runtime_risks.append(risk['id'])
-    elif lifecycle == 'all':
-        runtime_risks.append(risk['id'])
+    if isinstance(lifecycle, list) and "runtime" in lifecycle:
+        runtime_risks.append(risk["id"])
+    elif lifecycle == "all":
+        runtime_risks.append(risk["id"])
 
 print(f"Risks occurring at runtime: {runtime_risks}")
 # Output: ['riskModelEvasion', 'riskPromptInjection', 'riskDenialOfMLService', 'riskModelReverseEngineering', 'riskSensitiveDataDisclosure', 'riskInferredSensitiveData', 'riskInsecureModelOutput', 'riskRogueActions', 'riskModelDeploymentTampering', 'riskModelExfiltration', ...]
@@ -423,23 +423,20 @@ Query all risks that map to specific MITRE ATLAS techniques:
 ```python
 import yaml
 
-with open('risk-map/yaml/risks.yaml', 'r') as f:
+with open("risk-map/yaml/risks.yaml", "r") as f:
     risks_data = yaml.safe_load(f)
 
 mitre_atlas_risks = {}
-for risk in risks_data['risks']:
-    mappings = risk.get('mappings', {})
-    if 'mitre-atlas' in mappings:
-        mitre_atlas_risks[risk['id']] = {
-            'title': risk['title'],
-            'techniques': mappings['mitre-atlas']
-        }
+for risk in risks_data["risks"]:
+    mappings = risk.get("mappings", {})
+    if "mitre-atlas" in mappings:
+        mitre_atlas_risks[risk["id"]] = {"title": risk["title"], "techniques": mappings["mitre-atlas"]}
 
 # Find risks mapping to a specific technique. Mapping values are version-pinned,
 # so the lookup key carries its @-token to match the on-disk value exactly.
-target_technique = 'AML.T0020@5.0.1'
+target_technique = "AML.T0020@5.0.1"
 for risk_id, info in mitre_atlas_risks.items():
-    if target_technique in info['techniques']:
+    if target_technique in info["techniques"]:
         print(f"{risk_id}: {info['title']} -> {target_technique}")
 # Output: riskDataPoisoning: Data Poisoning -> AML.T0020@5.0.1
 ```
@@ -451,25 +448,17 @@ Find controls that protect confidentiality:
 ```python
 import yaml
 
-with open('risk-map/yaml/controls.yaml', 'r') as f:
+with open("risk-map/yaml/controls.yaml", "r") as f:
     controls_data = yaml.safe_load(f)
 
 confidentiality_controls = []
-for control in controls_data['controls']:
-    impact = control.get('impactType', [])
+for control in controls_data["controls"]:
+    impact = control.get("impactType", [])
     # Handle both array and string values
-    if isinstance(impact, list) and 'confidentiality' in impact:
-        confidentiality_controls.append({
-            'id': control['id'],
-            'title': control['title'],
-            'impacts': impact
-        })
-    elif impact == 'all':
-        confidentiality_controls.append({
-            'id': control['id'],
-            'title': control['title'],
-            'impacts': 'all'
-        })
+    if isinstance(impact, list) and "confidentiality" in impact:
+        confidentiality_controls.append({"id": control["id"], "title": control["title"], "impacts": impact})
+    elif impact == "all":
+        confidentiality_controls.append({"id": control["id"], "title": control["title"], "impacts": "all"})
 
 print(f"Found {len(confidentiality_controls)} controls protecting confidentiality")
 for ctrl in confidentiality_controls[:3]:
@@ -483,25 +472,17 @@ Find risks that can be exploited by external attackers:
 ```python
 import yaml
 
-with open('risk-map/yaml/risks.yaml', 'r') as f:
+with open("risk-map/yaml/risks.yaml", "r") as f:
     risks_data = yaml.safe_load(f)
 
 external_actor_risks = []
-for risk in risks_data['risks']:
-    actor_access = risk.get('actorAccess', [])
+for risk in risks_data["risks"]:
+    actor_access = risk.get("actorAccess", [])
     # Handle both array and string values
-    if isinstance(actor_access, list) and 'external' in actor_access:
-        external_actor_risks.append({
-            'id': risk['id'],
-            'title': risk['title'],
-            'access_levels': actor_access
-        })
-    elif actor_access == 'all':
-        external_actor_risks.append({
-            'id': risk['id'],
-            'title': risk['title'],
-            'access_levels': 'all'
-        })
+    if isinstance(actor_access, list) and "external" in actor_access:
+        external_actor_risks.append({"id": risk["id"], "title": risk["title"], "access_levels": actor_access})
+    elif actor_access == "all":
+        external_actor_risks.append({"id": risk["id"], "title": risk["title"], "access_levels": "all"})
 
 print(f"Risks exploitable by external actors: {len(external_actor_risks)}")
 for risk in external_actor_risks[:5]:
@@ -516,31 +497,31 @@ Generate clickable links to framework techniques:
 ```python
 import yaml
 
-with open('risk-map/yaml/frameworks.yaml', 'r') as f:
+with open("risk-map/yaml/frameworks.yaml", "r") as f:
     frameworks_data = yaml.safe_load(f)
 
-with open('risk-map/yaml/risks.yaml', 'r') as f:
+with open("risk-map/yaml/risks.yaml", "r") as f:
     risks_data = yaml.safe_load(f)
 
 # Build framework lookup
-frameworks = {fw['id']: fw for fw in frameworks_data['frameworks']}
+frameworks = {fw["id"]: fw for fw in frameworks_data["frameworks"]}
 
 # Generate URIs for risk mappings
-risk_id = 'riskDataPoisoning'  # Data Poisoning
-risk = next(r for r in risks_data['risks'] if r['id'] == risk_id)
-mappings = risk.get('mappings', {})
+risk_id = "riskDataPoisoning"  # Data Poisoning
+risk = next(r for r in risks_data["risks"] if r["id"] == risk_id)
+mappings = risk.get("mappings", {})
 
-if 'mitre-atlas' in mappings:
-    framework = frameworks['mitre-atlas']
-    pattern = framework.get('techniqueUriPattern')
+if "mitre-atlas" in mappings:
+    framework = frameworks["mitre-atlas"]
+    pattern = framework.get("techniqueUriPattern")
 
     if pattern:
         print(f"MITRE ATLAS techniques for {risk['title']}:")
-        for technique in mappings['mitre-atlas']:
+        for technique in mappings["mitre-atlas"]:
             # Mapping values are version-pinned (e.g. AML.T0020@5.0.1). Strip the
             # @-token before substitution so the URI targets the base technique ID.
-            base_id = technique.split('@', 1)[0]
-            uri = pattern.replace('{id}', base_id)
+            base_id = technique.split("@", 1)[0]
+            uri = pattern.replace("{id}", base_id)
             print(f"  - {technique}: {uri}")
 # Output:
 #   MITRE ATLAS techniques for Data Poisoning:
@@ -557,29 +538,29 @@ Build a comprehensive mapping view:
 import yaml
 
 # Load all data
-with open('risk-map/yaml/risks.yaml', 'r') as f:
-    risks = {r['id']: r for r in yaml.safe_load(f)['risks']}
+with open("risk-map/yaml/risks.yaml", "r") as f:
+    risks = {r["id"]: r for r in yaml.safe_load(f)["risks"]}
 
-with open('risk-map/yaml/controls.yaml', 'r') as f:
-    controls = {c['id']: c for c in yaml.safe_load(f)['controls']}
+with open("risk-map/yaml/controls.yaml", "r") as f:
+    controls = {c["id"]: c for c in yaml.safe_load(f)["controls"]}
 
-with open('risk-map/yaml/frameworks.yaml', 'r') as f:
-    frameworks = {fw['id']: fw for fw in yaml.safe_load(f)['frameworks']}
+with open("risk-map/yaml/frameworks.yaml", "r") as f:
+    frameworks = {fw["id"]: fw for fw in yaml.safe_load(f)["frameworks"]}
 
 # Find controls for a risk and their framework mappings
-risk_id = 'riskDataPoisoning'
+risk_id = "riskDataPoisoning"
 risk = risks[risk_id]
 
 print(f"Risk: {risk['title']} ({risk_id})")
 print(f"Framework Mappings:")
-for fw_id, techniques in risk.get('mappings', {}).items():
+for fw_id, techniques in risk.get("mappings", {}).items():
     print(f"  {frameworks[fw_id]['name']}: {', '.join(techniques)}")
 
 print(f"\nControls:")
-for control_id in risk.get('controls', []):
+for control_id in risk.get("controls", []):
     control = controls[control_id]
     print(f"  - {control['title']}")
-    for fw_id, techniques in control.get('mappings', {}).items():
+    for fw_id, techniques in control.get("mappings", {}).items():
         print(f"    {frameworks[fw_id]['name']}: {', '.join(techniques)}")
 ```
 
@@ -591,23 +572,23 @@ Analyze which frameworks are most referenced:
 import yaml
 from collections import defaultdict
 
-with open('risk-map/yaml/risks.yaml', 'r') as f:
+with open("risk-map/yaml/risks.yaml", "r") as f:
     risks_data = yaml.safe_load(f)
 
-with open('risk-map/yaml/controls.yaml', 'r') as f:
+with open("risk-map/yaml/controls.yaml", "r") as f:
     controls_data = yaml.safe_load(f)
 
-framework_coverage = defaultdict(lambda: {'risks': 0, 'controls': 0})
+framework_coverage = defaultdict(lambda: {"risks": 0, "controls": 0})
 
 # Count risk mappings
-for risk in risks_data['risks']:
-    for fw_id in risk.get('mappings', {}).keys():
-        framework_coverage[fw_id]['risks'] += 1
+for risk in risks_data["risks"]:
+    for fw_id in risk.get("mappings", {}).keys():
+        framework_coverage[fw_id]["risks"] += 1
 
 # Count control mappings
-for control in controls_data['controls']:
-    for fw_id in control.get('mappings', {}).keys():
-        framework_coverage[fw_id]['controls'] += 1
+for control in controls_data["controls"]:
+    for fw_id in control.get("mappings", {}).keys():
+        framework_coverage[fw_id]["controls"] += 1
 
 print("Framework Coverage Report:")
 for fw_id, counts in sorted(framework_coverage.items()):
@@ -626,23 +607,23 @@ Find personas and their ISO 22989 actor mappings:
 ```python
 import yaml
 
-with open('risk-map/yaml/personas.yaml', 'r') as f:
+with open("risk-map/yaml/personas.yaml", "r") as f:
     personas_data = yaml.safe_load(f)
 
-with open('risk-map/yaml/frameworks.yaml', 'r') as f:
-    frameworks = {fw['id']: fw for fw in yaml.safe_load(f)['frameworks']}
+with open("risk-map/yaml/frameworks.yaml", "r") as f:
+    frameworks = {fw["id"]: fw for fw in yaml.safe_load(f)["frameworks"]}
 
 # List all persona mappings
 print("Persona to Framework Actor Mappings:")
-for persona in personas_data['personas']:
-    if persona.get('deprecated'):
+for persona in personas_data["personas"]:
+    if persona.get("deprecated"):
         continue  # Skip deprecated personas
 
-    mappings = persona.get('mappings', {})
+    mappings = persona.get("mappings", {})
     if mappings:
         print(f"\n{persona['title']} ({persona['id']}):")
         for fw_id, roles in mappings.items():
-            fw_name = frameworks.get(fw_id, {}).get('name', fw_id)
+            fw_name = frameworks.get(fw_id, {}).get("name", fw_id)
             print(f"  {fw_name}: {', '.join(roles)}")
 
 # Output:

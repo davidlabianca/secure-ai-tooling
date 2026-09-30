@@ -17,6 +17,7 @@ Findings are grouped by severity. Structural issues block submission until fixed
 7. [Bare identifier in prose (use a sentinel)](#7-bare-identifier-in-prose-use-a-sentinel)
 8. [Unresolved or malformed sentinel](#8-unresolved-or-malformed-sentinel)
 9. [Retired field (`relevantQuestions`)](#9-retired-field-relevantquestions)
+10. [Cross-category edge without an `emission.concerns` entry](#10-cross-category-edge-without-an-emissionconcerns-entry)
 
 **Content-quality issues (flagged for human review)**
 
@@ -97,6 +98,12 @@ A `{{…}}` sentinel does not resolve: `{{<entity-id>}}` names an ID absent from
 The proposal adds a `relevantQuestions` field to a risk. The field was removed from `risks.schema.json` in the conformance sweep ([ADR-019](../../../docs/adr/019-risks-schema.md) D6); `additionalProperties: false` now rejects it at commit.
 
 - Fix: remove the field. It had no consumer. Reader-facing questions belong to personas (`identificationQuestions`), not risks.
+
+### 10. Cross-category edge without an `emission.concerns` entry
+
+A new or retargeted `components.yaml` edge crosses a top-level category boundary but has no matching entry in `mermaid-styles.yaml`'s `emission.concerns` registry. The drift guard (ADR-036 D7) fails the commit under `--block`.
+
+- Fix: add the edge to an existing concern label's `edges` list under `emission.concerns` in the same content PR as the edge — see [`scripts/docs/styling-configuration.md`](../../../scripts/docs/styling-configuration.md)'s "Emission Mode" section and [ADR-036 D12](../../../docs/adr/036-decoupled-component-graph-emission.md#d12-emissionconcerns-entries-route-with-the-edges-they-label). The `emission.concerns` entry rides the content PR; a brand-new label is a `main`-routed schema change, not something a content PR can add.
 
 ---
 

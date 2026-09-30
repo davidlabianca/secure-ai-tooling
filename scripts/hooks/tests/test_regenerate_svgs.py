@@ -278,7 +278,14 @@ class TestMainHappyPath:
 
         Given: pre-commit framework passes ["risk-map/diagrams/foo.mmd"]
         When: main() is called
-        Then: subprocess.run is called twice (mmdc + git add), main() returns 0
+        Then: exactly one npx mmdc call and one git add call are made,
+              main() returns 0
+
+        Filtered counts (not a bare `call_count == 2`): ADR-005 Addendum
+        2026-09-28's chained-generator input discovery legitimately makes an
+        index-query subprocess call (e.g. `git diff --cached --name-only`) in
+        addition to mmdc/git-add, so a raw total call count is no longer a
+        safe pin -- the mmdc and git-add counts are what this test is about.
         """
         # Implementation must use `subprocess.run(...)` (not `from subprocess import run`)
         # for these patches to intercept calls. Patch target: `subprocess.run`.
@@ -288,7 +295,11 @@ class TestMainHappyPath:
             result = main([SAMPLE_MMD])
 
         assert result == 0
-        assert mock_run.call_count == 2, f"Expected 2 subprocess calls (mmdc + git add), got {mock_run.call_count}"
+        calls = [c.args[0] for c in mock_run.call_args_list]
+        npx_calls = [c for c in calls if c[0] == "npx"]
+        git_calls = [c for c in calls if c[0] == "git" and c[1] == "add"]
+        assert len(npx_calls) == 1, f"Expected exactly one npx mmdc call; got {npx_calls!r}"
+        assert len(git_calls) == 1, f"Expected exactly one git add call; got {git_calls!r}"
 
     def test_mmdc_command_includes_required_flags(self):
         """
@@ -334,7 +345,7 @@ class TestMainHappyPath:
             main([SAMPLE_MMD])
 
         calls = [c.args[0] for c in mock_run.call_args_list]
-        git_calls = [c for c in calls if c[0] == "git"]
+        git_calls = [c for c in calls if c[0] == "git" and c[1] == "add"]
         assert len(git_calls) == 1, "Expected exactly one git add call"
         assert git_calls[0] == _git_add_cmd(SAMPLE_SVG_FROM_MMD), f"git add called with wrong path: {git_calls[0]}"
 
@@ -344,7 +355,8 @@ class TestMainHappyPath:
 
         Given: pre-commit passes two .mmd files
         When: main() is called
-        Then: 4 total subprocess calls (2 mmdc + 2 git add), returns 0
+        Then: exactly 2 npx mmdc calls and 2 git add calls (filtered, not a
+              raw total -- see test_single_mmd_file_...'s docstring), returns 0
         """
         with patch("subprocess.run") as mock_run:
             mock_run.return_value = _make_subprocess_mock(0)
@@ -352,9 +364,11 @@ class TestMainHappyPath:
             result = main(["risk-map/diagrams/foo.mmd", "risk-map/diagrams/baz.mmd"])
 
         assert result == 0
-        assert mock_run.call_count == 4, (
-            f"Expected 4 subprocess calls (2x mmdc + 2x git add), got {mock_run.call_count}"
-        )
+        calls = [c.args[0] for c in mock_run.call_args_list]
+        npx_calls = [c for c in calls if c[0] == "npx"]
+        git_calls = [c for c in calls if c[0] == "git" and c[1] == "add"]
+        assert len(npx_calls) == 2, f"Expected exactly 2 npx mmdc calls; got {npx_calls!r}"
+        assert len(git_calls) == 2, f"Expected exactly 2 git add calls; got {git_calls!r}"
 
     def test_mmd_and_mermaid_and_txt_only_two_conversions(self):
         """
@@ -362,7 +376,8 @@ class TestMainHappyPath:
 
         Given: argv contains one .mmd, one .mermaid, one .txt (all in risk-map/diagrams/)
         When: main() is called
-        Then: 4 total subprocess calls (2 mmdc + 2 git add), .txt ignored, returns 0
+        Then: exactly 2 npx mmdc calls and 2 git add calls (filtered, not a
+              raw total), .txt ignored, returns 0
         """
         with patch("subprocess.run") as mock_run:
             mock_run.return_value = _make_subprocess_mock(0)
@@ -376,7 +391,11 @@ class TestMainHappyPath:
             )
 
         assert result == 0
-        assert mock_run.call_count == 4, f"Expected 4 subprocess calls (2 valid files), got {mock_run.call_count}"
+        calls = [c.args[0] for c in mock_run.call_args_list]
+        npx_calls = [c for c in calls if c[0] == "npx"]
+        git_calls = [c for c in calls if c[0] == "git" and c[1] == "add"]
+        assert len(npx_calls) == 2, f"Expected exactly 2 npx mmdc calls (.txt ignored); got {npx_calls!r}"
+        assert len(git_calls) == 2, f"Expected exactly 2 git add calls; got {git_calls!r}"
 
 
 # ===========================================================================
@@ -389,17 +408,28 @@ class TestFiltering:
 
     def test_only_non_mermaid_files_in_argv_makes_no_subprocess_calls(self):
         """
-        argv containing only non-mermaid files → 0 subprocess calls, exit 0.
+        argv containing only non-mermaid files → no mmdc/git-add call, exit 0.
 
         Given: argv contains "README.md" and "setup.py" (no mermaid files)
         When: main() is called
-        Then: subprocess.run is never called, main() returns 0
+        Then: no npx mmdc call and no git add call are made, main() returns 0
+
+        Not a bare `assert_not_called()`: ADR-005 Addendum 2026-09-28's
+        chained-generator input discovery legitimately makes an index-query
+        subprocess call (e.g. `git diff --cached --name-only`) even when argv
+        itself has no mermaid files -- it still has to check whether some
+        OTHER diagram was staged mid-run. What must stay true is that nothing
+        gets rendered or staged from this argv.
         """
         with patch("subprocess.run") as mock_run:
             result = main(["README.md", "setup.py"])
 
         assert result == 0
-        mock_run.assert_not_called()
+        calls = [c.args[0] for c in mock_run.call_args_list]
+        npx_calls = [c for c in calls if c[0] == "npx"]
+        git_calls = [c for c in calls if c[0] == "git" and c[1] == "add"]
+        assert npx_calls == [], f"Expected no mmdc call; got {npx_calls!r}"
+        assert git_calls == [], f"Expected no git add call; got {git_calls!r}"
 
     def test_mmd_outside_diagrams_dir_is_ignored(self):
         """
@@ -407,27 +437,39 @@ class TestFiltering:
 
         Given: argv contains "other-dir/foo.mmd" (not in risk-map/diagrams/)
         When: main() is called
-        Then: subprocess.run is never called, main() returns 0
+        Then: no npx mmdc call and no git add call are made, main() returns 0
+              (see test_only_non_mermaid_files_in_argv_makes_no_subprocess_calls's
+              docstring for why this is filtered rather than assert_not_called)
         """
         with patch("subprocess.run") as mock_run:
             result = main(["other-dir/foo.mmd"])
 
         assert result == 0
-        mock_run.assert_not_called()
+        calls = [c.args[0] for c in mock_run.call_args_list]
+        npx_calls = [c for c in calls if c[0] == "npx"]
+        git_calls = [c for c in calls if c[0] == "git" and c[1] == "add"]
+        assert npx_calls == [], f"Expected no mmdc call; got {npx_calls!r}"
+        assert git_calls == [], f"Expected no git add call; got {git_calls!r}"
 
     def test_empty_argv_exits_zero_with_no_subprocess_calls(self):
         """
-        Empty argv → exit 0, no subprocess calls (defensive case).
+        Empty argv → exit 0, no mmdc/git-add call (defensive case).
 
         Given: main() is called with an empty list
         When: main([]) is called
-        Then: subprocess.run is never called, main() returns 0
+        Then: no npx mmdc call and no git add call are made, main() returns 0
+              (see test_only_non_mermaid_files_in_argv_makes_no_subprocess_calls's
+              docstring for why this is filtered rather than assert_not_called)
         """
         with patch("subprocess.run") as mock_run:
             result = main([])
 
         assert result == 0
-        mock_run.assert_not_called()
+        calls = [c.args[0] for c in mock_run.call_args_list]
+        npx_calls = [c for c in calls if c[0] == "npx"]
+        git_calls = [c for c in calls if c[0] == "git" and c[1] == "add"]
+        assert npx_calls == [], f"Expected no mmdc call; got {npx_calls!r}"
+        assert git_calls == [], f"Expected no git add call; got {git_calls!r}"
 
 
 # ===========================================================================
@@ -475,7 +517,7 @@ class TestFailureModes:
 
         def side_effect(cmd, **kwargs):
             mock = _make_subprocess_mock(0)
-            if cmd[0] == "git":
+            if cmd[0] == "git" and cmd[1] == "add":
                 mock.returncode = 1
             return mock
 
@@ -513,7 +555,7 @@ class TestFailureModes:
             result = main([SAMPLE_MMD, SAMPLE_MERMAID])
 
         assert result != 0
-        git_add_calls = [c for c in mock_run.call_args_list if c.args[0][0] == "git"]
+        git_add_calls = [c for c in mock_run.call_args_list if c.args[0][0] == "git" and c.args[0][1] == "add"]
         assert len(git_add_calls) == 0, "git add must not be called when mmdc fails"
 
 
@@ -723,7 +765,7 @@ class TestSubprocessCallShape:
         calls = [c.args[0] for c in mock_run.call_args_list]
 
         npx_indices = [i for i, c in enumerate(calls) if c[0] == "npx"]
-        git_indices = [i for i, c in enumerate(calls) if c[0] == "git"]
+        git_indices = [i for i, c in enumerate(calls) if c[0] == "git" and c[1] == "add"]
 
         assert len(npx_indices) == 2, "Expected 2 mmdc calls"
         assert len(git_indices) == 2, "Expected 2 git add calls"
