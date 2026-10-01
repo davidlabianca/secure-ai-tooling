@@ -76,7 +76,7 @@ PINNED_PATTERN_TABLE: dict[str, dict] = {
     "mitre-atlas": {
         # D3a: spec-native base + @<version> token; the version alternation is
         # checked against the registry's current version (see
-        # TestAtlasAlternationTracksRegistry), not spelled here.
+        # TestPinnedPatternsTrackRegistry), not spelled here.
         # D6: spec-native AML.(T|M)NNNN(.NNN)? canonical base form.
         "pattern_contains": "@(",  # opening of the version alternation
         "invalid_version_tokens": ["9.9.9", "5.0.0"],  # versions the `invalid` list rejects on version alone
@@ -1444,21 +1444,48 @@ class TestPinnedPatternsTrackRegistry:
         """
         Given: the mitre-atlas pinned pattern and the registry's version set
                (`version` plus every `priorVersions` token)
-        When: the pattern's `@(...)` alternation members are read
-        Then: every registry version token is a member
+        When: `AML.T0020@<token>` is matched against the compiled pattern
+        Then: every registry version token matches
 
         D3a: the alternation covers the current version plus priorVersions.
+        Membership is tested by matching, not by splitting the pattern text,
+        so equivalent spellings (`(?:5\\.0\\.1)`, `5[.]0[.]1`) pass.
         Fails with a named reason when the registry flips and the schema does not.
         """
-        pattern = pinned_mapping_patterns["properties"]["mitre-atlas"]["pattern"]
-        match = re.search(r"@\(([^()]*)\)\$$", pattern)
-        assert match, f"mitre-atlas pinned pattern has no trailing `@(...)` alternation: {pattern!r}"
-        members = set(match.group(1).split("|"))
+        pattern = re.compile(pinned_mapping_patterns["properties"]["mitre-atlas"]["pattern"])
         for token in sorted(_registry_version_tokens(frameworks_yaml_data, "mitre-atlas")):
-            assert re.escape(token) in members, (
-                f"registry version token {token!r} is missing from the mitre-atlas pinned "
-                f"alternation {sorted(members)!r} (D3a: current version plus priorVersions)"
+            assert pattern.search(f"AML.T0020@{token}"), (
+                f"registry version token {token!r} does not match the mitre-atlas pinned "
+                f"pattern {pattern.pattern!r} (D3a: current version plus priorVersions)"
             )
+
+    def test_atlas_alternation_members_are_registry_versions(
+        self, pinned_mapping_patterns: dict, frameworks_yaml_data: dict
+    ):
+        """
+        Given: the mitre-atlas pinned pattern and the registry's version set
+        When: each token the trailing `@(...)` alternation names is matched as `AML.T0020@<token>`
+        Then: every such token is in the registry's `version` or `priorVersions`
+
+        Reverse of the test above: a schema widened ahead of the registry
+        (a half-flip) admits a version `classify_value` calls invalid.
+        Candidate tokens are read from the alternation text only to enumerate
+        them; whether each is admitted is decided by matching the pattern.
+        The `supersedes` field is not asserted here.
+        """
+        raw = pinned_mapping_patterns["properties"]["mitre-atlas"]["pattern"]
+        pattern = re.compile(raw)
+        match = re.search(r"@\((?:\?:)?(.*)\)\$$", raw)
+        assert match, f"mitre-atlas pinned pattern has no trailing `@(...)` alternation: {raw!r}"
+        registered = _registry_version_tokens(frameworks_yaml_data, "mitre-atlas")
+        for member in match.group(1).split("|"):
+            token = member.replace("\\.", ".").replace("[.]", ".")
+            if pattern.search(f"AML.T0020@{token}"):
+                assert token in registered, (
+                    f"mitre-atlas pinned alternation admits {token!r}, which is not in the registry "
+                    f"version set {sorted(registered)!r}; the schema was widened without the registry "
+                    "(or the registry narrowed without the schema)"
+                )
 
     @pytest.mark.parametrize("framework_key", sorted(PINNED_PATTERN_TABLE.keys()))
     def test_invalid_version_examples_stay_outside_registry_versions(
@@ -1486,6 +1513,37 @@ class TestPinnedPatternsTrackRegistry:
                 f"{framework_key}: invalid_version_tokens entry {token!r} is not the version "
                 "part of any `invalid` example; the two lists have drifted"
             )
+
+    @pytest.mark.parametrize("framework_key", sorted(PINNED_PATTERN_TABLE.keys()))
+    def test_invalid_examples_rejected_on_version_alone_are_listed(
+        self, framework_key: str, frameworks_yaml_data: dict, pinned_mapping_patterns: dict
+    ):
+        """
+        Given: each `invalid` example carrying an `@`/`:` version token
+        When: its base is re-joined with the framework's current version and matched
+        Then: if that rebuilt value is valid, the example's token is in `invalid_version_tokens`
+
+        Reverse of the listing check above: an `invalid` example rejected on
+        its version alone must be named in the list, so the collision test
+        covers it. Examples invalid for another reason (bad base, whitespace,
+        case) rebuild to an invalid value and are skipped.
+        """
+        info = PINNED_PATTERN_TABLE[framework_key]
+        pattern = re.compile(pinned_mapping_patterns["properties"][framework_key]["pattern"])
+        entry = next(e for e in frameworks_yaml_data["frameworks"] if e["id"] == framework_key)
+        current = str(entry["version"])
+        unlisted = []
+        for ex in info["invalid"]:
+            for sep in ("@", ":"):
+                if sep not in ex:
+                    continue
+                base, token = ex.rsplit(sep, 1)
+                if pattern.search(base + sep + current) and token not in info["invalid_version_tokens"]:
+                    unlisted.append(ex)
+        assert not unlisted, (
+            f"{framework_key}: invalid example(s) {unlisted} are rejected on version alone "
+            "but their version token is missing from `invalid_version_tokens`"
+        )
 
 
 # ============================================================================

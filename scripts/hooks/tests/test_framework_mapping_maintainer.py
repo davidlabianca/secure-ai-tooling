@@ -2810,6 +2810,7 @@ def _make_legacy_controls_fixture(tmp_path: Path) -> Path:
       - controlLegacy: four legacy mappings (nist GV-1.6, stride information-disclosure,
         owasp LLM06, mitre AML.T0020) plus a comment to test preservation.
       - controlAlreadyPinned: one already-pinned mitre value (sibling preservation).
+      - controlPriorPinned: one mitre value at the literal 5.0.1 (valid before and after an edition flip).
 
     The fixture is self-contained — not reusing _make_controls_fixture() because
     the migrate subcommand operates on the mappings values themselves, not on
@@ -2858,6 +2859,21 @@ def _make_legacy_controls_fixture(tmp_path: Path) -> Path:
             mappings:
               mitre-atlas:
                 - AML.T0043@{_atlas_version()}
+
+          - id: controlPriorPinned
+            title: Prior-Edition Pinned Control
+            description:
+              - Control pinned at the literal 5.0.1 edition (sibling).
+            category: controlsData
+            personas: []
+            components: []
+            risks: []
+            mappings:
+              mitre-atlas:
+                # Literal on purpose: 5.0.1 is the current edition today and a
+                # priorVersions token after a flip, so migrate must leave it
+                # unchanged in both states. Do not derive it from the registry.
+                - AML.T0043@5.0.1
         """,
     )
     return dst
@@ -3101,6 +3117,9 @@ class TestCLIMigrate:
         controls = {c["id"]: c for c in data["controls"]}
         assert controls["controlAlreadyPinned"]["mappings"]["mitre-atlas"] == [f"AML.T0043@{_atlas_version()}"], (
             "already-pinned sibling entity must not be modified by migrate"
+        )
+        assert controls["controlPriorPinned"]["mappings"]["mitre-atlas"] == ["AML.T0043@5.0.1"], (
+            "a value pinned at a valid prior edition must not be re-pinned by migrate"
         )
 
     def test_migrate_fail_loud_on_unmappable_value(self, tmp_path: Path):
