@@ -74,9 +74,12 @@ ISO_22989_2022_ENUM = [
 # they are excluded from the parametrized ID-bearing tests.
 PINNED_PATTERN_TABLE: dict[str, dict] = {
     "mitre-atlas": {
-        # D3a: spec-native base + @<version> token; version anchored to 5.0.1.
+        # D3a: spec-native base + @<version> token; the version alternation is
+        # checked against the registry's current version (see
+        # TestAtlasAlternationTracksRegistry), not spelled here.
         # D6: spec-native AML.(T|M)NNNN(.NNN)? canonical base form.
-        "pattern_contains": "@(5\\.0\\.1)",  # the version alternation must appear
+        "pattern_contains": "@(",  # opening of the version alternation
+        "invalid_version_tokens": ["9.9.9", "5.0.0"],  # versions the `invalid` list rejects on version alone
         "valid": [
             "AML.T0020@5.0.1",  # technique, bare
             "AML.M0007@5.0.1",  # mitigation, bare
@@ -94,6 +97,7 @@ PINNED_PATTERN_TABLE: dict[str, dict] = {
         # D3a: GOVERN/MAP/MEASURE/MANAGE-N(.N)* + @1.0 token.
         # D6: canonical long-form prefix (not legacy GV-/MS-/etc. abbreviations).
         "pattern_contains": "@(1\\.0)",
+        "invalid_version_tokens": ["2.0", "1"],  # `@2.0` unknown; `@1` is the float-coerced 1.0
         "valid": [
             "GOVERN-6.2@1.0",  # function-subcategory with decimal, @version
             "MAP-2.3@1.0",  # MAP function
@@ -115,6 +119,7 @@ PINNED_PATTERN_TABLE: dict[str, dict] = {
         # D6: OWASP retains :YYYY token (already version-bearing, the prototype).
         # Pattern anchors to :2025 (the current version in frameworks.yaml).
         "pattern_contains": ":2025",
+        "invalid_version_tokens": ["2024", "2023"],  # `LLM01:2024` / `LLM01:2023`
         "valid": [
             "LLM01:2025",
             "LLM05:2025",
@@ -132,6 +137,7 @@ PINNED_PATTERN_TABLE: dict[str, dict] = {
     "eu-ai-act": {
         # D3a: Article N(n) + @2024 token (current version 2024 per frameworks.yaml).
         "pattern_contains": "@(2024)",
+        "invalid_version_tokens": ["2021", "2025"],  # `Article 50@2021` / `Article 50@2025`
         "valid": [
             "Article 50@2024",
             "Article 5@2024",
@@ -1409,6 +1415,77 @@ class TestNewOptionalFieldsTogether:
             "against definitions/framework with no errors (D2a/D2c — all three fields are "
             f"additive and optional); errors: {[e.message for e in errors]}"
         )
+
+
+# ============================================================================
+# TestPinnedPatternsTrackRegistry
+# ============================================================================
+
+
+def _registry_version_tokens(frameworks_yaml_data: dict, framework_key: str) -> set[str]:
+    """Version tokens of a framework: its `version` plus each `priorVersions` member's token."""
+    entry = next(e for e in frameworks_yaml_data["frameworks"] if e["id"] == framework_key)
+    tokens = {str(entry["version"])}
+    for prior in entry.get("priorVersions", []):
+        tokens.add(prior.split("@", 1)[1])
+    return tokens
+
+
+class TestPinnedPatternsTrackRegistry:
+    """
+    The schema's pinned patterns and the examples that exercise them agree with
+    the registry, so an edition flip changes the registry and the schema
+    alternation, not the tests.
+    """
+
+    def test_atlas_alternation_admits_registry_versions(
+        self, pinned_mapping_patterns: dict, frameworks_yaml_data: dict
+    ):
+        """
+        Given: the mitre-atlas pinned pattern and the registry's version set
+               (`version` plus every `priorVersions` token)
+        When: the pattern's `@(...)` alternation members are read
+        Then: every registry version token is a member
+
+        D3a: the alternation covers the current version plus priorVersions.
+        Fails with a named reason when the registry flips and the schema does not.
+        """
+        pattern = pinned_mapping_patterns["properties"]["mitre-atlas"]["pattern"]
+        match = re.search(r"@\(([^()]*)\)\$$", pattern)
+        assert match, f"mitre-atlas pinned pattern has no trailing `@(...)` alternation: {pattern!r}"
+        members = set(match.group(1).split("|"))
+        for token in sorted(_registry_version_tokens(frameworks_yaml_data, "mitre-atlas")):
+            assert re.escape(token) in members, (
+                f"registry version token {token!r} is missing from the mitre-atlas pinned "
+                f"alternation {sorted(members)!r} (D3a: current version plus priorVersions)"
+            )
+
+    @pytest.mark.parametrize("framework_key", sorted(PINNED_PATTERN_TABLE.keys()))
+    def test_invalid_version_examples_stay_outside_registry_versions(
+        self, framework_key: str, frameworks_yaml_data: dict
+    ):
+        """
+        Given: the version tokens PINNED_PATTERN_TABLE marks as rejected on version alone
+        When: they are compared with the framework's registry `version` and `priorVersions`
+        Then: none of them is a registry version, and each is the version part of
+              an `invalid` example
+
+        A flip that makes a negative example valid (for instance NIST `@2.0`)
+        fails here with the framework and token named, rather than as an
+        unexplained pattern failure.
+        """
+        info = PINNED_PATTERN_TABLE[framework_key]
+        registered = _registry_version_tokens(frameworks_yaml_data, framework_key)
+        collisions = sorted(set(info["invalid_version_tokens"]) & registered)
+        assert not collisions, (
+            f"{framework_key}: invalid-example version token(s) {collisions} are now registry "
+            f"versions {sorted(registered)}; move the example to `valid` and pick a new negative"
+        )
+        for token in info["invalid_version_tokens"]:
+            assert any(ex.endswith(("@" + token, ":" + token)) for ex in info["invalid"]), (
+                f"{framework_key}: invalid_version_tokens entry {token!r} is not the version "
+                "part of any `invalid` example; the two lists have drifted"
+            )
 
 
 # ============================================================================

@@ -104,6 +104,20 @@ def _get_pinned_patterns() -> dict[str, dict]:
     return _REAL_PINNED_PATTERNS
 
 
+def _atlas_version() -> str:
+    """
+    The current MITRE ATLAS edition, read straight from frameworks.yaml.
+
+    Tests that assert on the current edition derive it here instead of
+    spelling the literal, so they hold across an edition flip. Read from the
+    YAML (not via load_registry) so the oracle is independent of the code under
+    test. Tests that deliberately name a prior or historical edition keep
+    their literal.
+    """
+    data = yaml.safe_load(FRAMEWORKS_YAML.read_text(encoding="utf-8"))
+    return str(next(e for e in data["frameworks"] if e["id"] == "mitre-atlas")["version"])
+
+
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -669,11 +683,12 @@ class TestSplitPinnedValue:
         """
         split_pinned_value is the inverse of compose_pinned_value for MITRE ATLAS.
 
-        ADR-027 D3a: splitting `AML.T0043@5.0.1` on `@` recovers `AML.T0043`.
+        ADR-027 D3a: splitting `AML.T0043@<current version>` on `@` recovers
+        `AML.T0043`.
         """
         pinned = compose_pinned_value(
             "mitre-atlas",
-            "5.0.1",
+            _atlas_version(),
             "AML.T0043",
             registry=_get_registry(),
             pinned_patterns=_get_pinned_patterns(),
@@ -685,7 +700,7 @@ class TestSplitPinnedValue:
             pinned_patterns=_get_pinned_patterns(),
         )
         assert base_ref == "AML.T0043"
-        assert version == "5.0.1"
+        assert version == _atlas_version()
 
     def test_round_trip_nist_ai_rmf(self):
         """
@@ -910,7 +925,7 @@ class TestKnownVersions:
         ADR-027 D3a: recognized set = {current version} when priorVersions is empty.
         """
         versions = known_versions("mitre-atlas", _get_registry())
-        assert "5.0.1" in versions
+        assert _atlas_version() in versions
 
     def test_unversioned_stride_returns_empty_set(self):
         """
@@ -1037,7 +1052,7 @@ class TestSchemaCrossCheck:
         An MITRE ATLAS value with an unrecognized version token fails schema.
 
         ADR-027 D3a: the anchored alternation only admits the recognized version
-        set. `@9.9.9` is not in `(5\\.0\\.1)`.
+        set. `@9.9.9` is not in the pattern's version alternation.
         """
         with pytest.raises(jsonschema.ValidationError):
             _validate_against_pinned_subschema("mitre-atlas", "AML.T0043@9.9.9")
@@ -2066,15 +2081,15 @@ class TestMigrateLegacyValueTransforms:
     subclass) for any value it cannot map; it never silently passes through.
     """
 
-    # --- mitre-atlas: append @5.0.1 token only ---
+    # --- mitre-atlas: append the current-edition @<version> token only ---
 
     def test_mitre_atlas_technique_legacy_to_pinned(self):
         """
-        A bare ATLAS technique ref gains the @5.0.1 token.
+        A bare ATLAS technique ref gains the current-edition @<version> token.
 
         Given: mitre-atlas legacy value 'AML.T0020' (no version token)
         When:  migrate_legacy_value is called
-        Then:  returns ('AML.T0020@5.0.1', True)
+        Then:  returns ('AML.T0020@<registry version>', True)
 
         ADR-027 D3 / D4: migration routes through compose_pinned_value;
         the only transform for ATLAS is appending the current version token.
@@ -2087,16 +2102,16 @@ class TestMigrateLegacyValueTransforms:
             registry=registry,
             pinned_patterns=pinned_patterns,
         )
-        assert result == "AML.T0020@5.0.1"
+        assert result == f"AML.T0020@{_atlas_version()}"
         assert changed is True
 
     def test_mitre_atlas_mitigation_legacy_to_pinned(self):
         """
-        A bare ATLAS mitigation ref (M-prefix) gains the @5.0.1 token.
+        A bare ATLAS mitigation ref (M-prefix) gains the current-edition token.
 
         Given: mitre-atlas legacy value 'AML.M0003'
         When:  migrate_legacy_value is called
-        Then:  returns ('AML.M0003@5.0.1', True)
+        Then:  returns ('AML.M0003@<registry version>', True)
 
         ADR-027 D3 / D4: the ATLAS pattern covers both T and M prefixes.
         """
@@ -2108,16 +2123,16 @@ class TestMigrateLegacyValueTransforms:
             registry=registry,
             pinned_patterns=pinned_patterns,
         )
-        assert result == "AML.M0003@5.0.1"
+        assert result == f"AML.M0003@{_atlas_version()}"
         assert changed is True
 
     def test_mitre_atlas_subtechnique_legacy_to_pinned(self):
         """
-        A bare ATLAS sub-technique ref (T####.###) gains the @5.0.1 token.
+        A bare ATLAS sub-technique ref (T####.###) gains the current-edition token.
 
         Given: mitre-atlas legacy value 'AML.T0010.001'
         When:  migrate_legacy_value is called
-        Then:  returns ('AML.T0010.001@5.0.1', True)
+        Then:  returns ('AML.T0010.001@<registry version>', True)
 
         ADR-027 D3: the ATLAS pinned pattern includes optional .### sub-id.
         """
@@ -2129,7 +2144,7 @@ class TestMigrateLegacyValueTransforms:
             registry=registry,
             pinned_patterns=pinned_patterns,
         )
-        assert result == "AML.T0010.001@5.0.1"
+        assert result == f"AML.T0010.001@{_atlas_version()}"
         assert changed is True
 
     # --- nist-ai-rmf: respell prefix + append @1.0 ---
@@ -2462,21 +2477,22 @@ class TestMigrateLegacyValueIdempotency:
         """
         A value already in pinned form for ATLAS returns unchanged.
 
-        Given: mitre-atlas already-pinned value 'AML.T0020@5.0.1'
+        Given: mitre-atlas value already pinned at the current registry edition
         When:  migrate_legacy_value is called
-        Then:  returns ('AML.T0020@5.0.1', False)
+        Then:  returns the same value and changed is False
 
         ADR-027 D3 / D4: idempotency gate via schema validation.
         """
         registry = _get_registry()
         pinned_patterns = _get_pinned_patterns()
+        already_pinned = f"AML.T0020@{_atlas_version()}"
         result, changed = migrate_legacy_value(
             "mitre-atlas",
-            "AML.T0020@5.0.1",
+            already_pinned,
             registry=registry,
             pinned_patterns=pinned_patterns,
         )
-        assert result == "AML.T0020@5.0.1"
+        assert result == already_pinned
         assert changed is False
 
     def test_already_pinned_nist_is_unchanged(self):
@@ -2802,7 +2818,7 @@ def _make_legacy_controls_fixture(tmp_path: Path) -> Path:
     dst = tmp_path / "controls_legacy.yaml"
     _write_consumer_fixture(
         dst,
-        """\
+        f"""\
         # Copyright notice preserved
         title: Controls
         description:
@@ -2841,7 +2857,7 @@ def _make_legacy_controls_fixture(tmp_path: Path) -> Path:
             risks: []
             mappings:
               mitre-atlas:
-                - AML.T0043@5.0.1
+                - AML.T0043@{_atlas_version()}
         """,
     )
     return dst
@@ -2968,8 +2984,8 @@ class TestCLIMigrate:
         # OWASP LLM06 → LLM06:2025
         assert "LLM06:2025" in mappings["owasp-top10-llm"]
         assert "LLM06" not in mappings["owasp-top10-llm"]
-        # ATLAS AML.T0020 → AML.T0020@5.0.1
-        assert "AML.T0020@5.0.1" in mappings["mitre-atlas"]
+        # ATLAS AML.T0020 → AML.T0020@<current registry edition>
+        assert f"AML.T0020@{_atlas_version()}" in mappings["mitre-atlas"]
         assert "AML.T0020" not in mappings["mitre-atlas"]
 
     def test_migrate_is_idempotent(self, tmp_path: Path):
@@ -3083,7 +3099,7 @@ class TestCLIMigrate:
         # Already-pinned sibling must be unchanged.
         data = _load_yaml(fixture)
         controls = {c["id"]: c for c in data["controls"]}
-        assert controls["controlAlreadyPinned"]["mappings"]["mitre-atlas"] == ["AML.T0043@5.0.1"], (
+        assert controls["controlAlreadyPinned"]["mappings"]["mitre-atlas"] == [f"AML.T0043@{_atlas_version()}"], (
             "already-pinned sibling entity must not be modified by migrate"
         )
 

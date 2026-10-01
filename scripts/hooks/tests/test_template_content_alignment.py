@@ -17,6 +17,7 @@ ALL-CAPS placeholders, so `{{ref:identifier}}` and sentinel references like
 helper text and safe to use as documentation examples.
 """
 
+import json
 import re
 from pathlib import Path
 
@@ -31,6 +32,16 @@ _ENTITY_TYPES = {"risk", "control", "component", "persona"}
 _OPERATIONS = {"new", "update"}
 _ALL_SOURCES = {f"{op}_{entity}" for op in _OPERATIONS for entity in _ENTITY_TYPES}
 
+# The ATLAS pattern is read from the schema block it mirrors, so an edition flip
+# in the schema does not need a second edit here. Assertion that templates carry
+# the *current* edition is a separate check; this pattern admits every edition
+# the schema admits.
+_ATLAS_PINNED_PATTERN = json.loads(
+    (Path(__file__).parent.parent.parent.parent / "risk-map" / "schemas" / "frameworks.schema.json").read_text(
+        encoding="utf-8"
+    )
+)["definitions"]["framework-mapping-patterns-pinned"]["properties"]["mitre-atlas"]["pattern"]
+
 # Canonical regex patterns for framework mapping values (ADR-022 D5b)
 # ADR-027 version-pinned canonical forms (#343): every example carries a version
 # token except STRIDE (unversioned). These mirror the strict
@@ -41,7 +52,7 @@ _CANONICAL_PATTERNS: dict[str, re.Pattern] = {
     ),
     "nist-ai-rmf": re.compile(r"^(GOVERN|MAP|MEASURE|MANAGE)-\d+(\.\d+)*@1\.0$"),
     "owasp-top10-llm": re.compile(r"^LLM\d{2}:2025$"),
-    "mitre-atlas": re.compile(r"^AML\.(T|M)\d{4}(\.\d{3})?@5\.0\.1$"),
+    "mitre-atlas": re.compile(_ATLAS_PINNED_PATTERN),
 }
 
 # Generator placeholder pattern — only expands ALL-CAPS tokens.
@@ -326,7 +337,7 @@ class TestFrameworkMappingCanonicalForms:
     - STRIDE:          bare PascalCase enum, unversioned (e.g. InformationDisclosure)
     - NIST AI RMF:     GOVERN-N.N@1.0 form (e.g. GOVERN-6.2@1.0, NOT GV-6.2 or unpinned GOVERN-6.2)
     - OWASP LLM Top10: LLMxx:2025 form (e.g. LLM01:2025, NOT LLM01)
-    - MITRE ATLAS:     AML.(T|M)dddd[.ddd]@5.0.1 (version-pinned; regression guard)
+    - MITRE ATLAS:     AML.(T|M)dddd[.ddd]@<version> (version-pinned; the schema's pinned pattern)
 
     The check is applied generically to all 8 templates so that if the SWE adds
     mapping examples to component or persona templates, they must also conform.
