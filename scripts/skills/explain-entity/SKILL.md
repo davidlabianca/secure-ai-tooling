@@ -16,7 +16,7 @@ Security-literate, new to CoSAI-RM. Plain language; explain the framework's stru
 ## How to answer
 
 1. **Resolve the entity.** Find it by id or name across `risk-map/yaml/{risks,controls,components,personas}.yaml` (grep). If a name matches several, list the candidates and ask which — or explain the closest and say so.
-2. **Read its full definition** — risk: `shortDescription` + `longDescription` + `examples`; control: objective/description; component: description + `edges` + category; persona: description + `responsibilities` + `identificationQuestions`. For a risk or a component, also grep `controls.yaml` for the controls in play (below).
+2. **Read its full definition** — risk: `shortDescription` + `longDescription` + `examples`; control: `description` + `guidance`; component: description + `edges` + category; persona: description + `responsibilities` + `identificationQuestions`. For a risk or a component, also grep `controls.yaml` for the controls in play (below).
 3. **Explain plainly:**
    - **What it is** — one plain sentence.
    - **Why it matters / what it's for.**
