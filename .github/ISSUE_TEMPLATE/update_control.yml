@@ -56,7 +56,7 @@ body:
         - "Update description to clarify that this control also applies to fine-tuning scenarios"
         - "Add componentModelEvaluation to components list - this control is relevant during evaluation phase"
         - "Remove riskPromptInjection from risks - this control doesn't effectively mitigate prompt injection"
-        - "Add MITRE ATLAS mapping AML.M0015@5.0.1 (Adversarial Input Detection)"
+        - "Add MITRE ATLAS mapping AML.M0015@2026.09 (Predictive AI Adversarial Input Detection)"
 
         Cross-reference framework entities using sentinels, e.g. {{controlInputValidationAndSanitization}} or {{riskPromptInjection}}.
         Outbound citations go in External Reference Changes below and are cited via {{ref:identifier}}.
@@ -116,9 +116,9 @@ body:
 
         📋 See the [Framework Mappings Style Guide](https://github.com/cosai-oasis/secure-ai-tooling/blob/main/risk-map/docs/contributing/framework-mappings-style-guide.md) for per-framework rules.
       placeholder: |
-        + mitre-atlas: AML.M0015@5.0.1
+        + mitre-atlas: AML.M0015@2026.09
         + nist-ai-rmf: GOVERN-4.1@1.0
-        - mitre-atlas: AML.M0007@5.0.1
+        - mitre-atlas: AML.M0007@2026.09
 
   - type: textarea
     id: external-references
