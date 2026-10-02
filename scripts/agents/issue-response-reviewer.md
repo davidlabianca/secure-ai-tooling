@@ -97,6 +97,8 @@ For each field present in the proposal, evaluate the following. Missing fields t
 | `title`                                | Style-guide compliance (length, form, noun-phrase, no "via/through" clauses, no "insufficient/missing/failure to").                                                     |
 | `shortDescription`                     | 1-2 sentences; complete; not a restatement of the title.                                                                                                                |
 | `description` (long)                   | Classical security equivalent named; AI-specific amplifier stated; neither under- nor over-specified.                                                                   |
+| `description` (control)                | Objective and positive scope only (DG2); no negated means (DG3); stands alone, with no sibling control, `{{risk…}}` or `{{persona…}}` reference (DG4); mechanism-neutral (DG5). Rules: `risk-map/docs/design/control-description-and-guidance.md`. |
+| `guidance` (control, optional)         | Absent is valid. When present it carries the mechanisms, applicability, rationale and sibling boundary that `description` may not (DG1–DG5), boundary last; a boundary against a sibling is answered by that sibling (DG10). No `{{persona…}}` sentinel in `guidance`; the `personas` field records responsible parties (design record). |
 | `category`                             | Matches schema enum; consistent with existing categories for the entity type.                                                                                           |
 | `personas`                             | Correct model: risks list **impacted** personas; controls list **implementer** personas. `personaGovernance` is controls-only. `personaEndUser` expected on most risks. |
 | `controls` / `risks`                   | Referenced IDs exist. Universal controls not listed on risks.                                                                                                           |
@@ -263,7 +265,7 @@ Do not duplicate `content-reviewer`'s overlap analysis — cite it. Do add field
 4. `personaGovernance` is controls-only. Flag any appearance on a risk as a REQUIRED change.
 5. `personaEndUser` is expected on most risks. Flag its absence for review.
 6. Examples must cite real incidents, research, or vulnerabilities. Hypotheticals and vendor blog posts are flagged as REQUIRED fixes.
-7. When proposing a new control, include complete YAML with `id`, `title`, `description`, `category`, and relationship fields (`risks`, `components`, `personas`).
+7. When proposing a new control, include complete YAML with `id`, `title`, `description`, `category`, and relationship fields (`risks`, `components`, `personas`), plus `guidance` where mechanisms, applicability, rationale or sibling boundaries are to be recorded.
 8. Verify every framework mapping ID against the referenced framework. If you cannot verify, flag the mapping as a GAP rather than asserting it is invalid.
 9. Never list both a MITRE ATLAS parent technique and one of its sub-techniques.
 10. The output is **a draft for human maintainer review**, never a final verdict posted to the issue.

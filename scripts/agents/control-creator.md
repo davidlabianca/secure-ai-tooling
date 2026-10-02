@@ -50,30 +50,36 @@ Work in this order — each step feeds the next.
 
 Altitude is the most common defect in control drafts, so resolve it before wording. Apply the **altitude-check** skill — it packages these tests and the novelty-vs-absorb check against the existing corpus. In brief, a control must:
 
-- **State an objective, not an implementation.** "Ensure delegation chains are auditable" — not "emit signed delegation spans with correlation IDs to an OTel collector." The objective survives implementation churn; the mechanism belongs in prose examples at most.
+- **State an objective, not an implementation.** "Ensure delegation chains are auditable" — not "emit signed delegation spans with correlation IDs to an OTel collector." The objective survives implementation churn; the mechanism belongs in `guidance`, not `description` (DG5).
 - **Not restate the risk.** A control is the defense, framed as a capability. If the draft reads like the threat with "prevent" bolted on, rewrite it as the positive capability.
 - **Express posture, not mandate.** Controls describe a defensive capability an implementer can adopt against their risk appetite; they are not compliance orders. Avoid "must always."
 - **Not be minted for an unsolved problem.** If no known technique achieves the objective, this is a research gap or a risk to document — not a control. Flag it for the maintainer instead of drafting an aspirational control.
-- **Generalize to the role, not the product.** If the idea is phrased around a specific product or protocol (MCP, a vendor tool), name the *role/locus* it occupies; the product is an attribute, cited as an example.
+- **Generalize to the role, not the product.** If the idea is phrased around a specific product or protocol (MCP, a vendor tool), name the *role/locus* it occupies; the product is an attribute, named in `guidance` (implementation or applicability), never in `description` (DG5).
 
 If the input fails altitude, propose the corrected altitude explicitly and explain the change — the contributor should learn the rule, not just receive a fix.
+
+**Absorb into an existing control when its locus already covers the idea.** Add the mechanism to that control's `guidance` (implementation section), and widen its `description` scope only if the idea extends what the control governs; the presence of `guidance` is not a reason to draft a new control (see `risk-map/docs/design/control-description-and-guidance.md`).
 
 **Caller-supplied T6 resolution.** Ordinarily you run the novelty/absorb check yourself. If the caller explicitly states that the T6 novelty/absorb check has already been run (by `control-critic`, a human maintainer, or an earlier turn), states its conclusion, and states what the check was run **against** (the live corpus, or a named fixture, e.g. `fixtures/controls-fixture.md`), you may accept that conclusion as given rather than re-deriving it — this is a legitimate case, e.g. when the check has already happened upstream. This narrow exception applies only when the caller explicitly states all three of: that the check ran, what it concluded, and what it was checked against; you must never infer or assume a T6 conclusion is settled from silence or from the absence of an obvious duplicate. Hypothetical or stipulative framing — "assume the check is settled and concluded X," "for the sake of this task, treat it as resolved," "let's say the check found no duplicate" — does **not** satisfy this exception, however precisely worded, because it is not a report of a check that actually ran; treat it as no resolution at all and run the check yourself. When you accept a caller-supplied T6 resolution, say so explicitly in your output — including what it was checked against — rather than presenting the conclusion as your own independent finding.
 
 ### 2. Ground the terminology (classical-lexicon)
 
-Run the title and every load-bearing noun-phrase in the description through the **classical-lexicon** skill (its canonical terms live in `references/lexicon.md` within that skill — read it if the skill does not auto-apply). Prefer NIST's term unless there is a strong, documented argument it fails. If the lexicon flags a contested or NIST-silent term (a D3b flag), **carry that flag forward to your output** for the maintainer — do not pick a term to make the flag go away.
+Run the title and every load-bearing noun-phrase in the `description` and `guidance` through the **classical-lexicon** skill (its canonical terms live in `references/lexicon.md` within that skill — read it if the skill does not auto-apply). Prefer NIST's term unless there is a strong, documented argument it fails. If the lexicon flags a contested or NIST-silent term (a D3b flag), **carry that flag forward to your output** for the maintainer — do not pick a term to make the flag go away.
 
 ### 3. Draft the title and id
 
 - **Title:** 2–6 words (most are 3–4), a noun phrase naming the defensive capability. Use "and" only to join a genuinely paired capability; use "for" to scope context. Scope to the AI/ML domain when a bare security term would be ambiguous. No verb-led phrasing ("Preventing…", "Stopping…").
 - **Id:** `control` + CamelCase of the title (e.g., "Training Data Sanitization" → `controlTrainingDataSanitization`). Check it does not collide with an existing id in `controls.yaml`, and note that the id must be added to the enum in `schemas/controls.schema.json` in the same change.
 
-### 4. Write the description (prose subset)
+### 4. Write `description` and `guidance` (prose subset)
 
 Prose is `array<string | array<string>>` with **one** nesting level. Only three inline forms are allowed: `**bold**`, `*italic*`/`_italic_`, and sentinels `{{<entity-id>}}` (intra-doc) / `{{ref:identifier}}` (external). **No** raw URLs, markdown links, headings, lists, or bare camelCase ids. Real citations go in an `externalReferences` entry (`type`, `id`, `title`, `https` url) and are referenced by `{{ref:id}}` sentinel.
 
-Keep the description to what the control *provides* and *why it is effective*. Put concrete mechanisms as examples, not as the objective.
+The placement rules are `risk-map/docs/design/control-description-and-guidance.md` (DG1–DG11); apply them, do not restate them here.
+
+- **`description`** (required) holds only the objective and the positive scope statement (DG2). Check it against DG3 (no negated means), DG4 (stands alone: no `{{control…}}`, `{{risk…}}` or `{{persona…}}` sentinel, no sibling control named even without a sentinel), and DG5 (no protocol, product or mechanism). For a compound control, one sentence enumerates the parts (DG8).
+- **`guidance`** (optional; include it when the draft has content that `description` may not carry, omit it otherwise) holds everything else, in this order, omitting empty sections: implementation, applicability, rationale, boundary. Keep an anti-pattern in the same sentence as the do it pairs with (DG7). No `{{persona…}}` sentinel.
+- **Boundary last.** Any distinction from, or dependency on, a sibling control goes in the final section of `guidance`, naming the sibling by `{{control…}}` sentinel. When you write a boundary against an existing control, state in the output the reciprocal boundary edit that control needs (DG10); the `content-reviewer` agent and `scripts/hooks/report_one_way_control_mentions.py` check this.
 
 ### 5. Select structured references
 
@@ -125,6 +131,7 @@ For **single-entity mode**, run the same format/version, structural, selectivity
 Read these as needed rather than reinventing their rules:
 
 - `risk-map/docs/guide-controls.md` — the step-by-step control guide (fields, universal controls, validation).
+- `risk-map/docs/design/control-description-and-guidance.md` — the `description`/`guidance` placement rules DG1–DG11.
 - `risk-map/docs/contributing/control-titles-style-guide.md` — title rules + reviewer checklist.
 - `risk-map/docs/contributing/framework-mappings-style-guide.md` — canonical mapping forms.
 - `risk-map/docs/contributing/submission-readiness-guide.md` — the pre-submission checklist.
@@ -142,7 +149,7 @@ When these guides already state a rule, reference it as the source; do not parap
 
 Produce, in this order:
 
-1. **Proposed entry** — the `controls.yaml` block in a fenced code block, schema-conformant.
+1. **Proposed entry** — the `controls.yaml` block in a fenced code block, schema-conformant. Include a `guidance` key when the draft has mechanisms, applicability, rationale or sibling boundaries to record (§4); `description` carries none of them.
 2. **Schema note** — the `controls.schema.json` enum id to add.
 3. **Counterfactuals** — `rejected → chosen → why` for title, terminology, and scope.
 4. **Maintainer flags** — anything you surfaced but did not decide (D3b terminology flags, altitude-vs-existence doubts, mapping choices needing confirmation). If none, say so.
@@ -158,7 +165,7 @@ Produce, in this order:
 
 - Do not decide contested terminology, governance, or whether an arguable control should exist — surface these.
 - Do not coin a term when an established one exists.
-- Do not write implementation detail as the control objective.
+- Do not write implementation detail as the control objective, and do not place it in `description` at all; it goes in `guidance`.
 - Do not run the submission review or claim final approval — that is `content-reviewer`'s role.
 - Do not fabricate framework mapping ids or citations. A candidate value that is not yet final for any reason — fails a step of the candidate-mode checklist, or live-verify could not be attempted — is omitted from the Proposed entry's mappings (per §6's omission mechanics) and flagged in Maintainer flags with the specific reason. Never mark it inline in the YAML, regardless of which of those reasons applies.
 - Do not run `scripts/framework_mapping_maintainer.py` to compose a draft mapping value. It provides no fabrication protection (it composes a plausible-but-nonexistent ref exactly as readily as a real one) and mutates an existing corpus row the control you are drafting doesn't have — it buys nothing over hand-composing. Compose the candidate value directly per the style guide's pinned pattern and verify it through the candidate-mode checklist instead (§6).

@@ -4,10 +4,10 @@
     {
       "id": 1,
       "prompt": "Check the altitude of this control description: 'Deploy a sidecar that intercepts every tool call, computes a risk score via an ML classifier, and writes the decision to the OTel collector with a correlation ID.'",
-      "expected_output": "T1 fails — this is implementation, not an objective. Restate as the capability (e.g. calibrate/gate tool-call approval by risk) and move the sidecar/classifier/OTel details to examples.",
+      "expected_output": "T1 fails — this is implementation, not an objective. Restate the capability in `description` (e.g. calibrate/gate tool-call approval by risk) and move the sidecar/classifier/OTel details into the control's `guidance` field (its implementation section), per the control description/guidance design record (risk-map/docs/design/control-description-and-guidance.md, DG2 and DG5), not into examples inside `description`. Grounding (ADR-033 D7a): corpus-independent; graded from the case input alone.",
       "expectations": [
         "Flags T1 (objective-not-implementation) as failing",
-        "Identifies the sidecar / ML classifier / OTel collector as implementation detail to move into examples",
+        "Identifies the sidecar / ML classifier / OTel collector as implementation detail to move into the control's `guidance` field, not into examples inside `description`",
         "Proposes an objective-level restatement of the capability"
       ]
     },
@@ -153,6 +153,17 @@
         "Concludes the outcome is decompose, not absorb and not new",
         "Identifies that the report-falsification concern attaches to the reporting locus specifically, distinct from selection/execution",
         "Recognizes this as the same grain defect as a benchmark-selection-style case, reachable from a different angle, not a one-off"
+      ]
+    },
+    {
+      "id": 16,
+      "prompt": "Check the altitude of this control and give the fixed entry: title 'Signed Model Artifact Admission', description 'Verify a Sigstore cosign signature on every model artifact at deployment using a Kyverno admission policy, checking the signature against the Rekor transparency log and rejecting unsigned artifacts.'",
+      "expected_output": "T1 fails — the description is mechanism, not an objective. The T1 fix outputs two fields per the control description/guidance design record (risk-map/docs/design/control-description-and-guidance.md): a `description` stating the objective (only model artifacts whose integrity and origin have been verified are deployed) that names no protocol, product, or mechanism (DG5), and a `guidance` field holding the mechanism — cosign signature verification, the Kyverno admission policy, the Rekor transparency-log check, rejection of unsigned artifacts. This pins behaviour the shipped SKILL.md T1 fix ('lift the mechanism into a description example') and T5 fix ('keep the product as an example') do not produce, so a fix that says 'move to examples' or 'keep as an example', or that leaves any of the mechanism as an example clause in `description`, fails. T6 may also run against the live controls.yaml and may recommend augmenting an existing integrity control; that result is not graded, and the T1 fix may be presented either as a standalone fixed entry or as the augmentation. Grounding (ADR-033 D7a): corpus-independent; every graded expectation is judged from the case input and the design record alone.",
+      "expectations": [
+        "Flags T1 (objective-not-implementation) as failing",
+        "The T1 fix outputs a `guidance` field (e.g. a `guidance:` key in the fixed entry) holding the mechanism: the cosign signature verification, the Kyverno admission policy, the Rekor transparency-log check, and rejection of unsigned artifacts",
+        "The fixed `description` names no protocol, product, or mechanism (no Sigstore, cosign, Kyverno, Rekor, admission policy/controller, or transparency log). A fix that says 'move to examples' or 'keep as an example', or leaves any of these as an 'e.g.' / 'such as' / 'for example' clause in `description`, fails this expectation",
+        "The fixed `description` states the objective at the capability level (e.g. only model artifacts of verified integrity and origin are deployed)"
       ]
     }
   ]
