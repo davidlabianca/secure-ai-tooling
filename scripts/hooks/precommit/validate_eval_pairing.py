@@ -38,17 +38,14 @@ HOOK_NAME = "validate-eval-pairing"
 # entry is independently load-bearing (a fixed enumeration, not a pattern) and
 # is expected to shrink over time as agents backfill evals and drop off this
 # set — never grow it as a way to avoid shipping an eval for a new agent.
-#
-# Retrofit tracking: gh-drafts/backlog/draft-agent-eval-retrofit-6-landed-agents-issue.md
-# (unfiled draft; no issue number yet, hence "TBD" below rather than a fabricated one).
 EXEMPT_AGENT_NAMES: frozenset[str] = frozenset(
     {
-        "architect",  # tracked: backlog issue TBD
-        "code-reviewer",  # tracked: backlog issue TBD
-        "content-reviewer",  # tracked: backlog issue TBD
-        "issue-response-reviewer",  # tracked: backlog issue TBD
-        "swe",  # tracked: backlog issue TBD
-        "testing",  # tracked: backlog issue TBD
+        "architect",
+        "code-reviewer",
+        "content-reviewer",
+        "issue-response-reviewer",
+        "swe",
+        "testing",
     }
 )
 
@@ -149,10 +146,7 @@ def find_pairing_violations(root: Path) -> list[Violation]:
                     surface="agent",
                     name=agent_name,
                     path=eval_path,
-                    message=(
-                        f"agent {agent_name!r} is missing its required eval. Add {relative_hint} (or "
-                        f"add {agent_name!r} to EXEMPT_AGENT_NAMES if this is a known gap)."
-                    ),
+                    message=f"agent {agent_name!r} is missing its required eval. Add {relative_hint}.",
                 )
             )
         # is_exempt and not has_eval: grandfathered, no violation.
