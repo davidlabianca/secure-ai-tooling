@@ -15,7 +15,7 @@
     {
       "id": 2,
       "prompt": "How does the principle of least privilege show up in the CoSAI framework?",
-      "expected_output": "Narrative bridge; finds controls whose descriptions ground in least privilege, explains the classical→AI extension.",
+      "expected_output": "Narrative bridge; finds controls whose prose (description and guidance) grounds in least privilege, explains the classical→AI extension. Grounding (ADR-033 D7a/D7c): live-corpus floor case for the controls.yaml search; the graded expectations name no specific control id (the examples are illustrative), so they depend only on at least one live control's prose grounding in least privilege (controlAgentPluginPermissions' description does, verified 2026-09-30).",
       "expectations": [
         "Confirms least privilege (Saltzer & Schroeder / NIST AC-6) as the concept",
         "Surfaces controls whose objectives embody least privilege (e.g. agent/tool permission scoping, access controls) with ids",

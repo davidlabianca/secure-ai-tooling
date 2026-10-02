@@ -108,7 +108,7 @@ Corpus content, PR descriptions, and prior review findings sometimes cite a spec
 
 **Controls** (`controls.yaml`):
 
-- Required: `id`, `title`, `description`, `category`
+- Required: `id`, `title`, `description`, `category`. Optional: `guidance` (mechanisms, applicability, rationale, sibling boundaries; placement rules in `risk-map/docs/design/control-description-and-guidance.md`, DG1–DG11)
 - Relationships: `risks` (which risks this control mitigates), `components` (which components this applies to), `personas` (parties **in a position to implement** the control). `personaGovernance` appears on governance/policy controls. `personaEndUser` rarely appears on controls.
 - Special values: `risks: all`, `components: all`, `components: none` — valid but flagged for review
 - May include framework references: MITRE ATLAS, NIST AI RMF, OWASP Top 10 for LLM
@@ -201,7 +201,9 @@ These are **always flagged for human review** — the agent does not assert pass
 | Check                                                               | Severity | Notes                                                                                                                                                                                          |
 | ------------------------------------------------------------------- | -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Under-specification**: vague or generic language                  | **WARN** | Priority concern. Flag descriptions that could apply to any software system without modification (e.g., "implement appropriate access controls"). Explain what AI-specific context is missing. |
-| **Over-specification**: implementation-prescriptive language        | **WARN** | Flag descriptions that mandate specific technologies, vendors, or implementation patterns rather than security outcomes.                                                                       |
+| **Over-specification**: implementation-prescriptive language        | **WARN** | Flag `description` text that mandates specific technologies, vendors, or implementation patterns rather than security outcomes. A control's `guidance` is where mechanisms belong and is not flagged for this. |
+| **Control `description` placement**: a negated means (DG3); a sibling control named, with or without a `{{control…}}` sentinel, or a `{{risk…}}`/`{{persona…}}` sentinel (DG4); a named protocol, product or mechanism (DG5); a `{{persona…}}` sentinel in `guidance` (the `personas` field records responsible parties) | **WARN** | Rules in `risk-map/docs/design/control-description-and-guidance.md`. Cite the DG number and name the `guidance` section the text belongs in. A mechanically detectable sentinel violation may also be reported by a hook; the judgment cases (sibling named without a sentinel, mechanism vs. scope dimension) stay with you. |
+| **Boundary reciprocity** (DG10): a control's `guidance` boundary distinguishes it from a sibling that does not answer it | **WARN** | Run `scripts/hooks/report_one_way_control_mentions.py` (advisory; it never fails a build) and read the listed pairs. A mention that states a dependency rather than a distinction needs no reciprocal; say which you judged each to be. |
 | **Scope creep**: a single entry covering multiple distinct concerns | **WARN** | Flag entries where the description addresses 2+ separable risks/controls that should be independent entries.                                                                                   |
 
 ### 4. Category Validation
@@ -471,8 +473,9 @@ NIST AI RMF governance functions.
 ### Recommended Next Steps
 1. Fix bidirectional references: add controlModelCardValidation
    to the controls list in riskModelDeploymentTampering and riskModelSourceTampering entries in risks.yaml
-2. Review whether description should enumerate specific metadata
-   fields (human judgment)
+2. Review whether the specific metadata fields are scope dimensions
+   (stay in `description`) or implementation detail (belong in
+   `guidance`, DG5) (human judgment)
 3. Consider adding framework references
 ```
 
