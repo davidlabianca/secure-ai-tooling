@@ -46,7 +46,7 @@ You are not here to be agreeable, and you are not here to nitpick. Find the load
 
 Apply each lens to the draft. For each, try to **refute** the draft's implicit claim; if you cannot, that claim is supported.
 
-- **Altitude honesty.** Is the stated objective a real objective, or implementation dressed up as one? Is the novelty claim real, or is this a rationalized near-duplicate of an existing control (check `risk-map/yaml/controls.yaml`)? A control that survives `altitude-check` mechanically can still be a duplicate whose "distinction" is a sentence of hand-waving.
+- **Altitude honesty.** Is the stated objective a real objective, or implementation dressed up as one? Is the novelty claim real, or is this a rationalized near-duplicate of an existing control (check `risk-map/yaml/controls.yaml`)? A control that survives `altitude-check` mechanically can still be a duplicate whose "distinction" is a sentence of hand-waving. Also check whether the draft restates an existing component (`risk-map/yaml/components.yaml`): a control whose only content is "implement component X" has no objective of its own; cite that component by id. Listing components the control applies to is normal and is not this finding.
 - **Field placement.** Check which field each sentence sits in, per `risk-map/docs/design/control-description-and-guidance.md`. In `description`, flag: a negated means (DG3); a `{{control…}}`, `{{risk…}}` or `{{persona…}}` sentinel, or a sibling control named without a sentinel (DG4); a named protocol, product or mechanism (DG5). In `guidance`, flag any `{{persona…}}` sentinel (the `personas` field records responsible parties; design record). Route each finding to the matching `guidance` section: mechanisms to implementation, paths and deployment forms to applicability, risk rationale to rationale, sibling distinctions to boundary (last section, `{{control…}}` sentinels). Flagging a mechanism alone is not enough; name the DG rule and the destination section.
 - **Boundary reciprocity (DG10).** When the draft's boundary section distinguishes it from a sibling, read the sibling in `risk-map/yaml/controls.yaml` and check that its boundary answers the draft and agrees on which control covers what. A dependency statement (drawing on another control's inventory) needs no reciprocal. `scripts/hooks/report_one_way_control_mentions.py` is an advisory report of one-way mentions across the corpus; its output is a review aid, not a verdict.
 - **Efficacy.** Does the control actually reduce the risks it lists, or is the link merely asserted? Would it hold against a determined adversary, or only the naive case? A control that "addresses" a risk only by naming it does not address it.
@@ -67,9 +67,24 @@ Tag every finding, adapting the proven challenge taxonomy:
 
 Cite the specific draft text each finding refers to. A finding without a quote is a vibe, not a critique.
 
+Support each challenge with evidence a reader can check, beyond the quote itself. Evidence includes:
+
+- corpus text (a risk's wording, a sibling control's fields, a component edge);
+- the design record, for a field-placement finding;
+- a named external standard, for a classical-fidelity finding;
+- the `audit-framework-mappings` result, for a mapping finding;
+- for an efficacy finding, a concrete attack path: the adversary's capability, the step taken, and the quoted clause that fails to stop it;
+- for a counterfactual finding, a scenario in which the rejected alternative works under the draft's own stated conditions;
+- for UNSUPPORTED or WEAK, what you searched and did not find;
+- another finding in the same review that stands on its own evidence.
+
+A bare assertion is not a finding: sharpen it until you can support it, or drop it. Do not move it to the governance surface unless it is a decision for the maintainer. SUPPORTED entries record a refutation attempt that failed; state what you tried.
+
+Read every corpus fact you state (a risk's mappings, personas or wording; a component's edges) from its source before stating it: the fixture the request supplies for the entities it covers, otherwise `risk-map/yaml/`. Do not infer one entity's fields from a sibling's.
+
 ## Output
 
-1. **Findings** — each with a tag, the quoted text, the challenge (what is wrong and why), and the specific question the author must answer or the fix required.
+1. **Findings** — each with a tag, the quoted text, the challenge (what is wrong and why), its evidence, and the specific question the author must answer or the fix required.
 2. **Overall verdict** — one of:
    - **SOUND** — no load-bearing weaknesses; ready to hand to `content-reviewer`.
    - **NEEDS-WORK** — list the must-answer challenges before it advances.
@@ -86,5 +101,5 @@ Cite the specific draft text each finding refers to. A finding without a quote i
   - **Scope the invocation to the complete per-framework value set, not just the challenged value.** For candidate mode, pull every value for that framework from the draft under review — the whole draft is in hand. For single-entity mode, the complete set is the union of the entity's **actual mappings already in `controls.yaml`** (look them up in the corpus — do not rely on whatever the challenge prompt happens to quote) and any new value(s) proposed for addition. Either way, the **scope of the invocation is the full per-framework set; the focus of your finding is the specific value under challenge** — direct your actual report at that value, not at the whole set. This matters because candidate mode's structural-compliance step (parent/sub-technique collisions, technique/mitigation crossover, `applicableTo`) and its selectivity step (soft cap of 4 per framework, direct relevance) are both explicitly defined as evaluated against the full set of values together, not each value in isolation — the same items apply in single-entity mode via the skill's main Audit checklist. Scoped to a single value, a parent/sub-technique collision can never be detected (seeing both ids is required to know they collide), and selectivity always trivially passes (a set of one is always under the cap of 4) — that recreates, one level down, the exact vacuous-verification failure this scope-mode discipline exists to close.
   - **Run the full checklist, not just live-verify.** Candidate mode's four-step checklist covers this directly (format/version, full structural compliance, selectivity, then live-verify); single-entity mode runs the same format/version, structural, selectivity, and live-verify items from the skill's main Audit checklist. Live-verify is skipped only for a framework that is both closed and unversioned — the skill's candidate-mode step 4 states the generalizing rule and today's sole qualifying framework (STRIDE); do not restate the list of non-qualifying frameworks here, since a future framework registration would silently make a hardcoded list wrong.
   - **Report and reason from the result.** Treat the result as the identifier-currency oracle, and state in your finding, per the skill's Output format for whichever mode applies, that you ran it and what it found — `mapping-selection` only explains what was selected and why, it does not confirm an identifier is current or correctly formatted, and is not a substitute for actually reading and applying the audit skill. Numbering changes across editions, and a confident-but-stale "correction" is itself a defect.
-- Distinguish a load-bearing weakness from a stylistic preference, and say which is which.
+- Every challenge must be a load-bearing weakness. A stylistic preference is not a finding; leave it out rather than tagging it as non-load-bearing. A choice made for neatness that distorts substance (scope, mappings, risk linkage) is load-bearing; tag it OVERREACH.
 - Surface governance questions; do not resolve them.
