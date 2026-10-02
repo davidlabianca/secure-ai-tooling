@@ -38,6 +38,8 @@ Exit codes (ADR-038 D4a):
     1  --force --block and at least one invalid value.
     2  Read error (any input missing, unreadable, unparsable, misshapen, a digest
        mismatch, an unresolved registered edition, a D5 table error), in both modes.
+       An invalid pinned-subschema pattern makes the schema unparsable; a content file
+       with no entity list is misshapen.
 
 Output is identical with and without --block; only the exit code differs.
 """
@@ -53,6 +55,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+import jsonschema
 import yaml
 
 # Ensure scripts/hooks is on sys.path so `precommit.*` imports work both when
@@ -422,14 +425,22 @@ def _iter_mapping_values(path: Path) -> Iterator[tuple[Any, str, str]]:
 
     Same traversal as validate_mapping_drift._scan_file: every top-level list-valued key
     is scanned, because `description:` and `categories:` precede the entity key in the
-    live files. A missing or unparsable file is a read error.
+    live files. A missing or unparsable file is a read error, and so is a file with no
+    entity list: empty, not a mapping, or a mapping without a top-level non-empty list
+    whose items are all mappings. Such a file would add nothing to the summary, so the
+    gate would report clean having read nothing from it.
     """
     try:
         data: Any = _safe_load(path.read_bytes())
     except (OSError, yaml.YAMLError) as exc:
         raise CatalogueReadError(f"cannot read content file {path}: {exc}") from exc
     if not isinstance(data, dict):
-        return
+        raise CatalogueReadError(f"content file {path} is empty or not a mapping")
+    if not any(
+        isinstance(block, list) and block and all(isinstance(item, dict) for item in block)
+        for block in data.values()
+    ):
+        raise CatalogueReadError(f"content file {path} has no top-level list of entity mappings")
     for block in data.values():
         if not isinstance(block, list):
             continue
@@ -454,7 +465,12 @@ def _iter_mapping_values(path: Path) -> Iterator[tuple[Any, str, str]]:
 
 
 def _load_tracked_inputs(frameworks: Path, schema: Path) -> tuple[dict[str, dict], dict[str, dict]]:
-    """Load the registry and the pinned patterns; any failure is a read error naming the file."""
+    """
+    Load the registry and the pinned patterns; any failure is a read error naming the file.
+
+    A pinned subschema that is not a valid JSON Schema (e.g. a `pattern` that does not
+    compile) makes the schema unparsable, so it is checked here, before any value is read.
+    """
     try:
         registry = load_registry(frameworks)
     except Exception as exc:  # noqa: BLE001 - every failure to read the registry is exit 2
@@ -465,6 +481,16 @@ def _load_tracked_inputs(frameworks: Path, schema: Path) -> tuple[dict[str, dict
         raise CatalogueReadError(f"cannot read pinned patterns from {schema}: {exc!r}") from exc
     if not isinstance(pinned_patterns, dict):
         raise CatalogueReadError(f"{schema}: framework-mapping-patterns-pinned has no properties mapping")
+    # Check every pinned subschema now, with the same validator class jsonschema.validate
+    # selects, so an invalid `pattern` regex is a read error here rather than a SchemaError
+    # raised mid-classification (exit 1 with a traceback in both modes).
+    for fw_id, sub_schema in pinned_patterns.items():
+        try:
+            jsonschema.validators.validator_for(sub_schema).check_schema(sub_schema)
+        except jsonschema.SchemaError as exc:
+            raise CatalogueReadError(
+                f"{schema}: pinned subschema for {fw_id!r} is invalid: {exc.message}"
+            ) from exc
     return registry, pinned_patterns
 
 

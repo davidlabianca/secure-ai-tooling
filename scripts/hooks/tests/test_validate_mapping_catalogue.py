@@ -639,6 +639,15 @@ def _mut_schema_without_pinned_block(t: Tree) -> None:
     t.schema.write_text(json.dumps(schema, indent=2), encoding="utf-8")
 
 
+# A pinned pattern that is not a valid regex (unbalanced group): the schema parses as JSON but
+# cannot be used, so it is unparsable under D4.
+INVALID_PINNED_PATTERN = r"^AML\.(T|M)\d{4}(@(5\.0\.1)$"
+
+
+def _mut_schema_invalid_pinned_pattern(t: Tree) -> None:
+    t.write_schema(INVALID_PINNED_PATTERN)
+
+
 # SHA256SUMS format and scope (D4): malformed lines, an empty record, names outside the subdirectory.
 def _sums_line(t: Tree, name: str) -> str:
     return f"{hashlib.sha256((t.fw_dir / name).read_bytes()).hexdigest()}  {name}"
@@ -1741,6 +1750,51 @@ class TestCliInputs:
         rc, out, err = _invoke(_argv(tree), capsys)
         assert rc == 2, out + err
         assert _names_any(out + err, expected)
+
+    @pytest.mark.parametrize("block", [False, True], ids=["warn", "block"])
+    def test_invalid_pinned_pattern_is_a_read_error(self, tmp_path, block):
+        """
+        D4/D4a: a `--schema` whose mitre-atlas pinned pattern is not a valid regex is an
+        unparsable schema: exit 2 in both modes, naming the schema file, with no traceback.
+        Run as a subprocess because an uncaught exception is what this pins against: in-process
+        it would surface as a raised error rather than the exit 1 and traceback a hook sees.
+        The default tree carries an adjudicated value, so classification is reached.
+        """
+        tree = build_tree(tmp_path)
+        _mut_schema_invalid_pinned_pattern(tree)
+        result = subprocess.run(
+            [sys.executable, str(VALIDATOR_SCRIPT), *_argv(tree, block=block)],
+            capture_output=True,
+            text=True,
+        )
+        combined = result.stdout + result.stderr
+        assert result.returncode == 2, combined
+        assert "frameworks.schema.json" in combined
+        assert "Traceback" not in combined
+
+    # Content files that parse but hold no entity list. Each would otherwise contribute nothing
+    # to the summary and let the gate report clean having read nothing from that file.
+    ENTITY_LESS_CONTENT: list[tuple[str, str]] = [
+        ("empty-file", ""),
+        ("top-level-list", "- id: personaProbe\n  title: Probe\n"),
+        ("mapping-of-scalars", "id: personas\ntitle: Personas\n"),
+    ]
+
+    @pytest.mark.parametrize("block", [False, True], ids=["warn", "block"])
+    @pytest.mark.parametrize(
+        ("shape", "text"), ENTITY_LESS_CONTENT, ids=[shape for shape, _ in ENTITY_LESS_CONTENT]
+    )
+    def test_entity_less_content_file_is_a_read_error(self, tmp_path, capsys, block, shape, text):
+        """
+        D4: a content file that is empty, is not a mapping, or is a mapping without a top-level
+        list of entity mappings is a read error: exit 2 in both modes, naming the file. The
+        other three files stay valid, so the run would otherwise print a non-empty summary.
+        """
+        tree = build_tree(tmp_path)
+        tree.content["personas"].write_text(text, encoding="utf-8")
+        rc, out, err = _invoke(_argv(tree, block=block), capsys)
+        assert rc == 2, f"{shape} ({'block' if block else 'warn'}): rc={rc}\n{out}{err}"
+        assert "personas.yaml" in out + err
 
     def test_default_catalogue_dir_is_file_anchored(self, tmp_path):
         """
