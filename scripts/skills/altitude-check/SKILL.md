@@ -13,12 +13,12 @@ Run the tests for the entry type. The control, risk, and component tests are all
 
 Apply each; report pass or adjust-with-fix.
 
-- **T1 — Objective, not implementation.** The control states a capability or objective ("ensure delegation chains are auditable"), not a mechanism ("emit signed delegation spans with correlation IDs to a collector"). The objective survives implementation churn. *Fix:* lift the mechanism into a description example and restate the objective.
+- **T1 — Objective, not implementation.** The control states a capability or objective ("ensure delegation chains are auditable"), not a mechanism ("emit signed delegation spans with correlation IDs to a collector"). The objective survives implementation churn. *Fix:* move the mechanism into the implementation section of `guidance` (DG5 in `risk-map/docs/design/control-description-and-guidance.md`) and restate the objective in `description`.
 - **T2 — Not a restated risk.** A control is the defense framed as a positive capability, not the threat with "prevent" attached. If it reads like the risk inverted, rewrite it as the capability the implementer gains.
 - **T3 — Posture, not mandate.** A control describes a defensive capability an implementer adopts against their risk appetite; it is not a compliance order. Watch for "must always," universal imperatives, and audit-language.
 - **T4 — Solved problem.** A known technique achieves the objective. If none does, this is a research gap or a risk to document — not a control. *Fix:* flag it for the maintainer rather than drafting an aspirational control.
-- **T5 — Generalized and grounded.** The control names a role/locus, not a product or protocol, and uses established terminology (defer terminology to the classical-lexicon skill). *Fix:* generalize; keep the product as an example.
-- **T6 — Novelty vs absorb.** Read `risk-map/yaml/controls.yaml`. Does an existing control already cover this objective? If so, recommend **augmenting** that control rather than adding a near-duplicate. If genuinely distinct, state in one sentence what distinguishes it from the nearest existing control.
+- **T5 — Generalized and grounded.** The control names a role/locus, not a product or protocol, and uses established terminology (defer terminology to the classical-lexicon skill). *Fix:* generalize `description` to the role; keep the product in `guidance` (implementation or applicability), never in `description`.
+- **T6 — Novelty vs absorb.** Read `risk-map/yaml/controls.yaml`. Does an existing control already cover this objective? If so, recommend **augmenting** that control rather than adding a near-duplicate. If genuinely distinct, state in one sentence what distinguishes it from the nearest existing control. *Placement:* that sentence goes in the boundary section of `guidance` (last section, `{{control…}}` sentinel; DG4, DG10), not in `description`.
 
 ## Risk altitude tests
 

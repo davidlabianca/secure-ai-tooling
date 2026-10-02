@@ -16,7 +16,7 @@ Classical-security-literate, new to CoSAI-RM. Explain framework terms (control, 
 ## How to answer
 
 1. **Ground the classical concept.** Consult the `classical-lexicon` skill for the canonical term of art and its meaning/aliases (e.g. "PEP" = Policy Enforcement Point, NIST SP 800-207 / 800-162). Confirm you're mapping the right concept.
-2. **Find the controls that embody it.** Search `risk-map/yaml/controls.yaml` — the corpus already grounds many controls classically (e.g. "least-privilege principle", "reference monitor", "attestation", "provenance", "confused deputy"). Grep the canonical term and its synonyms across control titles and descriptions.
+2. **Find the controls that embody it.** Search `risk-map/yaml/controls.yaml` — the corpus already grounds many controls classically (e.g. "least-privilege principle", "reference monitor", "attestation", "provenance", "confused deputy"). Grep the canonical term and its synonyms across control titles, `description` and `guidance`.
 3. **Explain the bridge.** For each matching control: id + title, *how* it embodies or extends the classical concept, and the AI-specific amplifier (what's different/harder in AI/agentic systems). Distinguish "directly embodies" from "related/adjacent".
 4. **Attach exposure.** Note the risks each surfaced control addresses (its `risks` field) so the reader sees what it's *for*.
 5. **No clean match?** Say so plainly and point to the nearest controls; note it may be a coverage gap. Surface it — do not author.
