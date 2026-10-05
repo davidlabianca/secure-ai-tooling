@@ -196,6 +196,7 @@ def test_hook_validations_contains_validate_mapping_drift() -> None:
     text = _read(_HOOK_VALIDATIONS)
     assert "validate_mapping_drift.py" in text
     assert "validate-mapping-drift" in text
+    assert "validate_mapping_catalogue.py" in text
 
 
 # ---------------------------------------------------------------------------
@@ -221,6 +222,7 @@ def test_scripts_readme_contains_validate_mapping_purity() -> None:
 def test_scripts_readme_contains_validate_mapping_drift() -> None:
     """validate_mapping_drift.py appears in scripts/README.md Key Files list."""
     assert "validate_mapping_drift.py" in _read(_SCRIPTS_README)
+    assert "validate_mapping_catalogue.py" in _read(_SCRIPTS_README)
 
 
 def test_scripts_readme_contains_framework_mapping_maintainer() -> None:
@@ -261,3 +263,4 @@ def test_validation_md_contains_validate_mapping_purity() -> None:
 def test_validation_md_contains_validate_mapping_drift() -> None:
     """validate_mapping_drift.py appears in risk-map/docs/validation.md."""
     assert "validate_mapping_drift.py" in _read(_VALIDATION_MD)
+    assert "validate_mapping_catalogue.py" in _read(_VALIDATION_MD)
