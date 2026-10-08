@@ -119,7 +119,7 @@ Every read error prints an `error:` line followed by `catalogue check not perfor
 
   The usual case is a registry bump that flips `version` without the catalogue refresh. **Fix**: perform the refresh in the same commit as the `version` flip or an earlier one; the procedure is the catalogue-refresh paragraph of [hook-validations.md §19](../../scripts/docs/hook-validations.md) and ADR-038 D7. A registry edit that removes or renames the `mitre-atlas` entry is also a read error (`adjudicated framework is absent from the registry`).
 
-Other read errors (a vendored file missing or unlisted, a malformed `SHA256SUMS` or manifest) are in the vendored catalogue inputs; the fix is the same refresh or a restore from version control.
+Other read errors (a required vendored file missing or unlisted, a malformed `SHA256SUMS` or manifest) are in the vendored catalogue inputs; the fix is the same refresh or a restore from version control.
 
 ## Bypassing Validation (Not Recommended)
 
