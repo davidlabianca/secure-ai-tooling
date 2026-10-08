@@ -545,7 +545,7 @@ def _registry_atlas_entry(frameworks_yaml_path: Path) -> dict:
 
 class TestAtlasExamplesCarryCurrentEdition:
     """
-    Decision Q (framework P1 plan): authoring surfaces teach the current ATLAS
+    Authoring surfaces teach the current ATLAS
     edition, while the schema keeps admitting prior editions.
 
     The schema's ATLAS alternation admits every registered edition, so
@@ -578,8 +578,6 @@ class TestAtlasExamplesCarryCurrentEdition:
         When: every `AML.(T|M)dddd[.ddd]@<edition>` token in each source's full text is collected
         Then: each token's edition equals the registry version; the failure lists
               every offending token with its file, line and the expected edition
-
-        Plan: Decision Q / task 1.5 step 2.
         """
         expected = str(_registry_atlas_entry(frameworks_yaml_path)["version"])
         offending: list[str] = []
@@ -1143,7 +1141,7 @@ Classes and their contracts:
     - MITRE ATLAS regression guard: examples remain conformant
 
   TestAtlasExamplesCarryCurrentEdition (15 tests, Section C current edition)
-    - Decision Q: every pinned ATLAS token in the 4 ATLAS-carrying sources names frameworks.yaml's version
+    - Every pinned ATLAS token in the 4 ATLAS-carrying sources names frameworks.yaml's version
     - Controls: scan finds tokens in each source (x4); scan reaches every helper-visible value (x4)
     - Controls: scan reaches changelog prose the line helper cannot see (synthetic)
     - Controls: schema pattern admits the current and every prior edition

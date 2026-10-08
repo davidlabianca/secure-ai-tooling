@@ -594,10 +594,10 @@ def test_tier2_sweep_gate_requires_exact_flags_and_an_else_increment(condition, 
            into `then`, and a gate with no `else` each yield one violation;
            `--force --block` in either order, alone or with redirections, yields none
 
-    Closes gate 1.8 round 2 adversarial finding 1: the Tier 2 check was a presence
-    check on the flags and a substring check on the increment, so S1, S3, S5, S6b
-    and S7 passed. Passes on the current tree; it pins the checker that
-    test_sweep_includes_adr027_validators applies to the real gate.
+    Guards the Tier 2 check against being only a presence check on the flags and a
+    substring check on the increment, which would let mutants S1, S3, S5, S6b and
+    S7 pass. It pins the checker that test_sweep_includes_adr027_validators
+    applies to the real gate.
     """
     source = f"if python3 scripts/probe.py {condition}; then\n    pass_msg x\n{branches}fi\n"
     gate = _sweep_gate_invocation(source, "scripts/probe.py")

@@ -23,9 +23,8 @@ Authoritative spec: docs/adr/038-tier-2-catalogue-data-input.md
          identical in both modes.
   D5   — adjudicated set is a table in the validator; today {mitre-atlas}; a table key
          missing from the registry or without a catalogue subdirectory is a read error.
-Plan decisions cited: B (resolution), I-a (per-value semantics, Tier 1 agreement),
-N (verdict classes, partition, per-flag exit codes), N-b (enabling argument),
-L constraint 3 (CLI options, `__file__` defaults).
+Per-value semantics: Tier 1's verdict comes first and a Tier 1 `skip` or `invalid` stands,
+so Tier 2 never accepts a value Tier 1 rejects; it can turn an accepted value into `invalid`.
 
 Python surface pinned by this file (ADR-038 names the CLI and the D5 table but no Python
 API; these names are this file's decisions, stated here so the implementer can see them):
@@ -52,7 +51,7 @@ per-verdict counts" and "detail lines" but fixes no text; these are this file's 
   summary line   exactly one line, starting with `summary`, carrying the four tokens
                  `skip=N`, `current=N`, `valid-but-superseded=N`, `invalid=N` (any order).
   skip line      without `--force`: a line containing `skipping validation: --force not given`
-                 (plan N-b's wording) and NO summary line.
+                 (the wording documented in hook-validations.md §19) and NO summary line.
   invalid detail names the value verbatim and, for a value absent at its pinned edition:
                  `present at <registered-token>` when the id exists at another registered
                  edition (the REGISTERED token, e.g. `5.0.1` not `2025.10`, because the line
@@ -568,7 +567,7 @@ def _mut_catalogue_top_level_not_a_mapping(t: Tree) -> None:
 
 
 def _mut_registered_current_unresolved(t: Tree) -> None:
-    # The B1 case: registry bumped to a token the vendored manifest does not carry; no value pins it.
+    # Registry bumped to a token the vendored manifest does not carry; no value pins it.
     t.write_registry(version="2026.10", prior_tokens=[PRIOR, CURRENT])
     t.write_schema(_pattern_for([PRIOR, CURRENT, "2026.10"]))
 
@@ -747,7 +746,7 @@ def _mutation(mutation_id: str) -> tuple[Callable[[Tree], None], str | tuple[str
 
 
 # ===========================================================================
-# 1. Token resolution (ADR-038 D3b / plan Decision B)
+# 1. Token resolution (ADR-038 D3b)
 # ===========================================================================
 
 
@@ -809,7 +808,7 @@ class TestTokenResolution:
 
 
 # ===========================================================================
-# 2. Per-value classes (plan Decisions I-a, N; ADR-038 D3b, D5)
+# 2. Per-value classes (ADR-038 D3b, D5)
 # ===========================================================================
 
 
@@ -818,7 +817,7 @@ class TestClassifyValue:
     Per-value verdicts via classify_value over the loaded-state dict.
 
     Each adjudicated value is first checked against the registry's version set exactly as
-    Tier 1 does (I-a: the two tiers never disagree on an adjudicated value), then its id
+    Tier 1 does (a Tier 1 `skip` or `invalid` stands; Tier 2 never accepts what Tier 1 rejects), then its id
     is checked for membership in techniques ∪ mitigations of the edition its token names.
     """
 
@@ -913,7 +912,7 @@ class TestClassifyValue:
         """
         An id in no registered edition → invalid; the detail says `absent from every registered edition`.
 
-        Decision (ADR silent on wording; plan N says the line states "at none").
+        The detail wording is a test-level choice; the ADR does not fix it.
         """
         state, detail = self._classify(loaded, FRAMEWORK, f"AML.T9999@{PRIOR}")
         assert state == "invalid"
@@ -927,7 +926,7 @@ class TestClassifyValue:
         `AML.T0001@2025.10`: the release exists in the manifest and the id exists there, but
         `2025.10` is not in version ∪ priorVersions → invalid, exactly as Tier 1 says.
 
-        Pins I-a's "the two tiers never disagree" by computing Tier 1's verdict live.
+        Pins that a Tier 1 `invalid` stands by computing Tier 1's verdict live.
         """
         value = f"AML.T0001@{PRIOR_RELEASE}"
         state, detail = self._classify(loaded, FRAMEWORK, value)
@@ -1304,7 +1303,7 @@ class TestRequiredSet:
 
     def test_registered_current_edition_unresolved_in_manifest_exits_2(self, tmp_path, capsys):
         """
-        The B1 case: a registry bump to `2026.10` without a manifest refresh. No value pins it;
+        A registry bump to `2026.10` without a manifest refresh. No value pins it;
         the run still exits 2 and names the token. Never downgraded to per-value invalid.
         """
         tree = build_tree(tmp_path)
@@ -1441,7 +1440,7 @@ class TestAdjudicatedSet:
     """D5: a module-level table; today exactly {mitre-atlas}; its two read-error classes."""
 
     def test_table_holds_exactly_mitre_atlas(self):
-        """Today the adjudicated set is {mitre-atlas} (plan I-a); only the key set is pinned."""
+        """Today the adjudicated set is {mitre-atlas}; only the key set is pinned."""
         assert set(ADJUDICATED_FRAMEWORKS) == {FRAMEWORK}
 
     def test_table_key_absent_from_registry_exits_2(self, tmp_path, capsys):
@@ -1491,7 +1490,7 @@ class TestAdjudicatedSet:
 
 
 # ===========================================================================
-# 8. Per-flag contract (ADR-038 D4a; plan N, N-b)
+# 8. Per-flag contract (ADR-038 D4a)
 # ===========================================================================
 
 
@@ -1615,7 +1614,7 @@ class TestPerFlagContract:
 
     def test_summary_partition_sums_to_value_count(self, tmp_path, capsys):
         """
-        Plan N: the four classes partition the input. The expected counts are derived from
+        The four classes partition the input. The expected counts are derived from
         PARTITION_CORPUS (per-value classes), never written as literals, and every class is
         represented so no count is trivially zero.
         """
@@ -1681,7 +1680,7 @@ class TestPerFlagContract:
 
 
 # ===========================================================================
-# 9. CLI inputs (ADR-038 D3a; plan L constraint 3)
+# 9. CLI inputs (ADR-038 D3a)
 # ===========================================================================
 
 
@@ -1870,7 +1869,7 @@ def _live_value_count() -> int:
 @pytest.mark.live_corpus
 @pytest.mark.skipif(
     not (LIVE_CATALOGUE_DIR / FRAMEWORK).is_dir(),
-    reason="real catalogues are vendored by the edition-flip commit (plan task 1.5); until then D5 exits 2",
+    reason="vendored catalogues are absent from the tree; D5 exits 2 without them",
 )
 class TestLiveCorpus:
     """Smoke test over the real tree: defaults, `--force --block`, exit 0, counts partition the corpus."""

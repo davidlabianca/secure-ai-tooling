@@ -2870,9 +2870,10 @@ def _make_legacy_controls_fixture(tmp_path: Path) -> Path:
             risks: []
             mappings:
               mitre-atlas:
-                # Literal on purpose: 5.0.1 is the current edition today and a
-                # priorVersions token after a flip, so migrate must leave it
-                # unchanged in both states. Do not derive it from the registry.
+                # Literal on purpose: 5.0.1 is a priorVersions token of the
+                # registry's current mitre-atlas version, and migrate must leave
+                # a still-registered prior-edition pin unchanged. Do not derive
+                # it from the registry.
                 - AML.T0043@5.0.1
         """,
     )

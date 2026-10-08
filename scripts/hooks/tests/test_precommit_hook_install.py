@@ -1746,7 +1746,7 @@ class TestMappingValidatorOracleTrigger:
         When:  splitting its entry: into argv tokens
         Then:  both `--force` and `--block` are present
 
-        ADR-038 D4a / D6 item 1 (plan Decision N-b). Without `--force` the
+        ADR-038 D4a / D6 item 1. Without `--force` the
         validator reads nothing and exits 0, so the hook, and
         `pre-commit run --all-files` with nothing staged, would pass a poisoned
         corpus having examined nothing. The block-parity harness checks `--force`

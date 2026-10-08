@@ -17,10 +17,11 @@ the record; they are loaded first, then each adjudicated framework goes through:
      resolve to one manifest entry, and that entry's catalogue must be listed in the
      record (and so already verified) before it is parsed.
 
-Per-value verdicts use Tier 1's four states (plan Decisions I-a, N):
+Per-value verdicts use Tier 1's four states:
   - a value of a framework key outside ADJUDICATED_FRAMEWORKS is "skip";
   - an adjudicated value first receives Tier 1's verdict ("skip" for the delimiter-less
-    legacy form, "invalid" for an unregistered token), so the tiers never disagree;
+    legacy form, "invalid" for an unregistered token) and a Tier 1 "skip" or "invalid"
+    stands, so Tier 2 never accepts a value Tier 1 rejects;
   - a value Tier 1 accepts is "invalid" when its id is absent from the techniques ∪
     mitigations of its own pinned edition, or when its token is unresolved; otherwise it
     keeps Tier 1's "current" / "valid-but-superseded".
@@ -202,7 +203,8 @@ class _CatalogueSource:
 # The adjudicated set (ADR-038 D5). It is declared here, next to the code that reads each
 # framework, rather than derived from the catalogue directories: deleting a directory must
 # be a read error, never a silent switch of that framework's values to "skip". Only
-# mitre-atlas publishes machine-readable per-edition catalogues today.
+# Of the registered frameworks, only mitre-atlas publishes machine-readable per-edition
+# catalogues.
 ADJUDICATED_FRAMEWORKS: dict[str, _CatalogueSource] = {
     "mitre-atlas": _CatalogueSource(
         subdirectory="mitre-atlas",
@@ -248,7 +250,7 @@ def classify_value(
     if source is None:
         return ("skip", None)
 
-    # Tier 1 first, so the tiers agree on every adjudicated value (plan Decision I-a).
+    # Tier 1 first: its "skip"/"invalid" stands; Tier 2 may only downgrade an accepted value.
     state, detail = _tier1_classify_value(fw_id, value, registry=registry, pinned_patterns=pinned_patterns)
     if state not in ("current", "valid-but-superseded"):
         return (state, detail)
@@ -514,7 +516,7 @@ def main(argv: list[str]) -> int:
     )
     args = parser.parse_args(argv)
 
-    # --force is the enabling argument (plan Decision N-b): without it no input is read,
+    # --force is the enabling argument (ADR-038 D4a): without it no input is read,
     # so there is no read error to report and no summary to print.
     if not args.force:
         print("skipping validation: --force not given (nothing examined)")
