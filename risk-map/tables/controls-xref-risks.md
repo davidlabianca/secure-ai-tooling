@@ -13,6 +13,7 @@
 | controlAdversarialTrainingAndTesting         | Adversarial Training and Testing                  | riskSensitiveDataDisclosure                | Sensitive Data Disclosure                                  |
 | controlAgentCapabilityNegotiation            | Agent Capability Negotiation Control              | riskInsecureIntegratedComponent            | Insecure Integrated Component                              |
 | controlAgentCapabilityNegotiation            | Agent Capability Negotiation Control              | riskRogueActions                           | Rogue Actions                                              |
+| controlAgentCapabilityNegotiation            | Agent Capability Negotiation Control              | riskToolSourceProvenance                   | Tool Source Provenance                                     |
 | controlAgentCredentialIsolation              | Agent Credential Isolation                        | riskAgentIdentitySpoofing                  | Agent Identity Spoofing                                    |
 | controlAgentCredentialIsolation              | Agent Credential Isolation                        | riskConcentratedAccessCorrelation          | Concentrated Access Enabling Cross-Service Correlation     |
 | controlAgentCredentialIsolation              | Agent Credential Isolation                        | riskCredentialAndTokenTheft                | Credential and Token Theft                                 |
@@ -77,32 +78,27 @@
 | controlAuditTrailCompleteness                | Audit Trail Completeness                          | riskAuditTrailTampering                    | Audit Trail Tampering                                      |
 | controlAuditTrailIntegrityVerification       | Audit Trail Integrity Verification                | riskAuditTrailTampering                    | Audit Trail Tampering                                      |
 | controlAuthenticationSchemeHardening         | Authentication Scheme Hardening                   | riskAgentIdentitySpoofing                  | Agent Identity Spoofing                                    |
-| controlComponentIdentityAuthentication       | Component Identity Authentication                 | riskAgenticDelegationConfusedDeputy        | Agentic Delegation Confused Deputy                         |
+| controlComponentIdentityAuthentication       | Component Identity Authentication                 | riskAgentIdentitySpoofing                  | Agent Identity Spoofing                                    |
 | controlComponentIdentityAuthentication       | Component Identity Authentication                 | riskMCPTransportHijacking                  | MCP Transport Hijacking                                    |
-| controlComponentIdentityAuthentication       | Component Identity Authentication                 | riskStaleAgentIdentityBinding              | Stale Agent Identity Binding                               |
-| controlComponentIdentityAuthentication       | Component Identity Authentication                 | riskZombieShadowMCPServers                 | Zombie / Shadow MCP Servers                                |
 | controlComponentIdentityProvenance           | Component Identity Provenance                     | riskAgentIdentitySpoofing                  | Agent Identity Spoofing                                    |
-| controlComponentIdentityProvenance           | Component Identity Provenance                     | riskConfidentialComputingAttestationBypass | Confidential Computing Attestation Bypass                  |
 | controlComponentIdentityProvenance           | Component Identity Provenance                     | riskMCPTransportHijacking                  | MCP Transport Hijacking                                    |
 | controlComponentIdentityProvenance           | Component Identity Provenance                     | riskStaleAgentIdentityBinding              | Stale Agent Identity Binding                               |
 | controlComponentIdentityProvenance           | Component Identity Provenance                     | riskZombieShadowMCPServers                 | Zombie / Shadow MCP Servers                                |
 | controlComponentIdentityRegistration         | Component Identity Registration                   | riskAgentIdentitySpoofing                  | Agent Identity Spoofing                                    |
+| controlComponentIdentityRegistration         | Component Identity Registration                   | riskZombieShadowMCPServers                 | Zombie / Shadow MCP Servers                                |
 | controlDelegatedAuthorityConfinement         | Delegated Authority Confinement                   | riskAgentDelegationChainOpacity            | Agent Delegation Chain Opacity                             |
 | controlDelegatedAuthorityConfinement         | Delegated Authority Confinement                   | riskAgenticDelegationConfusedDeputy        | Agentic Delegation Confused Deputy                         |
-| controlDelegatedAuthorityConfinement         | Delegated Authority Confinement                   | riskCrossTenantCredentialPropagation       | Cross-Tenant Credential Propagation                        |
 | controlDelegatedAuthorizationIntegrity       | Delegated Authorization Integrity                 | riskAgenticDelegationConfusedDeputy        | Agentic Delegation Confused Deputy                         |
-| controlDelegatedAuthorizationIntegrity       | Delegated Authorization Integrity                 | riskExcessiveDataHandling                  | Excessive Data Handling                                    |
 | controlDelegatedAuthorizationIntegrity       | Delegated Authorization Integrity                 | riskRogueActions                           | Rogue Actions                                              |
 | controlExternalizedAuthorizationDecisioning  | Externalized Authorization Decisioning            | riskAgenticDelegationConfusedDeputy        | Agentic Delegation Confused Deputy                         |
 | controlExternalizedAuthorizationDecisioning  | Externalized Authorization Decisioning            | riskRogueActions                           | Rogue Actions                                              |
-| controlFederatedUserAuthentication           | Federated User Authentication                     | riskAgentIdentitySpoofing                  | Agent Identity Spoofing                                    |
+| controlFederatedUserAuthentication           | Federated User Authentication                     | riskCredentialAndTokenTheft                | Credential and Token Theft                                 |
 | controlInboundNetworkExposureAndSegmentation | Inbound Network Exposure and Segmentation         | riskExcessiveNetworkExposure               | Excessive Network Exposure                                 |
 | controlInboundNetworkExposureAndSegmentation | Inbound Network Exposure and Segmentation         | riskInsecureIntegratedComponent            | Insecure Integrated Component                              |
 | controlInboundNetworkExposureAndSegmentation | Inbound Network Exposure and Segmentation         | riskMCPTransportHijacking                  | MCP Transport Hijacking                                    |
 | controlInboundNetworkExposureAndSegmentation | Inbound Network Exposure and Segmentation         | riskZombieShadowMCPServers                 | Zombie / Shadow MCP Servers                                |
 | controlIncidentResponseManagement            | Incident Response Management                      | all                                        | All Risks                                                  |
 | controlInformedAgentConsentSurface           | Informed Agent Consent Surface                    | riskConsentFatigue                         | Consent Fatigue in Human Approval Gates                    |
-| controlInformedAgentConsentSurface           | Informed Agent Consent Surface                    | riskRogueActions                           | Rogue Actions                                              |
 | controlInformedAgentConsentSurface           | Informed Agent Consent Surface                    | riskToolSourceProvenance                   | Tool Source Provenance                                     |
 | controlInformedAgentConsentSurface           | Informed Agent Consent Surface                    | riskUnconsentedAgentAction                 | Unconsented Agent Action Execution                         |
 | controlInputValidationAndSanitization        | Input Validation and Sanitization                 | riskInsecureIntegratedComponent            | Insecure Integrated Component                              |
@@ -111,13 +107,10 @@
 | controlInputValidationAndSanitization        | Input Validation and Sanitization                 | riskPromptInjection                        | Prompt Injection                                           |
 | controlInputValidationAndSanitization        | Input Validation and Sanitization                 | riskPromptResponseCachePoisoning           | Prompt/Response Cache Poisoning                            |
 | controlInputValidationAndSanitization        | Input Validation and Sanitization                 | riskRetrievalVectorStorePoisoning          | Retrieval/Vector Store Poisoning                           |
-| controlInterComponentTransportSecurity       | Inter-Component Transport Security                | riskAuditTrailTampering                    | Audit Trail Tampering                                      |
 | controlInterComponentTransportSecurity       | Inter-Component Transport Security                | riskCredentialAndTokenTheft                | Credential and Token Theft                                 |
 | controlInterComponentTransportSecurity       | Inter-Component Transport Security                | riskInsecureIntegratedComponent            | Insecure Integrated Component                              |
 | controlInterComponentTransportSecurity       | Inter-Component Transport Security                | riskMCPTransportHijacking                  | MCP Transport Hijacking                                    |
-| controlInterComponentTransportSecurity       | Inter-Component Transport Security                | riskModelDeploymentTampering               | Model Deployment Tampering                                 |
 | controlInterComponentTransportSecurity       | Inter-Component Transport Security                | riskOrchestratorRouteHijacking             | Orchestrator/Route Hijack                                  |
-| controlInterComponentTransportSecurity       | Inter-Component Transport Security                | riskToolRegistryTampering                  | Tool Registry Tampering                                    |
 | controlInterComponentTransportSecurity       | Inter-Component Transport Security                | riskZombieShadowMCPServers                 | Zombie / Shadow MCP Servers                                |
 | controlInternalPoliciesAndEducation          | Internal Policies and Education                   | all                                        | All Risks                                                  |
 | controlIsolatedConfidentialComputing         | Isolated and Confidential Computing               | riskAcceleratorAndSystemSideChannels       | Accelerator and System Side-channels                       |
@@ -127,8 +120,6 @@
 | controlIsolatedConfidentialComputing         | Isolated and Confidential Computing               | riskImplicitCrossBoundaryTrust             | Implicit Cross-Boundary Trust                              |
 | controlIsolatedConfidentialComputing         | Isolated and Confidential Computing               | riskModelDeploymentTampering               | Model Deployment Tampering                                 |
 | controlIsolatedConfidentialComputing         | Isolated and Confidential Computing               | riskModelExfiltration                      | Model Exfiltration                                         |
-| controlIsolatedConfidentialComputing         | Isolated and Confidential Computing               | riskModelSourceTampering                   | Model Source Tampering                                     |
-| controlIsolatedConfidentialComputing         | Isolated and Confidential Computing               | riskOrchestratorRouteHijacking             | Orchestrator/Route Hijack                                  |
 | controlIsolatedConfidentialComputing         | Isolated and Confidential Computing               | riskUnsandboxedCodeExecution               | Unsandboxed Execution of Model-Generated Code              |
 | controlIsolatedConfidentialComputing         | Isolated and Confidential Computing               | riskUntrustedHostToolRuntimeExposure       | Untrusted Host Tool Runtime Exposure                       |
 | controlMessageAndPayloadResourceLimits       | Message and Payload Resource Limits               | riskDenialOfMLService                      | Denial of ML Service                                       |
@@ -143,7 +134,6 @@
 | controlModelAndDataAccessControls            | Model and Data Access Controls                    | riskOrchestratorRouteHijacking             | Orchestrator/Route Hijack                                  |
 | controlModelAndDataAccessControls            | Model and Data Access Controls                    | riskPromptResponseCachePoisoning           | Prompt/Response Cache Poisoning                            |
 | controlModelAndDataExecutionIntegrity        | Model and Data Execution Integrity                | riskAdapterPEFTInjection                   | Adapter/PEFT Injection                                     |
-| controlModelAndDataExecutionIntegrity        | Model and Data Execution Integrity                | riskInsecureIntegratedComponent            | Insecure Integrated Component                              |
 | controlModelAndDataExecutionIntegrity        | Model and Data Execution Integrity                | riskMaliciousLoaderDeserialization         | Malicious Loader/Deserialization                           |
 | controlModelAndDataExecutionIntegrity        | Model and Data Execution Integrity                | riskModelDeploymentTampering               | Model Deployment Tampering                                 |
 | controlModelAndDataExecutionIntegrity        | Model and Data Execution Integrity                | riskModelSourceTampering                   | Model Source Tampering                                     |
@@ -187,12 +177,12 @@
 | controlProductGovernance                     | Product Governance                                | all                                        | All Risks                                                  |
 | controlRedTeaming                            | Red Teaming                                       | all                                        | All Risks                                                  |
 | controlResourceAuthorizationEnforcement      | Resource Authorization Enforcement                | riskAgenticDelegationConfusedDeputy        | Agentic Delegation Confused Deputy                         |
-| controlResourceAuthorizationEnforcement      | Resource Authorization Enforcement                | riskAuditTrailTampering                    | Audit Trail Tampering                                      |
 | controlResourceAuthorizationEnforcement      | Resource Authorization Enforcement                | riskBrokenAuthorizationEnforcement         | Broken Authorization Enforcement for Agent Resource Access |
 | controlResourceAuthorizationEnforcement      | Resource Authorization Enforcement                | riskRogueActions                           | Rogue Actions                                              |
 | controlRetrievalAndVectorSystemIntegrity     | Retrieval and Vector System Integrity Management  | riskRetrievalVectorStorePoisoning          | Retrieval/Vector Store Poisoning                           |
 | controlRiskGovernance                        | Risk Governance                                   | all                                        | All Risks                                                  |
 | controlRuntimeHostIsolation                  | Runtime Host Isolation                            | riskInsecureIntegratedComponent            | Insecure Integrated Component                              |
+| controlRuntimeHostIsolation                  | Runtime Host Isolation                            | riskUnsandboxedCodeExecution               | Unsandboxed Execution of Model-Generated Code              |
 | controlRuntimeHostIsolation                  | Runtime Host Isolation                            | riskUntrustedHostToolRuntimeExposure       | Untrusted Host Tool Runtime Exposure                       |
 | controlRuntimePrivacyEnhancingTechnologies   | Privacy Enhancing Technologies for Inference      | riskConcentratedAccessCorrelation          | Concentrated Access Enabling Cross-Service Correlation     |
 | controlRuntimePrivacyEnhancingTechnologies   | Privacy Enhancing Technologies for Inference      | riskFederatedDistributedTrainingPrivacy    | Federated/Distributed Training Privacy                     |
@@ -229,10 +219,10 @@
 | controlToolArgumentValidationAndSanitization | Tool Argument Validation and Sanitization         | riskRogueActions                           | Rogue Actions                                              |
 | controlToolRegistryAndDiscoveryIntegrity     | Tool Registry and Discovery Integrity             | riskToolRegistryTampering                  | Tool Registry Tampering                                    |
 | controlToolRegistryAndDiscoveryIntegrity     | Tool Registry and Discovery Integrity             | riskToolSourceProvenance                   | Tool Source Provenance                                     |
-| controlToolServerSupplyChainIntegrity        | Tool-Server Supply Chain Integrity                | riskToolRegistryTampering                  | Tool Registry Tampering                                    |
+| controlToolServerSupplyChainIntegrity        | Tool-Server Supply Chain Integrity                | riskAgenticToolSupplyChain                 | Agentic Tool Supply Chain Compromise                       |
 | controlToolServerSupplyChainIntegrity        | Tool-Server Supply Chain Integrity                | riskToolSourceProvenance                   | Tool Source Provenance                                     |
-| controlToolServerVetting                     | Tool Server Vetting and Approval                  | riskAgentIdentitySpoofing                  | Agent Identity Spoofing                                    |
 | controlToolServerVetting                     | Tool Server Vetting and Approval                  | riskInsecureIntegratedComponent            | Insecure Integrated Component                              |
+| controlToolServerVetting                     | Tool Server Vetting and Approval                  | riskToolSourceProvenance                   | Tool Source Provenance                                     |
 | controlTrainingDataManagement                | Training Data Management                          | riskExcessiveDataHandling                  | Excessive Data Handling                                    |
 | controlTrainingDataManagement                | Training Data Management                          | riskInferredSensitiveData                  | Inferred Sensitive Data                                    |
 | controlTrainingDataManagement                | Training Data Management                          | riskUnauthorizedTrainingData               | Unauthorized Training Data                                 |
@@ -240,7 +230,6 @@
 | controlTrainingDataSanitization              | Training Data Sanitization                        | riskRetrievalVectorStorePoisoning          | Retrieval/Vector Store Poisoning                           |
 | controlTrainingDataSanitization              | Training Data Sanitization                        | riskUnauthorizedTrainingData               | Unauthorized Training Data                                 |
 | controlTrustedPolicyEnforcementPoint         | Trusted Policy Enforcement Point                  | riskAgenticDelegationConfusedDeputy        | Agentic Delegation Confused Deputy                         |
-| controlTrustedPolicyEnforcementPoint         | Trusted Policy Enforcement Point                  | riskInsecureIntegratedComponent            | Insecure Integrated Component                              |
 | controlTrustedPolicyEnforcementPoint         | Trusted Policy Enforcement Point                  | riskPromptInjection                        | Prompt Injection                                           |
 | controlTrustedPolicyEnforcementPoint         | Trusted Policy Enforcement Point                  | riskRogueActions                           | Rogue Actions                                              |
 | controlUntrustedContextContainment           | Untrusted Context Containment                     | riskPromptInjection                        | Prompt Injection                                           |

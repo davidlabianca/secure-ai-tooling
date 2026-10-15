@@ -105,7 +105,6 @@
 | personaDataProvider         | Data Provider                            | controlUserDataManagement                    | User Data Management                              |
 | personaEndUser              | AI System Users                          | controlAgentPluginUserControl                | Agent User Control                                |
 | personaEndUser              | AI System Users                          | controlIncidentResponseManagement            | Incident Response Management                      |
-| personaEndUser              | AI System Users                          | controlInformedAgentConsentSurface           | Informed Agent Consent Surface                    |
 | personaEndUser              | AI System Users                          | controlUserDataManagement                    | User Data Management                              |
 | personaEndUser              | AI System Users                          | controlUserPoliciesAndEducation              | User Policies and Education                       |
 | personaEndUser              | AI System Users                          | controlVulnerabilityManagement               | Vulnerability Management                          |

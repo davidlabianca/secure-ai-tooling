@@ -225,7 +225,6 @@ risks:
       - personaApplicationDeveloper
       - personaEndUser
     controls:
-      - controlIsolatedConfidentialComputing
       - controlModelAndDataAccessControls
       - controlModelAndDataExecutionIntegrity
       - controlModelAndDataIntegrityManagement
@@ -312,7 +311,6 @@ risks:
     controls:
       - controlTrainingDataManagement
       - controlUserTransparencyAndControls
-      - controlDelegatedAuthorizationIntegrity
     examples:
       - >-
         Clearview AI collected photos ({{ref:guardian-2022-clearview-aclu-settlement}})
@@ -536,7 +534,6 @@ risks:
       - controlModelAndDataExecutionIntegrity
       - controlOrchestratorAndRouteIntegrity
       - controlSecureByDefaultMLTooling
-      - controlInterComponentTransportSecurity
       - controlModelRegistryIntegrity
       - controlAIInfrastructureObservability
     examples:
@@ -803,13 +800,11 @@ risks:
       - personaEndUser
     controls:
       - controlAgentPluginPermissions
-      - controlModelAndDataExecutionIntegrity
       - controlUserPoliciesAndEducation
       - controlInputValidationAndSanitization
       - controlInterComponentTransportSecurity
       - controlModelRegistryIntegrity
       - controlAgentCapabilityNegotiation
-      - controlTrustedPolicyEnforcementPoint
       - controlToolServerVetting
       - controlRuntimeHostIsolation
       - controlInboundNetworkExposureAndSegmentation
@@ -1431,7 +1426,6 @@ risks:
       - controlDelegatedAuthorizationIntegrity
       - controlExternalizedAuthorizationDecisioning
       - controlTrustedPolicyEnforcementPoint
-      - controlInformedAgentConsentSurface
       - controlAgentHostSecureConfiguration
       - controlResourceAuthorizationEnforcement
       - controlToolArgumentValidationAndSanitization
@@ -1869,9 +1863,7 @@ risks:
     controls:
       - controlOrchestratorAndRouteIntegrity
       - controlAgentObservability
-      - controlInterComponentTransportSecurity
       - controlToolRegistryAndDiscoveryIntegrity
-      - controlToolServerSupplyChainIntegrity
       - controlThirdPartyCapabilityAdmission
     examples:
       - >
@@ -1973,7 +1965,6 @@ risks:
       - personaApplicationDeveloper
       - personaEndUser
     controls:
-      - controlIsolatedConfidentialComputing
       - controlModelAndDataIntegrityManagement
       - controlModelAndDataAccessControls
       - controlSecureByDefaultMLTooling
@@ -2320,6 +2311,8 @@ risks:
       - controlInformedAgentConsentSurface
       - controlToolServerSupplyChainIntegrity
       - controlThirdPartyCapabilityAdmission
+      - controlToolServerVetting
+      - controlAgentCapabilityNegotiation
     examples:
       - >
         The Checkmarx CxZero MCP Risk Taxonomy ({{ref:checkmarx-2025-mcp-emerging-risks}})
@@ -2716,7 +2709,6 @@ risks:
       - controlAgentIntegrityManagement
       - controlAgentCredentialIsolation
       - controlComponentIdentityProvenance
-      - controlComponentIdentityAuthentication
     examples:
       - >
         Zhou's framework on governing dynamic AI agent capabilities (2026) ({{ref:zhou-2026-cryptographic-tool-binding}})
@@ -3183,7 +3175,6 @@ risks:
       - controlSecureByDefaultMLTooling
       - controlAgentPluginPermissions
       - controlAgentObservability
-      - controlComponentIdentityAuthentication
       - controlDelegatedAuthorizationIntegrity
       - controlDelegatedAuthorityConfinement
       - controlExternalizedAuthorizationDecisioning
@@ -3329,7 +3320,6 @@ risks:
       - controlAgentPluginPermissions
       - controlIsolatedConfidentialComputing
       - controlAgentCredentialIsolation
-      - controlDelegatedAuthorityConfinement
       - controlAgenticZeroTrustPosture
     examples:
       - >
@@ -3481,7 +3471,7 @@ risks:
       - controlAgentInventoryManagement
       - controlInterComponentTransportSecurity
       - controlComponentIdentityProvenance
-      - controlComponentIdentityAuthentication
+      - controlComponentIdentityRegistration
       - controlInboundNetworkExposureAndSegmentation
       - controlAIInfrastructureObservability
     examples:
@@ -3880,11 +3870,10 @@ risks:
     controls:
       - controlComponentIdentityProvenance
       - controlAgentCredentialIsolation
-      - controlFederatedUserAuthentication
       - controlComponentIdentityRegistration
       - controlAuthenticationSchemeHardening
       - controlSenderConstrainedCredentials
-      - controlToolServerVetting
+      - controlComponentIdentityAuthentication
     examples:
       - >
         The Model Context Protocol authorization specification ({{ref:mcp-authorization-spec}})
@@ -4457,6 +4446,7 @@ risks:
     controls:
       - controlIsolatedConfidentialComputing
       - controlAgentPluginPermissions
+      - controlRuntimeHostIsolation
     examples:
       - >
         A developer-assistant agent generates and runs a shell command to clean up a build
@@ -4835,6 +4825,7 @@ risks:
     controls:
       - controlModelAndDataIntegrityManagement
       - controlSecureByDefaultMLTooling
+      - controlToolServerSupplyChainIntegrity
     examples:
       - >
         The CxZero MCP risk taxonomy ({{ref:checkmarx-2025-mcp-emerging-risks}}) called
@@ -5110,6 +5101,7 @@ risks:
       - controlAgentCredentialIsolation
       - controlInterComponentTransportSecurity
       - controlSessionCredentialBindingAndLifecycle
+      - controlFederatedUserAuthentication
     examples:
       - >
         An MCP or remote-tool server persists the OAuth access tokens it brokers for downstream
@@ -5526,7 +5518,6 @@ risks:
       - personaEndUser
     controls:
       - controlIsolatedConfidentialComputing
-      - controlComponentIdentityProvenance
     examples:
       - >
         No documented real-world incident of an MCP or agentic tool server operating as
@@ -5649,9 +5640,7 @@ risks:
       - personaApplicationDeveloper
       - personaEndUser
     controls:
-      - controlResourceAuthorizationEnforcement
       - controlAIInfrastructureObservability
-      - controlInterComponentTransportSecurity
       - controlAuditRecordRepositoryIndependence
       - controlAuditTrailCompleteness
       - controlAuditTrailIntegrityVerification
